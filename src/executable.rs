@@ -6,6 +6,7 @@ use crate::decode::decode;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
+#[allow(dead_code)]
 pub enum VariableType
 {
     Boolean = 0,
@@ -33,29 +34,29 @@ pub struct VarDecl
 {
     pub variable_type: VariableType,
     pub dim: u8,
-    pub dims: [u16;3],
+    pub dims: [i32;3],
     pub content: u64,
     pub content2: u64,
     pub string_value: String,
     pub flag: u8,
     pub lflag: u8,
     pub fflag: u8,
-    pub number: u32,
-    pub args: u8,
-    pub total_var: u16,
-    pub start: u16,
-    pub first_var: u16,
-    pub return_var: u16,
-    pub func: u16
+    pub number: i32,
+    pub args: i32,
+    pub total_var: i32,
+    pub start: i32,
+    pub first_var: i32,
+    pub return_var: i32,
+    pub func: i32
 }
 
 pub struct Executable
 {
     pub version : u16,
-    pub variable_declarations : HashMap<u16, Box<VarDecl>>,
-    pub source_buffer : Vec<i16>,
-    pub max_var: u32,
-    pub code_size : u32
+    pub variable_declarations : HashMap<i32, Box<VarDecl>>,
+    pub source_buffer : Vec<i32>,
+    pub max_var: i32,
+    pub code_size : i32
 }
 
 static PREAMBLE: &[u8] = "PCBoard Programming Language Executable".as_bytes();
@@ -83,8 +84,8 @@ pub fn read_file(file_name : &str) -> Executable
     {
         panic!("Invalid PPE file");
     }
-    println!("{}.{} detected", version / 100, version % 100);
-    let max_var = u16::from_le_bytes((&buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap());
+    // println!("{}.{} detected", version / 100, version % 100);
+    let max_var = u16::from_le_bytes((&buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap()) as i32;
     let (mut i, variable_declarations) = read_vars(version, &mut buffer, max_var);
     let code_size = u16::from_le_bytes((&buffer[i..=(i + 1)]).try_into().unwrap()) as usize;
     i += 2;
@@ -103,20 +104,20 @@ pub fn read_file(file_name : &str) -> Executable
     let mut source_buffer  = Vec::new();
     let mut i = 0;
     while i < data.len() {
-        source_buffer.push(i16::from_le_bytes((&data[i..=(i + 1)]).try_into().unwrap()));
+        source_buffer.push(i16::from_le_bytes((&data[i..=(i + 1)]).try_into().unwrap()) as i32);
         i += 2;
     }
     Executable {
         version,
         variable_declarations,
         source_buffer,
-        max_var: max_var as u32,
-        code_size : (code_size - 2) as u32 // forget the last END
+        max_var: max_var as i32,
+        code_size : (code_size - 2) as i32 // forget the last END
     }
 }
 
-fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16, Box<VarDecl>>) {
-    let mut result : HashMap<u16, Box<VarDecl>> = HashMap::new();
+fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32, Box<VarDecl>>) {
+    let mut result : HashMap<i32, Box<VarDecl>> = HashMap::new();
     let mut i  = HEADER_SIZE + 2;
     if max_var == 0 {
         return (i, result);
@@ -129,7 +130,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
         }
         let cur_block =&buf[i..(i + 11)];
 
-        var_count = u16::from_le_bytes(cur_block[0..=1].try_into().unwrap());
+        var_count = u16::from_le_bytes(cur_block[0..=1].try_into().unwrap()) as i32;
         let mut var_decl = VarDecl {
             number :  0,
             args: 0,
@@ -140,9 +141,9 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
             variable_type : unsafe{ ::std::mem::transmute(cur_block[9]) },
             dim : cur_block[2],
             dims : [
-                u16::from_le_bytes(cur_block[3..=4].try_into().unwrap()),
-                u16::from_le_bytes(cur_block[5..=6].try_into().unwrap()),
-                u16::from_le_bytes(cur_block[7..=8].try_into().unwrap()),
+                u16::from_le_bytes(cur_block[3..=4].try_into().unwrap()) as i32,
+                u16::from_le_bytes(cur_block[5..=6].try_into().unwrap()) as i32,
+                u16::from_le_bytes(cur_block[7..=8].try_into().unwrap()) as i32,
             ],
             content : 0,
             content2 : 0,
@@ -170,11 +171,11 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
                     decode(&mut buf[i..=(i + 12)]);
                 }
                 let cur_buf =&buf[i..=(i + 12)];
-                var_decl.args = cur_buf[4];
-                var_decl.total_var = (cur_buf[5] - 1) as u16;
-                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap());
-                var_decl.first_var = u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap());
-                var_decl.return_var = u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap());
+                var_decl.args = cur_buf[4] as i32;
+                var_decl.total_var = cur_buf[5] as i32 - 1;
+                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
+                var_decl.first_var = u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32;
+                var_decl.return_var = u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
             },
             VariableType::Method => {
@@ -182,11 +183,11 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
                     decode(&mut buf[i..=(i + 12)]);
                 }
                 let cur_buf =&buf[i..=(i + 12)];
-                var_decl.args = cur_buf[4];
-                var_decl.total_var = cur_buf[5] as u16;
-                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap());
-                var_decl.first_var = u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap());
-                var_decl.return_var = u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap());
+                var_decl.args = cur_buf[4] as i32;
+                var_decl.total_var = cur_buf[5] as i32;
+                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
+                var_decl.first_var = u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32;
+                var_decl.return_var = u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
             },
             _ => {
@@ -213,7 +214,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
 
     let mut k = (result.len() - 1) as i32;
     while k >= 0 {
-        let cur = (**result.get(&(k as u16)).unwrap()).clone();
+        let cur = (**result.get(&k).unwrap()).clone();
 
         match cur.variable_type {
             VariableType::Function => {
@@ -230,13 +231,13 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
                     }
                     if i != cur.return_var - 1 {
                         j += 1;
-                        fvar.number = j as u32;
+                        fvar.number = j;
                     }
                 }
             },
             VariableType::Method => {
                 let mut j = 0;
-                let last = cur.total_var + cur.args as u16 + cur.first_var;
+                let last = cur.total_var + cur.args + cur.first_var;
 
                 for i in cur.first_var..last {
                     let fvar = &mut **result.get_mut(&i).unwrap();
@@ -245,7 +246,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
                         fvar.flag = 1;
                     }
                     j += 1;
-                    fvar.number = j as u32;
+                    fvar.number = j;
                 }
             },
             _ => {}

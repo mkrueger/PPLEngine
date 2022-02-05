@@ -6,14 +6,16 @@ mod decode;
 mod tables;
 mod executable;
 mod decompiler;
-
+/*
 struct Funcl
 {
     label : i16,
     func : i16
 }
-
+*/
 fn main() {
-    let file_name = "/Users/mkrueger/work/PCBoard/C/BADBOY.PPE";
-    crate::decompiler::Decompiler::read(&file_name);
+    let file_name = "/home/mkrueger/work/PCBoard/C/BADBOY.PPE";
+    let d = crate::decompiler::Decompiler::read(&file_name);
+    println!("……………………………………………………………");
+    println!("{}", d.output);
 }

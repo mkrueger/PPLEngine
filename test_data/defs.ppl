@@ -1,0 +1,2 @@
+STRING ans
+INPUTSTR "Run program now", ans, 123, 1, "YyNn", DEFS

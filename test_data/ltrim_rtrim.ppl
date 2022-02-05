@@ -1,0 +1,3 @@
+STRING VAR001
+LET VAR001=LTRIM("fooo", " ")
+LET VAR001=RTRIM("fooo", " ")

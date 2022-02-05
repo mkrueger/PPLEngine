@@ -85,8 +85,6 @@ pub fn read_file(file_name : &str) -> Executable
     }
     println!("{}.{} detected", version / 100, version % 100);
     let max_var = u16::from_le_bytes((&buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap());
-    println!("max_var: {}",max_var);
-
     let (mut i, variable_declarations) = read_vars(version, &mut buffer, max_var);
     let code_size = u16::from_le_bytes((&buffer[i..=(i + 1)]).try_into().unwrap()) as usize;
     i += 2;
@@ -127,9 +125,10 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
 
     while var_count > 1 {
         if version >= 300 {
-            decode(&mut (buf[i..=(i + 11)]));
+            decode(&mut (buf[i..(i + 11)]));
         }
-        let cur_block =&buf[i..=(i + 11)];
+        let cur_block =&buf[i..(i + 11)];
+
         var_count = u16::from_le_bytes(cur_block[0..=1].try_into().unwrap());
         let mut var_decl = VarDecl {
             number :  0,
@@ -155,14 +154,15 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
         };
         // println!("read var {} type {}", var_count, var_decl.variable_type as u8);
         i += 11;
+
         match var_decl.variable_type {
             VariableType::String => {
-                let string_length = u16::from_le_bytes((buf[i..=(i+1)]).try_into().unwrap())  as usize;
+                let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap())  as usize;
                 i += 2;
                 if version >= 300 {
-                    decode(&mut (buf[i..=(i + 11)]));
+                    decode(&mut (buf[i..i + string_length]));
                 }
-                var_decl.string_value = String::from_utf8_lossy(&buf[i..=(i + string_length)]).to_string();
+                var_decl.string_value = String::from_utf8_lossy(&buf[i..=i + string_length]).to_string();
                 i += string_length;
             },
             VariableType::Function => {
@@ -201,9 +201,9 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: u16) -> (usize, HashMap<u16
                 } else {
                     decode(&mut buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
-                    var_decl.content = u64::from_le_bytes((buf[i..(i + 4)]).try_into().unwrap());
+                    var_decl.content = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
-                    var_decl.content2 = u64::from_le_bytes((buf[i..(i + 4)]).try_into().unwrap());
+                    var_decl.content2 = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                 }
             }

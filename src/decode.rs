@@ -37,5 +37,4 @@ mod tests {
         let expected: [u8; 11] = [25, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0];
         assert_eq!(buffer, expected);
     }
-
 }

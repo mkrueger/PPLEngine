@@ -14,6 +14,6 @@ struct Funcl
 }
 
 fn main() {
-    let file_name = "/home/mkrueger/work/PCBoard/C/BADBOY.PPE";
+    let file_name = "/Users/mkrueger/work/PCBoard/C/BADBOY.PPE";
     crate::decompiler::Decompiler::read(&file_name);
 }

@@ -1,0 +1,9 @@
+declare function TestFunc(integer i) integer
+
+PRINT TESTFunc(5)
+
+end
+
+Function TestFunc(Integer i) Integer
+	TestFunc = i + 1
+endfunc

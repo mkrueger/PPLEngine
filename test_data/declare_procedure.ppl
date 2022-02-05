@@ -1,0 +1,9 @@
+declare procedure Test()
+
+Test()
+
+end
+
+Procedure Test()
+  PRINTLN "Hello World!"
+endproc

@@ -1,0 +1,2 @@
+STRING VAR001
+LET VAR001=CCTYPE("Credit card number")

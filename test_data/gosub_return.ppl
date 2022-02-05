@@ -1,0 +1,3 @@
+GOSUB test
+:test
+RETURN

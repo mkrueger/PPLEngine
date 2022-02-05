@@ -1,9 +1,8 @@
-declare function TestFunc(integer i) integer
+DECLARE FUNCTION FUNC001(INTEGER LOC001) INTEGER
 
-PRINT TESTFunc(5)
+PRINT FUNC001(5)
+END
 
-end
-
-Function TestFunc(Integer i) Integer
-	TestFunc = i + 1
-endfunc
+FUNCTION FUNC001(INTEGER LOC001) INTEGER
+	FUNC001 = LOC001 + 1
+ENDFUNC

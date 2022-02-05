@@ -1,2 +1,2 @@
-GOTO test
-:test
+GOTO LABEL001
+:LABEL001

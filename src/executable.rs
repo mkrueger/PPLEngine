@@ -158,19 +158,19 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
 
         match var_decl.variable_type {
             VariableType::String => {
-                let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap())  as usize;
+                let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
                 if version >= 300 {
-                    decode(&mut (buf[i..i + string_length]));
+                    decode(&mut (buf[i..(i + string_length)]));
                 }
-                var_decl.string_value = String::from_utf8_lossy(&buf[i..=i + string_length]).to_string();
+                var_decl.string_value = String::from_utf8_lossy(&buf[i..(i + string_length - 1)]).to_string(); // C strings always end with \0
                 i += string_length;
             },
             VariableType::Function => {
                 if version >= 300 {
-                    decode(&mut buf[i..=(i + 12)]);
+                    decode(&mut buf[i..(i + 12)]);
                 }
-                let cur_buf =&buf[i..=(i + 12)];
+                let cur_buf =&buf[i..(i + 12)];
                 var_decl.args = cur_buf[4] as i32;
                 var_decl.total_var = cur_buf[5] as i32 - 1;
                 var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
@@ -180,9 +180,9 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
             },
             VariableType::Method => {
                 if version >= 300 {
-                    decode(&mut buf[i..=(i + 12)]);
+                    decode(&mut buf[i..(i + 12)]);
                 }
-                let cur_buf =&buf[i..=(i + 12)];
+                let cur_buf =&buf[i..(i + 12)];
                 var_decl.args = cur_buf[4] as i32;
                 var_decl.total_var = cur_buf[5] as i32;
                 var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
@@ -214,17 +214,14 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
 
     let mut k = (result.len() - 1) as i32;
     while k >= 0 {
-        let cur = (**result.get(&k).unwrap()).clone();
+        let cur = result.get(&k).unwrap().clone();
 
         match cur.variable_type {
             VariableType::Function => {
-                let next = &mut **result.get_mut(&(cur.return_var - 1)).unwrap();
-                next.fflag = 1;
-
                 let mut j = 0;
                 let last = cur.total_var + cur.return_var;
                 for i in cur.first_var..last {
-                    let fvar = &mut **result.get_mut(&i).unwrap();
+                    let fvar = result.get_mut(&i).unwrap();
                     fvar.lflag = 1;
                     if j < cur.args  {
                         fvar.flag = 1;
@@ -234,6 +231,9 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
                         fvar.number = j;
                     }
                 }
+
+                let next = result.get_mut(&(cur.return_var - 1)).unwrap();
+                next.fflag = 1;
             },
             VariableType::Method => {
                 let mut j = 0;

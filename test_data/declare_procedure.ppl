@@ -1,9 +1,8 @@
-declare procedure Test()
+DECLARE PROCEDURE PROC001()
 
-Test()
+  PROC001()
+END
 
-end
-
-Procedure Test()
-  PRINTLN "Hello World!"
-endproc
+PROCEDURE PROC001()
+PRINTLN "Hello World!"
+ENDPROC

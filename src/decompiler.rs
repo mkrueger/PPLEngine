@@ -65,10 +65,35 @@ impl Decompiler {
 
     pub fn read(file_name: &str) -> Decompiler {
         let mut d = Decompiler::new(read_file(file_name));
+
+        d.output.push_str(";------------------------------------------------------------------------------\n");
+        d.output.push_str(";PCBoard Programming Language Decompiler 3.20  (C)1994-96 Chicken / Tools4Fools\n");
+        d.output.push_str(";------------------------------------------------------------------------------\n");
+        d.output.push_str(";\n");
+
+        println!("Pass 1 ...");
         d.do_pass1();
+        println!();
         d.pass += 1;
         d.dump_vars();
+        println!("Pass 2 ...");
         d.do_pass2();
+        println!();
+        println!("Source decompilation complete...");
+
+        if d.trash_flag != 0 {
+            d.output.push_str(";\n;------------------------------------------------------------------------------\n");
+            d.output.push_str(format!(";\n;!!! {} ERROR(S) CAUSED BY PPLC BUGS DETECTED\n;\n", d.trash_flag).as_str());
+            d.output.push_str(";PROBLEM: These expressions most probably looked like !0+!0+!0 or similar\n");
+            d.output.push_str(";         before PPLC fucked it up to something like !(!(+0)+0)!0. This may\n");
+            d.output.push_str(";         also apply to - / and * aswell. Also occurs upon use of multiple !'s.\n");
+            d.output.push_str(";         Some smartbrains use this BUG to make programms running different\n");
+            d.output.push_str(";         (or not at all) when being de- and recompiled.\n");
+            println!("{} COMPILER ERROR(S) DETECTED", d.trash_flag);
+        }
+        d.output.push_str(";\n;------------------------------------------------------------------------------\n");
+        d.output.push_str(";Thank you for using PPLD              T4F - We Create Your Needs Of Tommorow !\n");
+        d.output.push_str(";------------------------------------------------------------------------------\n");
         d
     }
 
@@ -1178,7 +1203,6 @@ mod tests {
                 skipped += 1;
                 continue;
             }
-
 
             let d = crate::decompiler::Decompiler::read(file_name.to_str().unwrap());
             let source_file = cur_entry.with_extension("ppl");

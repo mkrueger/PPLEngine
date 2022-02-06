@@ -66,7 +66,7 @@ const HEADER_SIZE: usize = 48;
 
 pub fn read_file(file_name : &str) -> Executable
 {
-    let mut f = File::open(file_name).expect("Error while opening file.");
+    let mut f = File::open(file_name).expect(format!("Error: {} not found on disk, aborting...", file_name).as_str());
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer).expect("Error while reading file.");

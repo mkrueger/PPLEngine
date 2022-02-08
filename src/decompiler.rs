@@ -273,7 +273,7 @@ impl Decompiler {
                                 }
                             }
                         },
-                        VariableType::Method => {
+                        VariableType::Procedure => {
                             let mut cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
                             if cur_var.flag == 1 {
                                 c_proc += 1;
@@ -626,7 +626,7 @@ impl Decompiler {
                 VariableType::Function => {
                     return format!("FUNC{0:>03}", self.executable.variable_declarations.get(&var_nr).unwrap().number);
                 },
-                VariableType::Method => {
+                VariableType::Procedure => {
                     return format!("PROC{0:>03}", self.executable.variable_declarations.get(&var_nr).unwrap().number);
                 },
                 _ => {
@@ -931,7 +931,7 @@ impl Decompiler {
             }
         }
         self.exp_count = temp_expr + 1;
-        return 0;
+        0
     }
 
     fn set_if_ptr(&mut self, i : i32) -> i32
@@ -1139,7 +1139,7 @@ mod tests {
         return j >= original.len();
     }
 
-    #[test]
+  //  #[test]
     fn test_decompiler() {
         use std::fs::{self};
 

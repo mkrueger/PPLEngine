@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::decode::decode;
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(dead_code)]
 pub enum VariableType
 {
@@ -25,7 +25,7 @@ pub enum VariableType
     BigStr = 13,
     Double = 14,
     Function = 15,
-    Method = 16,
+    Procedure = 16,
     DDate = 17
 }
 
@@ -178,7 +178,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
                 var_decl.return_var = u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
             },
-            VariableType::Method => {
+            VariableType::Procedure => {
                 if version >= 300 {
                     decode(&mut buf[i..(i + 12)]);
                 }
@@ -235,7 +235,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
                 let next = result.get_mut(&(cur.return_var - 1)).unwrap();
                 next.fflag = 1;
             },
-            VariableType::Method => {
+            VariableType::Procedure => {
                 let mut j = 0;
                 let last = cur.total_var + cur.args + cur.first_var;
 

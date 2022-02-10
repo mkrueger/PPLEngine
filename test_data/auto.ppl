@@ -1,2 +1,2 @@
-STRING ans
-INPUTSTR "Run program now",ans,@X0E,1,"",AUTO+YESNO
+STRING VAR001
+INPUTSTR "Run program now",VAR001,@X0E,1,"",AUTO+YESNO

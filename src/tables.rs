@@ -1,56 +1,20 @@
+use crate::executable::VariableType;
+use crate::parser::{BinOp, Constant, Expression};
 
-/*
-long int PrASVars[]={0,1,2,3];
-*/
-
-
-/*
-long int PrPAVars[]={0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
-                     0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e
-                    ];
-*/
-
-
-/*
-long int PrSMVars[]={0x01,0x02,0x03,0x04,0x05,0x06,0x07,
-                     0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f
-                    ];
-*/
-
-/*
-char    *PrASNames[]={"ACC_STAT","ACC_TIME","ACC_MSGR","ACC_MSGW"];
-*/
-
-/*
-char    *PrPANames[]={"NEWBALANCE","CHRG_CALL","CHRG_TIME","CHRG_PEAKTIME",
-                 "CHRG_CHAT","CHRG_MSGREAD","CHRG_MSGCAP",
-                 "CHRG_MSGWRITE","CHRG_MSGECHOED","CHRG_MSGPRIVATE",
-                 "CHRG_DOWNFILE","CHRG_DOWNBYTES","PAY_UPFILE",
-                 "PAY_UPBYTES","WARN_LEVEL"
-                ];
-*/
-/*
-char    *PrSMNames[]={"HDR_STATUS","HDR_MSGNUM","HDR_MSGREF","HDR_BLOCKS",
-                 "HDR_DATE","HDR_TIME","HDR_TO","HDR_RPLYDATE",
-                 "HDR_RPLYTIME","HDR_REPLY","HDR_FROM","HDR_SUBJ",
-                 "HDR_PWD","HDR_ACTIVE","HDR_ECHO"
-                ];
-*/
-
-       // Statement Variable-Types, 0 = none / aa = not defined
-       //				 1- f= number of exp
-       //				11-1f= number of exp, exp 1 is a var
-       //              21-2f= number of exp, exp 2 is a var
-       //              0xf6 = special case procedure
-       //              0xf7 = special case dlockg
-       //              0xf8 = special case dcreate
-       //              0xf9 = special case sort
-       //				0xfa = varies exp, exp 1 is a var (redim)
-       //              0xfc = varies var (pop)
-       //              0xfd = label (goto)
-       //			    0xfe = varies exp (println)
-       //			    0xff = special case if
-       pub const STATEMENT_SIGNATURE_TABLE : [i32; 227]= [
+// Statement Variable-Types, 0 = none / aa = not defined
+//				 1- f= number of exp
+//				11-1f= number of exp, exp 1 is a var
+//              21-2f= number of exp, exp 2 is a var
+//              0xf6 = special case procedure
+//              0xf7 = special case dlockg
+//              0xf8 = special case dcreate
+//              0xf9 = special case sort
+//				0xfa = varies exp, exp 1 is a var (redim)
+//              0xfc = varies var (pop)
+//              0xfd = label (goto)
+//			    0xfe = varies exp (println)
+//			    0xff = special case if
+pub const STATEMENT_SIGNATURE_TABLE : [i32; 227]= [
     0xff,0x00,0x00,0x00,0x00,0x00,0x01,0xfd, //0
     0x12,0xfe,0xfe,0xff,0x02,0x02,0x02,0x22,
     0x04,0x04,0x04,0x01,0x22,0xfe,0xfe,0x00, //1
@@ -125,109 +89,135 @@ pub const FUNCTION_SIGNATURE_TABLE : [i32; 286]= [
     0x01,0x01,0x01,0x01,0x01,0x00            //E
 ];
 
-pub const TYPE_NAMES : [&str; 18] = [
-    "BOOLEAN","UNSIGNED","DATE","EDATE","INTEGER",
-    "MONEY","REAL","STRING","TIME","BYTE","WORD",
-    "SBYTE","SWORD","BIGSTR","DREAL","---","---","DDATE"
+pub const TYPE_NAMES : [VariableType; 18] = [
+    VariableType::Boolean,
+    VariableType::Unsigned,
+    VariableType::Date,
+    VariableType::EDate,
+    VariableType::Integer,
+    VariableType::Money,
+    VariableType::Real,
+    VariableType::String,
+    VariableType::Time,
+    VariableType::Byte,
+    VariableType::Word,
+    VariableType::SByte,
+    VariableType::SWord,
+    VariableType::BigStr,
+    VariableType::Real,
+    VariableType::Unknown,
+    VariableType::Unknown,
+    VariableType::DDate
 ];
 
-pub const USER_VARIABLE_NAMES : [&str; 25] = [
-    "","U_EXPERT","U_FSE","U_FSEP","U_CLS","U_EXPDATE",
-    "U_SEC","U_PAGELEN","U_EXPSEC","U_CITY","U_BDPHONE",
-    "U_HVPHONE","U_TRANS","U_CMNT1","U_CMNT2","U_PWD",
-    "U_SCROLL","U_LONGHDR","U_DEF79","U_ALIAS","U_VER",
-    "U_ADDR","U_NOTES","U_PWDEXP","U_ACCOUNT"
-];
 
 pub const CONSTANT_2_OFFSETS : [i32;18]  =  [
     0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
     0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
     0x10,0x11
 ];
-pub const CONSTANT_2_NAMES : [&str; 18] = [
-    "START_BAL","START_SESSION","DEB_CALL","DEB_TIME",
-    "DEB_MSGREAD","DEB_MSGCAP","DEB_MSGWRITE",
-    "DEB_MSGECHOED","DEB_MSGPRIVATE","DEB_DOWNFILE",
-    "DEB_DOWNBYTES","DEB_CHAT","DEB_TPU","DEB_SPECIAL",
-    "CRED_UPFILE","CRED_UPBYTES","CRED_SPECIAL","SEC_DROP",
+pub const CONSTANT_2_NAMES : [Constant; 18] = [
+    Constant::START_BAL,
+    Constant::START_SESSION,
+    Constant::DEB_CALL,
+    Constant::DEB_TIME,
+    Constant::DEB_MSGREAD,
+    Constant::DEB_MSGCAP,
+    Constant::DEB_MSGWRITE,
+    Constant::DEB_MSGECHOED,
+    Constant::DEB_MSGPRIVATE,
+    Constant::DEB_DOWNFILE,
+    Constant::DEB_DOWNBYTES,
+    Constant::DEB_CHAT,
+    Constant::DEB_TPU,
+    Constant::DEB_SPECIAL,
+    Constant::CRED_UPFILE,
+    Constant::CRED_UPBYTES,
+    Constant::CRED_SPECIAL,
+    Constant::SEC_DROP
 ];
 
 pub const CONSTANT_CONFERENCE_OFFSETS : [i32; 6] = [ 0x02, 0x10, 0x01, 0x04, 0x08, -1 ];
-pub const CONSTANT_CONFERENCE_NAMES : [&str; 5] = [ "F_EXP", "F_MW", "F_REG", "F_SEL", "F_SYS" ];
+pub const CONSTANT_CONFERENCE_NAMES : [Constant; 5] = [ Constant::F_EXP, Constant::F_MW, Constant::F_REG, Constant::F_SEL, Constant::F_SYS ];
 
 pub const CONSTANT_NAMES_OFFSETS : [i32; 5] = [ 0, 1, 4, 2, -1 ];
-pub const CONSTANT_NAMES_DISPLAY : [&str; 4] = [ "DEFS", "GRAPH", "LANG", "SEC" ];
+pub const CONSTANT_NAMES_DISPLAY : [Constant; 4] = [ Constant::DEFS, Constant::GRAPH, Constant::LANG, Constant::SEC ];
 
 pub const CONSTANT_FACCESS_OFFSETS : [i32; 4] = [ 0, 2, 1, -1 ];
-pub const CONSTANT_FACCESS_NAMES : [&str; 3] = [ "O_RD", "O_RW", "O_WR" ];
+pub const CONSTANT_FACCESS_NAMES : [Constant; 3] = [ Constant::O_RD, Constant::O_RW, Constant::O_WR ];
 
 pub const CONSTANT_SEEK_OFFSETS : [i32; 4] = [ 1, 2, 0, -1 ];
-pub const CONSTANT_SEEK_NAMES : [&str; 3] = [ "SEEK_CUR", "SEEK_END", "SEEK_SET" ];
+pub const CONSTANT_SEEK_NAMES : [Constant; 3] = [ Constant::SEEK_CUR, Constant::SEEK_END, Constant::SEEK_SET ];
 
 pub const CONSTANT_OPENFLAGS_OFFSETS : [i32; 5] = [ 3, 0, 1, 2, -1 ];
-pub const CONSTANT_OPENFLAGS_NAMES : [&str; 4] = [ "S_DB", "S_DN", "S_DR", "S_DW" ];
+pub const CONSTANT_OPENFLAGS_NAMES : [Constant; 4] = [ Constant::S_DB, Constant::S_DN, Constant::S_DR, Constant::S_DW ];
 
 pub const CONSTANT_1_OFFSETS : [i32; 19]= [
-    0x2000,0x0800,0x0000,0x0001,0x0020,0x0002,0x0004,
-    0x1000,0x0100,0x0080, 0x8000,0x10000,0x0040,0x0400,
-    0x0010,0x0008,0x0200,0x4000,-1
+    0x2000,
+    0x0800,
+    0x0000,
+    0x0001,
+    0x0020,
+    0x0002,
+    0x0004,
+    0x1000,
+    0x0100,
+    0x0080,
+    0x8000,
+    0x10000,
+    0x0040,
+    0x0400,
+    0x0010,
+    0x0008,
+    0x0200,
+    0x4000,
+    -1
 ];
-pub const CONSTANT_1_NAMES : [&str; 18] = [
-    "AUTO","BELL","DEFS","ECHODOTS","ERASELINE","FIELDLEN",
-    "GUIDE","HIGHASCII","LFAFTER","LFBEFORE","LOGIT",
-    "LOGITLEFT","NEWLINE","NOCLEAR","STACKED","UPCASE",
-    "WORDWRAP","YESNO"
+pub const CONSTANT_1_NAMES : [Constant; 18] = [
+    Constant::AUTO,
+    Constant::BELL,
+    Constant::DEFS,
+    Constant::ECHODOTS,
+    Constant::ERASELINE,
+    Constant::FIELDLEN,
+    Constant::GUIDE,
+    Constant::HIGHASCII,
+    Constant::LFAFTER,
+    Constant::LFBEFORE,
+    Constant::LOGIT,
+    Constant::LOGITLEFT,
+    Constant::NEWLINE,
+    Constant::NOCLEAR,
+    Constant::STACKED,
+    Constant::UPCASE,
+    Constant::WORDWRAP,
+    Constant::YESNO
 ];
 
 pub const CONSTANT_LINECOUNT_OFFSETS : [i32; 4] = [ 2, 1, 0, -1 ];
-pub const CONSTANT_LINECOUNT_NAMES : [&str; 3] = [ "FCL", "FNS", "NC" ];
+pub const CONSTANT_LINECOUNT_NAMES : [Constant; 3] = [ Constant::FCL, Constant::FNS,  Constant::NC ];
 
-
-pub const STATEMENT_NAMES : [&str; 227] = [
-    "WHILE","END","CLS","CLREOL","MORE","WAIT","COLOR","GOTO",
-    "LET","PRINT","PRINTLN","IF","CONFFLAG","CONFUNFLAG",
-    "DISPFILE","INPUT","FCREATE","FOPEN","FAPPEND",
-    "FCLOSE","FGET","FPUT","FPUTLN","RESETDISP",
-    "STARTDISP","FPUTPAD","HANGUP","GETUSER","PUTUSER",
-    "DEFCOLOR","DELETE","DELUSER","ADJTIME","LOG",
-    "INPUTSTR","INPUTYN","INPUTMONEY","INPUTINT","INPUTCC",
-    "INPUTDATE","INPUTTIME","GOSUB","RETURN","PROMPTSTR",
-    "DTRON","DTROFF","CDCHKON","CDCHKOFF","DELAY",
-    "SENDMODEM","INC","DEC","NEWLINE","NEWLINES",
-    "TOKENIZE","GETTOKEN","SHELL","DISPTEXT","STOP",
-    "INPUTTEXT","BEEP","PUSH","POP","KBDSTUFF","CALL",
-    "JOIN","QUEST","BLT","DIR","KBDFILE","BYE","GOODBYE",
-    "BROADCAST","WAITFOR","KBDCHKON","KBDCHKOFF","OPTEXT",
-    "DISPSTR","RDUNET","WRUNET","DOINTR","VARSEG","VAROFF",
-    "POKEB","POKEW","VARADDR","ANSIPOS","BACKUP","FORWARD",
-    "FRESHLINE","WRUSYS","RDUSYS","NEWPWD","OPENCAP",
-    "CLOSECAP","MESSAGE","SAVESCRN","RESTSCRN","SOUND",
-    "CHAT","SPRINT","SPRINTLN","MPRINT","MPRINTLN",
-    "RENAME","FREWIND","POKEDW","DBGLEVEL","SHOWON",
-    "SHOWOFF","PAGEON","PAGEOFF","FSEEK","FFLUSH","FREAD",
-    "FWRITE","FDEFIN","FDEFOUT","FDGET","FDPUT","FDPUTLN",
-    "FDPUTPAD","FDREAD","FDWRITE","ADJBYTES","KBDSTRING",
-    "ALIAS","REDIM","APPEND","COPY","KBDFLUSH","MDMFLUSH",
-    "KEYFLUSH","LASTIN","FLAG","DOWNLOAD","WRUSYSDOOR",
-    "GETALTUSER","ADJDBYTES","ADJTBYTES","ADJTFILES",
-    "LANG","SORT","MOUSEREG","SCRFILE","SEARCHINIT",
-    "SEARCHFIND","SEARCHSTOP","PRFOUND","PRFOUNDLN",
-    "TPAGET","TPAPUT","TPACGET","TPACPUT","TPAREAD",
-    "TPAWRITE","TPACREAD","TPACWRITE","BITSET","BITCLEAR",
-    "BRAG","FREALTUSER","SETLMR","SETENV","FCLOSEALL",
-    "???","???","???","PROC","ENDPROC","???",
-    "ENDFUNC","???","STACKABORT","DCREATE","DOPEN",
-    "DCLOSE","DSETALIAS","DPACK","DCLOSEALL","DLOCK",
-    "DLOCKR","DLOCKG","DUNLOCK","DNCREATE","DNOPEN",
-    "DNCLOSE","DNCLOSEALL","DNEW","DADD","DAPPEND","DTOP",
-    "DGO","DBOTTOM","DSKIP","DBLANK","DDELETE","DRECALL",
-    "DTAG","DSEEK","DFBLANK","DGET","DPUT","DFCOPY","EVAL",
-    "ACCOUNT","RECORDUSAGE","MSGTOFILE","QWKLIMITS",
-    "COMMAND","USELMRS","CONFINFO","ADJTUBYTES","GRAFMODE",
-    "ADDUSER","KILLMSG","CHDIR","MKDIR","REDIR","FDOWRAKA",
-    "FDOADDAKA","FDOWRORG","FDOADDORG","FDOQMOD","FDOQADD",
-    "FDOQDEL","SOUNDDELAY"
-];
+pub const BIN_EXPR : [BinOp; 19] = [
+    BinOp::Add,
+    BinOp::Add,
+    BinOp::Sub,
+    BinOp::PoW,
+    BinOp::Mul,
+    BinOp::Div,
+    BinOp::Mod,
+    BinOp::Add,
+    BinOp::Sub,
+    BinOp::Eq,
+    BinOp::NotEq,
+    BinOp::Lower,
+    BinOp::LowerEq,
+    BinOp::NotEq,
+    BinOp::Greater,
+    BinOp::GreaterEq,
+    BinOp::Add, // ???
+    BinOp::And,
+    BinOp::Or,
+    ];
 
 pub const EXPR_NAMES : [&str; 286] = [
     "???","+","-","^","*","/","%","+","-","=","<>","<","<=",

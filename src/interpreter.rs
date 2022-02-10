@@ -1,85 +1,65 @@
-use crate::executable::VariableType;
 use crate::parser;
 use crate::parser::*;
+use std::string::String;
 
-
-struct Block<'a>
+pub struct Block
 {
-    statements: Vec<Statement<'a>>
+    pub statements: Vec<Statement>,
+
+    label_stack: Vec<String>
+}
+impl Block
+{
+    pub fn new() -> Self
+    {
+        Block {
+            statements : vec![],
+            label_stack : vec![]
+        }
+    }
+
+    pub fn mark_label(&mut self, label : String)
+    {
+        self.label_stack.push(label);
+    }
+
+    pub fn to_string(&self) -> std::string::String
+    {
+        let mut result = std::string::String::new();
+        for s in &self.statements {
+            result.push_str(s.to_string().as_str());
+            result.push_str("\n");
+        }
+        result
+    }
+}
+pub struct FunctionDeclaration
+{
+    pub declaration: parser::Declaration,
+    pub block: Block
 }
 
-struct FunctionDeclaration<'a>
-{
-    declaration: parser::Declaration<'a>,
-    block: Block<'a>
+use std::fmt;
+
+impl fmt::Display for FunctionDeclaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{})", self.declaration.to_string())
+    }
 }
+
 trait ProgramContext
 {
     fn print(&mut self, str : String);
 }
-struct Program<'a>
+
+pub struct Program
 {
-    variable_declarations: Vec<parser::Declaration<'a>>,
-    main_block: Block<'a>,
-    function_delclarations: Vec<FunctionDeclaration<'a>>,
-    procedure_delclarations: Vec<FunctionDeclaration<'a>>
+    pub variable_declarations: Vec<parser::Declaration>,
+    pub main_block: Block,
+    pub function_declarations: Vec<FunctionDeclaration>,
+    pub procedure_declarations: Vec<FunctionDeclaration>
 }
 
-fn to_stringc(expr : &Constant) -> String
-{
-    match expr {
-        Constant::Money(f) => format!("${}", f),
-        Constant::Integer(i) => format!("{}", i),
-        Constant::String(str) => String::from(*str),
-
-        Constant::AUTO => String::from("AUTO"),
-        Constant::BELL => String::from("BELL"),
-        Constant::DEFS => String::from("DEFS"),
-        Constant::ECHODOTS => String::from("ECHODOTS"),
-        Constant::ERASELINE => String::from("ERASELINE"),
-        Constant::FALSE => String::from("FALSE"),
-        Constant::FCL => String::from("FCL"),
-        Constant::FIELDLEN => String::from("FIELDLEN"),
-        Constant::FNS => String::from("FNS"),
-        Constant::F_EXP => String::from("F_EXP"),
-        Constant::F_MW => String::from("F_MW"),
-        Constant::F_REG => String::from("F_REG"),
-        Constant::F_SEL => String::from("F_SEL"),
-        Constant::F_SYS => String::from("F_SYS"),
-        Constant::GRAPH => String::from("GRAPH"),
-        Constant::GUIDE => String::from("GUIDE"),
-        Constant::HIGHASCII => String::from("HIGHASCII"),
-        Constant::LANG => String::from("LANG"),
-        Constant::LFAFTER => String::from("LFAFTER"),
-        Constant::LFBEFORE => String::from("FLBEFORE"),
-        Constant::LOGIT => String::from("LOGIT"),
-        Constant::LOGITLEFT => String::from("LOGITLEFT"),
-        Constant::NC => String::from("NC"),
-        Constant::NEWLINE => String::from("NEWLINE"),
-        Constant::NOCLEAR => String::from("NOCLEAR"),
-        Constant::O_RD => String::from("O_RD"),
-        Constant::O_RW => String::from("O_RW"),
-        Constant::O_WR => String::from("O_WR"),
-        Constant::SEC => String::from("SEC"),
-        Constant::STACKED => String::from("STACKED"),
-        Constant::S_DB => String::from("S_DB"),
-        Constant::S_DN => String::from("S_DN"),
-        Constant::S_DR => String::from("S_DR"),
-        Constant::S_DW => String::from("S_DW"),
-        Constant::TRUE => String::from("TRUE"),
-        Constant::UPCASE => String::from("UPCASE"),
-        Constant::WORDWRAP => String::from("WORDWRAP"),
-        Constant::YESNO => String::from("YESNO")
-    }
-
-}
-fn to_stringe(expr : &Expression) -> String
-{
-    match expr {
-        Expression::Const(c) => to_stringc(c),
-        _ => String::new()
-    }
-}
 
 struct TestContext
 {
@@ -94,14 +74,27 @@ impl ProgramContext for TestContext
     }
 }
 
-impl Program<'_>
+impl Program
 {
+    pub fn new() -> Self
+    {
+        Program {
+            variable_declarations: vec![],
+            main_block: Block {
+                statements: vec![],
+                label_stack: vec![]
+            },
+            function_declarations: vec![],
+            procedure_declarations: vec![]
+        }
+    }
+
     fn execute_statement(&self, ctx : &mut dyn ProgramContext, stmt : &Statement)
     {
         match stmt {
             Statement::PRINT(vec) => {
                 for expr in vec {
-                    ctx.print(to_stringe(expr));
+                    ctx.print(expr.to_string());
                 }
             },
 
@@ -109,7 +102,7 @@ impl Program<'_>
                 match vec {
                     Some(t) => {
                         for expr in t {
-                            ctx.print(to_stringe(expr));
+                            ctx.print(expr.to_string());
                         }
                         ctx.print("\n".to_string());
                     },
@@ -126,6 +119,27 @@ impl Program<'_>
             self.execute_statement(ctx, stmt);
         }
     }
+
+    pub fn to_string(&self) -> String
+    {
+        let mut res = String::new();
+        for v in &self.function_declarations {
+            res.push_str(&v.to_string());
+            res.push('\n');
+        }
+        for v in &self.procedure_declarations {
+            res.push_str(&v.to_string());
+            res.push('\n');
+        }
+        for v in &self.variable_declarations {
+            res.push_str(&v.to_string());
+            res.push('\n');
+        }
+        res.push_str(&self.main_block.to_string());
+
+
+        res
+    }
 }
 
 fn parse_program(input : &str) -> Program
@@ -135,10 +149,11 @@ fn parse_program(input : &str) -> Program
     Program {
         variable_declarations: vec![],
         main_block: Block {
-            statements: vec![stmt.1]
+            statements: vec![stmt.1],
+            label_stack: vec![]
         },
-        function_delclarations: vec![],
-        procedure_delclarations: vec![]
+        function_declarations: vec![],
+        procedure_declarations: vec![]
     }
 }
 #[cfg(test)]
@@ -149,10 +164,10 @@ mod tests {
     fn test_println() {
         let mut ctx = TestContext { output: String::new() };
         parse_program("PRINTLN 1, 2, 3, \"Hello World\"").run(&mut ctx);
-        assert_eq!("123Hello World\n".to_string(), ctx.output);
+        assert_eq!("123\"Hello World\"\n".to_string(), ctx.output);
 
         ctx = TestContext { output: String::new() };
         parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h").run(&mut ctx);
-        assert_eq!("TRUE,$41.43,16".to_string(), ctx.output);
+        assert_eq!("TRUE\",\"$41.43\",\"16".to_string(), ctx.output);
     }
 }

@@ -22,7 +22,7 @@ fn main() {
     let mut data_path =env::current_dir().unwrap();
     data_path.push("test_data");
 
-    data_path.push("newline_stmt.ppe");
+    data_path.push("declare_procedure.ppe");
     let d = crate::decompiler::Decompiler::read(data_path.to_str().unwrap());
 
     println!("debug:");

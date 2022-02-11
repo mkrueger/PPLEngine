@@ -5,29 +5,26 @@ use std::string::String;
 pub struct Block
 {
     pub statements: Vec<Statement>,
-
-    label_stack: Vec<String>
 }
 impl Block
 {
     pub fn new() -> Self
     {
         Block {
-            statements : vec![],
-            label_stack : vec![]
+            statements : vec![]
         }
     }
 
     pub fn mark_label(&mut self, label : String)
     {
-        self.label_stack.push(label);
+        self.statements.push(Statement::Label(label));
     }
 
-    pub fn to_string(&self) -> std::string::String
+    pub fn to_string(&self, prg : &Program) -> std::string::String
     {
         let mut result = std::string::String::new();
         for s in &self.statements {
-            result.push_str(s.to_string().as_str());
+            result.push_str(s.to_string(prg).as_str());
             result.push_str("\n");
         }
         result
@@ -35,15 +32,56 @@ impl Block
 }
 pub struct FunctionDeclaration
 {
+    pub id : i32,
     pub declaration: parser::Declaration,
     pub block: Block
 }
 
 use std::fmt;
+use std::mem::transmute;
+use crate::executable::VariableType;
+use crate::tables::OpCode;
 
 impl fmt::Display for FunctionDeclaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{})", self.declaration.to_string())
+        write!(f, "{}", self.declaration.to_string())
+    }
+}
+
+impl FunctionDeclaration {
+    pub fn print_content(&self, prg : &Program) -> String
+    {
+        let mut res = self.declaration.print_header();
+        res.push('\n');
+
+        for stmt in &self.block.statements {
+            match stmt {
+                Statement::Call(def, params) => {
+                    if def.opcode == OpCode::FEND as u8 {
+                        match &self.declaration {
+                            Declaration::Procedure(name, param) => {
+                                res.push_str("ENDPROC");
+                                continue;
+                            },
+                            Declaration::Function(name, param, t) => {
+                                res.push_str("ENDFUNC");
+                                continue;
+                            },
+                            _ => {}
+                        }
+                    }
+                    if def.opcode == OpCode::FPCLR as u8 {
+                        res.push_str("ENDPROC");
+                        continue;
+                    }
+                },
+                _ => {}
+            }
+            res.push_str(stmt.to_string(prg).as_str());
+            res.push('\n');
+        }
+
+        return res;
     }
 }
 
@@ -81,8 +119,7 @@ impl Program
         Program {
             variable_declarations: vec![],
             main_block: Block {
-                statements: vec![],
-                label_stack: vec![]
+                statements: vec![]
             },
             function_declarations: vec![],
             procedure_declarations: vec![]
@@ -92,20 +129,20 @@ impl Program
     fn execute_statement(&self, ctx : &mut dyn ProgramContext, stmt : &Statement)
     {
         match stmt {
-            Statement::PRINT(vec) => {
-                for expr in vec {
-                    ctx.print(expr.to_string());
-                }
-            },
-
-            Statement::PRINTLN(vec) => {
-                match vec {
-                    Some(t) => {
-                        for expr in t {
+            Statement::Call(def, params) => {
+                let op : OpCode = unsafe { transmute(def.opcode) };
+                match op  {
+                    OpCode::PRINT=> {
+                        for expr in params {
+                            ctx.print(expr.to_string());
+                        }
+                    },
+                    OpCode::PRINTLN => {
+                        for expr in params {
                             ctx.print(expr.to_string());
                         }
                         ctx.print("\n".to_string());
-                    },
+                    }
                     _ => {}
                 }
             },
@@ -120,9 +157,28 @@ impl Program
         }
     }
 
+    pub fn get_variable(&self, var_name : &String) -> VariableType
+    {
+        for decl in &self.variable_declarations {
+            match decl {
+                Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
+                Declaration::Variable1(var_type, name, dim1) => if *name == *var_name { return *var_type; },
+                Declaration::Variable2(var_type, name, dim1, dim2) => if *name == *var_name { return *var_type; },
+                Declaration::Variable3(var_type, name, dim1, dim2, dim3) => if *name == *var_name { return *var_type; },
+                _ => {}
+            }
+        }
+
+        VariableType::Unknown
+    }
+
     pub fn to_string(&self) -> String
     {
         let mut res = String::new();
+
+        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
+            res.push_str("; Function declarations\n");
+        }
         for v in &self.function_declarations {
             res.push_str(&v.to_string());
             res.push('\n');
@@ -135,8 +191,22 @@ impl Program
             res.push_str(&v.to_string());
             res.push('\n');
         }
-        res.push_str(&self.main_block.to_string());
+        res.push_str("; Entrypoint\n");
 
+        res.push_str(&self.main_block.to_string(self));
+
+        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
+            res.push_str("; Function implementations\n");
+        }
+        for v in &self.function_declarations {
+            res.push_str(v.print_content(self).as_str());
+            res.push('\n');
+        }
+
+        for v in &self.procedure_declarations {
+            res.push_str(&v.print_content(self).as_str());
+            res.push('\n');
+        }
 
         res
     }
@@ -149,8 +219,7 @@ fn parse_program(input : &str) -> Program
     Program {
         variable_declarations: vec![],
         main_block: Block {
-            statements: vec![stmt.1],
-            label_stack: vec![]
+            statements: vec![stmt.1]
         },
         function_declarations: vec![],
         procedure_declarations: vec![]

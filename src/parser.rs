@@ -1,4 +1,5 @@
-use nom::{branch::alt, bytes::complete::{ tag, tag_no_case, take_while}, character::complete::{alpha1, space1,  alphanumeric1, multispace0}, combinator::{cut, map, map_res, opt, recognize, value}, error::{ ParseError}, multi::*,  sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
+use std::intrinsics::transmute;
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{cut, map, map_res, opt, recognize, value}, error::{ ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
 use nom::bytes::complete::{ take_while_m_n};
 use nom::character::complete::{ multispace1};
 use nom::sequence::tuple;
@@ -6,6 +7,8 @@ use std::str::FromStr;
 use std::string::String;
 
 use crate::executable::VariableType;
+use crate::interpreter::Program;
+use crate::tables::{OpCode, StatementDefinition, StatementDefinitions};
 
 #[derive(Debug, PartialEq)]
 pub enum Declaration {
@@ -21,16 +24,12 @@ impl Declaration {
     fn declr_vec_to_string(list : &Vec<Declaration>) -> String
     {
         let mut res = String::new();
-        let mut first = false;
         for decl in list {
-            if first {
-                first = false;
-            } else {
+            if res.len() > 0 {
                 res.push_str(", ");
             }
             res.push_str(decl.to_string().as_str());
         }
-
         res
     }
 
@@ -43,6 +42,15 @@ impl Declaration {
             Declaration::Variable3(var_type, name, dim1, dim2, dim3) => format!("{} {}({}, {}, {})", var_type.to_string(), name, dim1, dim2, dim3),
             Declaration::Procedure(name, parameters) => format!("DECLARE PROCEDURE {}({})", name, Declaration::declr_vec_to_string(parameters)),
             Declaration::Function(name, parameters, return_type) => format!("DECLARE FUNCTION {}({}) {}", name, Declaration::declr_vec_to_string(parameters), return_type.to_string()),
+        }
+    }
+
+    pub fn print_header(&self) -> String
+    {
+        match self {
+            Declaration::Procedure(name, parameters) => format!("PROCEDURE {}({})", name, Declaration::declr_vec_to_string(parameters)),
+            Declaration::Function(name, parameters, return_type) => format!("FUNCTION {}({}) {}", name, Declaration::declr_vec_to_string(parameters), return_type.to_string()),
+            _ => { "ERR".to_string()}
         }
     }
 }
@@ -557,473 +565,92 @@ fn parse_expression<'a>(line : &'a str) -> nom::IResult<&'a str, Expression> {
      )(line)
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Comment(String),
-    ADJTIME(Box<Expression>),
-    ANSIPOS(Box<Expression>, Box<Expression>),
-    BACKUP(Box<Expression>),
-    BLT(Box<Expression>),
-    BYE,
-    BEEP,
-    BROADCAST(Box<Expression>, Box<Expression>, Box<Expression>),
-    CALL(Box<Expression>),
-    CDCHKOFF,
-    CDCHKON,
-    CHAT,
-    CLOSECAP,
-    CLREOL,
-    CLS,
-    COLOR(Box<Expression>),
-    CONFFLAG(Box<Expression>, Box<Expression>),
-    CONFUNFLAG(Box<Expression>, Box<Expression>),
-    DBGLEVEL(Box<Expression>),
-    DEC(Box<Expression>),
-    DEFCOLOR,
-    DELAY(Box<Expression>),
-    DELETE(Box<Expression>),
-    DELUSER,
-    DIR(Box<Expression>),
-    DISPFILE(Box<Expression>, Box<Expression>),
-    DISPSTR(Box<Expression>),
-    DISPTEXT(Box<Expression>, Box<Expression>),
-    DOINTR([Box<Expression>;10]),
-    DTROFF,
-    DTRON,
-    ELSE,
-    ELSEIF(Box<Expression>),
-    END,
-    ENDIF,
-    ENDWHILE,
-    FAPPEND(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    FCLOSE(Box<Expression>),
-    FCREATE(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    FGET(Box<Expression>, Box<Expression>),
-    FOPEN(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    FOR(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    FORWARD(Box<Expression>),
-    FPUT(Box<Expression>, Vec<Expression>),
-    FPUTLN(Box<Expression>, Option<Vec<Expression>>),
-    FPUTPAD(Box<Expression>, Box<Expression>, Box<Expression>),
-    FRESHLINE,
-    FREWIND(Box<Expression>),
-    GETTOKEN(Box<Expression>),
-    GETUSER,
-    GOODBYE,
-    GOSUB(Box<Expression>),
-    GOTO(Box<Expression>),
-    HANGUP,
-    IF(Box<Expression>),
-    INC(Box<Expression>),
-    INPUT(Box<Expression>, Box<Expression>),
-    INPUTDATE(Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTINT(Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTMONEY(Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTSTR([Box<Expression>;6]),
-    INPUTTEXT(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTTIME(Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTYN(Box<Expression>, Box<Expression>, Box<Expression>),
-    INPUTCC(Box<Expression>, Box<Expression>, Box<Expression>),
-    JOIN(Box<Expression>),
-    KBDCHKOFF,
-    KBDCHKON,
-    KBDFILE(Box<Expression>),
-    KBDSTUFF(Box<Expression>),
-    LET(Box<Expression>, Box<Expression>),
-    LOG(Box<Expression>, Box<Expression>),
-    MESSAGE([Box<Expression>;9]),
-    MORE,
-    MPRINT(Vec<Expression>),
-    MPRINTLN(Option<Vec<Expression>>),
-    NEWLINE,
-    NEWLINES(Box<Expression>),
-    NEWPWD(Box<Expression>, Box<Expression>),
-    NEXT,
-    OPENCAP(Box<Expression>, Box<Expression>),
-    OPTEXT(Box<Expression>),
-    PAGEOFF,
-    PAGEON,
-    POKEB(Box<Expression>, Box<Expression>),
-    POKEDW(Box<Expression>, Box<Expression>),
-    POKEW(Box<Expression>, Box<Expression>),
-    POP(Vec<Expression>),
-    PRINT(Vec<Expression>),
-    PRINTLN(Option<Vec<Expression>>),
-    PROMPTSTR(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    PUSH(Vec<Expression>),
-    PUTUSER,
-    QUEST(Box<Expression>),
-    RDUNET(Box<Expression>),
-    RDUSYS,
-    RENAME(Box<Expression>, Box<Expression>),
-    RESETDISP,
-    RESTSCRN,
-    RETURN,
-    SAVESCRN,
-    SENDMODEM(Box<Expression>),
-    SHELL(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-    SHOWOFF,
-    SHOWON,
-    SOUND(Box<Expression>),
-    SPRINT(Vec<Expression>),
-    SPRINTLN(Option<Vec<Expression>>),
-    STARTDISP(Box<Expression>),
-    STOP,
-    TOKENIZE(Box<Expression>),
-    VARADDR(Box<Expression>, Box<Expression>),
-    VAROFF(Box<Expression>, Box<Expression>),
-    VARSEG(Box<Expression>, Box<Expression>),
-    WAIT,
-    WAITFOR(Box<Expression>, Box<Expression>, Box<Expression>),
-    WHILE(Box<Expression>, Box<Statement>),
-    DOWHILE(Box<Expression>),
-    WRUNET([Box<Expression>;6]),
-    WRUSYS
+    DoWhile(Box<Expression>),
+    Label(String),
+    ProcedureCall(String, Vec<Expression>),
+    Call(&'static StatementDefinition<'static>, Vec<Expression>)
 }
 
 impl Statement
 {
     pub fn param_list_to_string(l : &Vec<Expression>) -> String
     {
-     /*   match list {
-            Some(l) => {*/
-                let mut res = String::new();
-                for expr in l {
-                    if res.len() > 0 {
-                        res.push_str(", ");
-                    }
-                    res.push_str(expr.to_string().as_str());
-                }
-                res
-  /*          },
-            _ => "".to_string()
-        }*/
+        let mut res = String::new();
+        for expr in l {
+            if res.len() > 0 {
+                res.push_str(", ");
+            }
+            res.push_str(expr.to_string().as_str());
+        }
+        res
     }
 
-    pub fn to_string(&self) -> String
+    pub fn to_string(&self, prg : &Program) -> String
     {
         match self {
             Statement::Comment(str) => format!(";{}", str),
-            Statement::ADJTIME(t) => format!("ADJTIME {}", (**t).to_string()),
-            Statement::ANSIPOS(t, t1) => format!("ANSIPOS {}, {}", (**t).to_string(), (*t1).to_string()),
-            Statement::BACKUP(t) => format!("BACKUP {}", (**t).to_string()),
-            Statement::BLT(t) => format!("BLT {}", (**t).to_string()),
-            Statement::BEEP => "BEEP".to_string(),
-            Statement::BYE => "BYE".to_string(),
-            Statement::BROADCAST(t, t1, t2) => format!("BROADCAST {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::CALL(t) => format!("CALL {}", (**t).to_string()),
-            Statement::CDCHKOFF => "CDCHKOFF".to_string(),
-            Statement::CDCHKON => "CDCHKON".to_string(),
-            Statement::CHAT => "CHAT".to_string(),
-            Statement::CLOSECAP => "CLOSECAP".to_string(),
-            Statement::CLREOL => "CLREOL".to_string(),
-            Statement::CLS => "CLS".to_string(),
-            Statement::COLOR(t) => format!("COLOR {}", (**t).to_string()),
-            Statement::CONFFLAG(t, t1) => format!("CONFFLAG {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::CONFUNFLAG(t, t1) => format!("CONFUNFLAG {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::DBGLEVEL(t) => format!("DBGLEVEL {}", (**t).to_string()),
-            Statement::DEC(t) => format!("DEC {}", (**t).to_string()),
-            Statement::DEFCOLOR => "DEFCOLOR".to_string(),
-            Statement::DELAY(t) => format!("DELAY {}", (**t).to_string()),
-            Statement::DELETE(t) => format!("DELETE {}", (**t).to_string()),
-            Statement::DELUSER => "DELUSER".to_string(),
-            Statement::DIR(t) => format!("DIR {}", (**t).to_string()),
-            Statement::DISPFILE(t, t1) => format!("DISPFILE {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::DISPSTR(t) => format!("DISPSTR {}", (**t).to_string()),
-            Statement::DISPTEXT(t, t1) => format!("DISPTEXT {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::DOINTR(t) => format!("DOINTR {}, {}, {}, {}, {}, {}, {}, {}, {}, {}", (t[0]).to_string(), (t[1]).to_string(), (t[2]).to_string(), (t[3]).to_string(), (t[4]).to_string(), (t[5]).to_string(), (t[6]).to_string(), (t[7]).to_string(), (t[8]).to_string(), (t[9]).to_string()),
-            Statement::DTROFF => "DTROFF".to_string(),
-            Statement::DTRON => "DTRON".to_string(),
-            Statement::ELSE => "ELSE".to_string(),
-            Statement::ELSEIF(t) => format!("ELSEIF {}", (**t).to_string()),
-            Statement::END => "END".to_string(),
-            Statement::ENDIF => "ENDIF".to_string(),
-            Statement::ENDWHILE => "ENDWHILE".to_string(),
-            Statement::FAPPEND(t, t1, t2, t3) => format!("FAPPEND {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string()),
-            Statement::FCLOSE(t) => format!("FCLOSE {}", (**t).to_string()),
-            Statement::FCREATE(t, t1, t2, t3) => format!("FCREATE {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string()),
-            Statement::FGET(t, t1) => format!("FGET {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::FOPEN(t, t1, t2, t3) => format!("FOPEN {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string()),
-            Statement::FOR(t, t1, t2, t3) => format!("FOR {} = {} TO {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::FORWARD(t) => format!("FORWARD {}", (**t).to_string()),
-            Statement::FPUT(t, t1) => format!("FPUT {}, {}", (**t).to_string(), Statement::param_list_to_string(t1)),
-            Statement::FPUTLN(t, t1) => match t1 { Some(l) =>  format!("FPUTLN {}, {}", (**t).to_string(), Statement::param_list_to_string(l)), None =>  format!("FPUTLN {}", (**t).to_string())},
-            Statement::FPUTPAD(t, t1, t2) => format!("FPUTPAD {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::FRESHLINE => "FRESHLINE".to_string(),
-            Statement::FREWIND(t) => format!("FREWIND {}", (**t).to_string()),
-            Statement::GETTOKEN(t) => format!("GETTOKEN {}", (**t).to_string()),
-            Statement::GETUSER => "GETUSER".to_string(),
-            Statement::GOODBYE => "GOODBYE".to_string(),
-            Statement::GOSUB(t) => format!("GOSUB {}", (**t).to_string()),
-            Statement::GOTO(t) => format!("GOTO {}", (**t).to_string()),
-            Statement::HANGUP => "HANGUP".to_string(),
-            Statement::IF(t) => format!("IF ({})", (**t).to_string()),
-            Statement::INC(t) => format!("INC {}", (**t).to_string()),
-            Statement::INPUT(t, t1) => format!("INPUT {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::INPUTDATE(t, t1, t2) => format!("INPUTDATE {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::INPUTINT(t, t1, t2) => format!("INPUTINT {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::INPUTMONEY(t, t1, t2) => format!("INPUTMONEY {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::INPUTSTR(t) => format!("INPUTSTR {}, {}, {}, {}, {}, {}", (t[0]).to_string(), (t[1]).to_string(), (t[2]).to_string(), (t[3]).to_string(), (t[4]).to_string(), (t[5]).to_string()),
-            Statement::INPUTTEXT(t, t1, t2, t3) => format!("INPUTTEXT {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string()),
-            Statement::INPUTTIME(t, t1, t2) => format!("INPUTTIME {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::INPUTYN(t, t1, t2) => format!("INPUTYN {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::INPUTCC(t, t1, t2) => format!("INPUTCC {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::JOIN(t) => format!("JOIN {}", (**t).to_string()),
-            Statement::KBDCHKOFF => "KBDCHKOFF".to_string(),
-            Statement::KBDCHKON => "KBDCHKON".to_string(),
-            Statement::KBDFILE(t) => format!("KBDFILE {}", (**t).to_string()),
-            Statement::KBDSTUFF(t) => format!("KBDSTUFF {}", (**t).to_string()),
-            Statement::LET(t, t1) => format!("LET {} = {}", (**t).to_string(), (**t1).to_string()),
-            Statement::LOG(t, t1) => format!("LOG {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::MESSAGE(t) => format!("MESSAGE {}, {}, {}, {}, {}, {}, {}, {}, {}, {}", (t[0]).to_string(), (t[0]).to_string(), (t[1]).to_string(), (t[2]).to_string(), (t[3]).to_string(), (t[4]).to_string(), (t[5]).to_string(), (t[6]).to_string(), (t[7]).to_string(), (t[8]).to_string()),
-            Statement::MORE => "MORE".to_string(),
-            Statement::MPRINT(t) => format!("MPRINT {}", Statement::param_list_to_string(t)),
-            Statement::MPRINTLN(t) => match t { Some(l) => format!("MPRINTLN {}", Statement::param_list_to_string(l)), None => "MPRINTLN".to_string() },
-            Statement::NEWLINE => "NEWLINE".to_string(),
-            Statement::NEWLINES(t) => format!("NEWLINES {}", (**t).to_string()),
-            Statement::NEWPWD(t, t1) => format!("NEWPWD {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::NEXT => "NEXT".to_string(),
-            Statement::OPENCAP(t, t1) => format!("OPENCAP {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::OPTEXT(t) => format!("OPTEXT {}", (**t).to_string()),
-            Statement::PAGEOFF => "PAGEOFF".to_string(),
-            Statement::PAGEON => "PAGEON".to_string(),
-            Statement::POKEB(t, t1) => format!("POKEB {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::POKEDW(t, t1) => format!("POKEDW {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::POKEW(t, t1) => format!("POKEW {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::POP(t) => format!("POP {}", Statement::param_list_to_string(t)),
-            Statement::PRINT(t) => format!("PRINT {}", Statement::param_list_to_string(t)),
-            Statement::PRINTLN(t) => match t { Some(l) => format!("PRINTLN {}", Statement::param_list_to_string(l)), None => "PRINTLN".to_string() },
-            Statement::PROMPTSTR(t, t1, t2, t3, t4) => format!("PROMPTSTR {}, {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string(), (**t4).to_string()),
-            Statement::PUSH(t) => format!("PUSH {}", Statement::param_list_to_string(t)),
-            Statement::PUTUSER => "PUTUSER".to_string(),
-            Statement::QUEST(t) => format!("QUEST {}", (**t).to_string()),
-            Statement::RDUNET(t) => format!("RDUNET {}", (**t).to_string()),
-            Statement::RDUSYS => "RDUSYS".to_string(),
-            Statement::RENAME(t, t1) => format!("RENAME {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::RESETDISP => "RESETDISP".to_string(),
-            Statement::RESTSCRN => "RESTSCRN".to_string(),
-            Statement::RETURN => "RETURN".to_string(),
-            Statement::SAVESCRN => "SAVESCRN".to_string(),
-            Statement::SENDMODEM(t) => format!("SENDMODEM {}", (**t).to_string()),
-            Statement::SHELL(t, t1, t2, t3) => format!("SHELL {}, {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string(), (**t3).to_string()),
-            Statement::SHOWOFF => "SHOWOFF".to_string(),
-            Statement::SHOWON => "SHOWON".to_string(),
-            Statement::SOUND(t) => format!("SOUND {}", (**t).to_string()),
-            Statement::SPRINT(t) => format!("SPRINT {}", Statement::param_list_to_string(t)),
-            Statement::SPRINTLN(t) => match t { Some(l) => format!("SPRINTLN {}", Statement::param_list_to_string(l)), None => "SPRINTLN".to_string() },
-            Statement::STARTDISP(t) => format!("STARTDISP {}", (**t).to_string()),
-            Statement::STOP => "STOP".to_string(),
-            Statement::TOKENIZE(t) => format!("TOKENIZE {}", (**t).to_string()),
-            Statement::VARADDR(t, t1) => format!("VARADDR {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::VAROFF(t, t1) => format!("VAROFF {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::VARSEG(t, t1) => format!("VARSEG {}, {}", (**t).to_string(), (**t1).to_string()),
-            Statement::WAIT => "WAIT".to_string(),
-            Statement::WAITFOR(t, t1, t2) => format!("WAITFOR {}, {}, {}", (**t).to_string(), (**t1).to_string(), (**t2).to_string()),
-            Statement::WHILE(t, t1) => format!("WHILE {} {}", (**t).to_string(), (**t1).to_string()),
-            Statement::DOWHILE(t) => format!("WHILE {} DO", (**t).to_string()),
-            Statement::WRUNET(t) => format!("WRUNET {}, {}, {}, {}, {}, {}, {}", (t[0]).to_string(), (t[0]).to_string(), (t[1]).to_string(), (t[2]).to_string(), (t[3]).to_string(), (t[4]).to_string(), (t[5]).to_string()),
-            Statement::WRUSYS => "WRUSYS".to_string()
+            Statement::DoWhile(t) => format!("WHILE {} DO", (**t).to_string()),
+            Statement::Label(str) => format!(":{}", str),
+            Statement::ProcedureCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
+            Statement::Call(def, params) => {
+                let op : OpCode = unsafe { transmute(def.opcode) };
+                match op {
+                    OpCode::LET => {
+                        let var = params[0].to_string();
+                        let expected_type = prg.get_variable(&var);
+                        let mut expr = &params[1];
+                        if expected_type == VariableType::Boolean {
+                            match params[1] {
+                                Expression::Const(Constant::Integer(i)) => {
+                                    if i == 0 {
+                                        expr = &Expression::Const(Constant::FALSE);
+                                    } else {
+                                        expr = &Expression::Const(Constant::TRUE);
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }
+                        format!("LET {} = {}", var.as_str(), expr.to_string().as_str())
+                    },
+                    OpCode::IF => {
+                        format!("IF ({})", params[0].to_string().as_str())
+                    },
+                    _ => {
+                        if params.is_empty() {
+                            def.name.to_string()
+                        } else {
+                            format!("{} {}", def.name, Statement::param_list_to_string(params))
+                        }
+                    }
+                }
+            }
         }
     }
-}
-
-pub fn parse_statement5(input : &str) -> nom::IResult<&str, Statement>
-{
-    alt ((
-        map(tag_no_case("SAVESCRN"), |_| Statement::SAVESCRN),
-        map(separated_pair(tag_no_case("SENDMODEM"), multispace0, parse_expression), |z| Statement::SENDMODEM(Box::new(z.1))),
-        map(separated_pair(tag_no_case("SHELL"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::SHELL(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("SHOWOFF"), |_| Statement::SHOWOFF),
-        map(tag_no_case("SHOWON"), |_| Statement::SHOWON),
-        map(separated_pair(tag_no_case("SOUND"), multispace0, parse_expression), |z| Statement::SOUND(Box::new(z.1))),
-        map(separated_pair(tag_no_case("SPRINTLN"), multispace0, opt(parse_exprlist)), |z| Statement::SPRINTLN(z.1)),
-        map(separated_pair(tag_no_case("SPRINT"), multispace0, parse_exprlist), |z| Statement::SPRINT(z.1)),
-        map(tag_no_case("STOP"), |_| Statement::STOP),
-        map(separated_pair(tag_no_case("TOKENIZE"), multispace0, parse_expression), |z| Statement::TOKENIZE(Box::new(z.1))),
-        map(separated_pair(tag_no_case("VARADDR"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VARADDR(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("VAROFF"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VAROFF(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("VARSEG"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VARSEG(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("WAITFOR"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::WAITFOR(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("WAIT"), |_| Statement::WAIT),
-// TODO: WHILE
-        map(separated_pair(tag_no_case("WHILE"), multispace0, pair(ws(parse_expression), tag_no_case("DO"))), |z| Statement::DOWHILE(Box::new(z.1.0))),
-// TODO: WRUNET
-        map(separated_pair(tag_no_case("INPUTCC"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTCC(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("WRUSYS"), |_| Statement::STOP),
-        map(tag_no_case("BEEP"), |_| Statement::BEEP)
-    ))(input)
-}
-
-pub fn parse_statement4(input : &str) -> nom::IResult<&str, Statement>
-{
-    alt ((
-        map(tag_no_case("PAGEOFF"), |_| Statement::PAGEOFF),
-        map(tag_no_case("PAGEON"), |_| Statement::PAGEON),
-        map(separated_pair(tag_no_case("POKEB"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEB(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POKEDW"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEDW(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POKEW"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEW(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POP"), multispace0, parse_exprlist), |z| Statement::POP(z.1)),
-        map(separated_pair(tag_no_case("PRINTLN"), multispace0, opt(parse_exprlist)), |z| Statement::PRINTLN(z.1)),
-        map(separated_pair(tag_no_case("PRINT"), multispace0, parse_exprlist), |z| Statement::PRINT(z.1)),
-        map(separated_pair(tag_no_case("PROMPTSTR"), multispace0, pair(parse_expression, many_m_n(4, 4, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::PROMPTSTR(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1),Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("PUSH"), multispace0, parse_exprlist), |z| Statement::PUSH(z.1)),
-        map(tag_no_case("PUTUSER"), |_| Statement::PUTUSER),
-        map(separated_pair(tag_no_case("QUEST"), multispace0, parse_expression), |z| Statement::QUEST(Box::new(z.1))),
-        map(separated_pair(tag_no_case("RDUNET"), multispace0, parse_expression), |z| Statement::RDUNET(Box::new(z.1))),
-        map(tag_no_case("RDUSYS"), |_| Statement::RDUSYS),
-        map(separated_pair(tag_no_case("RENAME"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::RENAME(Box::new(z.1.0), Box::new(z.1.1))),
-        map(tag_no_case("RESETDISP"), |_| Statement::RESETDISP),
-        map(tag_no_case("RESTSCRN"), |_| Statement::RESTSCRN),
-        map(tag_no_case("RETURN"), |_| Statement::RETURN)
-    ))(input)
-}
-
-pub fn parse_statement3(input : &str) -> nom::IResult<&str, Statement>
-{
-    alt ((
-        map(separated_pair(tag_no_case("INPUTTEXT"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTTEXT(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        // TODO:INPUTSTR
-        //map(separated_pair(tag_no_case("INPUTSTR"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::INPUT(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("INPUTMONEY"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTMONEY(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("INPUTINT"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTINT(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("INPUTDATE"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTDATE(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("INPUT"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::INPUT(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("JOIN"), multispace0, parse_expression), |z| Statement::JOIN(Box::new(z.1))),
-        map(tag_no_case("KBDCHKOFF"), |_| Statement::KBDCHKOFF),
-        map(tag_no_case("KBDCHKON"), |_| Statement::KBDCHKON),
-        map(separated_pair(tag_no_case("KBDFILE"), multispace0, parse_expression), |z| Statement::KBDFILE(Box::new(z.1))),
-        map(separated_pair(tag_no_case("KBDSTUFF"), multispace0, parse_expression), |z| Statement::KBDSTUFF(Box::new(z.1))),
-        map(separated_pair(tag_no_case("LET"), multispace0, separated_pair(parse_expression, ws(tag("=")), parse_expression)), |z| Statement::LET(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("LOG"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::LOG(Box::new(z.1.0), Box::new(z.1.1))),
-        // TODO:MESSAGE
-        //map(separated_pair(tag_no_case("MESSAGE"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::INPUT(Box::new(z.1.0), Box::new(z.1.1))),
-        map(tag_no_case("MORE"), |_| Statement::ELSE),
-        map(separated_pair(tag_no_case("MPRINTLN"), multispace0, opt(parse_exprlist)), |z| Statement::MPRINTLN(z.1)),
-        map(separated_pair(tag_no_case("MPRINT"), multispace0, parse_exprlist), |z| Statement::MPRINT(z.1)),
-        map(separated_pair(tag_no_case("NEWLINES"), multispace0, parse_expression), |z| Statement::NEWLINES(Box::new(z.1))),
-        map(tag_no_case("NEWLINE"), |_| Statement::NEWLINE),
-        map(separated_pair(tag_no_case("NEWPWD"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::NEWPWD(Box::new(z.1.0), Box::new(z.1.1))),
-        map(tag_no_case("NEXT"), |_| Statement::NEXT),
-        map(separated_pair(tag_no_case("OPENCAP"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::OPENCAP(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("OPTEXT"), multispace0, parse_expression), |z| Statement::OPTEXT(Box::new(z.1)))/*,
-        map(tag_no_case("PAGEOFF"), |_| Statement::PAGEOFF),
-        map(tag_no_case("PAGEON"), |_| Statement::PAGEON),
-        map(separated_pair(tag_no_case("POKEB"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEB(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POKEDW"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEDW(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POKEW"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::POKEW(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("POP"), multispace0, parse_exprlist), |z| Statement::POP(z.1)),
-        map(separated_pair(tag_no_case("PRINTLN"), multispace0, opt(parse_exprlist)), |z| Statement::PRINTLN(z.1)),
-        map(separated_pair(tag_no_case("PRINT"), multispace0, parse_exprlist), |z| Statement::PRINT(z.1)),
-        map(separated_pair(tag_no_case("PROMPTSTR"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::PROMPTSTR(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("PUSH"), multispace0, parse_exprlist), |z| Statement::PUSH(z.1)),
-        map(tag_no_case("PUTUSER"), |_| Statement::PUTUSER),
-        map(separated_pair(tag_no_case("QUEST"), multispace0, parse_expression), |z| Statement::QUEST(Box::new(z.1))),
-        map(separated_pair(tag_no_case("RDUNET"), multispace0, parse_expression), |z| Statement::RDUNET(Box::new(z.1))),
-        map(tag_no_case("RDUSYS"), |_| Statement::RDUSYS),
-        map(separated_pair(tag_no_case("RENAME"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::RENAME(Box::new(z.1.0), Box::new(z.1.1))),
-        map(tag_no_case("RESETDISP"), |_| Statement::RESETDISP),
-        map(tag_no_case("RESTSCRN"), |_| Statement::RESTSCRN),
-        map(tag_no_case("RETURN"), |_| Statement::RETURN),
-        map(tag_no_case("SAVESCRN"), |_| Statement::SAVESCRN),
-        map(separated_pair(tag_no_case("SENDMODEM"), multispace0, parse_expression), |z| Statement::SENDMODEM(Box::new(z.1))),
-        map(separated_pair(tag_no_case("SHELL"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::SHELL(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("SHOWOFF"), |_| Statement::SHOWOFF),
-        map(tag_no_case("SHOWON"), |_| Statement::SHOWON),
-        map(separated_pair(tag_no_case("SOUND"), multispace0, parse_expression), |z| Statement::SOUND(Box::new(z.1))),
-        map(separated_pair(tag_no_case("SPRINTLN"), multispace0, opt(parse_exprlist)), |z| Statement::SPRINTLN(z.1)),
-        map(separated_pair(tag_no_case("SPRINT"), multispace0, parse_exprlist), |z| Statement::SPRINT(z.1)),
-        map(tag_no_case("STOP"), |_| Statement::STOP),
-        map(separated_pair(tag_no_case("TOKENIZE"), multispace0, parse_expression), |z| Statement::TOKENIZE(Box::new(z.1))),
-        map(separated_pair(tag_no_case("VARADDR"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VARADDR(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("VAROFF"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VAROFF(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("VARSEG"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::VARSEG(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("WAITFOR"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::WAITFOR(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("WAIT"), |_| Statement::WAIT),
-// TODO: WHILE
-        map(separated_pair(tag_no_case("WHILE"), multispace0, pair(ws(parse_expression), tag_no_case("DO"))), |z| Statement::DOWHILE(Box::new(z.1.0))),
-// TODO: WRUNET
-        map(tag_no_case("WRUSYS"), |_| Statement::STOP)*/
-    ))(input)
-}
-
-pub fn parse_statement2(input : &str) -> nom::IResult<&str, Statement>
-{
-    alt ((
-        map(separated_pair(tag_no_case("FAPPEND"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::FAPPEND(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("FCLOSE"), multispace0, parse_expression), |z| Statement::FCLOSE(Box::new(z.1))),
-        map(separated_pair(tag_no_case("FCREATE"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::FCREATE(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("FGET"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::FGET(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("FOPEN"), multispace0, pair(parse_expression, many_m_n(3, 3, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::FOPEN(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        // TODO: FOR
-        map(separated_pair(tag_no_case("FORWARD"), multispace0, parse_expression), |z| Statement::FORWARD(Box::new(z.1))),
-        map(separated_pair(tag_no_case("FPUTLN"), multispace0, parse_exprlist), |mut z| Statement::FPUTLN(Box::new(z.1.remove(0)), Some(z.1))),
-        map(separated_pair(tag_no_case("FPUT"), multispace0, parse_exprlist), |mut z| Statement::FPUT(Box::new(z.1.remove(0)), z.1)),
-        map(separated_pair(tag_no_case("FPUTPAD"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::FPUTPAD(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("FRESHLINE"), |_| Statement::FRESHLINE),
-        map(separated_pair(tag_no_case("FREWIND"), multispace0, parse_expression), |z| Statement::FREWIND(Box::new(z.1))),
-        map(separated_pair(tag_no_case("GETTOKEN"), multispace0, parse_expression), |z| Statement::GETTOKEN(Box::new(z.1))),
-        map(tag_no_case("GETUSER"), |_| Statement::GETUSER),
-        map(tag_no_case("GOODBYE"), |_| Statement::GOODBYE),
-        map(separated_pair(tag_no_case("GOSUB"), multispace0, parse_expression), |z| Statement::GOSUB(Box::new(z.1))),
-        map(separated_pair(tag_no_case("GOTO"), multispace0, parse_expression), |z| Statement::GOTO(Box::new(z.1))),
-        map(tag_no_case("HANGUP"), |_| Statement::HANGUP),
-        map(separated_pair(tag_no_case("IF"), multispace0, pair(ws(parse_expression), tag_no_case("THEN"))), |z| Statement::IF(Box::new(z.1.0))),
-        map(separated_pair(tag_no_case("INC"), multispace0, parse_expression), |z| Statement::INC(Box::new(z.1))),
-        map(separated_pair(tag_no_case("INPUTYN"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTYN(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(separated_pair(tag_no_case("INPUTTIME"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::INPUTTIME(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-    ))(input)
-}
-
-pub fn parse_statement1(input : &str) -> nom::IResult<&str, Statement>
-{
-    alt ((
-        map(separated_pair(tag_no_case("DBGLEVEL"), multispace0, parse_expression), |z| Statement::DBGLEVEL(Box::new(z.1))),
-        map(separated_pair(tag_no_case("DEC"), multispace0, parse_expression), |z| Statement::DEC(Box::new(z.1))),
-        map(tag_no_case("DEFCOLOR"), |_| Statement::DEFCOLOR),
-        map(separated_pair(tag_no_case("DELAY"), multispace0, parse_expression), |z| Statement::DELAY(Box::new(z.1))),
-        map(separated_pair(tag_no_case("DELETE"), multispace0, parse_expression), |z| Statement::DELETE(Box::new(z.1))),
-        map(tag_no_case("DELUSER"), |_| Statement::DELUSER),
-        map(separated_pair(tag_no_case("DIR"), multispace0, parse_expression), |z| Statement::DIR(Box::new(z.1))),
-        map(separated_pair(tag_no_case("DISPFILE"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::DISPFILE(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("DISPSTR"), multispace0, parse_expression), |z| Statement::DISPSTR(Box::new(z.1))),
-        map(separated_pair(tag_no_case("DISPTEXT"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::DISPTEXT(Box::new(z.1.0), Box::new(z.1.1))),
-
-// TODO:DOINTR
-// map(separated_pair(tag_no_case("DOINTR"), multispace0, pair(parse_expression, many_m_n(9, 9, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::DOINTR(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("DTROFF"), |_| Statement::DTROFF),
-        map(tag_no_case("DTRON"), |_| Statement::DTRON),
-        map(tag_no_case("ELSE"), |_| Statement::ELSE),
-        map(separated_pair(tag_no_case("ELSEIF"), multispace0, parse_expression), |z| Statement::ELSEIF(Box::new(z.1))),
-        map(tag_no_case("ENDWHILE"), |_| Statement::ENDWHILE),
-        map(tag_no_case("ENDIF"), |_| Statement::ENDIF),
-        map(tag_no_case("END"), |_| Statement::END)
-    ))(input)
 }
 
 pub fn parse_statement(input : &str) -> nom::IResult<&str, Statement>
 {
     alt ((
-        map(separated_pair(tag_no_case("ADJTIME"), multispace0, parse_expression), |z| Statement::ADJTIME(Box::new(z.1))),
-        map(separated_pair(tag_no_case("ANSIPOS"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::ANSIPOS(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("BACKUP"), multispace0, parse_expression), |z| Statement::BACKUP(Box::new(z.1))),
-        map(separated_pair(tag_no_case("BLT"), multispace0, parse_expression), |z| Statement::BLT(Box::new(z.1))),
-        map(separated_pair(tag_no_case("BROADCAST"), multispace0, pair(parse_expression, many_m_n(2, 2, pair(ws(tag(",")), parse_expression)))), |mut z| Statement::BROADCAST(Box::new(z.1.0), Box::new(z.1.1.remove(0).1), Box::new(z.1.1.remove(0).1))),
-        map(tag_no_case("BYE"), |_| Statement::BYE),
-        map(separated_pair(tag_no_case("CALL"), multispace0, parse_expression), |z| Statement::CALL(Box::new(z.1))),
-        map(tag_no_case("CDCHKOFF"), |_| Statement::CDCHKOFF),
-        map(tag_no_case("CDCHKON"), |_| Statement::CDCHKON),
-        map(tag_no_case("CHAT"), |_| Statement::CHAT),
-        map(tag_no_case("CLOSECAP"), |_| Statement::CLOSECAP),
-        map(tag_no_case("CLREOL"), |_| Statement::CLREOL),
-        map(tag_no_case("CLS"), |_| Statement::CLS),
-        map(separated_pair(tag_no_case("COLOR"), multispace0, parse_expression), |z| Statement::COLOR(Box::new(z.1))),
-        map(separated_pair(tag_no_case("CONFFLAG"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::CONFFLAG(Box::new(z.1.0), Box::new(z.1.1))),
-        map(separated_pair(tag_no_case("CONFUNFLAG"), multispace0, separated_pair(parse_expression, ws(tag(",")), parse_expression)), |z| Statement::CONFUNFLAG(Box::new(z.1.0), Box::new(z.1.1))),
-        parse_statement1,
-        parse_statement2,
-        parse_statement3,
-        parse_statement4,
-        parse_statement5,
+        map_res(separated_pair(alpha1, multispace0, parse_exprlist), |z| {
+
+            for def in &StatementDefinitions {
+                if def.name == z.0 {
+                    if (z.1.len() as i8) < def.min_args {
+                        return Err(format!("{} has too few arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
+                    }
+                    if (z.1.len() as i8) > def.max_args {
+                        return Err(format!("{} has too many arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
+                    }
+
+                    return Ok(Statement::Call(def, z.1));
+                }
+            }
+            Err(format!("unknown statement {}", z.0))
+        }),
     ))(input)
 }
 
@@ -1032,7 +659,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_statement() {
+    fn test_parse_statement() {/*
         assert_eq!(Ok(("", Statement::ADJTIME(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("ADJTIME 1"));
         assert_eq!(Ok(("", Statement::ANSIPOS(Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(2)))))), parse_statement("ANSIPOS 1, 2"));
         assert_eq!(Ok(("", Statement::BACKUP(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("BACKUP 1"));
@@ -1062,7 +689,7 @@ mod tests {
             vec![
                 Expression::Const(Constant::String("Hello World".to_string())),
             ]
-        )))), parse_statement("PRINTLN \"Hello World\""));
+        )))), parse_statement("PRINTLN \"Hello World\""));*/
     }
 
     #[test]

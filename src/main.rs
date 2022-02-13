@@ -17,13 +17,12 @@ mod interpreter;
 // comment: Declaration::, pair(char(';'), is_not("\n\r")))(line)
 
 fn main() {
- /*   let mut data_path =env::current_dir().unwrap();
+    let mut data_path =env::current_dir().unwrap();
     data_path.push("test_data");
 
-    data_path.push("for_next.ppe");
+    data_path.push("99bottles.ppe");
     let d = crate::decompiler::Decompiler::read(data_path.to_str().unwrap());
-*/
-    let d = crate::decompiler::Decompiler::read("/home/mkrueger/work/PCBoard/C/FD.PPE");
+
     println!("debug:");
     print!("{}", d.to_string());
     println!();

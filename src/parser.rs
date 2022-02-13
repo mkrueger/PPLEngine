@@ -1,7 +1,7 @@
 use std::intrinsics::transmute;
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{ map, map_res, opt, recognize, value}, error::{ ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
-use nom::bytes::complete::{ take_while_m_n};
-use nom::character::complete::{ multispace1};
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
+use nom::bytes::complete::{take_while_m_n};
+use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
 use std::str::FromStr;
 use std::string::String;
@@ -17,11 +17,11 @@ pub enum Declaration {
     Variable2(VariableType, String, i32, i32),
     Variable3(VariableType, String, i32, i32, i32),
     Function(String, Vec<Declaration>, VariableType),
-    Procedure(String, Vec<Declaration>)
+    Procedure(String, Vec<Declaration>),
 }
 
 impl Declaration {
-    fn declr_vec_to_string(list : &Vec<Declaration>) -> String
+    fn declr_vec_to_string(list: &Vec<Declaration>) -> String
     {
         let mut res = String::new();
         for decl in list {
@@ -50,7 +50,7 @@ impl Declaration {
         match self {
             Declaration::Procedure(name, parameters) => format!("PROCEDURE {}({})", name, Declaration::declr_vec_to_string(parameters)),
             Declaration::Function(name, parameters, return_type) => format!("FUNCTION {}({}) {}", name, Declaration::declr_vec_to_string(parameters), return_type.to_string()),
-            _ => { "ERR".to_string()}
+            _ => { "ERR".to_string() }
         }
     }
 }
@@ -59,7 +59,7 @@ pub fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(
         pair(
             alt((alpha1, tag("_"))),
-            many0(alt((alphanumeric1, tag("_"))))
+            many0(alt((alphanumeric1, tag("_")))),
         )
     )(input)
 }
@@ -82,21 +82,21 @@ fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(inner: F) -> impl FnMut(&'a str) -> 
     delimited(
         multispace0,
         inner,
-        multispace0
+        multispace0,
     )
 }
 
-fn parse_variable<'a>(input : &'a str) -> nom::IResult<&'a str, Declaration>
+fn parse_variable<'a>(input: &'a str) -> nom::IResult<&'a str, Declaration>
 {
     map(
         pair(ws(parse_vartype), ws(identifier)),
-        |name : (VariableType, &'a str)| {
+        |name: (VariableType, &'a str)| {
             Declaration::Variable(name.0, String::from(name.1))
-        }
+        },
     )(input)
 }
 
-fn parse_functiondeclaration<'a>(line : &'a str) -> nom::IResult<&'a str, Declaration>
+fn parse_functiondeclaration<'a>(line: &'a str) -> nom::IResult<&'a str, Declaration>
 {
     let parse = tuple((
         separated_pair(tag_no_case("DECLARE"), space1, tag_no_case("FUNCTION")),
@@ -111,12 +111,12 @@ fn parse_functiondeclaration<'a>(line : &'a str) -> nom::IResult<&'a str, Declar
     )(line);
 
     match parse {
-        Ok(z) =>  nom::IResult::Ok((z.0, Declaration::Function(String::from(z.1.2), z.1.4, z.1.6))),
+        Ok(z) => nom::IResult::Ok((z.0, Declaration::Function(String::from(z.1.2), z.1.4, z.1.6))),
         Err(e) => Err(e)
     }
 }
 
-fn parse_proceduredeclaration<'a>(line : &'a str) -> nom::IResult<&'a str, Declaration>
+fn parse_proceduredeclaration<'a>(line: &'a str) -> nom::IResult<&'a str, Declaration>
 {
     let parse = tuple((
         separated_pair(tag_no_case("DECLARE"), space1, tag_no_case("PROCEDURE")),
@@ -130,12 +130,12 @@ fn parse_proceduredeclaration<'a>(line : &'a str) -> nom::IResult<&'a str, Decla
     )(line);
 
     match parse {
-        Ok(z) =>  nom::IResult::Ok((z.0, Declaration::Procedure(String::from(z.1.2), z.1.4))),
+        Ok(z) => nom::IResult::Ok((z.0, Declaration::Procedure(String::from(z.1.2), z.1.4))),
         Err(e) => Err(e)
     }
 }
 
-fn parse_declaration<'a>(input : &'a str) -> nom::IResult<&'a str, Declaration>
+fn parse_declaration<'a>(input: &'a str) -> nom::IResult<&'a str, Declaration>
 {
     alt((parse_variable, parse_functiondeclaration, parse_proceduredeclaration))(input)
 }
@@ -208,8 +208,9 @@ pub enum Constant
     CRED_UPFILE,
     CRED_UPBYTES,
     CRED_SPECIAL,
-    SEC_DROP
+    SEC_DROP,
 }
+
 impl Constant
 {
     pub fn to_string(&self) -> String
@@ -272,7 +273,7 @@ impl Constant
             Constant::DEB_MSGWRITE => String::from("?"),
             Constant::DEB_MSGECHOED => String::from("?"),
             Constant::DEB_MSGPRIVATE => String::from("?"),
-            Constant:: DEB_DOWNFILE => String::from("?"),
+            Constant::DEB_DOWNFILE => String::from("?"),
             Constant::DEB_DOWNBYTES => String::from("?"),
             Constant::DEB_CHAT => String::from("?"),
             Constant::DEB_TPU => String::from("?"),
@@ -285,8 +286,8 @@ impl Constant
     }
 }
 
-fn predefined_constants1<'a>(input : &'a str) -> nom::IResult<&'a str, Constant> {
-    alt ((
+fn predefined_constants1<'a>(input: &'a str) -> nom::IResult<&'a str, Constant> {
+    alt((
         map(tag_no_case("LOGITLEFT"), |_| Constant::LOGITLEFT),
         map(tag_no_case("NC"), |_| Constant::NC),
         map(tag_no_case("NEWLINE"), |_| Constant::NEWLINE),
@@ -308,7 +309,8 @@ fn predefined_constants1<'a>(input : &'a str) -> nom::IResult<&'a str, Constant>
         map(tag_no_case("WORDWRAP"), |_| Constant::WORDWRAP),
         map(tag_no_case("YESNO"), |_| Constant::YESNO)))(input)
 }
-fn predefined_constants2<'a>(input : &'a str) -> nom::IResult<&'a str, Constant> {
+
+fn predefined_constants2<'a>(input: &'a str) -> nom::IResult<&'a str, Constant> {
     alt((
         map(tag_no_case("AUTO"), |_| Constant::AUTO),
         map(tag_no_case("BELL"), |_| Constant::BELL),
@@ -333,45 +335,46 @@ fn predefined_constants2<'a>(input : &'a str) -> nom::IResult<&'a str, Constant>
         map(tag_no_case("LOGIT"), |_| Constant::LOGIT)
     ))(input)
 }
-fn parse_constant<'a>(line : &'a str) -> nom::IResult<&'a str, Constant> {
-    alt ((
+
+fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
+    alt((
         predefined_constants1,
         predefined_constants2,
         money,
-        map (
+        map(
             terminated(
                 take_while(|z| '0' <= z && z <= '9'),
-                tag_no_case("D")
+                tag_no_case("D"),
             ),
-            |z : &str| Constant::Integer(i32::from_str_radix( z, 10).unwrap())
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 10).unwrap()),
         ),
-        map (
+        map(
             terminated(
                 take_while(|z| '0' <= z && z <= '1'),
-                tag_no_case("B")
+                tag_no_case("B"),
             ),
-            |z : &str| Constant::Integer(i32::from_str_radix( z, 2).unwrap())
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 2).unwrap()),
         ),
-        map (
+        map(
             terminated(
                 take_while(|z| '0' <= z && z <= '8'),
-                tag_no_case("O")
+                tag_no_case("O"),
             ),
-            |z : &str| Constant::Integer(i32::from_str_radix( z, 8).unwrap())
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 8).unwrap()),
         ),
-        map (
+        map(
             terminated(
                 take_while(|z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f'),
-                tag_no_case("H")
+                tag_no_case("H"),
             ),
-            |z : &str| Constant::Integer(i32::from_str_radix( z, 16).unwrap())
-        ),        map (
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 16).unwrap()),
+        ), map(
             preceded(
                 tag_no_case("@X"),
                 take_while_m_n(2, 2, |z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f')),
-            |z : &str| Constant::Integer(i32::from_str_radix( z, 16).unwrap())
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 16).unwrap()),
         ),
-         // string \"(.)*\"
+        // string \"(.)*\"
         map(delimited(
             tag("\""),
             take_while(|z| z != '"'),
@@ -383,25 +386,25 @@ fn parse_constant<'a>(line : &'a str) -> nom::IResult<&'a str, Constant> {
             alphanumeric1)
         ), |s| {
             match i32::from_str(s) {
-                nom::lib::std::result::Result::Ok(i) => { nom::lib::std::result::Result::Ok(Constant::Integer(i)) },
-                _ => { nom::lib::std::result::Result::Err("Error parsing number.")}
+                nom::lib::std::result::Result::Ok(i) => { nom::lib::std::result::Result::Ok(Constant::Integer(i)) }
+                _ => { nom::lib::std::result::Result::Err("Error parsing number.") }
             }
         })
     ))(line)
 }
 
 pub fn money<'a>(input: &'a str) -> IResult<&'a str, Constant> {
-     map_res(pair(
+    map_res(pair(
         tag("$"),
-        take_while(|c| c == '.' || '0' <= c && c <= '9')
+        take_while(|c| c == '.' || '0' <= c && c <= '9'),
     ),
-    |z| {
-        let value = f64::from_str(z.1);
-        match value {
-            Ok(f) => Ok(Constant::Money(f)),
-            Err(e) => Err(e)
-        }
-    })(input)
+            |z| {
+                let value = f64::from_str(z.1);
+                match value {
+                    Ok(f) => Ok(Constant::Money(f)),
+                    Err(e) => Err(e)
+                }
+            })(input)
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -419,7 +422,7 @@ pub enum BinOp {
     Greater,
     GreaterEq,
     And,
-    Or
+    Or,
 }
 
 impl BinOp
@@ -454,7 +457,7 @@ pub enum Expression
     FunctionCall(String, Vec<Expression>),
     Not(Box<Expression>),
     Minus(Box<Expression>),
-    BinaryExpression(BinOp, Box<Expression>, Box<Expression>)
+    BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
 }
 
 impl Expression
@@ -485,28 +488,28 @@ fn parse_parenexpr<'a>(input: &'a str) -> nom::IResult<&'a str, Expression>
 fn parse_exprlist<'a>(input: &'a str) -> nom::IResult<&'a str, Vec<Expression>>
 {
     map(
-    pair(opt(parse_expression),
-         many0(preceded(ws(tag(",")), parse_expression))),
-    | (head, mut tail) | {
-        match head  {
-            Some(t) => tail.insert(0, t),
-            _ => {}
-        }
-        tail
-    }
+        pair(opt(parse_expression),
+             many0(preceded(ws(tag(",")), parse_expression))),
+        |(head, mut tail)| {
+            match head {
+                Some(t) => tail.insert(0, t),
+                _ => {}
+            }
+            tail
+        },
     )(input)
 }
 
 fn parse_parameterlist<'a>(input: &'a str) -> nom::IResult<&'a str, Vec<Expression>>
 {
-   delimited(
+    delimited(
         tag("("),
         ws(parse_exprlist),
-        tag(")")
+        tag(")"),
     )(input)
 }
 
-fn parse_binop(line : &str) -> nom::IResult<&str, BinOp>
+fn parse_binop(line: &str) -> nom::IResult<&str, BinOp>
 {
     alt((
         map(ws(tag("^")), |_| BinOp::PoW),
@@ -526,7 +529,8 @@ fn parse_binop(line : &str) -> nom::IResult<&str, BinOp>
     )
     )(line)
 }
-fn fold_binop<'a>(left : Expression, remainder: Vec<(BinOp, Box<Expression>)>) -> Expression
+
+fn fold_binop<'a>(left: Expression, remainder: Vec<(BinOp, Box<Expression>)>) -> Expression
 {
     if remainder.len() == 0 {
         return left;
@@ -537,33 +541,33 @@ fn fold_binop<'a>(left : Expression, remainder: Vec<(BinOp, Box<Expression>)>) -
             BinOp::PoW => Expression::BinaryExpression(BinOp::PoW, Box::new(acc), pair.1),
             BinOp::Mul | BinOp::Div | BinOp::Mod => Expression::BinaryExpression(pair.0, Box::new(acc), pair.1),
             BinOp::Add | BinOp::Sub => Expression::BinaryExpression(pair.0, Box::new(acc), pair.1),
-            BinOp::Eq | BinOp::NotEq | BinOp::Lower | BinOp::LowerEq| BinOp::Greater | BinOp::GreaterEq => Expression::BinaryExpression(pair.0, Box::new(acc), pair.1),
+            BinOp::Eq | BinOp::NotEq | BinOp::Lower | BinOp::LowerEq | BinOp::Greater | BinOp::GreaterEq => Expression::BinaryExpression(pair.0, Box::new(acc), pair.1),
             BinOp::And | BinOp::Or => Expression::BinaryExpression(pair.0, Box::new(acc), pair.1)
         }
     })
 }
 
-fn parse_expression<'a>(line : &'a str) -> nom::IResult<&'a str, Expression> {
-    let unary = alt ((
+fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
+    let unary = alt((
         parse_parenexpr,
         // function call
         map(separated_pair(identifier, multispace0, parse_parameterlist),
             |z| Expression::FunctionCall(z.0.to_string(), z.1)),
         // !expr
-        map(separated_pair(tag("!"),  multispace0, parse_expression),
+        map(separated_pair(tag("!"), multispace0, parse_expression),
             |z| Expression::Not(Box::new(z.1))),
-        map(separated_pair(tag("-"),  multispace0, parse_expression),
+        map(separated_pair(tag("-"), multispace0, parse_expression),
             |z| Expression::Minus(Box::new(z.1))),
         map(parse_constant, |z| Expression::Const(z)),
-        map(alphanumeric1, |z : &str| Expression::Identifier(z.to_string()))
+        map(alphanumeric1, |z: &str| Expression::Identifier(z.to_string()))
     ));
 
     map(pair(
         unary,
-        many0(pair(parse_binop, map(parse_expression, |z| Box::new(z))))
+        many0(pair(parse_binop, map(parse_expression, |z| Box::new(z)))),
     ),
-    |z| fold_binop(z.0, z.1)
-     )(line)
+        |z| fold_binop(z.0, z.1),
+    )(line)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -577,12 +581,12 @@ pub enum Statement {
     Next,
     Label(String),
     ProcedureCall(String, Vec<Expression>),
-    Call(&'static StatementDefinition<'static>, Vec<Expression>)
+    Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 
 impl Statement
 {
-    pub fn param_list_to_string(l : &Vec<Expression>) -> String
+    pub fn param_list_to_string(l: &Vec<Expression>) -> String
     {
         let mut res = String::new();
         for expr in l {
@@ -593,7 +597,7 @@ impl Statement
         }
         res
     }
-    fn try_boolean_conversion(expr : &Expression) -> &Expression
+    fn try_boolean_conversion(expr: &Expression) -> &Expression
     {
         match expr {
             Expression::Const(Constant::Integer(i)) => {
@@ -602,7 +606,7 @@ impl Statement
                 } else {
                     &Expression::Const(Constant::TRUE)
                 }
-            },
+            }
             Expression::Not(notexpr) => {
                 match Statement::try_boolean_conversion(notexpr) {
                     Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
@@ -614,7 +618,7 @@ impl Statement
             _ => { expr }
         }
     }
-    pub fn to_string(&self, prg : &Program) -> String
+    pub fn to_string(&self, prg: &Program) -> String
     {
         match self {
             Statement::Comment(str) => format!(";{}", str),
@@ -622,7 +626,7 @@ impl Statement
             Statement::If(cond, stmt) => format!("IF ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg)),
             Statement::DoWhile(t) => {
                 format!("WHILE ({}) DO", Statement::try_boolean_conversion(&Expression::Not(t.clone())).to_string())
-            },
+            }
             Statement::EndWhile => "ENDWHILE".to_string(),
             Statement::For(var_name, from, to, step) => {
                 let step = step.to_string();
@@ -636,7 +640,7 @@ impl Statement
             Statement::Label(str) => format!(":{}", str),
             Statement::ProcedureCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
             Statement::Call(def, params) => {
-                let op : OpCode = unsafe { transmute(def.opcode) };
+                let op: OpCode = unsafe { transmute(def.opcode) };
                 match op {
                     OpCode::LET => {
                         let var = params[0].to_string();
@@ -646,10 +650,10 @@ impl Statement
                             expr = Statement::try_boolean_conversion(expr);
                         }
                         format!("LET {} = {}", var.as_str(), expr.to_string().as_str())
-                    },
+                    }
                     OpCode::IF => {
                         format!("IF ({})", params[0].to_string().as_str())
-                    },
+                    }
                     _ => {
                         if params.is_empty() {
                             def.name.to_string()
@@ -663,7 +667,7 @@ impl Statement
     }
 }
 
-fn get_statement_definition(name : &str) -> Option<&'static StatementDefinition>
+fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
 {
     for def in &STATEMENT_DEFINITIONS {
         if def.name == name {
@@ -672,9 +676,10 @@ fn get_statement_definition(name : &str) -> Option<&'static StatementDefinition>
     }
     None
 }
-pub fn parse_statement(input : &str) -> nom::IResult<&str, Statement>
+
+pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
 {
-    alt ((
+    alt((
         map_res(separated_pair(alpha1, multispace0, parse_exprlist), |z| {
             for def in &STATEMENT_DEFINITIONS {
                 if def.name == z.0 {
@@ -714,20 +719,20 @@ mod tests {
         assert_eq!(Ok(("", Expression::Not(Box::new(Expression::Const(Constant::FALSE))))), parse_expression("!FALSE"));
         assert_eq!(Ok(("", Expression::FunctionCall("ABORT".to_string(), Vec::new()))), parse_expression("ABORT()"));
         assert_eq!(Ok(("", Expression::FunctionCall("ABS".to_string(), vec!(Expression::Const(Constant::Integer(5)))))), parse_expression("ABS(5)"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::PoW,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2^5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Mul,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2*5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Div,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2/5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Mod,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2%5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Add,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2+5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Sub,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2-5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Eq,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 = 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::NotEq,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 <> 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Lower,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 < 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::LowerEq,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 <= 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Greater,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 > 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::GreaterEq,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 >= 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::And,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 & 5"));
-        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Or,Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 | 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::PoW, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2^5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Mul, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2*5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Div, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2/5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Mod, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2%5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Add, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2+5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Sub, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2-5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Eq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 = 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::NotEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 <> 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Lower, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 < 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::LowerEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 <= 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Greater, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 > 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::GreaterEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 >= 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::And, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 & 5"));
+        assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::Or, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2 | 5"));
     }
 
     #[test]

@@ -6,21 +6,22 @@ pub struct Block
 {
     pub statements: Vec<Statement>,
 }
+
 impl Block
 {
     pub fn new() -> Self
     {
         Block {
-            statements : vec![]
+            statements: vec![]
         }
     }
 
-    pub fn mark_label(&mut self, label : String)
+    pub fn mark_label(&mut self, label: String)
     {
         self.statements.push(Statement::Label(label));
     }
 
-    pub fn to_string(&self, prg : &Program) -> std::string::String
+    pub fn to_string(&self, prg: &Program) -> std::string::String
     {
         let mut result = std::string::String::new();
         for s in &self.statements {
@@ -30,11 +31,12 @@ impl Block
         result
     }
 }
+
 pub struct FunctionDeclaration
 {
-    pub id : i32,
+    pub id: i32,
     pub declaration: parser::Declaration,
-    pub block: Block
+    pub block: Block,
 }
 
 use std::fmt;
@@ -49,7 +51,7 @@ impl fmt::Display for FunctionDeclaration {
 }
 
 impl FunctionDeclaration {
-    pub fn print_content(&self, prg : &Program) -> String
+    pub fn print_content(&self, prg: &Program) -> String
     {
         let mut res = self.declaration.print_header();
         res.push('\n');
@@ -62,11 +64,11 @@ impl FunctionDeclaration {
                             Declaration::Procedure(_name, _param) => {
                                 res.push_str("ENDPROC");
                                 continue;
-                            },
+                            }
                             Declaration::Function(_name, _param, _t) => {
                                 res.push_str("ENDFUNC");
                                 continue;
-                            },
+                            }
                             _ => {}
                         }
                     }
@@ -74,7 +76,7 @@ impl FunctionDeclaration {
                         res.push_str("ENDPROC");
                         continue;
                     }
-                },
+                }
                 _ => {}
             }
             res.push_str(stmt.to_string(prg).as_str());
@@ -87,7 +89,7 @@ impl FunctionDeclaration {
 
 pub trait ProgramContext
 {
-    fn print(&mut self, str : String);
+    fn print(&mut self, str: String);
 }
 
 pub struct Program
@@ -95,18 +97,18 @@ pub struct Program
     pub variable_declarations: Vec<parser::Declaration>,
     pub main_block: Block,
     pub function_declarations: Vec<FunctionDeclaration>,
-    pub procedure_declarations: Vec<FunctionDeclaration>
+    pub procedure_declarations: Vec<FunctionDeclaration>,
 }
 
 
 struct TestContext
 {
-    output : String
+    output: String,
 }
 
 impl ProgramContext for TestContext
 {
-    fn print(&mut self, str : String)
+    fn print(&mut self, str: String)
     {
         self.output.push_str(str.as_str());
     }
@@ -122,21 +124,21 @@ impl Program
                 statements: vec![]
             },
             function_declarations: vec![],
-            procedure_declarations: vec![]
+            procedure_declarations: vec![],
         }
     }
 
-    fn execute_statement(&self, ctx : &mut dyn ProgramContext, stmt : &Statement)
+    fn execute_statement(&self, ctx: &mut dyn ProgramContext, stmt: &Statement)
     {
         match stmt {
             Statement::Call(def, params) => {
-                let op : OpCode = unsafe { transmute(def.opcode) };
-                match op  {
-                    OpCode::PRINT=> {
+                let op: OpCode = unsafe { transmute(def.opcode) };
+                match op {
+                    OpCode::PRINT => {
                         for expr in params {
                             ctx.print(expr.to_string());
                         }
-                    },
+                    }
                     OpCode::PRINTLN => {
                         for expr in params {
                             ctx.print(expr.to_string());
@@ -145,19 +147,19 @@ impl Program
                     }
                     _ => {}
                 }
-            },
+            }
             _ => {}
         }
     }
 
-    pub fn run(&self, ctx : &mut dyn ProgramContext)
+    pub fn run(&self, ctx: &mut dyn ProgramContext)
     {
         for stmt in &self.main_block.statements {
             self.execute_statement(ctx, stmt);
         }
     }
 
-    pub fn get_variable(&self, var_name : &String) -> VariableType
+    pub fn get_variable(&self, var_name: &String) -> VariableType
     {
         for decl in &self.variable_declarations {
             match decl {
@@ -212,7 +214,7 @@ impl Program
     }
 }
 
-fn parse_program(input : &str) -> Program
+fn parse_program(input: &str) -> Program
 {
     let stmt = parse_statement(input).unwrap();
 
@@ -222,9 +224,10 @@ fn parse_program(input : &str) -> Program
             statements: vec![stmt.1]
         },
         function_declarations: vec![],
-        procedure_declarations: vec![]
+        procedure_declarations: vec![],
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

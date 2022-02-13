@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::str::*;
+use std::intrinsics::transmute;
 use crate::executable::*;
 use crate::interpreter::{Block, FunctionDeclaration, Program};
 use crate::parser::{BinOp, Constant, Declaration, Expression, Statement};
@@ -32,7 +32,7 @@ pub struct Decompiler
     label_used : HashMap<i32, i32>,
     func_used : HashMap<i32, FuncL>,
     label_stack : Vec<i32>,
-    string_stack : Vec<Expression>
+    expr_stack: Vec<Expression>
 }
 
 impl Decompiler {
@@ -59,7 +59,7 @@ impl Decompiler {
             label_used: HashMap::new(),
             func_used: HashMap::new(),
             label_stack: Vec::new(),
-            string_stack: Vec::new()
+            expr_stack: Vec::new()
         }
     }
 
@@ -77,6 +77,7 @@ impl Decompiler {
         d.dump_vars(&mut prg);
        // println!("Pass 2 ...");
         d.do_pass2(&mut prg);
+       Decompiler::do_pass3(&mut prg);
        // println!();
        // println!("Source decompilation complete...");
 
@@ -140,13 +141,13 @@ impl Decompiler {
 
                 self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
                 if self.cur_stmt > LAST_STMT || (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len() && STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa {
-                    panic!("Error: Unknown statement {}.", self.cur_stmt);
+                    panic!("Error: Unknown statement {} at {}.", self.cur_stmt, self.src_ptr);
                 }
-                if self.cur_stmt < 0 {
-                    panic!("act_stat < 0 : {}", self.cur_stmt);
+                if self.cur_stmt < 0 || self.cur_stmt > LAST_STMT {
+                    panic!("opCode needs to be 0..226 at {} was {}", self.src_ptr, self.cur_stmt);
                 }
                 let mut trap = false;
-
+                println!("{}:{} signature{:X}", self.src_ptr, self.cur_stmt, STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize]);
 
                 match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
                     0xf6 => {
@@ -158,18 +159,18 @@ impl Decompiler {
 
                         self.funcin(act_dec_start, self.akt_proc);
                          self.pushlabel(act_dec_start);
-                        trap = self.getexpr(act_dec_args, 0) != 0;
+                        trap = self.parse_expr(act_dec_args, 0) != 0;
                     },
                     0xf7 => {
-                        if self.getexpr(0x01, 0) != 0 {
+                        if self.parse_expr(0x01, 0) != 0 {
                             trap = true;
                         } else {
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
-                            trap = self.getexpr(0x01, 0) != 0;
+                            trap = self.parse_expr(0x01, 0) != 0;
                         }
                     },
                     0xf8 => {
-                        if self.getexpr(0x03, 0) != 0 {
+                        if self.parse_expr(0x03, 0) != 0 {
                             trap = true;
                         } else {
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
@@ -183,16 +184,16 @@ impl Decompiler {
                     },
                     0xfe => {
                         self.src_ptr += 1;
-                        trap = self.getexpr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0;
+                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0;
                     },
                     0xfa => {
                         self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize + 2] - 1)).unwrap().flag = 1;
                         self.src_ptr += 2;
-                        trap = self.getexpr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0;
+                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0;
                     },
                     0xfc => {
                         self.src_ptr += 1;
-                        trap = self.getexpr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0;
+                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0;
                     },
                     0xfd => {
                         self.src_ptr += 1;
@@ -201,7 +202,7 @@ impl Decompiler {
                     },
                     0xff => {
                         if_ptr = self.src_ptr;
-                        if self.getexpr(0x01, 0) != 0 {
+                        if self.parse_expr(0x01, 0) != 0 {
                             trap = true;
                         } else {
                             if_ptr = self.set_if_ptr(if_ptr);
@@ -209,7 +210,7 @@ impl Decompiler {
                         }
                     },
                     _ => {
-                        trap = self.getexpr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0;
+                        trap = self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0;
                     }
                 }
                 if !trap {
@@ -281,10 +282,10 @@ impl Decompiler {
                     (self.executable.variable_declarations[&20].variable_type == VariableType::String) &&
                     (self.executable.variable_declarations[&21].variable_type == VariableType::String) &&
                     (self.executable.variable_declarations[&22].variable_type == VariableType::Date) &&
-                    (self.executable.variable_declarations[&20].dims[0] == 5);
+                    (self.executable.variable_declarations[&20].vector_size == 5);
 
             if self.uvar_flag && self.executable.version >= 300 {
-                if !(self.executable.variable_declarations[&23].variable_type == VariableType::Integer && self.executable.variable_declarations[&23].dims[0] == 16) {
+                if !(self.executable.variable_declarations[&23].variable_type == VariableType::Integer && self.executable.variable_declarations[&23].vector_size == 16) {
                     self.uvar_flag = false;
                 }
             }
@@ -331,9 +332,9 @@ impl Decompiler {
                                         let var_type = TYPE_NAMES[cur_var.variable_type as usize];
                                         let var_name = format!("VAR{0:>03}", c_vars);
                                         match cur_var.dim {
-                                            1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.dims[0])),
-                                            2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.dims[0], cur_var.dims[1])),
-                                            3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.dims[0], cur_var.dims[1], cur_var.dims[2])),
+                                            1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
+                                            2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
+                                            3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
                                             _ => prg.variable_declarations.push(Declaration::Variable(var_type, var_name))
                                         }
                                     }
@@ -355,7 +356,7 @@ impl Decompiler {
             let mut func_parameters = vec![];
 
             let mut j = self.executable.variable_declarations.get(&func).unwrap().first_var;
-            for i in 0..self.executable.variable_declarations.get(&func).unwrap().args {
+            for _ in 0..self.executable.variable_declarations.get(&func).unwrap().args {
                 let var_name = format!("LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
                 let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
                 func_parameters.push(Declaration::Variable( var_type, var_name));
@@ -374,7 +375,7 @@ impl Decompiler {
             let proc_name = format!("PROC{0:>03}", self.executable.variable_declarations.get(&proc).unwrap().number);
             let mut proc_parameters = vec![];
             let mut j = self.executable.variable_declarations.get(&proc).unwrap().first_var;
-            for i in 0..self.executable.variable_declarations.get(&proc).unwrap().args {
+            for _ in 0..self.executable.variable_declarations.get(&proc).unwrap().args {
 
                 let var_name = format!(" LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
                 let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
@@ -462,9 +463,9 @@ impl Decompiler {
                         let var_name = format!("LOC{0:>3}", self.executable.variable_declarations.get(&i).unwrap().number);
                         let cur_var = &self.executable.variable_declarations[&i];
                         match cur_var.dim {
-                            1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.dims[0])),
-                            2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.dims[0], cur_var.dims[1])),
-                            3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.dims[0], cur_var.dims[1], cur_var.dims[2])),
+                            1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
+                            2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
+                            3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
                             _ => prg.variable_declarations.push(Declaration::Variable(var_type, var_name))
                         }
                     }
@@ -509,18 +510,18 @@ impl Decompiler {
             }
         }
 
-        fn pushstr(&mut self, str : Expression) {
+        fn push_expr(&mut self, str : Expression) {
            //  println!("push expression: '{:?}'", str);
             self.exp_count += 1;
-            self.string_stack.push(str);
+            self.expr_stack.push(str);
         }
 
-        fn popstr(&mut self) -> Option<Expression> {
-            if self.string_stack.len() == 0 {
+        fn pop_expr(&mut self) -> Option<Expression> {
+            if self.expr_stack.len() == 0 {
                 None
             } else {
                 self.exp_count -= 1;
-                Some(self.string_stack.pop().unwrap())
+                Some(self.expr_stack.pop().unwrap())
             }
         }
 
@@ -528,13 +529,12 @@ impl Decompiler {
             match str {
                 Expression::Parens(expr) => Decompiler::stripper(*expr),
                 Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(op, Box::new(Decompiler::stripper(*l)), Box::new(Decompiler::stripper(*r))),
-                Expression::Parens(expr) => Decompiler::stripper(*expr),
                 _ => str
             }
         }
 
         fn popstrip(&mut self) -> Option<Expression> {
-            let expr= self.popstr();
+            let expr= self.pop_expr();
             match expr {
                 Some(t) => Some(Decompiler::stripper(t)),
                 None => None
@@ -700,8 +700,8 @@ impl Decompiler {
                     17=> return Expression::FunctionCall("U_DEF79".to_string(), vec![]),
                     18=> return Expression::FunctionCall("U_ALIAS".to_string(), vec![]),
                     19=> return Expression::FunctionCall("U_VER".to_string(), vec![]),
-                    20=> return Expression::FunctionCall("U_ADDR".to_string(), vec![self.popstr().unwrap()]),
-                    21=> return Expression::FunctionCall("U_NOTES".to_string(), vec![self.popstr().unwrap()]),
+                    20=> return Expression::FunctionCall("U_ADDR".to_string(), vec![self.pop_expr().unwrap()]),
+                    21=> return Expression::FunctionCall("U_NOTES".to_string(), vec![self.pop_expr().unwrap()]),
                     22=> return Expression::FunctionCall("U_PWDEXP".to_string(), vec![]),
                     23=> return Expression::FunctionCall("U_ACCOUNT".to_string(), vec![]),
                     _ => return Expression::FunctionCall("????".to_string(), vec![])
@@ -769,10 +769,10 @@ impl Decompiler {
                      if self.exp_count < 1 {
                          return -1;
                      }
-                     let tmp = self.popstr().unwrap();
+                     let tmp = self.pop_expr().unwrap();
                      match func {
-                         15 => self.pushstr(Expression::Not(Box::new(tmp))),
-                         2 => self.pushstr(Expression::Minus(Box::new(tmp))),
+                         15 => self.push_expr(Expression::Not(Box::new(tmp))),
+                         2 => self.push_expr(Expression::Minus(Box::new(tmp))),
                          _ =>panic!("{}", format!("unknown unary function {}", func))
                      }
                      return 0;
@@ -781,12 +781,12 @@ impl Decompiler {
                     if self.exp_count < 2 {
                         return -1;
                     }
-                    let rvalue = self.popstr().unwrap();
-                    let lvalue = self.popstr().unwrap();
+                    let rvalue = self.pop_expr().unwrap();
+                    let lvalue = self.pop_expr().unwrap();
 
                     let binop = BIN_EXPR[func as usize];
 
-                    self.pushstr(Expression::Parens(
+                    self.push_expr(Expression::Parens(
                         Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
                     ));
 
@@ -800,10 +800,10 @@ impl Decompiler {
                     let mut parameters = Vec::new();
                     while FUNCTION_SIGNATURE_TABLE[func as usize] > i {
                         i += 1;
-                        parameters.push(self.popstr().unwrap());
+                        parameters.push(self.pop_expr().unwrap());
                     }
                     parameters.reverse();
-                    self.pushstr(Expression::FunctionCall(func_name, parameters));
+                    self.push_expr(Expression::FunctionCall(func_name, parameters));
                     return 0;
                 }
             }
@@ -837,22 +837,24 @@ impl Decompiler {
 
                 while (self.src_ptr as usize) < self.executable.source_buffer.len() && self.executable.source_buffer[self.src_ptr as usize] != 0 {
                     if self.executable.source_buffer[self.src_ptr as usize] <= self.executable.max_var {
-                        if self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().variable_type == VariableType::Function {
-                             self.pushlabel(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().start);
+                        let var_idx = &(self.executable.source_buffer[self.src_ptr as usize] - 1);
+                        println!("{}", var_idx);
+                        if self.executable.variable_declarations.get(var_idx).unwrap().variable_type == VariableType::Function {
+                            self.pushlabel(self.executable.variable_declarations.get(var_idx).unwrap().start);
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize - 1])).unwrap().flag = 1;
-                            self.funcin(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().start, self.executable.source_buffer[self.src_ptr as usize] - 1);
+                            self.funcin(self.executable.variable_declarations.get(var_idx).unwrap().start, *var_idx);
                             if self.pass == 1
                             {
-                                let tmp2 = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                let tmp3 = self.popstr();
+                                let tmp2 = self.varout(var_idx + 1);
+                                let tmp3 = self.pop_expr();
                                 match tmp3  {
-                                    Some(t) => self.pushstr(t),
+                                    Some(t) => self.push_expr(t),
                                     _ => {}
                                 }
-                                self.pushstr(tmp2);
+                                self.push_expr(tmp2);
                             }
                             self.src_ptr += 1;
-                            if self.getexpr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
+                            if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
                                 return 1;
                             }
                             self.src_ptr -= 1;
@@ -866,7 +868,7 @@ impl Decompiler {
                         {
                             if self.pass == 1 {
                                 let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                self.pushstr(tmp);
+                                self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
                             if self.executable.source_buffer[self.src_ptr as usize] != 0
@@ -882,7 +884,8 @@ impl Decompiler {
                     {
                         let x = -self.executable.source_buffer[self.src_ptr as usize] - 1;
                         if self.executable.source_buffer[self.src_ptr as usize] < LAST_FUNC || (x >= 0 && FUNCTION_SIGNATURE_TABLE[x as usize]  == 0xaa) {
-                            panic!("Error: Unknown function {}", self.executable.source_buffer[self.src_ptr as usize]);
+                            println!("Error: Unknown function {:04X} avoiding...", self.executable.source_buffer[self.src_ptr as usize]);
+                            return 1;
                         }
 
                         if self.pass == 1 {
@@ -899,13 +902,13 @@ impl Decompiler {
                 }
 
                 if self.pass == 1 {
-                    let temp_str2 = self.popstr().unwrap();
-                    let tmp = self.popstr();
+                    let temp_str2 = self.pop_expr().unwrap();
+                    let tmp = self.pop_expr();
                     match tmp {
-                        Some(tmp) => self.pushstr(tmp),
+                        Some(tmp) => self.push_expr(tmp),
                         None => {}
                     }
-                    self.pushstr(temp_str2);
+                    self.push_expr(temp_str2);
                 }
             }
 
@@ -919,7 +922,7 @@ impl Decompiler {
             return 0;
         }
 
-        fn getexpr(&mut self, max_expr: i32, rec : i32) -> i32
+        fn parse_expr(&mut self, max_expr: i32, _rec : i32) -> i32
         {
             let mut cur_expr = 0;
             let temp_expr = self.exp_count;
@@ -947,7 +950,7 @@ impl Decompiler {
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
                             if self.pass == 1 {
                                 let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                self.pushstr(tmp);
+                                self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
                             if self.executable.source_buffer[self.src_ptr as usize] != 0
@@ -956,10 +959,10 @@ impl Decompiler {
                                     return 1;
                                 }
                                 if self.pass == 1 {
-                                    let temp_str2 = self.popstr().unwrap();
-                                    let temp_str = self.popstr().unwrap();
-                                    self.pushstr(temp_str);
-                                    self.pushstr(temp_str2);
+                                    let temp_str2 = self.pop_expr().unwrap();
+                                    let temp_str = self.pop_expr().unwrap();
+                                    self.push_expr(temp_str);
+                                    self.push_expr(temp_str2);
                                 }
                             }
                         }
@@ -978,30 +981,30 @@ impl Decompiler {
                                 let mut stack_len = 0;
                                 if self.pass == 1  {
                                     let tmp2 = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                    let tmp3 = self.popstr();
+                                    let tmp3 = self.pop_expr();
                                     match tmp3  {
-                                        Some(t) => self.pushstr(t),
+                                        Some(t) => self.push_expr(t),
                                         _ => {}
                                     }
-                                    self.pushstr(tmp2);
-                                    stack_len = self.string_stack.len();
+                                    self.push_expr(tmp2);
+                                    stack_len = self.expr_stack.len();
                                 }
 
                                 self.src_ptr += 1;
-                                if self.getexpr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
+                                if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
                                     return 1;
                                 }
                                 if self.pass == 1 {
                                     let mut params = Vec::new();
-                                    while stack_len < self.string_stack.len() {
-                                        params.push(self.popstr().unwrap());
+                                    while stack_len < self.expr_stack.len() {
+                                        params.push(self.pop_expr().unwrap());
                                     }
 
-                                    let func_name = self.popstr().unwrap();
+                                    let func_name = self.pop_expr().unwrap();
 
                                     match func_name {
-                                        Expression::FunctionCall(name, oldparams) => { self.pushstr( Expression::FunctionCall(name, params)); },
-                                        _ => { self.pushstr(func_name); }
+                                        Expression::FunctionCall(name, _oldparams) => { self.push_expr( Expression::FunctionCall(name, params)); },
+                                        _ => { self.push_expr(func_name); }
                                     }
                                 }
                             }
@@ -1025,7 +1028,7 @@ impl Decompiler {
                                 }
                                 if self.pass == 1 {
                                     let tmp = self.varout(self.executable.source_buffer[var_ptr as usize]);
-                                    self.pushstr(tmp);
+                                    self.push_expr(tmp);
                                 }
 
                                 self.src_ptr += 1;
@@ -1036,10 +1039,8 @@ impl Decompiler {
                     {
                         let func_idx =(-self.executable.source_buffer[self.src_ptr as usize] - 1) as usize;
                         if func_idx >= FUNCTION_SIGNATURE_TABLE.len() || FUNCTION_SIGNATURE_TABLE[func_idx] == 0xaa {
-                            println!("5");
-                            // TODO
-           //                 self.pushstr(format!("Error: Unknown function {}", self.executable.source_buffer[self.src_ptr as usize]));
-                            return 0;
+                            println!("Error: Unknown function {:04X} avoiding...", self.executable.source_buffer[self.src_ptr as usize]);
+                            return 1;
                         }
 
                         if self.pass == 1 {
@@ -1058,12 +1059,12 @@ impl Decompiler {
                 self.src_ptr += 1;
                 if self.pass == 1 {
                     let tmp2 = self.trans_exp(cur_expr);
-                    let tmp3 = self.popstr();
+                    let tmp3 = self.pop_expr();
                     match tmp3  {
-                        Some(t) => self.pushstr(t),
+                        Some(t) => self.push_expr(t),
                         _ => {}
                     }
-                    self.pushstr(tmp2);
+                    self.push_expr(tmp2);
                 }
             }
             self.exp_count = temp_expr + 1;
@@ -1080,6 +1081,7 @@ impl Decompiler {
                 i - 5
             }
         }
+    /*
         fn out_simple_statement(&mut self, prg : &mut Program, stmt : Statement) {
             self.output_stmt(prg, stmt);
             self.src_ptr += 1;
@@ -1092,7 +1094,7 @@ impl Decompiler {
             }
             parameters.reverse();
             parameters
-        }
+        }*/
 
         fn do_pass2(&mut self, prg : &mut Program) {
             self.cur_stmt = -1;
@@ -1101,6 +1103,8 @@ impl Decompiler {
             self.src_ptr = 0;
             self.trash_flag = 0;
             let mut if_ptr = -1;
+            let mut if_while_stack = vec![];
+
             while self.src_ptr < self.executable.code_size / 2 {
 
                 let prev_stat = self.cur_stmt;
@@ -1123,107 +1127,92 @@ impl Decompiler {
                 if prev_stat < 0 || STATEMENT_SIGNATURE_TABLE[prev_stat as usize] != 0xff {
                     // self.output.push_str("    ");
                 }
+
+                let stack_begin = self.expr_stack.len();
                 match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
                     0x00 => {},
                     0xf6 => { // procedure
                     },
                     0xf7 => { // dlockg
-                        if self.getexpr(0x01, 0) != 0 {
+                        if self.parse_expr(0x01, 0) != 0 {
                             return;
                         }
                         let tmp = self.varout(*self.executable.source_buffer.get(self.src_ptr as usize).unwrap());
-                        //self.output.push_str(format!(",{},", tmp.as_str()).as_str());
-                        if self.getexpr(0x01, 0) != 0 {
+                        self.push_expr(tmp);
+                        if self.parse_expr(0x01, 0) != 0 {
                             return;
                         }
-                        //let tmp = self.popstr();
-                        //self.output.push_str(tmp.as_str());
                     },
                     0xf8 => { // dcreate
-                        if self.getexpr(0x03, 0) != 0 {
+                        if self.parse_expr(0x03, 0) != 0 {
                             return;
                         }
-                        // let tmp = self.popstr();
-                        //self.output.push_str(tmp.as_str());
-                       //  let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                      //  self.output.push_str(format!(",{}", tmp.as_str()).as_str());
+                        let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
+                        self.push_expr(tmp);
                         self.src_ptr += 1;
                     },
                     0xf9 => {// sort
-                       /* let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 1]);
-                        self.output.push_str(format!("{},", tmp).as_str());
+                        let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 1]);
+                        self.push_expr(tmp);
                         let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 2]);
-                        self.output.push_str(format!("{}", tmp).as_str());*/
+                        self.push_expr(tmp);
                         self.src_ptr += 3;
                     },
                     0xfe => { // variable expressions - Println
                         self.src_ptr += 1;
-                        if self.getexpr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0 {
+                        if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0 {
                             return;
                         }
-                       // let tmp = self.popstr();
-                        // self.output.push_str(tmp.as_str());
                     },
                     0xfa => { // variable expressions, expr 1 is avar
                         let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 2]);
-                       // self.output.push_str(format!("{},", tmp).as_str());
+                        self.push_expr(tmp);
                         self.src_ptr += 2;
-                        if self.getexpr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0 {
+                        if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0 {
                             return;
                         }
-                        // let tmp = self.popstr();
-                        // self.output.push_str(tmp.as_str());
                     },
                     0xfc => { // varies var
                         self.src_ptr += 1;
-                        if self.getexpr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0 {
+                        if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0 {
                             return;
                         }
-                       // let tmp = self.popstr();
-                        //self.output.push_str(tmp.as_str());
-                    },
+                    }
                     0xfd => { // label (Goto)
                         self.src_ptr += 1;
                         let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr as usize]);
-                        self.pushstr(Expression::Identifier(format!("LABEL{0:>03}", tmp)));
+                        self.push_expr(Expression::Identifier(format!("LABEL{0:>03}", tmp)));
                         self.src_ptr += 1;
-                    },
-                    0xff => { // if
-                        if_ptr = self.src_ptr;
-                        if self.getexpr(0x001, 0) != 0 {
-                            return;
-                        }
-                        if_ptr = self.set_if_ptr(if_ptr);
-                        self.src_ptr += 1;
-                    },
+                    }
+                    0xff => {}
                     _ => {
-                        if self.getexpr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0 {
+                        if self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0 {
                             return;
                         }
                     }
                 }
-                match self.cur_stmt {
-                    0x00 => { // WHILE
+                let op : OpCode = unsafe { transmute(self.cur_stmt as u8) };
+                match op {
+                    OpCode::WHILE | OpCode::IF => {
                         if_ptr = self.src_ptr;
-                        if self.getexpr(0x001, 0) != 0 {
+                        if self.parse_expr(0x001, 0) != 0 {
                             return;
                         }
-                        let tmp = self.popstr().unwrap();
-                        self.output_stmt(prg, Statement::DoWhile(Box::new(tmp)));
                         if_ptr = self.set_if_ptr(if_ptr);
                         self.src_ptr += 1;
+                        if_while_stack.push(op);
                     },
-                    168 => { // PCALL
+                    OpCode::PCALL => { // PCALL
                         self.src_ptr += 2;
                         self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;
                         let proc_name = format!("PROC{0:>03}", self.executable.variable_declarations.get(&self.akt_proc).unwrap().number);
-                        if self.getexpr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 0) != 0 {
+                        if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 0) != 0 {
                             self.output_stmt(prg,Statement::ProcedureCall(proc_name, vec![]));
                             return;
                         }
                         let mut params = Vec::new();
-                        while self.string_stack.len() > 0 {
-                            params.push(self.popstr().unwrap());
+                        while self.expr_stack.len() > 0 {
+                            params.push(self.pop_expr().unwrap());
                         }
 
                         params.reverse();
@@ -1231,19 +1220,30 @@ impl Decompiler {
                     },
                     _ => {
                         let mut found = false;
-                        for def in &StatementDefinitions {
+                        for def in &STATEMENT_DEFINITIONS {
                             if def.opcode as i32 == self.cur_stmt {
                                 let mut parameters = Vec::new();
                                 if def.max_args > 0 {
-                                    for i in 0..def.max_args {
-                                        if self.string_stack.is_empty() {
+                                    for _ in 0..def.max_args {
+                                        if self.expr_stack.len() <= stack_begin {
                                             break;
                                         }
-                                        parameters.push(self.popstr().unwrap());
+                                        parameters.push(self.pop_expr().unwrap());
                                     }
                                 }
                                 parameters.reverse();
-                                self.output_stmt(prg, Statement::Call(&def, parameters));
+
+                                if !if_while_stack.is_empty() {
+                                    let op = if_while_stack.pop().unwrap();
+                                    let expr = self.pop_expr().unwrap();
+                                    match op  {
+                                        OpCode::WHILE => self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(Statement::Call(&def, parameters)))),
+                                        OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(Statement::Call(&def, parameters)))),
+                                        _ => {}
+                                    }
+                                } else {
+                                    self.output_stmt(prg, Statement::Call(&def, parameters));
+                                }
                                 found = true;
                                 if def.max_args <= 0 {
                                     self.src_ptr += 1;
@@ -1265,7 +1265,6 @@ impl Decompiler {
                         self.func_flag = 0;
                         self.proc_flag = 0;
                         self.output_stmt(prg, Statement::Comment("---------------------------------------".to_string()));
-                        // self.output.push_str("\n");
                     },
                     _ => {}
                 }
@@ -1274,6 +1273,236 @@ impl Decompiler {
             self.labelout(prg, self.src_ptr * 2);
         }
 
+        fn do_pass3(prg : &mut Program)
+        {
+            Decompiler::optimize_block(&mut prg.main_block);
+            for fd in &mut prg.function_declarations {
+                Decompiler::optimize_block(&mut fd.block);
+            }
+            for pd in &mut prg.procedure_declarations {
+                Decompiler::optimize_block(&mut pd.block);
+            }
+        }
+    fn optimize_block(block : &mut Block)
+    {
+        Decompiler::scan_for_next(block);
+        Decompiler::scan_do_while(block);
+    }
+
+    fn mach_for_construct(label : &Statement, if_statement: &Statement, let_statement: &Statement) -> Option<(String, String, String, Expression, Expression)> // for_label, indexName, breakout_label, to_expr, step_expr
+    {
+        let for_label;
+        let index_label;
+        let breakout_label;
+        let step_expr;
+        match label {
+            Statement::Label(label) => for_label = label,
+            _ => return None
+        }
+
+        match let_statement {
+            Statement::Call(def, params) => {
+                if def.opcode != OpCode::LET || params.len() != 2 {
+                    return None;
+                }
+                // todo: match expression
+                index_label = params[0].to_string();
+                if let Expression::BinaryExpression(_op, lvalue, rvalue) = &params[1] {
+                    // todo: check _op
+                    if let Expression::Identifier(lstr) = &**lvalue {
+                        if *lstr != index_label {
+                            return None;
+                        }
+                    }
+                    step_expr = (**rvalue).clone();
+                } else {
+                    return None;
+                }
+            }
+            _ => return None
+        }
+
+        match if_statement {
+            Statement::If(expr, s) => {
+                match &**s {
+                    Statement::Call(def, params) => {
+                        if def.opcode != OpCode::GOTO {
+                            return None;
+                        }
+                        // todo: match expression
+                        breakout_label = params[0].to_string();
+                    }
+                    _ => return None
+                }
+
+                if let Expression::Not(notExpr) = &**expr {
+                    if let Expression::Parens(pExpr) = &**notExpr {
+                        if let Expression::BinaryExpression(_op, lvalue, rvalue) = &**pExpr {
+                            // TODO: Check _op
+                            if let Expression::Parens(pExprL) = &**lvalue {
+                                if let Expression::Parens(pExprR) = &**rvalue {
+                                    if let Expression::BinaryExpression(opl, _llvalue, lrvalue) = &**pExprL {
+                                        if let Expression::BinaryExpression(opr, _rlvalue, rrvalue) = &**pExprR {
+                                            if *opl != BinOp::Add || *opr != BinOp::Add {
+                                                return None;
+                                            }
+
+                                            if let Expression::Parens(leftBinOp) = &**lrvalue {
+                                                if let Expression::Parens(rightBinOp) = &**rrvalue {
+
+                                                    if let Expression::BinaryExpression(opl, llvalue, lrvalue) = &**leftBinOp {
+                                                        if let Expression::BinaryExpression(opr, rlvalue, rrvalue) = &**rightBinOp {
+                                                            if llvalue != rlvalue || *opl != BinOp::Greater || *opr != BinOp::LowerEq || lrvalue != rrvalue {
+                                                                return None;
+                                                            }
+
+                                                            return Some((for_label.clone(), index_label.clone(), breakout_label.clone(), (**lrvalue).clone(), step_expr));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            _ => return None
+        }
+
+        None
+    }
+
+    fn scan_for_next(block : &mut Block)
+    {
+        // FOR Header:
+        // LET VAR001 = [START]
+        // :LABEL002
+        // IF (!(((1 < 0) + (VAR001 > [END])) & ((1 > 0) + (VAR001 <= [END])))) GOTO LABEL001
+        // LET VAR001 = VAR001 + [STEP]
+        // ...
+        // GOTO LABEL002
+        // :LABEL001
+        let mut i = 0;
+        let mut var_name;
+        while i < block.statements.len() {
+            let cur = &block.statements[i];
+            if let Statement::Call(def, params) = cur {
+                if def.opcode != OpCode::LET || params.len() != 2  || i + 3 >= block.statements.len() {
+                    i += 1;
+                    continue;
+                }
+                var_name = params[0].to_string();
+
+                let label = &block.statements[i + 1];
+                let ifStatement = &block.statements[i + 2];
+                let incrementor = &block.statements[i + 3];
+                let m = Decompiler::mach_for_construct(&label, &ifStatement, &incrementor);
+
+                if let Some((forLabel, _indexLabel, breakoutLabel, to_expr, step_expr)) = m {
+                    let mut j = i + 1;
+                    let mut matching_goto = -1;
+                    while j < block.statements.len() {
+                        if let Statement::Call(def, params) = &block.statements[j] {
+                            if def.opcode == OpCode::GOTO {
+                                if let Expression::Identifier(next_label) = &params[0] {
+                                    if *next_label == forLabel {
+                                        if j + 1 >= block.statements.len() { continue; }
+                                        if let Statement::Label(next_label) = &block.statements[j + 1] {
+                                            if *next_label == breakoutLabel {
+                                                matching_goto = j as i32;
+                                                break;
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                        j += 1;
+                    }
+                    if matching_goto < 0 {
+                        i += 1;
+                        continue;
+                    }
+
+
+                    let from_expr = Box::new(params[1].clone());
+                    // replace with next
+                    block.statements[matching_goto as usize] = Statement::Next;
+                    block.statements.remove((matching_goto + 1) as usize); // remove breakoutLabel
+
+                    // replace for… next part
+                    block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
+                    block.statements.remove((i + 1) as usize);
+                    block.statements.remove((i + 1) as usize);
+                    block.statements.remove((i + 1) as usize);
+                }
+            }
+            i += 1;
+        }
+    }
+
+    fn scan_do_while(block : &mut Block)
+    {
+        let mut i = 0;
+        while i < block.statements.len() {
+            let cur = &block.statements[i];
+
+            if let Statement::Label(label) = cur {
+                i += 1;
+                if i >= block.statements.len() {
+                    break;
+                }
+                if let Statement::If(exp, stmt) = &block.statements[i] {
+                    match &(**stmt) {
+                        Statement::Call(def, params) => {
+                            if def.opcode != OpCode::GOTO || params.len() != 1 {
+                                continue;
+                            }
+                            if let Expression::Identifier(break_label) = &params[0] {
+                                // search matching goto
+                                let mut j = i + 1;
+                                let mut matching_goto = -1;
+                                while j < block.statements.len() {
+                                    if let Statement::Call(def, params) = &block.statements[j] {
+                                        if def.opcode == OpCode::GOTO {
+                                            if let Expression::Identifier(next_label) = &params[0] {
+                                                if next_label == label {
+                                                    if j + 1 >= block.statements.len() { continue; }
+                                                    if let Statement::Label(next_label) = &block.statements[j + 1] {
+                                                        if next_label == break_label {
+                                                            matching_goto = j as i32;
+                                                            break;
+                                                        }
+                                                    }
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    j += 1;
+                                }
+                                if matching_goto < 0 {
+                                    i += 1;
+                                    continue;
+                                }
+                                block.statements[i] = Statement::DoWhile(exp.clone());
+                                block.statements[matching_goto as usize] = Statement::EndWhile;
+                                block.statements.remove((matching_goto + 1) as usize);
+                                block.statements.remove((i - 1) as usize);
+                            }
+                        },
+                        _ => { }
+                    }
+                }
+            }
+
+            i += 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1312,14 +1541,15 @@ mod tests {
         false
     }
 
+
     #[test]
     fn test_decompiler() {
         use std::fs::{self};
 
       let mut data_path =env::current_dir().unwrap();
       data_path.push("test_data");
-        let mut success = 0;
-        let mut skipped = 0;
+        //let mut success = 0;
+        //let mut skipped = 0;
         for entry in fs::read_dir(data_path).expect("Error reading test_data directory.") {
             let cur_entry = entry.unwrap().path();
 
@@ -1328,15 +1558,12 @@ mod tests {
             }
 
             let file_name = cur_entry.as_os_str();
-            print!("File: {}…", cur_entry.file_name().unwrap().to_str().unwrap());
+            print!("File: {}…\n", cur_entry.file_name().unwrap().to_str().unwrap());
 
-            if  cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe") ||
-                cur_entry.file_name().unwrap().to_str().unwrap().eq("for_next.ppe") ||
-                cur_entry.file_name().unwrap().to_str().unwrap().eq("tokenize.ppe") ||
-                cur_entry.file_name().unwrap().to_str().unwrap().eq("while.ppe")
+            if  cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
             {
-                println!("skip.");
-                skipped += 1;
+                // println!("skip.");
+                //skipped += 1;
                 continue;
             }
 
@@ -1347,17 +1574,17 @@ mod tests {
             let are_equal = is_match(&d.to_string(), &orig_text);
 
             if !are_equal {
-                println!(" not matched…");
+                println!("'{}' not matched…", cur_entry.file_name().unwrap().to_str().unwrap());
                 print!("{}", d.to_string());
                 println!("-----");
                 print!("{}", orig_text);
             } else {
-                println!(" match.");
-                success += 1;
+                // println!(" match.");
+                //success += 1;
             }
 
             assert!(are_equal);
         }
-        println!("successful {} skipped {}", success, skipped);
+        // println!("successful {} skipped {}", success, skipped);
     }
 }

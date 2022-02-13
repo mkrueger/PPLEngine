@@ -56,21 +56,21 @@ impl FunctionDeclaration {
 
         for stmt in &self.block.statements {
             match stmt {
-                Statement::Call(def, params) => {
-                    if def.opcode == OpCode::FEND as u8 {
+                Statement::Call(def, _params) => {
+                    if def.opcode == OpCode::FEND {
                         match &self.declaration {
-                            Declaration::Procedure(name, param) => {
+                            Declaration::Procedure(_name, _param) => {
                                 res.push_str("ENDPROC");
                                 continue;
                             },
-                            Declaration::Function(name, param, t) => {
+                            Declaration::Function(_name, _param, _t) => {
                                 res.push_str("ENDFUNC");
                                 continue;
                             },
                             _ => {}
                         }
                     }
-                    if def.opcode == OpCode::FPCLR as u8 {
+                    if def.opcode == OpCode::FPCLR {
                         res.push_str("ENDPROC");
                         continue;
                     }
@@ -85,7 +85,7 @@ impl FunctionDeclaration {
     }
 }
 
-trait ProgramContext
+pub trait ProgramContext
 {
     fn print(&mut self, str : String);
 }
@@ -162,9 +162,9 @@ impl Program
         for decl in &self.variable_declarations {
             match decl {
                 Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
-                Declaration::Variable1(var_type, name, dim1) => if *name == *var_name { return *var_type; },
-                Declaration::Variable2(var_type, name, dim1, dim2) => if *name == *var_name { return *var_type; },
-                Declaration::Variable3(var_type, name, dim1, dim2, dim3) => if *name == *var_name { return *var_type; },
+                Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return *var_type; },
+                Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return *var_type; },
+                Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return *var_type; },
                 _ => {}
             }
         }

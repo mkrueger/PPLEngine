@@ -1,5 +1,5 @@
 use std::intrinsics::transmute;
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{cut, map, map_res, opt, recognize, value}, error::{ ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{ map, map_res, opt, recognize, value}, error::{ ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
 use nom::bytes::complete::{ take_while_m_n};
 use nom::character::complete::{ multispace1};
 use nom::sequence::tuple;
@@ -8,7 +8,7 @@ use std::string::String;
 
 use crate::executable::VariableType;
 use crate::interpreter::Program;
-use crate::tables::{OpCode, StatementDefinition, StatementDefinitions};
+use crate::tables::{OpCode, StatementDefinition, STATEMENT_DEFINITIONS};
 
 #[derive(Debug, PartialEq)]
 pub enum Declaration {
@@ -140,6 +140,7 @@ fn parse_declaration<'a>(input : &'a str) -> nom::IResult<&'a str, Declaration>
     alt((parse_variable, parse_functiondeclaration, parse_proceduredeclaration))(input)
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Constant
 {
@@ -565,10 +566,15 @@ fn parse_expression<'a>(line : &'a str) -> nom::IResult<&'a str, Expression> {
      )(line)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Comment(String),
+    While(Box<Expression>, Box<Statement>),
+    If(Box<Expression>, Box<Statement>),
     DoWhile(Box<Expression>),
+    EndWhile,
+    For(String, Box<Expression>, Box<Expression>, Box<Expression>),
+    Next,
     Label(String),
     ProcedureCall(String, Vec<Expression>),
     Call(&'static StatementDefinition<'static>, Vec<Expression>)
@@ -587,12 +593,46 @@ impl Statement
         }
         res
     }
-
+    fn try_boolean_conversion(expr : &Expression) -> &Expression
+    {
+        match expr {
+            Expression::Const(Constant::Integer(i)) => {
+                if *i == 0 {
+                    &Expression::Const(Constant::FALSE)
+                } else {
+                    &Expression::Const(Constant::TRUE)
+                }
+            },
+            Expression::Not(notexpr) => {
+                match Statement::try_boolean_conversion(notexpr) {
+                    Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
+                    Expression::Const(Constant::TRUE) => &Expression::Const(Constant::FALSE),
+                    Expression::Not(notexpr2) => notexpr2,
+                    _ => expr
+                }
+            }
+            _ => { expr }
+        }
+    }
     pub fn to_string(&self, prg : &Program) -> String
     {
         match self {
             Statement::Comment(str) => format!(";{}", str),
-            Statement::DoWhile(t) => format!("WHILE {} DO", (**t).to_string()),
+            Statement::While(cond, stmt) => format!("WHILE ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg)),
+            Statement::If(cond, stmt) => format!("IF ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg)),
+            Statement::DoWhile(t) => {
+                format!("WHILE ({}) DO", Statement::try_boolean_conversion(&Expression::Not(t.clone())).to_string())
+            },
+            Statement::EndWhile => "ENDWHILE".to_string(),
+            Statement::For(var_name, from, to, step) => {
+                let step = step.to_string();
+                if step == "1" {
+                    format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string())
+                } else {
+                    format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), step)
+                }
+            }
+            Statement::Next => "NEXT".to_string(),
             Statement::Label(str) => format!(":{}", str),
             Statement::ProcedureCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
             Statement::Call(def, params) => {
@@ -603,16 +643,7 @@ impl Statement
                         let expected_type = prg.get_variable(&var);
                         let mut expr = &params[1];
                         if expected_type == VariableType::Boolean {
-                            match params[1] {
-                                Expression::Const(Constant::Integer(i)) => {
-                                    if i == 0 {
-                                        expr = &Expression::Const(Constant::FALSE);
-                                    } else {
-                                        expr = &Expression::Const(Constant::TRUE);
-                                    }
-                                },
-                                _ => {}
-                            }
+                            expr = Statement::try_boolean_conversion(expr);
                         }
                         format!("LET {} = {}", var.as_str(), expr.to_string().as_str())
                     },
@@ -632,12 +663,20 @@ impl Statement
     }
 }
 
+fn get_statement_definition(name : &str) -> Option<&'static StatementDefinition>
+{
+    for def in &STATEMENT_DEFINITIONS {
+        if def.name == name {
+            return Some(def);
+        }
+    }
+    None
+}
 pub fn parse_statement(input : &str) -> nom::IResult<&str, Statement>
 {
     alt ((
         map_res(separated_pair(alpha1, multispace0, parse_exprlist), |z| {
-
-            for def in &StatementDefinitions {
+            for def in &STATEMENT_DEFINITIONS {
                 if def.name == z.0 {
                     if (z.1.len() as i8) < def.min_args {
                         return Err(format!("{} has too few arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
@@ -659,37 +698,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_statement() {/*
-        assert_eq!(Ok(("", Statement::ADJTIME(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("ADJTIME 1"));
-        assert_eq!(Ok(("", Statement::ANSIPOS(Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(2)))))), parse_statement("ANSIPOS 1, 2"));
-        assert_eq!(Ok(("", Statement::BACKUP(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("BACKUP 1"));
-        assert_eq!(Ok(("", Statement::BLT(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("BLT 1"));
-        assert_eq!(Ok(("", Statement::BROADCAST(Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(3)))))), parse_statement("BROADCAST 1, 2, 3"));
-        assert_eq!(Ok(("", Statement::BYE)), parse_statement("BYE"));
-        assert_eq!(Ok(("", Statement::CALL(Box::new(Expression::Const(Constant::String("911".to_string())))))), parse_statement("CALL \"911\""));
-
-        assert_eq!(Ok(("", Statement::CDCHKOFF)), parse_statement("CDCHKOFF"));
-        assert_eq!(Ok(("", Statement::CDCHKON)), parse_statement("CDCHKON"));
-        assert_eq!(Ok(("", Statement::CHAT)), parse_statement("CHAT"));
-        assert_eq!(Ok(("", Statement::CLOSECAP)), parse_statement("CLOSECAP"));
-        assert_eq!(Ok(("", Statement::CLREOL)), parse_statement("CLREOL"));
-        assert_eq!(Ok(("", Statement::CLS)), parse_statement("CLS"));
-        assert_eq!(Ok(("", Statement::COLOR(Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("COLOR 1"));
-        assert_eq!(Ok(("", Statement::CONFFLAG(Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::F_REG))))), parse_statement("CONFFLAG 1, F_REG"));
-        assert_eq!(Ok(("", Statement::CONFUNFLAG(Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::F_REG))))), parse_statement("CONFUNFLAG 1, F_REG"));
-
-
-        assert_eq!(Ok(("", Statement::PRINT(vec![
-            Expression::Const(Constant::Integer(1)),
-            Expression::Const(Constant::Integer(2)),
-            Expression::Const(Constant::Integer(3))
-        ]))), parse_statement("PRINT 1, 2, 3"));
-        assert_eq!(Ok(("", Statement::PRINTLN(Some(vec![])))), parse_statement("PRINTLN"));
-        assert_eq!(Ok(("", Statement::PRINTLN(Some(
-            vec![
-                Expression::Const(Constant::String("Hello World".to_string())),
-            ]
-        )))), parse_statement("PRINTLN \"Hello World\""));*/
+    fn test_parse_statement() {
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"ADJTIME").unwrap(), vec![Expression::Const(Constant::Integer(1))]))), parse_statement("ADJTIME 1"));
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"ANSIPOS").unwrap(), vec![Expression::Const(Constant::Integer(1)), Expression::Const(Constant::Integer(2))]))), parse_statement("ANSIPOS 1, 2"));
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"BROADCAST").unwrap(), vec![Expression::Const(Constant::Integer(1)), Expression::Const(Constant::Integer(2)), Expression::Const(Constant::Integer(3))]))), parse_statement("BROADCAST 1, 2, 3"));
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"BYE").unwrap(), vec![]))), parse_statement("BYE"));
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"PRINTLN").unwrap(), vec![]))), parse_statement("PRINTLN"));
+        assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"PRINTLN").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))]))), parse_statement("PRINTLN \"Hello World\""));
     }
 
     #[test]

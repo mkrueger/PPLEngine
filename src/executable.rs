@@ -2,7 +2,7 @@ use std::fs::*;
 use std::io::*;
 use std::collections::HashMap;
 
-use crate::decode::decode;
+use crate::decode::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -60,12 +60,17 @@ impl VariableType {
 #[derive(Clone)]
 pub struct VarDecl
 {
-    pub variable_type: VariableType,
     pub dim: u8,
-    pub dims: [i32;3],
+    pub vector_size: i32,
+    pub matrix_size: i32,
+    pub cube_size: i32,
+
+    pub variable_type: VariableType,
+
     pub content: u64,
     pub content2: u64,
     pub string_value: String,
+
     pub flag: u8,
     pub lflag: u8,
     pub fflag: u8,
@@ -121,9 +126,9 @@ pub fn read_file(file_name : &str) -> Executable
 
     let data: Vec<u8> = if version >= 300 {
         let data =&mut buffer[i..real_size + i];
-        decode(data);
+        decrypt(data);
         if real_size != code_size {
-            decode_other(data, real_size, code_size)
+            decode_RLE(data)
         } else {
             data.to_vec()
         }
@@ -132,9 +137,16 @@ pub fn read_file(file_name : &str) -> Executable
     let mut source_buffer  = Vec::new();
     let mut i = 0;
     while i < data.len() {
-        source_buffer.push(i16::from_le_bytes((&data[i..=(i + 1)]).try_into().unwrap()) as i32);
+        let k = if i + 1 >= data.len() {
+            data[i] as i32
+        } else {
+            i16::from_le_bytes((&data[i..i + 2]).try_into().unwrap()) as i32
+        };
+        source_buffer.push(k);
         i += 2;
     }
+    println!();
+
     Executable {
         version,
         variable_declarations,
@@ -154,11 +166,11 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
 
     while var_count > 1 {
         if version >= 300 {
-            decode(&mut (buf[i..(i + 11)]));
+            decrypt(&mut (buf[i..(i + 11)]));
         }
-        let cur_block =&buf[i..(i + 11)];
+        let cur_block = &buf[i..(i + 11)];
 
-        var_count = u16::from_le_bytes(cur_block[0..=1].try_into().unwrap()) as i32;
+        var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as i32;
         let mut var_decl = VarDecl {
             number :  0,
             args: 0,
@@ -168,11 +180,9 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
             func : 0,
             variable_type : unsafe{ ::std::mem::transmute(cur_block[9]) },
             dim : cur_block[2],
-            dims : [
-                u16::from_le_bytes(cur_block[3..=4].try_into().unwrap()) as i32,
-                u16::from_le_bytes(cur_block[5..=6].try_into().unwrap()) as i32,
-                u16::from_le_bytes(cur_block[7..=8].try_into().unwrap()) as i32,
-            ],
+            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
+            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
+            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as i32,
             content : 0,
             content2 : 0,
             string_value : String::new(),
@@ -189,14 +199,14 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
                 let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
                 if version >= 300 {
-                    decode(&mut (buf[i..(i + string_length)]));
+                    decrypt(&mut (buf[i..(i + string_length)]));
                 }
                 var_decl.string_value = String::from_utf8_lossy(&buf[i..(i + string_length - 1)]).to_string(); // C strings always end with \0
                 i += string_length;
             },
             VariableType::Function => {
                 if version >= 300 {
-                    decode(&mut buf[i..(i + 12)]);
+                    decrypt(&mut buf[i..(i + 12)]);
                 }
                 let cur_buf =&buf[i..(i + 12)];
                 var_decl.args = cur_buf[4] as i32;
@@ -208,7 +218,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
             },
             VariableType::Procedure => {
                 if version >= 300 {
-                    decode(&mut buf[i..(i + 12)]);
+                    decrypt(&mut buf[i..(i + 12)]);
                 }
                 let cur_buf =&buf[i..(i + 12)];
                 var_decl.args = cur_buf[4] as i32;
@@ -228,7 +238,7 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
                     var_decl.content = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
                     i += 8;
                 } else {
-                    decode(&mut buf[i..(i + 12)]);
+                    decrypt(&mut buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
                     var_decl.content = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
@@ -285,31 +295,3 @@ fn read_vars(version: u16, buf : &mut [u8], max_var: i32) -> (usize, HashMap<i32
     (i, result)
 }
 
-pub fn decode_other(block1 : &mut [u8], size : usize, size2 : usize) -> Vec<u8> {
-    let mut block2 : Vec<u8> = Vec::new();
-    let mut i =0;
-
-    while i < size && block2.len() < size2 {
-        block2.push(block1[i]);
-        i += 1;
-        block2.push(block1[i]);
-        i += 1;
-        if block2[block2.len() - 1] == 0 {
-            while block1[i] > 1 {
-                block2.push(0);
-                block1[i] -= 1;
-            }
-            i +=1;
-        } else if block1[i] == 0 {
-            block2.push(0);
-            i += 1;
-            while block1[i] > 1 {
-                block2.push(0);
-                block1[i] -= 1;
-            }
-            i += 1;
-        }
-    }
-
-    block2
-}

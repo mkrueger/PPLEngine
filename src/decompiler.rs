@@ -72,16 +72,16 @@ impl Decompiler {
                 d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
                 d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));*/
 
-        println!("Pass 1 ...");
+        // println!("Pass 1 ...");
         d.do_pass1();
-        println!();
+        // println!();
         d.dump_vars(&mut prg);
-        println!("Pass 2 ...");
+        // println!("Pass 2 ...");
         d.do_pass2(&mut prg);
-        println!("Pass 3 ...");
+        // println!("Pass 3 ...");
         Decompiler::do_pass3(&mut prg);
-        println!();
-        println!("Source decompilation complete...");
+        // println!();
+        // println!("Source decompilation complete...");
 
         let trash_flag = d.trash_flag;
         if trash_flag != 0 {
@@ -92,7 +92,7 @@ impl Decompiler {
             d.output_stmt(&mut prg, Statement::Comment("         also apply to - / and * aswell. Also occurs upon use of multiple !'s.".to_string()));
             d.output_stmt(&mut prg, Statement::Comment("         Some smartbrains use this BUG to make programms running different".to_string()));
             d.output_stmt(&mut prg, Statement::Comment("         (or not at all) when being de- and recompiled.".to_string()));
-            println!("{} COMPILER ERROR(S) DETECTED", trash_flag);
+            // println!("{} COMPILER ERROR(S) DETECTED", trash_flag);
         }
 
         prg
@@ -351,8 +351,6 @@ impl Decompiler {
                                         _ => { generic_vars += 1; format!("VAR{0:>03}", generic_vars) }
 
                                     };
-                                    println!("{} --- {:?}", cur_var.var_name, cur_var.variable_type);
-
                                     match cur_var.dim {
                                         1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
                                         2 => prg.variable_declarations.push(Declaration::Variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
@@ -1281,7 +1279,85 @@ impl Decompiler {
         Decompiler::scan_for_next(block);
         Decompiler::scan_do_while(block);
         Decompiler::scan_break_continue(block);
+        Decompiler::scan_if_else(block);
+        Decompiler::scan_if(block);
         Decompiler::strip_unused_labels(block);
+    }
+
+    fn get_label_index(block: &Block, from : i32, to : i32, label: &String) -> i32
+    {
+        for j in from..to {
+            if let Statement::Label(next_label) = &block.statements[j as usize] {
+                if next_label == label {
+                    return j as i32;
+                }
+            }
+
+            /*
+            if let Statement::Call(def, params) = &block.statements[j as usize] {
+                if def.opcode == OpCode::GOTO {
+                    if let Expression::Identifier(next_label) = &params[0] {
+                        if next_label == label {
+                            return j as i32;
+                        }
+                    }
+                }
+            }
+            */
+        }
+        return -1;
+    }
+
+    fn get_goto_label(stmt : &Statement) -> Option<&String>
+    {
+        if let Statement::Call(def, params) = stmt {
+            if def.opcode != OpCode::GOTO || params.len() != 1 {
+                return None;
+            }
+            if let Expression::Identifier(label) = &params[0] {
+                return Some(label);
+            }
+        }
+        None
+    }
+
+    fn scan_if(block: &mut Block)
+    {
+        for i in 0..block.statements.len() {
+            if let Statement::If(cond, stmt) = &block.statements[i] {
+                if let Some(endif_label) = Decompiler::get_goto_label(&**stmt) {
+                    let endif_label_index = Decompiler::get_label_index(block, i as i32 + 1, block.statements.len() as i32, endif_label);
+                    if endif_label_index < 0 { continue; }
+                     //block.statements[i] = Statement::IfThen(Box::new(Expression::Not(Box::new((**cond).clone())))); // replace if with if…then
+                    block.statements[i] = Statement::IfThen(Box::new(Expression::Not(Box::new((**cond).clone())))); // replace if with if…then
+                // do not remove labels they may be needed to analyze other constructs
+                    block.statements.insert(endif_label_index as usize, Statement::EndIf); // insert Endif before label
+                }
+            }
+        }
+    }
+
+    fn scan_if_else(block: &mut Block)
+    {
+        for i in 0..block.statements.len() {
+            if let Statement::If(cond, stmt) = &block.statements[i] {
+                if let Some(else_label) = Decompiler::get_goto_label(&**stmt) {
+                    let else_label_index = Decompiler::get_label_index(block, i as i32 + 1, block.statements.len() as i32, else_label);
+                    if else_label_index < 0 { continue; }
+
+                    if let Some(endif_label) = Decompiler::get_goto_label(&block.statements[else_label_index as usize - 1]) {
+                        let endif_label_index = Decompiler::get_label_index(block, else_label_index + 1, block.statements.len() as i32, endif_label);
+                        if endif_label_index < 0 { continue; }
+
+                        block.statements[i] = Statement::IfThen(Box::new((**cond).clone())); // replace if with if…then
+                        block.statements[else_label_index as usize - 1] = Statement::Else;   // replace goto with Else
+                        block.statements.insert(endif_label_index as usize, Statement::EndIf); // insert Endif before label
+
+                        // do not remove labels they may be needed to analyze other constructs
+                    }
+                }
+            }
+        }
     }
 
     fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(String, String, String, Expression)> // for_label, indexName, breakout_label, to_expr
@@ -1313,15 +1389,18 @@ impl Decompiler {
                                 if let Expression::Parens(p_expr_r) = &**rvalue {
                                     if let Expression::BinaryExpression(opl, _llvalue, lrvalue) = &**p_expr_l {
                                         if let Expression::BinaryExpression(opr, _rlvalue, rrvalue) = &**p_expr_r {
-                                            if *opl != BinOp::Add || *opr != BinOp::Add {
-                                                return None;
-                                            }
+                                            // TODO: Check _op
+
+                                            /*     if *opl != BinOp::Add || *opr != BinOp::Add {
+                                                     return None;
+                                                 }*/
 
                                             if let Expression::Parens(left_binop) = &**lrvalue {
                                                 if let Expression::Parens(right_binop) = &**rrvalue {
                                                     if let Expression::BinaryExpression(opl, llvalue, lrvalue) = &**left_binop {
                                                         if let Expression::BinaryExpression(opr, rlvalue, rrvalue) = &**right_binop {
-                                                            if llvalue != rlvalue || *opl != BinOp::Greater || *opr != BinOp::LowerEq || lrvalue != rrvalue {
+                                                            // TODO: Check _op
+                                                            if llvalue != rlvalue/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| lrvalue != rrvalue {
                                                                 return None;
                                                             }
                                                             return Some((for_label.clone(), llvalue.to_string(), breakout_label.clone(), (**lrvalue).clone()));
@@ -1570,7 +1649,7 @@ impl Decompiler {
                                 }
                                 //let label_cp = break_label.clone();
 
-                                block.statements[i] = Statement::DoWhile(exp.clone());
+                                block.statements[i] = Statement::DoWhile(Box::new(Expression::Not(exp.clone())));
                                 block.statements[matching_goto as usize] = Statement::EndWhile;
                                 // block.statements.remove((matching_goto + 1) as usize); // breakout label
                                 block.statements.remove((i - 1) as usize);
@@ -1706,7 +1785,6 @@ impl Decompiler {
             i += 1;
         }
     }
-
 
     fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>)
     {

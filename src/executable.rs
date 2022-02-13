@@ -2,7 +2,7 @@ use std::fs::*;
 use std::io::*;
 use std::collections::HashMap;
 
-use crate::decode::*;
+use crate::crypt::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]

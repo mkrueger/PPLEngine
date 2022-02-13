@@ -1,3 +1,4 @@
+use core::panicking::panic;
 use std::intrinsics::transmute;
 use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
 use nom::bytes::complete::{take_while_m_n};
@@ -582,6 +583,9 @@ pub enum Statement {
     Comment(String),
     While(Box<Expression>, Box<Statement>),
     If(Box<Expression>, Box<Statement>),
+    IfThen(Box<Expression>),
+    Else,
+    EndIf,
     DoWhile(Box<Expression>),
     EndWhile,
     For(String, Box<Expression>, Box<Expression>, Box<Expression>),
@@ -616,12 +620,16 @@ impl Statement
                     &Expression::Const(Constant::TRUE)
                 }
             }
+            Expression::Parens(expr) => {
+                Statement::try_boolean_conversion(&expr)
+            }
             Expression::Not(notexpr) => {
-                match &**notexpr {
+                let convertedExpression = Statement::try_boolean_conversion(&notexpr);
+                match convertedExpression {
                     Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
                     Expression::Const(Constant::TRUE) => &Expression::Const(Constant::FALSE),
-                    Expression::Not(notexpr2) => {
-                        Statement::try_boolean_conversion(&notexpr2)
+                    Expression::Not(_notexpr2) => {
+                        _notexpr2
                     },
                     _ => expr
                 }
@@ -646,16 +654,32 @@ impl Statement
             _ => expr.to_string()
         }
     }
+
+    fn strip_outer_parens(exp : &Expression) -> &Expression
+    {
+        if let Expression::Parens(pexpr) = exp {
+            &**pexpr
+        } else {
+            exp
+        }
+    }
+
+    pub fn out_bool_func(expr : &Box<Expression>) -> String
+    {
+        Statement::strip_outer_parens(&Statement::try_boolean_conversion(Statement::strip_outer_parens(expr))).to_string()
+    }
+
     pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32)
     {
         match self {
             Statement::Comment(str) => (format!(";{}", str), indent),
-            Statement::While(cond, stmt) => (format!("WHILE ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg, 0).0), indent),
-            Statement::If(cond, stmt) => (format!("IF ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg, 0).0), indent),
-            Statement::DoWhile(t) => {
-                (format!("WHILE ({}) DO", Statement::try_boolean_conversion(&Expression::Not(t.clone())).to_string()), indent + 1)
-            }
-            Statement::EndWhile => ("ENDWHILE".to_string(), indent - 1),
+            Statement::While(cond, stmt) => (format!("WHILE ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent),
+            Statement::If(cond, stmt) => (format!("IF ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent),
+            Statement::IfThen(cond) => (format!("IF ({}) THEN", Statement::out_bool_func(cond)), indent + 1),
+            Statement::Else => ("ELSE".to_string(), indent),
+            Statement::EndIf => ("END IF".to_string(), indent - 1),
+            Statement::DoWhile(cond) => (format!("WHILE ({}) DO", Statement::out_bool_func(cond)), indent + 1),
+            Statement::EndWhile => ("END WHILE".to_string(), indent - 1),
             Statement::Break => ("BREAK".to_string(), indent),
             Statement::Continue => ("CONTINUE".to_string(), indent),
             Statement::For(var_name, from, to, step) => {
@@ -667,7 +691,6 @@ impl Statement
                 }
             }
             Statement::Next => ("NEXT".to_string(), indent - 1),
-            Statement::Next => ("BREAK".to_string(), indent),
             Statement::Label(str) => (format!("\n{}:{}", Statement::get_indent(indent - 1), str), indent),
             Statement::ProcedureCall(name, params) => (format!("{}({})", name, Statement::param_list_to_string(params)), indent),
             Statement::Call(def, params) => {
@@ -678,7 +701,7 @@ impl Statement
                         let expected_type = prg.get_var_type(&var);
                         let mut expr = &params[1];
                         if expected_type == VariableType::Boolean {
-                            expr = Statement::try_boolean_conversion(expr);
+                            expr = &Statement::try_boolean_conversion(expr);
                         }
                         (format!("LET {} = {}", var.as_str(), expr.to_string().as_str()), indent)
                     }

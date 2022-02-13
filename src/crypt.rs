@@ -2,8 +2,7 @@ use std::intrinsics::rotate_right;
 
 const CRYPT_DATA: [u8; 17] = [0x8C, 0x53, 0xB8, 0xA7, 0x9E, 0x0F, 0x0A, 0xCB, 0x28, 0x62, 0x2D, 0x50, 0x7E, 0x05, 0x3D, 0x4E, 0x35];
 
-fn crypt3(block: &mut [u8])
-{
+fn crypt3(block: &mut [u8]) {
     let mut len = block.len();
     let mut i = 0;
     let mut j = 0;
@@ -58,7 +57,6 @@ pub fn decrypt(block: &mut [u8], version: u16) {
     }
 }
 
-
 pub fn encode_rle(src: &[u8]) -> Vec<u8> {
     let mut result = Vec::new();
     let mut i = 0;
@@ -104,7 +102,7 @@ pub fn decode_rle(src: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{decode_rle, encode_rle};
+    use crate::crypt::{decode_rle, encode_rle};
     use super::*;
 
     #[test]

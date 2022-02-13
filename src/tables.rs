@@ -197,26 +197,25 @@ pub const CONSTANT_1_NAMES: [Constant; 18] = [
 pub const CONSTANT_LINECOUNT_OFFSETS: [i32; 4] = [2, 1, 0, -1];
 pub const CONSTANT_LINECOUNT_NAMES: [Constant; 3] = [Constant::FCL, Constant::FNS, Constant::NC];
 
-pub const BIN_EXPR: [BinOp; 19] = [
-    BinOp::Add,
-    BinOp::Add,
-    BinOp::Sub,
+pub const BIN_EXPR: [BinOp; 18] = [
+    BinOp::Add, // UPLUS
+    BinOp::Add, // UPLUS
+    BinOp::Sub, // UMINUS
     BinOp::PoW,
-    BinOp::Mul,
+    BinOp::Mul, // 5
     BinOp::Div,
     BinOp::Mod,
     BinOp::Add,
     BinOp::Sub,
-    BinOp::Eq,
+    BinOp::Eq, // 10
     BinOp::NotEq,
     BinOp::Lower,
     BinOp::LowerEq,
-    BinOp::NotEq,
     BinOp::Greater,
     BinOp::GreaterEq,
-    BinOp::Add, // ???
+    BinOp::Add, // NOT token
     BinOp::And,
-    BinOp::Or,
+    BinOp::Or // 18
 ];
 
 pub const EXPR_NAMES: [&str; 286] = [

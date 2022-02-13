@@ -20,7 +20,7 @@ fn main() {
     let mut data_path =env::current_dir().unwrap();
     data_path.push("test_data");
 
-    data_path.push("while.ppe");
+    data_path.push("for_break_continue.ppe");
     let d = crate::decompiler::Decompiler::read(data_path.to_str().unwrap());
 
   //  let d = crate::decompiler::Decompiler::read("/home/mkrueger/Downloads/PPL/CNFNNEW/CNFN.PPE");

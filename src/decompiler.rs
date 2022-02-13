@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use crate::executable::*;
 use crate::interpreter::{Block, FunctionDeclaration, Program};
@@ -351,6 +351,7 @@ impl Decompiler {
                                         _ => { generic_vars += 1; format!("VAR{0:>03}", generic_vars) }
 
                                     };
+                                    println!("{} --- {:?}", cur_var.var_name, cur_var.variable_type);
 
                                     match cur_var.dim {
                                         1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
@@ -1279,6 +1280,8 @@ impl Decompiler {
     {
         Decompiler::scan_for_next(block);
         Decompiler::scan_do_while(block);
+        Decompiler::scan_break_continue(block);
+        Decompiler::strip_unused_labels(block);
     }
 
     fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(String, String, String, Expression)> // for_label, indexName, breakout_label, to_expr
@@ -1321,8 +1324,6 @@ impl Decompiler {
                                                             if llvalue != rlvalue || *opl != BinOp::Greater || *opr != BinOp::LowerEq || lrvalue != rrvalue {
                                                                 return None;
                                                             }
-                                                            println!("!!!!!!!!!!! MATCH");
-
                                                             return Some((for_label.clone(), llvalue.to_string(), breakout_label.clone(), (**lrvalue).clone()));
                                                         }
                                                     }
@@ -1429,17 +1430,17 @@ impl Decompiler {
                     }
 
                     let from_expr = Box::new(params[1].clone());
-                    let label_cp = breakout_label.clone();
+                    // let label_cp = breakout_label.clone();
                     // replace with next
                     block.statements[matching_goto as usize] = Statement::Next;
-                    block.statements.remove((matching_goto + 1) as usize); // remove breakout_label
+                    // block.statements.remove((matching_goto + 1) as usize); // remove breakout_label
                     block.statements.remove((matching_goto - 1) as usize); // remove LET
 
                     // replace for… next part
                     block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
                     block.statements.remove((i + 1) as usize); // remove for_label
                     block.statements.remove((i + 1) as usize); // remove if
-
+/*
                     Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize - 3, label_cp.as_str());
 
                     // there needs to be a better way to handle that
@@ -1451,7 +1452,8 @@ impl Decompiler {
                     if continue_label.len() > 0 {
                         Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize - 3, continue_label.as_str());
                         block.statements.remove((matching_goto - 1) as usize);
-                    }
+                    }*/
+                    continue;
                 }
             }
             i += 1;
@@ -1491,7 +1493,9 @@ impl Decompiler {
 
     fn scan_possible_continues(block: &mut Vec<Statement>, start : usize, end : usize, continue_label : &str)
     {
+        println!("   scan continues from {} to {}", start, end);
         for i in start..end {
+            print!("scan continue: {:?}", block[i]);
             match &block[i] {
                 Statement::While(cond, stmt) => {
                     if let Statement::Call(def, params) = &**stmt {
@@ -1564,12 +1568,14 @@ impl Decompiler {
                                     i += 1;
                                     continue;
                                 }
-                                let label_cp = break_label.clone();
+                                //let label_cp = break_label.clone();
+
                                 block.statements[i] = Statement::DoWhile(exp.clone());
                                 block.statements[matching_goto as usize] = Statement::EndWhile;
-                                block.statements.remove((matching_goto + 1) as usize);
+                                // block.statements.remove((matching_goto + 1) as usize); // breakout label
                                 block.statements.remove((i - 1) as usize);
 
+                                /*
                                 Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize, label_cp.as_str());
                                 // there needs to be a better way to handle that
                                 let mut continue_label = String::new();
@@ -1581,6 +1587,9 @@ impl Decompiler {
                                     Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize, continue_label.as_str());
                                     block.statements.remove((matching_goto - 1) as usize);
                                 }
+                                */
+                                i = 0;
+                                continue;
                             }
                         }
                         _ => {}
@@ -1588,6 +1597,145 @@ impl Decompiler {
                 }
             }
 
+            i += 1;
+        }
+    }
+
+    fn scan_break_continue(block: &mut Block)
+    {
+        let mut i = 0;
+        i = 0;
+        while i < block.statements.len() {
+            let mut start : i32 = -1;
+            let mut end : i32 = -1;
+            let mut nested = 0;
+
+            match &block.statements[i] {
+                Statement::DoWhile(_cond) => {
+                    for j in (i + 1)..block.statements.len() {
+                        match  &block.statements[j] {
+                            Statement::DoWhile(_cond) => { nested += 1 },
+                            Statement::EndWhile => {
+                                nested -= 1;
+                                if nested < 0 {
+                                    let l1 = match &block.statements[j as usize - 1] {
+                                        Statement::Label(continue_label) => continue_label.clone(),
+                                        _ => String::new()
+                                    };
+                                    let l2 = match &block.statements[j as usize + 1] {
+                                        Statement::Label(break_label) => break_label.clone(),
+                                        _ => String::new()
+                                    };
+
+                                    if start < 0 {
+                                        if !l1.is_empty() {
+                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, j as usize, l1.as_str());
+                                        }
+                                        if !l2.is_empty() {
+                                            Decompiler::scan_possible_breaks(&mut block.statements, i + 1, j as usize, l2.as_str());
+                                        }
+                                    } else {
+                                        if !l1.is_empty() {
+                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, start as usize, l1.as_str());
+                                            Decompiler::scan_possible_continues(&mut block.statements, end as usize, j as usize, l1.as_str());
+                                        }
+                                        if !l2.is_empty() {
+                                            Decompiler::scan_possible_breaks(&mut block.statements, i, start as usize, l2.as_str());
+                                            Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
+                                        }
+                                    }
+                                    start = -1;
+                                    end = -1;
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Statement::For(label, from, to, step) => {
+                    for j in (i + 1)..block.statements.len() {
+                        match  &block.statements[j] {
+                            Statement::For(label, from, to, step) => {
+                                if nested == 0 {
+                                    start = j as i32;
+                                }
+                                nested += 1;
+                            },
+                            Statement::Next => {
+                                nested -= 1;
+                                if nested < 0 {
+                                    let l1 = match &block.statements[j as usize - 1] {
+                                        Statement::Label(continue_label) => continue_label.clone(),
+                                        _ => String::new()
+                                    };
+                                    let l2 = match &block.statements[j as usize + 1] {
+                                        Statement::Label(break_label) => break_label.clone(),
+                                        _ => String::new()
+                                    };
+
+                                    if start < 0 {
+                                        if !l1.is_empty() {
+                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, j as usize, l1.as_str());
+                                        }
+                                        if !l2.is_empty() {
+                                            Decompiler::scan_possible_breaks(&mut block.statements, i + 1, j as usize, l2.as_str());
+                                        }
+                                    } else {
+                                        if !l1.is_empty() {
+                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, start as usize, l1.as_str());
+                                            Decompiler::scan_possible_continues(&mut block.statements, end as usize, j as usize, l1.as_str());
+                                        }
+                                        if !l2.is_empty() {
+                                            Decompiler::scan_possible_breaks(&mut block.statements, i, start as usize, l2.as_str());
+                                            Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
+                                        }
+                                    }
+                                    start = -1;
+                                    end = -1;
+                                    break;
+                                }
+                                end = j as i32 + 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+    }
+
+
+    fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>)
+    {
+        match stmt {
+            Statement::If(cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
+            Statement::While(cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
+            Statement::Call(def, params) => {
+                if def.opcode == OpCode::GOTO || def.opcode == OpCode::GOSUB {
+                    used_labels.insert(params[0].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn strip_unused_labels(block: &mut Block)
+    {
+        let mut used_labels = HashSet::new();
+        for stmt in &block.statements {
+            Decompiler::gather_labels(stmt, &mut used_labels);
+        }
+        let mut i = 0;
+        while i < block.statements.len() {
+            if let Statement::Label(label) = &block.statements[i] {
+                if !used_labels.contains(label) {
+                    block.statements.remove(i as usize);
+                    continue;
+                }
+            }
             i += 1;
         }
     }

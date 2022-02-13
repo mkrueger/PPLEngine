@@ -46,7 +46,7 @@ impl VariableType {
             VariableType::Byte => "BYTE".to_string(),
             VariableType::Word => "WORD".to_string(),
             VariableType::SByte => "SBYTE".to_string(),
-            VariableType::SWord => "SWORD".to_string(),
+            VariableType::SWord => "INT".to_string(),
             VariableType::BigStr => "BIGSTR".to_string(),
             VariableType::Double => "DOUBLE".to_string(),
             VariableType::Function => "???FUNCTION".to_string(),
@@ -66,6 +66,7 @@ pub struct VarDecl
     pub cube_size: i32,
 
     pub variable_type: VariableType,
+    pub var_name: String,
 
     pub content: u64,
     pub content2: u64,
@@ -80,7 +81,7 @@ pub struct VarDecl
     pub start: i32,
     pub first_var: i32,
     pub return_var: i32,
-    pub func: i32,
+    pub function_id: i32,
 }
 
 pub struct Executable
@@ -169,14 +170,17 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
         let cur_block = &buf[i..(i + 11)];
 
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as i32;
+
+        let variable_type = unsafe { ::std::mem::transmute(cur_block[9]) };
         let mut var_decl = VarDecl {
             number: 0,
             args: 0,
             total_var: 0,
             start: 0,
             first_var: 0,
-            func: 0,
-            variable_type: unsafe { ::std::mem::transmute(cur_block[9]) },
+            function_id: 0,
+            variable_type,
+            var_name: "".to_string(),
             dim: cur_block[2],
             vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
             matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,

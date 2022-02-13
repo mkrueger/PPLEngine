@@ -1,2 +1,0 @@
-STRING VAR001
-INPUTSTR "Run program now", VAR001, 123, 1, "YyNn", DEFS

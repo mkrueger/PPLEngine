@@ -1,7 +1,0 @@
-INTEGER VAR001
-
-FOR VAR001=100 TO 1 STEP -1
-    PRINTLN VAR001 ," Bottle(s) of beer on the wall, ", VAR001, " bottle(s) of beer"
-    PRINTLN "Take one down and pass it around,"
-    PRINTLN VAR001 - 1," bottle(s) of beer on the wall"
-NEXT

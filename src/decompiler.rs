@@ -5,11 +5,12 @@ use crate::interpreter::{Block, FunctionDeclaration, Program};
 use crate::parser::{BinOp, Constant, Declaration, Expression, Statement};
 use crate::tables::*;
 
-const LAST_FUNC: i32 = 0xfee2;
+const LAST_FUNC: i32 = -286;
 const LAST_STMT: i32 = 0x00e2;
 
 struct FuncL
 {
+    label: i32,
     func: i32,
 }
 
@@ -71,15 +72,16 @@ impl Decompiler {
                 d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
                 d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));*/
 
-        // println!("Pass 1 ...");
+        println!("Pass 1 ...");
         d.do_pass1();
-        // println!();
+        println!();
         d.dump_vars(&mut prg);
-        // println!("Pass 2 ...");
+        println!("Pass 2 ...");
         d.do_pass2(&mut prg);
+        println!("Pass 3 ...");
         Decompiler::do_pass3(&mut prg);
-        // println!();
-        // println!("Source decompilation complete...");
+        println!();
+        println!("Source decompilation complete...");
 
         let trash_flag = d.trash_flag;
         if trash_flag != 0 {
@@ -300,6 +302,15 @@ impl Decompiler {
         let mut c_func = 0;
         let mut c_proc = 0;
 
+        let mut string_vars = 0;
+        let mut int_vars = 0;
+        let mut bool_vars = 0;
+        let mut money_vars = 0;
+        let mut byte_vars = 0;
+        let mut time_vars = 0;
+        let mut date_vars = 0;
+        let mut generic_vars = 0;
+
         while i < self.executable.max_var {
             if i > 0x16 || !self.uvar_flag {
                 if self.executable.variable_declarations.get_mut(&i).unwrap().lflag == 0 {
@@ -329,12 +340,23 @@ impl Decompiler {
                                 cur_var.number = c_vars;
                                 if self.symbol == 0 {
                                     let var_type = TYPE_NAMES[cur_var.variable_type as usize];
-                                    let var_name = format!("VAR{0:>03}", c_vars);
+                                    cur_var.var_name = match cur_var.variable_type {
+                                        VariableType::String => { string_vars += 1; format!("STR{0:>03}", string_vars) }
+                                        VariableType::Integer => { int_vars += 1; format!("INT{0:>03}", int_vars) }
+                                        VariableType::Boolean => { bool_vars += 1; format!("BOOL{0:>03}", bool_vars) }
+                                        VariableType::Byte => { byte_vars += 1; format!("BYTE{0:>03}", byte_vars) }
+                                        VariableType::Money => { money_vars += 1; format!("MONEY{0:>03}", money_vars) }
+                                        VariableType::Time => { time_vars += 1; format!("TIME{0:>03}", time_vars) }
+                                        VariableType::Date => { date_vars += 1; format!("DATE{0:>03}", date_vars) }
+                                        _ => { generic_vars += 1; format!("VAR{0:>03}", generic_vars) }
+
+                                    };
+
                                     match cur_var.dim {
-                                        1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
-                                        2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
-                                        3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
-                                        _ => prg.variable_declarations.push(Declaration::Variable(var_type, var_name))
+                                        1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
+                                        2 => prg.variable_declarations.push(Declaration::Variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
+                                        3 => prg.variable_declarations.push(Declaration::Variable3(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
+                                        _ => prg.variable_declarations.push(Declaration::Variable(var_type, cur_var.var_name.clone()))
                                     }
                                 }
                             }
@@ -359,14 +381,16 @@ impl Decompiler {
             let var_name = format!("LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
             let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
             func_parameters.push(Declaration::Variable(var_type, var_name));
+            self.executable.variable_declarations.get_mut(&j).unwrap().function_id = func;
             j += 1;
         }
         let func_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
-        prg.function_declarations.push(FunctionDeclaration {
+        prg.function_declarations.push(Box::new(FunctionDeclaration {
             id: func,
             declaration: Declaration::Function(func_name, func_parameters, func_type),
             block: Block::new(),
-        });
+            variable_declarations: Vec::new(),
+        }));
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -377,27 +401,21 @@ impl Decompiler {
             let var_name = format!(" LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
             let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
             proc_parameters.push(Declaration::Variable(var_type, var_name));
-            /*
-            if ((self.executable.variable_declarations.get(&proc).unwrap().return_var >> i) & 1) != 0
-            {
-                self.output.push_str("VAR ");
-            }
-            self.output.push_str(format!("{}", TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize]).as_str());
-            self.executable.variable_declarations.get_mut(&j).unwrap().func = proc;
-            self.output.push_str(format!(" LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number).as_str());
-            */
+            self.executable.variable_declarations.get_mut(&j).unwrap().function_id = proc;
             j += 1;
         }
-        prg.procedure_declarations.push(FunctionDeclaration {
+        prg.procedure_declarations.push(Box::new(FunctionDeclaration {
             id: proc,
             declaration: Declaration::Procedure(proc_name, proc_parameters),
             block: Block::new(),
-        });
+            variable_declarations: Vec::new(),
+        }));
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
         self.func_used.insert(label, FuncL
         {
+            label,
             func
         });
     }
@@ -406,16 +424,7 @@ impl Decompiler {
         match self.func_used.get(&label) {
             Some(funcl) => {
                 let func = funcl.func;
-                if self.func_flag == 1 {
-                    // TODO:
-                    // self.output.push_str("    ENDFUNC\n\n");
-                }
-
-                if self.proc_flag == 1
-                {
-                    // TODO:
-                    // self.output.push_str("    ENDPROC\n\n");
-                }
+                let label = funcl.label;
                 self.func_flag = 0;
                 self.proc_flag = 0;
                 if self.executable.variable_declarations.get(&func).unwrap().variable_type == VariableType::Function {
@@ -426,12 +435,22 @@ impl Decompiler {
                     self.proc_flag = func;
                 }
                 self.dump_locs(prg, func);
-                if self.symbol == 0 {
-                    // self.output.push_str("\n");
-                }
             }
             _ => {}
         }
+    }
+    fn get_function<'a>(&self, prg: &'a mut Program, func: i32) -> Option<&'a mut FunctionDeclaration> {
+        for f in &mut prg.function_declarations {
+            if f.id == func {
+                return Some(&mut **f);
+            }
+        }
+        for f in &mut prg.procedure_declarations {
+            if f.id == func {
+                return Some(&mut **f);
+            }
+        }
+        return None
     }
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
@@ -453,17 +472,20 @@ impl Decompiler {
         {
             if self.executable.variable_declarations.get(&i).unwrap().flag == 1
             {
-                self.executable.variable_declarations.get_mut(&i).unwrap().func = func;
+                self.executable.variable_declarations.get_mut(&i).unwrap().function_id = func;
                 if self.symbol == 0
                 {
                     let var_type = crate::tables::TYPE_NAMES[self.executable.variable_declarations.get(&i).unwrap().variable_type as usize];
-                    let var_name = format!("LOC{0:>3}", self.executable.variable_declarations.get(&i).unwrap().number);
+                    let var_name = format!("LOC{0:>03}", self.executable.variable_declarations.get(&i).unwrap().number);
                     let cur_var = &self.executable.variable_declarations[&i];
+
+                    let func = self.get_function(prg, func).unwrap();
+
                     match cur_var.dim {
-                        1 => prg.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
-                        2 => prg.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
-                        3 => prg.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
-                        _ => prg.variable_declarations.push(Declaration::Variable(var_type, var_name))
+                        1 => func.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
+                        2 => func.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
+                        3 => func.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
+                        _ => func.variable_declarations.push(Declaration::Variable(var_type, var_name))
                     }
                 }
             }
@@ -476,7 +498,10 @@ impl Decompiler {
     }
 
     fn labelin(&mut self, label: i32) {
-        self.label_used.insert(label, (self.label_used.len() + 1) as i32);
+        if self.label_used.contains_key(&label) {
+            return;
+        }
+        self.label_used.insert(label, self.label_used.len() as i32 + 1);
     }
 
     fn labelnr(&mut self, label: i32) -> &i32 {
@@ -489,7 +514,8 @@ impl Decompiler {
     fn labelout(&mut self, prg: &mut Program, label: i32) {
         match self.label_used.get(&label) {
             Some(x) => {
-                prg.main_block.mark_label(format!("LABEL{0:>03}", x));
+                let label_stmt = Statement::Label(format!("LABEL{0:>03}", x));
+                self.output_stmt(prg, label_stmt);
             }
             _ => {}
         }
@@ -554,6 +580,9 @@ impl Decompiler {
                     _ => Expression::Const(c)
                 }
             }
+            Expression::Dim1(expr, dim1) => Expression::Dim1(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names))),
+            Expression::Dim2(expr, dim1, dim2) => Expression::Dim2(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names)), Box::new(self.repl_const(*dim2, vars, names))),
+            Expression::Dim3(expr, dim1, dim2, dim3) => Expression::Dim3(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names)), Box::new(self.repl_const(*dim2, vars, names)), Box::new(self.repl_const(*dim3, vars, names))),
             Expression::Identifier(s) => Expression::Identifier(s),
             Expression::Parens(e) => Expression::Parens(Box::new(self.repl_const(*e, vars, names))),
             Expression::FunctionCall(n, p) => {
@@ -693,8 +722,8 @@ impl Decompiler {
                 17 => return Expression::FunctionCall("U_DEF79".to_string(), vec![]),
                 18 => return Expression::FunctionCall("U_ALIAS".to_string(), vec![]),
                 19 => return Expression::FunctionCall("U_VER".to_string(), vec![]),
-                20 => return Expression::FunctionCall("U_ADDR".to_string(), vec![self.pop_expr().unwrap()]),
-                21 => return Expression::FunctionCall("U_NOTES".to_string(), vec![self.pop_expr().unwrap()]),
+                20 => return Expression::FunctionCall("U_ADDR".to_string(), vec![]),
+                21 => return Expression::FunctionCall("U_NOTES".to_string(), vec![]),
                 22 => return Expression::FunctionCall("U_PWDEXP".to_string(), vec![]),
                 23 => return Expression::FunctionCall("U_ACCOUNT".to_string(), vec![]),
                 _ => return Expression::FunctionCall("????".to_string(), vec![])
@@ -718,7 +747,7 @@ impl Decompiler {
                     if self.executable.variable_declarations.get(&var_nr).unwrap().lflag == 1 {
                         return Expression::Identifier(format!("LOC{0:>03}", cur_var.number));
                     }
-                    return Expression::Identifier(format!("VAR{0:>03}", cur_var.number));
+                    return Expression::Identifier(cur_var.var_name.clone());
                 }
             }
         }
@@ -754,64 +783,61 @@ impl Decompiler {
         }
     }
 
-    fn fnktout(&mut self, func: u16) -> i32
+    fn fnktout(&mut self, func: i32) -> i32
     {
         let mut i = 0;
-        match FUNCTION_SIGNATURE_TABLE[func as usize] {
-            0x10 => {
-                if self.exp_count < 1 {
-                    return -1;
+        if (func as usize) < FUNCTION_SIGNATURE_TABLE.len() {
+            match FUNCTION_SIGNATURE_TABLE[func as usize] {
+                0x10 => {
+                    if self.exp_count < 1 {
+                        return -1;
+                    }
+                    let tmp = self.pop_expr().unwrap();
+                    match func {
+                        15 => self.push_expr(Expression::Not(Box::new(tmp))),
+                        2 => self.push_expr(Expression::Minus(Box::new(tmp))),
+                        _ => panic!("{}", format!("unknown unary function {}", func))
+                    }
+                    return 0;
                 }
-                let tmp = self.pop_expr().unwrap();
-                match func {
-                    15 => self.push_expr(Expression::Not(Box::new(tmp))),
-                    2 => self.push_expr(Expression::Minus(Box::new(tmp))),
-                    _ => panic!("{}", format!("unknown unary function {}", func))
-                }
-                return 0;
-            }
-            0x11 => {
-                if self.exp_count < 2 {
-                    return -1;
-                }
-                let rvalue = self.pop_expr().unwrap();
-                let lvalue = self.pop_expr().unwrap();
+                0x11 => {
+                    if self.exp_count < 2 {
+                        return -1;
+                    }
+                    let rvalue = self.pop_expr().unwrap();
+                    let lvalue = self.pop_expr().unwrap();
 
-                let binop = BIN_EXPR[func as usize];
+                    let binop = BIN_EXPR[func as usize];
 
-                self.push_expr(Expression::Parens(
-                    Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
-                ));
+                    self.push_expr(Expression::Parens(
+                        Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
+                    ));
 
-                return 0;
-            }
-            _ => {
-                if self.exp_count < FUNCTION_SIGNATURE_TABLE[func as usize] {
-                    return -1;
+                    return 0;
                 }
-                let func_name = EXPR_NAMES[func as usize].to_string();
-                let mut parameters = Vec::new();
-                while FUNCTION_SIGNATURE_TABLE[func as usize] > i {
-                    i += 1;
-                    parameters.push(self.pop_expr().unwrap());
-                }
-                parameters.reverse();
-                self.push_expr(Expression::FunctionCall(func_name, parameters));
-                return 0;
+                _ => {}
             }
         }
+
+        if (func as usize) >= FUNCTION_SIGNATURE_TABLE.len() || self.exp_count < FUNCTION_SIGNATURE_TABLE[func as usize] {
+            println!("unknown func {} at {}", func, self.src_ptr);
+            return -1;
+        }
+        let func_name = if (func as usize) < EXPR_NAMES.len() { EXPR_NAMES[func as usize].to_string() } else { "_TODO_".to_string() };
+        let mut parameters = Vec::new();
+        while FUNCTION_SIGNATURE_TABLE[func as usize] > i {
+            i += 1;
+            parameters.push(self.pop_expr().unwrap());
+        }
+        parameters.reverse();
+        self.push_expr(Expression::FunctionCall(func_name, parameters));
+        return 0;
     }
 
     fn dimexpr(&mut self, dims: i32) -> i32
     {
         let mut cur_dim = 0;
         let temp_expr = self.exp_count;
-
-        if self.pass == 1 {
-            // TODO
-            // let tmp = self.popstr();
-            //  self.pushstr(format!("{}(", tmp));
-        }
 
         loop {
             if cur_dim == dims {
@@ -822,40 +848,36 @@ impl Decompiler {
             self.exp_count = 0;
             let mut tmp_func = 0;
             self.src_ptr += 1;
-            if cur_dim != 1 && self.pass == 1 {
-                // TODO
-                // let tmp = self.popstr();
-                //            self.pushstr(format!("{},", tmp));
-            }
 
             while (self.src_ptr as usize) < self.executable.source_buffer.len() && self.executable.source_buffer[self.src_ptr as usize] != 0 {
-                if self.executable.source_buffer[self.src_ptr as usize] <= self.executable.max_var {
-                    let var_idx = &(self.executable.source_buffer[self.src_ptr as usize] - 1);
-                    println!("{}", var_idx);
+                let curvar = self.executable.source_buffer[self.src_ptr as usize];
+                if curvar >= 0 && curvar <= self.executable.max_var {
+                    let var_idx = &(curvar - 1);
                     if self.executable.variable_declarations.get(var_idx).unwrap().variable_type == VariableType::Function {
                         self.pushlabel(self.executable.variable_declarations.get(var_idx).unwrap().start);
                         self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize - 1])).unwrap().flag = 1;
                         self.funcin(self.executable.variable_declarations.get(var_idx).unwrap().start, *var_idx);
                         if self.pass == 1
                         {
-                            let tmp2 = self.varout(var_idx + 1);
-                            let tmp3 = self.pop_expr();
-                            match tmp3 {
-                                Some(t) => self.push_expr(t),
-                                _ => {}
+                            let temp_str2 = self.pop_expr().unwrap();
+                            let tmp = self.pop_expr();
+                            if let Some(e) = tmp {
+                                match e {
+                                    Expression::Dim1(expr, vec_expr) => self.push_expr(Expression::Dim2(expr, vec_expr, Box::new(temp_str2))),
+                                    Expression::Dim2(expr, vec_expr, mat_expr) => self.push_expr(Expression::Dim3(expr, vec_expr, mat_expr, Box::new(temp_str2))),
+                                    _ => {
+                                        self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2)))
+                                    },
+                                }
+                            } else {
+                                self.push_expr(temp_str2);
                             }
-                            self.push_expr(tmp2);
                         }
                         self.src_ptr += 1;
                         if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
                             return 1;
                         }
                         self.src_ptr -= 1;
-                        if self.pass == 1 {
-                            // TODO
-                            //                          let tmp = self.popstr();
-                            //                          self.pushstr(format!("{})", tmp));
-                        }
                     } else {
                         if self.pass == 1 {
                             let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
@@ -872,16 +894,16 @@ impl Decompiler {
                     }
                 } else {
                     let x = -self.executable.source_buffer[self.src_ptr as usize] - 1;
+
                     if self.executable.source_buffer[self.src_ptr as usize] < LAST_FUNC || (x >= 0 && FUNCTION_SIGNATURE_TABLE[x as usize] == 0xaa) {
-                        println!("Error: Unknown function {:04X} avoiding...", self.executable.source_buffer[self.src_ptr as usize]);
+                        println!("Error: Unknown function {} at {} avoiding...", self.executable.source_buffer[self.src_ptr as usize], self.src_ptr);
                         return 1;
                     }
-
                     if self.pass == 1 {
-                        if self.fnktout((-self.executable.source_buffer[self.src_ptr as usize]) as u16 - 1) != 0 {
+                        if self.fnktout(x) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
-                        } else if tmp_func != 0 && self.fnktout((-tmp_func - 1) as u16) == 0 {
+                        } else if tmp_func != 0 && self.fnktout(-tmp_func - 1) == 0 {
                             tmp_func = 0;
                         }
                     }
@@ -892,18 +914,23 @@ impl Decompiler {
             if self.pass == 1 {
                 let temp_str2 = self.pop_expr().unwrap();
                 let tmp = self.pop_expr();
-                match tmp {
-                    Some(tmp) => self.push_expr(tmp),
-                    None => {}
-                }
-                self.push_expr(temp_str2);
-            }
-        }
+                if let Some(e) = tmp {
+                    match e {
+                        Expression::Dim1(expr, vec_expr) => self.push_expr(Expression::Dim2(expr, vec_expr, Box::new(temp_str2))),
+                        Expression::Dim2(expr, vec_expr, mat_expr) => self.push_expr(Expression::Dim3(expr, vec_expr, mat_expr, Box::new(temp_str2))),
+                        _ => {
+                            if e.to_string() == "VAR001"  {
+                                println!("cur {} dims: {}", cur_dim, dims);
+                                //panic!();
+                            }
 
-        if self.pass == 1 {
-            // TODO
-            //      let tmp = self.popstr();
-            //          self.pushstr(format!("{})", tmp));
+                            self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2)));
+                        }
+                    }
+                } else {
+                    self.push_expr(temp_str2);
+                }
+            }
         }
 
         self.exp_count = temp_expr;
@@ -921,18 +948,9 @@ impl Decompiler {
 
             self.exp_count = 0;
             let mut tmp_func = 0;
-            if cur_expr != 1 && self.pass == 1 {
-                // TODO?
-                /*
-                let tmp = self.popstr();
-                if self.akt_stat == 8 && rec == 0 {
-                    self.pushstr(format!("{}=", tmp));
-                } else {
-                    self.pushstr(format!("{},", tmp));
-                }*/
-            }
 
             while self.executable.source_buffer[self.src_ptr as usize] != 0 {
+
                 if self.executable.source_buffer[self.src_ptr as usize] >= 0 && self.executable.source_buffer[self.src_ptr as usize] <= self.executable.max_var {
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
                         self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
@@ -948,8 +966,11 @@ impl Decompiler {
                             }
                             if self.pass == 1 {
                                 let temp_str2 = self.pop_expr().unwrap();
-                                let temp_str = self.pop_expr().unwrap();
-                                self.push_expr(temp_str);
+                                let tmp3 = self.pop_expr();
+                                match tmp3 {
+                                    Some(t) => self.push_expr(t),
+                                    _ => {}
+                                }
                                 self.push_expr(temp_str2);
                             }
                         }
@@ -994,27 +1015,17 @@ impl Decompiler {
                                 }
                             }
                         } else {
-                            let var_ptr = self.src_ptr;
+                            if self.pass == 1 {
+                                let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
+                                self.push_expr(tmp);
+                            }
                             self.src_ptr += 1;
                             if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                                 self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().flag = 1;
                                 if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
                                     return 1;
                                 }
-                                /*
-                                if self.pass == 1 {
-                                                                    strcpy(temp_str2,self.popstr());
-                                                                    strcpy(temp_str,self.popstr());
-                                                                    strcat(temp_str,temp_str2);
-                                                                    self.pushstr(temp_str);
-                                }
-                                 */
                             }
-                            if self.pass == 1 {
-                                let tmp = self.varout(self.executable.source_buffer[var_ptr as usize]);
-                                self.push_expr(tmp);
-                            }
-
                             self.src_ptr += 1;
                         }
                     }
@@ -1026,10 +1037,10 @@ impl Decompiler {
                     }
 
                     if self.pass == 1 {
-                        if self.fnktout((-self.executable.source_buffer[self.src_ptr as usize] - 1) as u16) != 0 {
+                        if self.fnktout((-self.executable.source_buffer[self.src_ptr as usize] - 1) as i32) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
-                        } else if tmp_func != 0 && self.fnktout((-tmp_func - 1) as u16) == 0 {
+                        } else if tmp_func != 0 && self.fnktout(-tmp_func - 1) == 0 {
                             tmp_func = 0;
                         }
                     }
@@ -1270,7 +1281,7 @@ impl Decompiler {
         Decompiler::scan_do_while(block);
     }
 
-    fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(String, String, String, Expression, )> // for_label, indexName, breakout_label, to_expr
+    fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(String, String, String, Expression)> // for_label, indexName, breakout_label, to_expr
     {
         let for_label;
         let breakout_label;
@@ -1310,6 +1321,7 @@ impl Decompiler {
                                                             if llvalue != rlvalue || *opl != BinOp::Greater || *opr != BinOp::LowerEq || lrvalue != rrvalue {
                                                                 return None;
                                                             }
+                                                            println!("!!!!!!!!!!! MATCH");
 
                                                             return Some((for_label.clone(), llvalue.to_string(), breakout_label.clone(), (**lrvalue).clone()));
                                                         }
@@ -1370,6 +1382,7 @@ impl Decompiler {
                                                 break;
                                             }
                                         }
+                                        i += 1;
                                         continue;
                                     }
                                 }
@@ -1386,10 +1399,12 @@ impl Decompiler {
                     match &block.statements[matching_goto as usize - 1] {
                         Statement::Call(def, params) => {
                             if def.opcode != OpCode::LET || params.len() != 2 {
+                                i += 1;
                                 continue;
                             }
                             // todo: match expression as string
                             if params[0].to_string() != var_name {
+                                i += 1;
                                 continue;
                             }
 
@@ -1397,18 +1412,24 @@ impl Decompiler {
                                 if *_op != BinOp::Add { continue; } // always add even if step is negative
                                 if let Expression::Identifier(lstr) = &**lvalue {
                                     if *lstr != index_label {
+                                        i += 1;
                                         continue;
                                     }
                                 }
                                 step_expr = (**rvalue).clone();
                             } else {
+                                i += 1;
                                 continue;
                             }
                         }
-                        _ => continue
+                        _ =>  {
+                            i += 1;
+                            continue;
+                        }
                     }
 
                     let from_expr = Box::new(params[1].clone());
+                    let label_cp = breakout_label.clone();
                     // replace with next
                     block.statements[matching_goto as usize] = Statement::Next;
                     block.statements.remove((matching_goto + 1) as usize); // remove breakout_label
@@ -1418,9 +1439,84 @@ impl Decompiler {
                     block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
                     block.statements.remove((i + 1) as usize); // remove for_label
                     block.statements.remove((i + 1) as usize); // remove if
+
+                    Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize - 3, label_cp.as_str());
+
+                    // there needs to be a better way to handle that
+                    let mut continue_label = String::new();
+                    if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 3] {
+                        continue_label = lbl.clone();
+                    }
+
+                    if continue_label.len() > 0 {
+                        Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize - 3, continue_label.as_str());
+                        block.statements.remove((matching_goto - 1) as usize);
+                    }
                 }
             }
             i += 1;
+        }
+    }
+
+    fn scan_possible_breaks(block: &mut Vec<Statement>, start : usize, end : usize, break_label : &str)
+    {
+        for i in start..end {
+            match &block[i] {
+                Statement::While(cond, stmt) => {
+                    if let Statement::Call(def, params) = &**stmt {
+                        if params.len() != 1 { continue; }
+                        if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+                            block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Break));
+                        }
+                    }
+                }
+                Statement::If(cond, stmt) => {
+                    if let Statement::Call(def, params) = &**stmt {
+                        if params.len() != 1 { continue; }
+                        if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+                            block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Break));
+                        }
+                    }
+                }
+                Statement::Call(def, params) => {
+                    if params.len() != 1 { continue; }
+                    if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+                        block[i] = Statement::Break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn scan_possible_continues(block: &mut Vec<Statement>, start : usize, end : usize, continue_label : &str)
+    {
+        for i in start..end {
+            match &block[i] {
+                Statement::While(cond, stmt) => {
+                    if let Statement::Call(def, params) = &**stmt {
+                        if params.len() != 1 { continue; }
+                        if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+                            block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Continue));
+                        }
+                    }
+                }
+                Statement::If(cond, stmt) => {
+                    if let Statement::Call(def, params) = &**stmt {
+                        if params.len() != 1 { continue; }
+                        if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+                            block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Continue));
+                        }
+                    }
+                }
+                Statement::Call(def, params) => {
+                    if params.len() != 1 { continue; }
+                    if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+                        block[i] = Statement::Continue;
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
@@ -1429,7 +1525,6 @@ impl Decompiler {
         let mut i = 0;
         while i < block.statements.len() {
             let cur = &block.statements[i];
-
             if let Statement::Label(label) = cur {
                 i += 1;
                 if i >= block.statements.len() {
@@ -1457,6 +1552,7 @@ impl Decompiler {
                                                             break;
                                                         }
                                                     }
+                                                    j += 1;
                                                     continue;
                                                 }
                                             }
@@ -1468,10 +1564,23 @@ impl Decompiler {
                                     i += 1;
                                     continue;
                                 }
+                                let label_cp = break_label.clone();
                                 block.statements[i] = Statement::DoWhile(exp.clone());
                                 block.statements[matching_goto as usize] = Statement::EndWhile;
                                 block.statements.remove((matching_goto + 1) as usize);
                                 block.statements.remove((i - 1) as usize);
+
+                                Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize, label_cp.as_str());
+                                // there needs to be a better way to handle that
+                                let mut continue_label = String::new();
+                                if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 2] {
+                                    continue_label = lbl.clone();
+                                }
+
+                                if continue_label.len() > 0 {
+                                    Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize, continue_label.as_str());
+                                    block.statements.remove((matching_goto - 1) as usize);
+                                }
                             }
                         }
                         _ => {}
@@ -1520,7 +1629,6 @@ mod tests {
         false
     }
 
-
     #[test]
     fn test_decompiler() {
         use std::fs::{self};
@@ -1547,7 +1655,7 @@ mod tests {
             }
 
             let d = crate::decompiler::Decompiler::read(file_name.to_str().unwrap());
-            let source_file = cur_entry.with_extension("ppl");
+            let source_file = cur_entry.with_extension("pps");
             let orig_text = fs::read_to_string(source_file).unwrap();
 
             let are_equal = is_match(&d.to_string(), &orig_text);

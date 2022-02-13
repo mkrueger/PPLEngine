@@ -16,16 +16,21 @@ impl Block
         }
     }
 
-    pub fn mark_label(&mut self, label: String)
-    {
-        self.statements.push(Statement::Label(label));
-    }
 
     pub fn to_string(&self, prg: &Program) -> std::string::String
     {
         let mut result = std::string::String::new();
+        let mut indent= 0;
         for s in &self.statements {
-            result.push_str(s.to_string(prg).as_str());
+            let out = s.to_string(prg, indent);
+            if indent > out.1 {
+                indent = out.1;
+            }
+            for _ in 0..indent {
+                result.push_str("    ");
+            }
+            result.push_str(out.0.as_str());
+            indent = out.1;
             result.push_str("\n");
         }
         result
@@ -36,7 +41,46 @@ pub struct FunctionDeclaration
 {
     pub id: i32,
     pub declaration: parser::Declaration,
+    pub variable_declarations: Vec<parser::Declaration>,
     pub block: Block,
+}
+
+fn match_var_name(decl : &Declaration, var_name : &String) -> Option<VariableType>
+{
+    match decl {
+        Declaration::Variable(var_type, name) => if *name == *var_name { return Some(*var_type); },
+        Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return Some(*var_type); },
+        Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return Some(*var_type); },
+        Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return Some(*var_type); },
+        _ => {  }
+    }
+    None
+}
+
+impl ProgramContext for FunctionDeclaration
+{
+    fn get_var_type(&self, var_name: &String) -> VariableType
+    {
+        match &self.declaration {
+            Declaration::Function(func_name, param, func_type) => {
+                if var_name == func_name {
+                    return *func_type;
+                }
+                for p in param {
+                    if let Some(t) = match_var_name(p, var_name) {
+                        return t;
+                    }
+                }
+            }
+            _ => {}
+        }
+        for decl in &self.variable_declarations {
+            if let Some(t) = match_var_name(decl, var_name) {
+                return t;
+            }
+        }
+        VariableType::Unknown
+    }
 }
 
 use std::fmt;
@@ -51,43 +95,58 @@ impl fmt::Display for FunctionDeclaration {
 }
 
 impl FunctionDeclaration {
-    pub fn print_content(&self, prg: &Program) -> String
+    pub fn print_content(&self) -> String
     {
         let mut res = self.declaration.print_header();
         res.push('\n');
+        let mut indent = 1;
+
+        if self.variable_declarations.len() > 0 {
+            for v in &self.variable_declarations {
+                res.push_str("    ");
+                res.push_str(&v.to_string());
+                res.push('\n');
+            }
+            res.push('\n');
+        }
 
         for stmt in &self.block.statements {
             match stmt {
                 Statement::Call(def, _params) => {
-                    if def.opcode == OpCode::FEND {
+                    if def.opcode == OpCode::FEND || def.opcode == OpCode::FPCLR {
                         match &self.declaration {
                             Declaration::Procedure(_name, _param) => {
-                                res.push_str("ENDPROC");
+                                res.push_str(format!("ENDPROC ;--{}", _name).as_str());
                                 continue;
                             }
                             Declaration::Function(_name, _param, _t) => {
-                                res.push_str("ENDFUNC");
+                                res.push_str(format!("ENDFUNC ;--{}", _name).as_str());
                                 continue;
                             }
                             _ => {}
                         }
                     }
-                    if def.opcode == OpCode::FPCLR {
-                        res.push_str("ENDPROC");
-                        continue;
-                    }
                 }
                 _ => {}
             }
-            res.push_str(stmt.to_string(prg).as_str());
+            let out = stmt.to_string(self, indent);
+            if indent > out.1 {
+                indent = out.1;
+            }
+            for _ in 0..indent {
+                res.push_str("    ");
+            }
+            res.push_str(out.0.as_str());
+            indent = out.1;
             res.push('\n');
         }
+        res.push('\n');
 
         return res;
     }
 }
 
-pub trait ProgramContext
+pub trait ExecutionContext
 {
     fn print(&mut self, str: String);
 }
@@ -96,8 +155,30 @@ pub struct Program
 {
     pub variable_declarations: Vec<parser::Declaration>,
     pub main_block: Block,
-    pub function_declarations: Vec<FunctionDeclaration>,
-    pub procedure_declarations: Vec<FunctionDeclaration>,
+    pub function_declarations: Vec<Box<FunctionDeclaration>>,
+    pub procedure_declarations: Vec<Box<FunctionDeclaration>>,
+}
+
+pub trait ProgramContext
+{
+    fn get_var_type(&self, var_name: &String) -> VariableType;
+}
+
+impl ProgramContext for Program
+{
+    fn get_var_type(&self, var_name: &String) -> VariableType
+    {
+        for decl in &self.variable_declarations {
+            match decl {
+                Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
+                Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return *var_type; },
+                Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return *var_type; },
+                Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return *var_type; },
+                _ => {}
+            }
+        }
+        VariableType::Unknown
+    }
 }
 
 
@@ -106,7 +187,7 @@ struct TestContext
     output: String,
 }
 
-impl ProgramContext for TestContext
+impl ExecutionContext for TestContext
 {
     fn print(&mut self, str: String)
     {
@@ -128,7 +209,7 @@ impl Program
         }
     }
 
-    fn execute_statement(&self, ctx: &mut dyn ProgramContext, stmt: &Statement)
+    fn execute_statement(&self, ctx: &mut dyn ExecutionContext, stmt: &Statement)
     {
         match stmt {
             Statement::Call(def, params) => {
@@ -152,26 +233,11 @@ impl Program
         }
     }
 
-    pub fn run(&self, ctx: &mut dyn ProgramContext)
+    pub fn run(&self, ctx: &mut dyn ExecutionContext)
     {
         for stmt in &self.main_block.statements {
             self.execute_statement(ctx, stmt);
         }
-    }
-
-    pub fn get_variable(&self, var_name: &String) -> VariableType
-    {
-        for decl in &self.variable_declarations {
-            match decl {
-                Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
-                Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return *var_type; },
-                Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return *var_type; },
-                Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return *var_type; },
-                _ => {}
-            }
-        }
-
-        VariableType::Unknown
     }
 
     pub fn to_string(&self) -> String
@@ -201,12 +267,12 @@ impl Program
             res.push_str("; Function implementations\n");
         }
         for v in &self.function_declarations {
-            res.push_str(v.print_content(self).as_str());
+            res.push_str(v.print_content().as_str());
             res.push('\n');
         }
 
         for v in &self.procedure_declarations {
-            res.push_str(&v.print_content(self).as_str());
+            res.push_str(&v.print_content().as_str());
             res.push('\n');
         }
 

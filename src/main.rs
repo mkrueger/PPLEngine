@@ -20,8 +20,10 @@ fn main() {
     let mut data_path =env::current_dir().unwrap();
     data_path.push("test_data");
 
-    data_path.push("99bottles.ppe");
+    data_path.push("while.ppe");
     let d = crate::decompiler::Decompiler::read(data_path.to_str().unwrap());
+
+  //  let d = crate::decompiler::Decompiler::read("/home/mkrueger/Downloads/PPL/CNFNNEW/CNFN.PPE");
 
     println!("debug:");
     print!("{}", d.to_string());
@@ -69,6 +71,6 @@ fn main() {
 fn usage_error()  {
     println!("USAGE: pplengine [OPTIONS]");
     println!("-d SRCNAME[.EXT] [DSTNAME[.EXT]] decompile .ppe file");
-    println!("-c SRCNAME[.EXT] [DSTNAME[.EXT]] compile .ppl file to .ppe");
+    println!("-c SRCNAME[.EXT] [DSTNAME[.EXT]] compile .pps file to .ppe");
     println!("-r NAME[.EXT] Run PPE locally");
 }

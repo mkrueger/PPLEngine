@@ -7,7 +7,7 @@ use std::str::FromStr;
 use std::string::String;
 
 use crate::executable::VariableType;
-use crate::interpreter::Program;
+use crate::interpreter::ProgramContext;
 use crate::tables::{OpCode, StatementDefinition, STATEMENT_DEFINITIONS};
 
 #[derive(Debug, PartialEq)]
@@ -458,6 +458,9 @@ pub enum Expression
     Not(Box<Expression>),
     Minus(Box<Expression>),
     BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
+    Dim1(Box<Expression>, Box<Expression>),
+    Dim2(Box<Expression>, Box<Expression>, Box<Expression>),
+    Dim3(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
 impl Expression
@@ -471,7 +474,11 @@ impl Expression
             Expression::Not(expr) => format!("!{}", (**expr).to_string()),
             Expression::Minus(expr) => format!("-{}", (**expr).to_string()),
             Expression::BinaryExpression(op, lexpr, rexpr) => format!("{} {} {}", (**lexpr).to_string(), op.to_string(), (**rexpr).to_string()),
-            Expression::FunctionCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params))
+            Expression::FunctionCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
+            Expression::Dim1(expr, vec) => format!("{}({})", (**expr).to_string(), (**vec).to_string()),
+            Expression::Dim2(expr, vec, mat) => format!("{}({}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string()),
+            Expression::Dim3(expr, vec, mat, cub) => format!("{}({}, {}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string(), (**cub).to_string()),
+
         }
     }
 }
@@ -579,6 +586,8 @@ pub enum Statement {
     EndWhile,
     For(String, Box<Expression>, Box<Expression>, Box<Expression>),
     Next,
+    Break,
+    Continue,
     Label(String),
     ProcedureCall(String, Vec<Expression>),
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
@@ -608,57 +617,79 @@ impl Statement
                 }
             }
             Expression::Not(notexpr) => {
-                match Statement::try_boolean_conversion(notexpr) {
+                match &**notexpr {
                     Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
                     Expression::Const(Constant::TRUE) => &Expression::Const(Constant::FALSE),
-                    Expression::Not(notexpr2) => notexpr2,
+                    Expression::Not(notexpr2) => {
+                        Statement::try_boolean_conversion(&notexpr2)
+                    },
                     _ => expr
                 }
             }
             _ => { expr }
         }
     }
-    pub fn to_string(&self, prg: &Program) -> String
+
+    pub fn get_indent(indent : i32) -> String
+    {
+        let mut res = String::new();
+        for _ in 0..indent {
+            res.push_str("    ");
+        }
+        res
+    }
+    fn get_var_name(expr : &Expression) -> String {
+        match expr {
+            Expression::Dim1(expr, _vec) => Statement::get_var_name(expr),
+            Expression::Dim2(expr, _vec, _mat) => Statement::get_var_name(expr),
+            Expression::Dim3(expr, _vec, _mat, _cube) => Statement::get_var_name(expr),
+            _ => expr.to_string()
+        }
+    }
+    pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32)
     {
         match self {
-            Statement::Comment(str) => format!(";{}", str),
-            Statement::While(cond, stmt) => format!("WHILE ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg)),
-            Statement::If(cond, stmt) => format!("IF ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg)),
+            Statement::Comment(str) => (format!(";{}", str), indent),
+            Statement::While(cond, stmt) => (format!("WHILE ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg, 0).0), indent),
+            Statement::If(cond, stmt) => (format!("IF ({}) {}", Statement::try_boolean_conversion(cond).to_string(), stmt.to_string(prg, 0).0), indent),
             Statement::DoWhile(t) => {
-                format!("WHILE ({}) DO", Statement::try_boolean_conversion(&Expression::Not(t.clone())).to_string())
+                (format!("WHILE ({}) DO", Statement::try_boolean_conversion(&Expression::Not(t.clone())).to_string()), indent + 1)
             }
-            Statement::EndWhile => "ENDWHILE".to_string(),
+            Statement::EndWhile => ("ENDWHILE".to_string(), indent - 1),
+            Statement::Break => ("BREAK".to_string(), indent),
+            Statement::Continue => ("CONTINUE".to_string(), indent),
             Statement::For(var_name, from, to, step) => {
                 let step = step.to_string();
                 if step == "1" {
-                    format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string())
+                    (format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string()), indent + 1)
                 } else {
-                    format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), step)
+                    (format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), step), indent + 1)
                 }
             }
-            Statement::Next => "NEXT".to_string(),
-            Statement::Label(str) => format!(":{}", str),
-            Statement::ProcedureCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
+            Statement::Next => ("NEXT".to_string(), indent - 1),
+            Statement::Next => ("BREAK".to_string(), indent),
+            Statement::Label(str) => (format!("\n{}:{}", Statement::get_indent(indent - 1), str), indent),
+            Statement::ProcedureCall(name, params) => (format!("{}({})", name, Statement::param_list_to_string(params)), indent),
             Statement::Call(def, params) => {
                 let op: OpCode = unsafe { transmute(def.opcode) };
                 match op {
                     OpCode::LET => {
-                        let var = params[0].to_string();
-                        let expected_type = prg.get_variable(&var);
+                        let var = Statement::get_var_name(&params[0]);
+                        let expected_type = prg.get_var_type(&var);
                         let mut expr = &params[1];
                         if expected_type == VariableType::Boolean {
                             expr = Statement::try_boolean_conversion(expr);
                         }
-                        format!("LET {} = {}", var.as_str(), expr.to_string().as_str())
+                        (format!("LET {} = {}", var.as_str(), expr.to_string().as_str()), indent)
                     }
                     OpCode::IF => {
-                        format!("IF ({})", params[0].to_string().as_str())
+                        (format!("IF ({})", params[0].to_string().as_str()), indent + 1)
                     }
                     _ => {
                         if params.is_empty() {
-                            def.name.to_string()
+                            (def.name.to_string(), indent)
                         } else {
-                            format!("{} {}", def.name, Statement::param_list_to_string(params))
+                            (format!("{} {}", def.name, Statement::param_list_to_string(params)), indent)
                         }
                     }
                 }

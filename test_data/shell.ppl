@@ -1,2 +1,0 @@
-INTEGER VAR001
-SHELL 1, VAR001, "file.exe", "args"

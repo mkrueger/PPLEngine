@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use crate::ast::*;
 use crate::executable::*;
-use crate::interpreter::FunctionDeclaration;
 use crate::tables::*;
 
 const LAST_FUNC: i32 = -286;
@@ -17,6 +16,8 @@ pub fn decompile(file_name: &str, to_file : bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
     
+    println!("{}.{} detected", d.executable.version / 100, d.executable.version % 100);
+
     d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
     d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
     d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));

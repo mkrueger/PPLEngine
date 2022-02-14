@@ -2,60 +2,8 @@ use std::fs::*;
 use std::io::*;
 use std::collections::HashMap;
 
+use crate::ast::VariableType;
 use crate::crypt::*;
-
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug)]
-#[allow(dead_code)]
-pub enum VariableType
-{
-    Boolean = 0,
-    Unsigned = 1,
-    Date = 2,
-    EDate = 3,
-    Integer = 4,
-    Money = 5,
-    Real = 6,
-    String = 7,
-    Time = 8,
-    Byte = 9,
-    Word = 10,
-    SByte = 11,
-    SWord = 12,
-    BigStr = 13,
-    Double = 14,
-    Function = 15,
-    Procedure = 16,
-    DDate = 17,
-    Unknown = 255,
-}
-
-impl VariableType {
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            VariableType::Boolean => "BOOLEAN".to_string(),
-            VariableType::Unsigned => "UNSIGNED".to_string(),
-            VariableType::Date => "DATE".to_string(),
-            VariableType::EDate => "EDATE".to_string(),
-            VariableType::Integer => "INTEGER".to_string(),
-            VariableType::Money => "MONEY".to_string(),
-            VariableType::Real => "REAL".to_string(),
-            VariableType::String => "STRING".to_string(),
-            VariableType::Time => "TIME".to_string(),
-            VariableType::Byte => "BYTE".to_string(),
-            VariableType::Word => "WORD".to_string(),
-            VariableType::SByte => "SBYTE".to_string(),
-            VariableType::SWord => "INT".to_string(),
-            VariableType::BigStr => "BIGSTR".to_string(),
-            VariableType::Double => "DOUBLE".to_string(),
-            VariableType::Function => "???FUNCTION".to_string(),
-            VariableType::Procedure => "???PROCEDURE".to_string(),
-            VariableType::DDate => "DATE".to_string(),
-            VariableType::Unknown => "???".to_string()
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct VarDecl
@@ -118,7 +66,6 @@ pub fn read_file(file_name: &str) -> Executable
     {
         panic!("Invalid PPE file");
     }
-    // println!("{}.{} detected", version / 100, version % 100);
     let max_var = u16::from_le_bytes((&buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap()) as i32;
     let (mut i, variable_declarations) = read_vars(version, &mut buffer, max_var);
     let code_size = u16::from_le_bytes((&buffer[i..=(i + 1)]).try_into().unwrap()) as usize;
@@ -146,7 +93,6 @@ pub fn read_file(file_name: &str) -> Executable
         source_buffer.push(k);
         i += 2;
     }
-    println!();
 
     Executable {
         version,

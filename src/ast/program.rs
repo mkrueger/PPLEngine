@@ -1,4 +1,5 @@
-use crate::interpreter::FunctionDeclaration;
+use crate::interpreter::ProgramContext;
+
 use super::*;
 
 pub struct Program
@@ -59,5 +60,22 @@ impl Program
             res.push('\n');
         }
         res
+    }
+}
+
+impl ProgramContext for Program
+{
+    fn get_var_type(&self, var_name: &String) -> VariableType
+    {
+        for decl in &self.variable_declarations {
+            match decl {
+                Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
+                Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return *var_type; },
+                Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return *var_type; },
+                Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return *var_type; },
+                _ => {}
+            }
+        }
+        VariableType::Unknown
     }
 }

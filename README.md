@@ -20,13 +20,14 @@ I still have to learn a lot of the rust programming language but it was worth ev
 ## What works
 
 Decompiler is pretty complete (report bugs!). I would say it's better than everything we had back in the 90'.
+pplrun is able to run 99bottles.ppe
 
 ## TODO
 
 * Implement naming sheme - many names can be guessed. Like for loop variables i, j, k… or file handles, file names etc..
   There are many possibilities to implement variable name guessing strategies from the variable usage.
 * ElseIf blocks are missing (but should be pretty easy to add but I need a break)
-* Implement execution engine. The program is an easy to use data structure - may get a meta layer or other representation for running. The current one is more suited for parsing.
+* Execution engine just started.
 * Finish parsing layer. Basically all control constructs are missing and semantic error checking is missing.
 
 
@@ -36,6 +37,7 @@ Decompiler is pretty complete (report bugs!). I would say it's better than every
 * cargo build -r
 * cd target/release
 * ./ppld [PPEFILE] 
-* pplc/pplrun still ongoing
+* ./pplrun [PPEFILE] - it's likely to crash not many instructions are implemented
+* ./pplc - doesn't do anything yet
 
 Result is printed to stdout

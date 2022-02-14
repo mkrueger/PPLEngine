@@ -1,4 +1,4 @@
-use crate::executable::VariableType;
+use super::VariableType;
 
 #[derive(Debug, PartialEq)]
 pub enum Declaration {

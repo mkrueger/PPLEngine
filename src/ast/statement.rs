@@ -1,4 +1,4 @@
-use crate::{tables::{StatementDefinition, OpCode}, interpreter::ProgramContext, executable::VariableType};
+use crate::{tables::{StatementDefinition, OpCode, PPL_TRUE}, interpreter::ProgramContext};
 
 use super::*;
 
@@ -38,10 +38,10 @@ impl Statement
     {
         match expr {
             Expression::Const(Constant::Integer(i)) => {
-                if *i == 0 {
-                    &Expression::Const(Constant::FALSE)
-                } else {
+                if *i == PPL_TRUE {
                     &Expression::Const(Constant::TRUE)
+                } else {
+                    &Expression::Const(Constant::FALSE)
                 }
             }
             Expression::Parens(expr) => {

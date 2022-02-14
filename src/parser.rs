@@ -6,7 +6,6 @@ use std::str::FromStr;
 use std::string::String;
 use crate::ast::*;
 
-use crate::executable::VariableType;
 use crate::tables::{ StatementDefinition, STATEMENT_DEFINITIONS};
 
 pub fn identifier(input: &str) -> IResult<&str, &str> {

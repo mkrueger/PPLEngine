@@ -1,4 +1,3 @@
-use crate::executable::VariableType;
 use crate::ast::*;
 
 // Statement Variable-Types, 0 = none / aa = not defined
@@ -776,3 +775,6 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 227] = [
 ];
 
 
+
+pub const PPL_TRUE : i32 = 1;
+pub const PPL_FALSE : i32 = 0;

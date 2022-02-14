@@ -1,5 +1,5 @@
 use crate::executable::VariableType;
-use crate::parser::{BinOp, Constant};
+use crate::ast::*;
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp

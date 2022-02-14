@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
+use crate::ast::*;
 use crate::executable::*;
-use crate::interpreter::{Block, FunctionDeclaration, Program};
-use crate::parser::{BinOp, Constant, Declaration, Expression, Statement};
+use crate::interpreter::FunctionDeclaration;
 use crate::tables::*;
 
 const LAST_FUNC: i32 = -286;
@@ -10,11 +10,64 @@ const LAST_STMT: i32 = 0x00e2;
 
 struct FuncL
 {
-    label: i32,
     func: i32,
 }
 
-pub struct Decompiler
+pub fn decompile(file_name: &str, to_file : bool) -> Program {
+    let mut prg = Program::new();
+    let mut d = Decompiler::new(read_file(file_name));
+    
+    d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
+    d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
+    d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
+
+    if to_file {
+        println!("Pass 1 ...");
+    }
+    d.do_pass1();
+    if to_file {
+        println!();
+    }
+    d.dump_vars(&mut prg);
+    if to_file {
+        println!("Pass 2 ...");
+    }
+    d.do_pass2(&mut prg);
+    if to_file {
+        println!("Pass 3 ...");
+    }
+    Decompiler::do_pass3(&mut prg);
+    if to_file {
+        println!();
+        println!("Source decompilation complete...");
+    }
+
+    let trash_flag = d.trash_flag;
+    if trash_flag != 0 {
+        d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
+        d.output_stmt(&mut prg, Statement::Comment(format!("!!! {} ERROR(S) CAUSED BY PPLC BUGS DETECTED", trash_flag)));
+        d.output_stmt(&mut prg, Statement::Comment("PROBLEM: These expressions most probably looked like !0+!0+!0 or similar".to_string()));
+        d.output_stmt(&mut prg, Statement::Comment("         before PPLC fucked it up to something like !(!(+0)+0)!0. This may".to_string()));
+        d.output_stmt(&mut prg, Statement::Comment("         also apply to - / and * aswell. Also occurs upon use of multiple !'s.".to_string()));
+        d.output_stmt(&mut prg, Statement::Comment("         Some smartbrains use this BUG to make programms running different".to_string()));
+        d.output_stmt(&mut prg, Statement::Comment("         (or not at all) when being de- and recompiled.".to_string()));
+        if to_file {
+            println!("{} COMPILER ERROR(S) DETECTED", trash_flag);
+        }
+    }
+    prg
+}
+
+pub fn load_file(file_name: &str) -> Program {
+    let mut prg = Program::new();
+    let mut d = Decompiler::new(read_file(file_name));
+    d.do_pass1();
+    d.dump_vars(&mut prg);
+    d.do_pass2(&mut prg);
+    prg
+}
+
+struct Decompiler
 {
     executable: Executable,
     cur_stmt: i32,
@@ -35,6 +88,7 @@ pub struct Decompiler
     label_stack: Vec<i32>,
     expr_stack: Vec<Expression>,
 }
+
 
 impl Decompiler {
     fn new(executable: Executable) -> Self {
@@ -64,39 +118,7 @@ impl Decompiler {
         }
     }
 
-    pub fn read(file_name: &str) -> Program {
-        let mut prg = Program::new();
-        let mut d = Decompiler::new(read_file(file_name));
-
-        /*        d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
-                d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
-                d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));*/
-
-        // println!("Pass 1 ...");
-        d.do_pass1();
-        // println!();
-        d.dump_vars(&mut prg);
-        // println!("Pass 2 ...");
-        d.do_pass2(&mut prg);
-        // println!("Pass 3 ...");
-        Decompiler::do_pass3(&mut prg);
-        // println!();
-        // println!("Source decompilation complete...");
-
-        let trash_flag = d.trash_flag;
-        if trash_flag != 0 {
-            d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
-            d.output_stmt(&mut prg, Statement::Comment(format!("!!! {} ERROR(S) CAUSED BY PPLC BUGS DETECTED", trash_flag)));
-            d.output_stmt(&mut prg, Statement::Comment("PROBLEM: These expressions most probably looked like !0+!0+!0 or similar".to_string()));
-            d.output_stmt(&mut prg, Statement::Comment("         before PPLC fucked it up to something like !(!(+0)+0)!0. This may".to_string()));
-            d.output_stmt(&mut prg, Statement::Comment("         also apply to - / and * aswell. Also occurs upon use of multiple !'s.".to_string()));
-            d.output_stmt(&mut prg, Statement::Comment("         Some smartbrains use this BUG to make programms running different".to_string()));
-            d.output_stmt(&mut prg, Statement::Comment("         (or not at all) when being de- and recompiled.".to_string()));
-            // println!("{} COMPILER ERROR(S) DETECTED", trash_flag);
-        }
-
-        prg
-    }
+    
 
     pub fn output_stmt(&mut self, prg: &mut Program, stmt: Statement)
     {
@@ -414,7 +436,6 @@ impl Decompiler {
     fn funcin(&mut self, label: i32, func: i32) {
         self.func_used.insert(label, FuncL
         {
-            label,
             func
         });
     }
@@ -423,7 +444,6 @@ impl Decompiler {
         match self.func_used.get(&label) {
             Some(funcl) => {
                 let func = funcl.func;
-                let label = funcl.label;
                 self.func_flag = 0;
                 self.proc_flag = 0;
                 if self.executable.variable_declarations.get(&func).unwrap().variable_type == VariableType::Function {
@@ -1387,8 +1407,8 @@ impl Decompiler {
                             // TODO: Check _op
                             if let Expression::Parens(p_expr_l) = &**lvalue {
                                 if let Expression::Parens(p_expr_r) = &**rvalue {
-                                    if let Expression::BinaryExpression(opl, _llvalue, lrvalue) = &**p_expr_l {
-                                        if let Expression::BinaryExpression(opr, _rlvalue, rrvalue) = &**p_expr_r {
+                                    if let Expression::BinaryExpression(_opl, _llvalue, lrvalue) = &**p_expr_l {
+                                        if let Expression::BinaryExpression(_opr, _rlvalue, rrvalue) = &**p_expr_r {
                                             // TODO: Check _op
 
                                             /*     if *opl != BinOp::Add || *opr != BinOp::Add {
@@ -1397,8 +1417,8 @@ impl Decompiler {
 
                                             if let Expression::Parens(left_binop) = &**lrvalue {
                                                 if let Expression::Parens(right_binop) = &**rrvalue {
-                                                    if let Expression::BinaryExpression(opl, llvalue, lrvalue) = &**left_binop {
-                                                        if let Expression::BinaryExpression(opr, rlvalue, rrvalue) = &**right_binop {
+                                                    if let Expression::BinaryExpression(_opl, llvalue, lrvalue) = &**left_binop {
+                                                        if let Expression::BinaryExpression(_opr, rlvalue, rrvalue) = &**right_binop {
                                                             // TODO: Check _op
                                                             if llvalue != rlvalue/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| lrvalue != rrvalue {
                                                                 return None;
@@ -1683,7 +1703,6 @@ impl Decompiler {
     fn scan_break_continue(block: &mut Block)
     {
         let mut i = 0;
-        i = 0;
         while i < block.statements.len() {
             let mut start : i32 = -1;
             let mut end : i32 = -1;
@@ -1723,8 +1742,6 @@ impl Decompiler {
                                             Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
                                         }
                                     }
-                                    start = -1;
-                                    end = -1;
                                     break;
                                 }
                             }
@@ -1732,10 +1749,10 @@ impl Decompiler {
                         }
                     }
                 }
-                Statement::For(label, from, to, step) => {
+                Statement::For(_label, _from, _to, _step) => {
                     for j in (i + 1)..block.statements.len() {
                         match  &block.statements[j] {
-                            Statement::For(label, from, to, step) => {
+                            Statement::For(_label, _from, _to, _step) => {
                                 if nested == 0 {
                                     start = j as i32;
                                 }
@@ -1770,8 +1787,6 @@ impl Decompiler {
                                             Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
                                         }
                                     }
-                                    start = -1;
-                                    end = -1;
                                     break;
                                 }
                                 end = j as i32 + 1;
@@ -1789,8 +1804,8 @@ impl Decompiler {
     fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>)
     {
         match stmt {
-            Statement::If(cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
-            Statement::While(cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
+            Statement::If(_cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
+            Statement::While(_cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
             Statement::Call(def, params) => {
                 if def.opcode == OpCode::GOTO || def.opcode == OpCode::GOSUB {
                     used_labels.insert(params[0].to_string());
@@ -1880,7 +1895,7 @@ mod tests {
                 continue;
             }
 
-            let d = crate::decompiler::Decompiler::read(file_name.to_str().unwrap());
+            let d = crate::decompiler::decompile(file_name.to_str().unwrap(), false);
             let source_file = cur_entry.with_extension("pps");
             let orig_text = fs::read_to_string(source_file).unwrap();
 

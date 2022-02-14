@@ -1,47 +1,11 @@
-use crate::parser;
-use crate::parser::*;
+use crate::ast::*;
 use std::string::String;
-
-pub struct Block
-{
-    pub statements: Vec<Statement>,
-}
-
-impl Block
-{
-    pub fn new() -> Self
-    {
-        Block {
-            statements: vec![]
-        }
-    }
-
-
-    pub fn to_string(&self, prg: &Program) -> std::string::String
-    {
-        let mut result = std::string::String::new();
-        let mut indent= 0;
-        for s in &self.statements {
-            let out = s.to_string(prg, indent);
-            if indent > out.1 {
-                indent = out.1;
-            }
-            for _ in 0..indent {
-                result.push_str("    ");
-            }
-            result.push_str(out.0.as_str());
-            indent = out.1;
-            result.push_str("\n");
-        }
-        result
-    }
-}
 
 pub struct FunctionDeclaration
 {
     pub id: i32,
-    pub declaration: parser::Declaration,
-    pub variable_declarations: Vec<parser::Declaration>,
+    pub declaration: Declaration,
+    pub variable_declarations: Vec<Declaration>,
     pub block: Block,
 }
 
@@ -146,19 +110,6 @@ impl FunctionDeclaration {
     }
 }
 
-pub trait ExecutionContext
-{
-    fn print(&mut self, str: String);
-}
-
-pub struct Program
-{
-    pub variable_declarations: Vec<parser::Declaration>,
-    pub main_block: Block,
-    pub function_declarations: Vec<Box<FunctionDeclaration>>,
-    pub procedure_declarations: Vec<Box<FunctionDeclaration>>,
-}
-
 pub trait ProgramContext
 {
     fn get_var_type(&self, var_name: &String) -> VariableType;
@@ -181,6 +132,10 @@ impl ProgramContext for Program
     }
 }
 
+pub trait ExecutionContext
+{
+    fn print(&mut self, str: String);
+}
 
 struct TestContext
 {
@@ -195,117 +150,52 @@ impl ExecutionContext for TestContext
     }
 }
 
-impl Program
+fn execute_statement(_prg : &Program, ctx: &mut dyn ExecutionContext, stmt: &Statement)
 {
-    pub fn new() -> Self
-    {
-        Program {
-            variable_declarations: vec![],
-            main_block: Block {
-                statements: vec![]
-            },
-            function_declarations: vec![],
-            procedure_declarations: vec![],
-        }
-    }
-
-    fn execute_statement(&self, ctx: &mut dyn ExecutionContext, stmt: &Statement)
-    {
-        match stmt {
-            Statement::Call(def, params) => {
-                let op: OpCode = unsafe { transmute(def.opcode) };
-                match op {
-                    OpCode::PRINT => {
-                        for expr in params {
-                            ctx.print(expr.to_string());
-                        }
+    match stmt {
+        Statement::Call(def, params) => {
+            let op: OpCode = unsafe { transmute(def.opcode) };
+            match op {
+                OpCode::PRINT => {
+                    for expr in params {
+                        ctx.print(expr.to_string());
                     }
-                    OpCode::PRINTLN => {
-                        for expr in params {
-                            ctx.print(expr.to_string());
-                        }
-                        ctx.print("\n".to_string());
-                    }
-                    _ => {}
                 }
+                OpCode::PRINTLN => {
+                    for expr in params {
+                        ctx.print(expr.to_string());
+                    }
+                    ctx.print("\n".to_string());
+                }
+                _ => {}
             }
-            _ => {}
         }
-    }
-
-    pub fn run(&self, ctx: &mut dyn ExecutionContext)
-    {
-        for stmt in &self.main_block.statements {
-            self.execute_statement(ctx, stmt);
-        }
-    }
-
-    pub fn to_string(&self) -> String
-    {
-        let mut res = String::new();
-
-        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
-            res.push_str("; Function declarations\n");
-        }
-        for v in &self.function_declarations {
-            res.push_str(&v.to_string());
-            res.push('\n');
-        }
-        for v in &self.procedure_declarations {
-            res.push_str(&v.to_string());
-            res.push('\n');
-        }
-        for v in &self.variable_declarations {
-            res.push_str(&v.to_string());
-            res.push('\n');
-        }
-        res.push_str("; Entrypoint\n");
-
-        res.push_str(&self.main_block.to_string(self));
-
-        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
-            res.push_str("; Function implementations\n");
-        }
-        for v in &self.function_declarations {
-            res.push_str(v.print_content().as_str());
-            res.push('\n');
-        }
-
-        for v in &self.procedure_declarations {
-            res.push_str(&v.print_content().as_str());
-            res.push('\n');
-        }
-
-        res
+        _ => {}
     }
 }
 
-fn parse_program(input: &str) -> Program
+pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 {
-    let stmt = parse_statement(input).unwrap();
-
-    Program {
-        variable_declarations: vec![],
-        main_block: Block {
-            statements: vec![stmt.1]
-        },
-        function_declarations: vec![],
-        procedure_declarations: vec![],
+    for stmt in &prg.main_block.statements  {
+        execute_statement(prg, ctx, stmt);
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::parse_program;
+
     use super::*;
 
     #[test]
     fn test_println() {
         let mut ctx = TestContext { output: String::new() };
-        parse_program("PRINTLN 1, 2, 3, \"Hello World\"").run(&mut ctx);
+        
+        run(&parse_program("PRINTLN 1, 2, 3, \"Hello World\""), &mut ctx);
         assert_eq!("123\"Hello World\"\n".to_string(), ctx.output);
 
         ctx = TestContext { output: String::new() };
-        parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h").run(&mut ctx);
+        run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx);
         assert_eq!("TRUE\",\"$41.43\",\"16".to_string(), ctx.output);
     }
 }

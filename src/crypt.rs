@@ -57,6 +57,7 @@ pub fn decrypt(block: &mut [u8], version: u16) {
     }
 }
 
+#[cfg(test)]
 pub fn encode_rle(src: &[u8]) -> Vec<u8> {
     let mut result = Vec::new();
     let mut i = 0;

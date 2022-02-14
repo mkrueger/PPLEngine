@@ -1,60 +1,13 @@
-use core::panicking::panic;
-use std::intrinsics::transmute;
 use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
 use nom::bytes::complete::{take_while_m_n};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
 use std::str::FromStr;
 use std::string::String;
+use crate::ast::*;
 
 use crate::executable::VariableType;
-use crate::interpreter::ProgramContext;
-use crate::tables::{OpCode, StatementDefinition, STATEMENT_DEFINITIONS};
-
-#[derive(Debug, PartialEq)]
-pub enum Declaration {
-    Variable(VariableType, String),
-    Variable1(VariableType, String, i32),
-    Variable2(VariableType, String, i32, i32),
-    Variable3(VariableType, String, i32, i32, i32),
-    Function(String, Vec<Declaration>, VariableType),
-    Procedure(String, Vec<Declaration>),
-}
-
-impl Declaration {
-    fn declr_vec_to_string(list: &Vec<Declaration>) -> String
-    {
-        let mut res = String::new();
-        for decl in list {
-            if res.len() > 0 {
-                res.push_str(", ");
-            }
-            res.push_str(decl.to_string().as_str());
-        }
-        res
-    }
-
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            Declaration::Variable(var_type, name) => format!("{} {}", var_type.to_string(), name),
-            Declaration::Variable1(var_type, name, dim1) => format!("{} {}({})", var_type.to_string(), name, dim1),
-            Declaration::Variable2(var_type, name, dim1, dim2) => format!("{} {}({}, {})", var_type.to_string(), name, dim1, dim2),
-            Declaration::Variable3(var_type, name, dim1, dim2, dim3) => format!("{} {}({}, {}, {})", var_type.to_string(), name, dim1, dim2, dim3),
-            Declaration::Procedure(name, parameters) => format!("DECLARE PROCEDURE {}({})", name, Declaration::declr_vec_to_string(parameters)),
-            Declaration::Function(name, parameters, return_type) => format!("DECLARE FUNCTION {}({}) {}", name, Declaration::declr_vec_to_string(parameters), return_type.to_string()),
-        }
-    }
-
-    pub fn print_header(&self) -> String
-    {
-        match self {
-            Declaration::Procedure(name, parameters) => format!("PROCEDURE {}({})", name, Declaration::declr_vec_to_string(parameters)),
-            Declaration::Function(name, parameters, return_type) => format!("FUNCTION {}({}) {}", name, Declaration::declr_vec_to_string(parameters), return_type.to_string()),
-            _ => { "ERR".to_string() }
-        }
-    }
-}
+use crate::tables::{ StatementDefinition, STATEMENT_DEFINITIONS};
 
 pub fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(
@@ -139,152 +92,6 @@ fn parse_proceduredeclaration<'a>(line: &'a str) -> nom::IResult<&'a str, Declar
 fn parse_declaration<'a>(input: &'a str) -> nom::IResult<&'a str, Declaration>
 {
     alt((parse_variable, parse_functiondeclaration, parse_proceduredeclaration))(input)
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Clone)]
-pub enum Constant
-{
-    Money(f64),
-    Integer(i32),
-    String(String),
-    Double(f64),
-    AUTO,
-    BELL,
-    DEFS,
-    ECHODOTS,
-    ERASELINE,
-    FALSE,
-    FCL,
-    FIELDLEN,
-    FNS,
-    F_EXP,
-    F_MW,
-    F_REG,
-    F_SEL,
-    F_SYS,
-    GRAPH,
-    GUIDE,
-    HIGHASCII,
-    LANG,
-    LFAFTER,
-    LFBEFORE,
-    LOGIT,
-    LOGITLEFT,
-    NC,
-    NEWLINE,
-    NOCLEAR,
-    O_RD,
-    O_RW,
-    O_WR,
-    SEC,
-    SEEK_CUR,
-    SEEK_END,
-    SEEK_SET,
-    STACKED,
-    S_DB,
-    S_DN,
-    S_DR,
-    S_DW,
-    TRUE,
-    UPCASE,
-    WORDWRAP,
-    YESNO,
-
-    // Debug
-    START_BAL,
-    START_SESSION,
-    DEB_CALL,
-    DEB_TIME,
-    DEB_MSGREAD,
-    DEB_MSGCAP,
-    DEB_MSGWRITE,
-    DEB_MSGECHOED,
-    DEB_MSGPRIVATE,
-    DEB_DOWNFILE,
-    DEB_DOWNBYTES,
-    DEB_CHAT,
-    DEB_TPU,
-    DEB_SPECIAL,
-    CRED_UPFILE,
-    CRED_UPBYTES,
-    CRED_SPECIAL,
-    SEC_DROP,
-}
-
-impl Constant
-{
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            Constant::Money(f) => format!("${}", f),
-            Constant::Integer(i) => format!("{}", i),
-            Constant::String(str) => format!("\"{}\"", str),
-            Constant::Double(f) => format!("{}", f),
-
-            Constant::AUTO => String::from("AUTO"),
-            Constant::BELL => String::from("BELL"),
-            Constant::DEFS => String::from("DEFS"),
-            Constant::ECHODOTS => String::from("ECHODOTS"),
-            Constant::ERASELINE => String::from("ERASELINE"),
-            Constant::FALSE => String::from("FALSE"),
-            Constant::FCL => String::from("FCL"),
-            Constant::FIELDLEN => String::from("FIELDLEN"),
-            Constant::FNS => String::from("FNS"),
-            Constant::F_EXP => String::from("F_EXP"),
-            Constant::F_MW => String::from("F_MW"),
-            Constant::F_REG => String::from("F_REG"),
-            Constant::F_SEL => String::from("F_SEL"),
-            Constant::F_SYS => String::from("F_SYS"),
-            Constant::GRAPH => String::from("GRAPH"),
-            Constant::GUIDE => String::from("GUIDE"),
-            Constant::HIGHASCII => String::from("HIGHASCII"),
-            Constant::LANG => String::from("LANG"),
-            Constant::LFAFTER => String::from("LFAFTER"),
-            Constant::LFBEFORE => String::from("LFBEFORE"),
-            Constant::LOGIT => String::from("LOGIT"),
-            Constant::LOGITLEFT => String::from("LOGITLEFT"),
-            Constant::NC => String::from("NC"),
-            Constant::NEWLINE => String::from("NEWLINE"),
-            Constant::NOCLEAR => String::from("NOCLEAR"),
-            Constant::O_RD => String::from("O_RD"),
-            Constant::O_RW => String::from("O_RW"),
-            Constant::O_WR => String::from("O_WR"),
-            Constant::SEC => String::from("SEC"),
-            Constant::STACKED => String::from("STACKED"),
-            Constant::S_DB => String::from("S_DB"),
-            Constant::S_DN => String::from("S_DN"),
-            Constant::S_DR => String::from("S_DR"),
-            Constant::S_DW => String::from("S_DW"),
-            Constant::TRUE => String::from("TRUE"),
-            Constant::UPCASE => String::from("UPCASE"),
-            Constant::WORDWRAP => String::from("WORDWRAP"),
-            Constant::YESNO => String::from("YESNO"),
-
-            Constant::SEEK_CUR => String::from("SEEK_CUR"),
-            Constant::SEEK_END => String::from("SEEK_END"),
-            Constant::SEEK_SET => String::from("SEEK_SET"),
-
-            Constant::START_BAL => String::from("?"),
-            Constant::START_SESSION => String::from("?"),
-            Constant::DEB_CALL => String::from("?"),
-            Constant::DEB_TIME => String::from("?"),
-            Constant::DEB_MSGREAD => String::from("?"),
-            Constant::DEB_MSGCAP => String::from("?"),
-            Constant::DEB_MSGWRITE => String::from("?"),
-            Constant::DEB_MSGECHOED => String::from("?"),
-            Constant::DEB_MSGPRIVATE => String::from("?"),
-            Constant::DEB_DOWNFILE => String::from("?"),
-            Constant::DEB_DOWNBYTES => String::from("?"),
-            Constant::DEB_CHAT => String::from("?"),
-            Constant::DEB_TPU => String::from("?"),
-            Constant::DEB_SPECIAL => String::from("?"),
-            Constant::CRED_UPFILE => String::from("?"),
-            Constant::CRED_UPBYTES => String::from("?"),
-            Constant::CRED_SPECIAL => String::from("?"),
-            Constant::SEC_DROP => String::from("?")
-        }
-    }
 }
 
 fn predefined_constants1<'a>(input: &'a str) -> nom::IResult<&'a str, Constant> {
@@ -408,81 +215,6 @@ pub fn money<'a>(input: &'a str) -> IResult<&'a str, Constant> {
             })(input)
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum BinOp {
-    PoW,
-    Mul,
-    Div,
-    Mod,
-    Add,
-    Sub,
-    Eq,
-    NotEq,
-    Lower,
-    LowerEq,
-    Greater,
-    GreaterEq,
-    And,
-    Or,
-}
-
-impl BinOp
-{
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            BinOp::PoW => "^".to_string(),
-            BinOp::Mul => "*".to_string(),
-            BinOp::Div => "/".to_string(),
-            BinOp::Mod => "%".to_string(),
-            BinOp::Add => "+".to_string(),
-            BinOp::Sub => "-".to_string(),
-            BinOp::Eq => "=".to_string(),
-            BinOp::NotEq => "<>".to_string(),
-            BinOp::Lower => "<".to_string(),
-            BinOp::LowerEq => "<=".to_string(),
-            BinOp::Greater => ">".to_string(),
-            BinOp::GreaterEq => ">=".to_string(),
-            BinOp::And => "&".to_string(),
-            BinOp::Or => "|".to_string()
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Expression
-{
-    Identifier(String),
-    Const(Constant),
-    Parens(Box<Expression>),
-    FunctionCall(String, Vec<Expression>),
-    Not(Box<Expression>),
-    Minus(Box<Expression>),
-    BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
-    Dim1(Box<Expression>, Box<Expression>),
-    Dim2(Box<Expression>, Box<Expression>, Box<Expression>),
-    Dim3(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
-}
-
-impl Expression
-{
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            Expression::Identifier(id) => id.to_string(),
-            Expression::Const(c) => c.to_string(),
-            Expression::Parens(expr) => format!("({})", (**expr).to_string()),
-            Expression::Not(expr) => format!("!{}", (**expr).to_string()),
-            Expression::Minus(expr) => format!("-{}", (**expr).to_string()),
-            Expression::BinaryExpression(op, lexpr, rexpr) => format!("{} {} {}", (**lexpr).to_string(), op.to_string(), (**rexpr).to_string()),
-            Expression::FunctionCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
-            Expression::Dim1(expr, vec) => format!("{}({})", (**expr).to_string(), (**vec).to_string()),
-            Expression::Dim2(expr, vec, mat) => format!("{}({}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string()),
-            Expression::Dim3(expr, vec, mat, cub) => format!("{}({}, {}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string(), (**cub).to_string()),
-
-        }
-    }
-}
 
 fn parse_parenexpr<'a>(input: &'a str) -> nom::IResult<&'a str, Expression>
 {
@@ -578,149 +310,6 @@ fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
     )(line)
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
-    Comment(String),
-    While(Box<Expression>, Box<Statement>),
-    If(Box<Expression>, Box<Statement>),
-    IfThen(Box<Expression>),
-    Else,
-    EndIf,
-    DoWhile(Box<Expression>),
-    EndWhile,
-    For(String, Box<Expression>, Box<Expression>, Box<Expression>),
-    Next,
-    Break,
-    Continue,
-    Label(String),
-    ProcedureCall(String, Vec<Expression>),
-    Call(&'static StatementDefinition<'static>, Vec<Expression>),
-}
-
-impl Statement
-{
-    pub fn param_list_to_string(l: &Vec<Expression>) -> String
-    {
-        let mut res = String::new();
-        for expr in l {
-            if res.len() > 0 {
-                res.push_str(", ");
-            }
-            res.push_str(expr.to_string().as_str());
-        }
-        res
-    }
-    fn try_boolean_conversion(expr: &Expression) -> &Expression
-    {
-        match expr {
-            Expression::Const(Constant::Integer(i)) => {
-                if *i == 0 {
-                    &Expression::Const(Constant::FALSE)
-                } else {
-                    &Expression::Const(Constant::TRUE)
-                }
-            }
-            Expression::Parens(expr) => {
-                Statement::try_boolean_conversion(&expr)
-            }
-            Expression::Not(notexpr) => {
-                let convertedExpression = Statement::try_boolean_conversion(&notexpr);
-                match convertedExpression {
-                    Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
-                    Expression::Const(Constant::TRUE) => &Expression::Const(Constant::FALSE),
-                    Expression::Not(_notexpr2) => {
-                        _notexpr2
-                    },
-                    _ => expr
-                }
-            }
-            _ => { expr }
-        }
-    }
-
-    pub fn get_indent(indent : i32) -> String
-    {
-        let mut res = String::new();
-        for _ in 0..indent {
-            res.push_str("    ");
-        }
-        res
-    }
-    fn get_var_name(expr : &Expression) -> String {
-        match expr {
-            Expression::Dim1(expr, _vec) => Statement::get_var_name(expr),
-            Expression::Dim2(expr, _vec, _mat) => Statement::get_var_name(expr),
-            Expression::Dim3(expr, _vec, _mat, _cube) => Statement::get_var_name(expr),
-            _ => expr.to_string()
-        }
-    }
-
-    fn strip_outer_parens(exp : &Expression) -> &Expression
-    {
-        if let Expression::Parens(pexpr) = exp {
-            &**pexpr
-        } else {
-            exp
-        }
-    }
-
-    pub fn out_bool_func(expr : &Box<Expression>) -> String
-    {
-        Statement::strip_outer_parens(&Statement::try_boolean_conversion(Statement::strip_outer_parens(expr))).to_string()
-    }
-
-    pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32)
-    {
-        match self {
-            Statement::Comment(str) => (format!(";{}", str), indent),
-            Statement::While(cond, stmt) => (format!("WHILE ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent),
-            Statement::If(cond, stmt) => (format!("IF ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent),
-            Statement::IfThen(cond) => (format!("IF ({}) THEN", Statement::out_bool_func(cond)), indent + 1),
-            Statement::Else => ("ELSE".to_string(), indent),
-            Statement::EndIf => ("END IF".to_string(), indent - 1),
-            Statement::DoWhile(cond) => (format!("WHILE ({}) DO", Statement::out_bool_func(cond)), indent + 1),
-            Statement::EndWhile => ("END WHILE".to_string(), indent - 1),
-            Statement::Break => ("BREAK".to_string(), indent),
-            Statement::Continue => ("CONTINUE".to_string(), indent),
-            Statement::For(var_name, from, to, step) => {
-                let step = step.to_string();
-                if step == "1" {
-                    (format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string()), indent + 1)
-                } else {
-                    (format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), step), indent + 1)
-                }
-            }
-            Statement::Next => ("NEXT".to_string(), indent - 1),
-            Statement::Label(str) => (format!("\n{}:{}", Statement::get_indent(indent - 1), str), indent),
-            Statement::ProcedureCall(name, params) => (format!("{}({})", name, Statement::param_list_to_string(params)), indent),
-            Statement::Call(def, params) => {
-                let op: OpCode = unsafe { transmute(def.opcode) };
-                match op {
-                    OpCode::LET => {
-                        let var = Statement::get_var_name(&params[0]);
-                        let expected_type = prg.get_var_type(&var);
-                        let mut expr = &params[1];
-                        if expected_type == VariableType::Boolean {
-                            expr = &Statement::try_boolean_conversion(expr);
-                        }
-                        (format!("LET {} = {}", var.as_str(), expr.to_string().as_str()), indent)
-                    }
-                    OpCode::IF => {
-                        (format!("IF ({})", params[0].to_string().as_str()), indent + 1)
-                    }
-                    _ => {
-                        if params.is_empty() {
-                            (def.name.to_string(), indent)
-                        } else {
-                            (format!("{} {}", def.name, Statement::param_list_to_string(params)), indent)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
 {
     for def in &STATEMENT_DEFINITIONS {
@@ -750,6 +339,20 @@ pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
             Err(format!("unknown statement {}", z.0))
         }),
     ))(input)
+}
+
+pub fn parse_program(input: &str) -> Program
+{
+    let stmt = parse_statement(input).unwrap();
+
+    Program {
+        variable_declarations: vec![],
+        main_block: Block {
+            statements: vec![stmt.1]
+        },
+        function_declarations: vec![],
+        procedure_declarations: vec![],
+    }
 }
 
 #[cfg(test)]

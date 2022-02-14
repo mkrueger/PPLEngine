@@ -35,6 +35,7 @@ Decompiler is pretty complete (report bugs!). I would say it's better than every
 * Get rust
 * cargo build -r
 * cd target/release
-* ./ppl_engine -d [PPEFILE]
+* ./ppld [PPEFILE] 
+* pplc/pplrun still ongoing
 
 Result is printed to stdout

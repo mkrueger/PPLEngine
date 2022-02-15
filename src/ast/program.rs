@@ -2,6 +2,7 @@ use crate::interpreter::ProgramContext;
 
 use super::*;
 
+#[derive(Debug, PartialEq)]
 pub struct Program
 {
     pub variable_declarations: Vec<Declaration>,

@@ -1,6 +1,7 @@
-use std::{path::Path, ffi::OsStr};
+use std::{fs, path::Path, ffi::OsStr};
 
 use argh::FromArgs;
+use ppl_engine::parser::parse_program;
 
 #[derive(FromArgs)]
 /// original by Clark Development Company, Inc. rewritten in rust https://github.com/mkrueger/PPLEngine 
@@ -21,6 +22,10 @@ fn main() {
         file_name.push_str(".pps");
     }
 
-    println!("parse {}", file_name);
+    let content = fs::read_to_string(file_name).unwrap();
+    
+    let prg = parse_program(&content);
+
+    println!("parse result: {:?}", prg);
 }
 

@@ -4,6 +4,7 @@ use crate::{interpreter::ProgramContext, tables::OpCode};
 
 use super::*;
 
+#[derive(Debug, PartialEq)]
 pub struct FunctionDeclaration
 {
     pub id: i32,

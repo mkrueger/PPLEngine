@@ -93,8 +93,8 @@ fn scan_elseif(block: &mut Block)
         if let Statement::Else = &block.statements[i] {
             match &block.statements[i + 1] {
                 Statement::IfThen(cond) => {
+                    let mut nested = 1;
                     for j in (i + 2)..(block.statements.len() - 1) {
-                        let mut nested = 1;
                         match  &block.statements[j] {
                             Statement::IfThen(_cond) => { nested += 1 },
                             Statement::EndIf => {
@@ -116,8 +116,6 @@ fn scan_elseif(block: &mut Block)
                                         block.statements[j] = Statement::Else; // Replace Endif with ELSE
                                         block.statements.remove((j - 1) as usize); // remove goto
                                         block.statements.remove((i + 1) as usize); // remove if
-                                    } else { // plain else
-
                                     }
                                     break;
                                 }

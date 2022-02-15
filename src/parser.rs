@@ -1,5 +1,5 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult};
-use nom::bytes::complete::{take_while_m_n};
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult, Err};
+use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
 use std::str::FromStr;
@@ -7,6 +7,21 @@ use std::string::String;
 use crate::ast::*;
 
 use crate::tables::{ STATEMENT_DEFINITIONS};
+
+
+fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
+    let chars = " \t\r\n";
+
+    take_while(move |c| chars.contains(c))(i)
+}
+  
+pub fn ppl_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E>
+{
+  value(
+    (),
+    pair(alt((tag(";"), tag("'"))), is_not("\n\r"))
+  )(i)
+}
 
 pub fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(
@@ -330,24 +345,64 @@ pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
     ))(input)
 }
 
+
+pub fn parse_lines(input: &str) -> nom::IResult<&str, Vec<(Option<Statement>, Option<Declaration>)>>
+{
+    many0(
+        delimited(opt(sp),alt((
+        map( ppl_comment, |z| (None, None)),
+        map(parse_declaration, |z| (None, Some(z))),
+        map(parse_statement, |z| (Some(z), None)),
+        )), opt(sp))
+    )(input)
+}
+
 pub fn parse_program(input: &str) -> Program
 {
-    let stmt = parse_statement(input).unwrap();
+    let mut result = Program::new();
 
-    Program {
-        variable_declarations: vec![],
-        main_block: Block {
-            statements: vec![stmt.1]
-        },
-        function_declarations: vec![],
-        procedure_declarations: vec![],
+    let parse_result = parse_lines(input).unwrap();
+    println!("parsed lines: {}", parse_result.1.len());
+    for line in parse_result.1 {
+        print!("{:?}", line);
+        if let Some(s) = line.0 {
+            result.main_block.statements.push(s);
+        }
+
+        if let Some(d) = line.1 {
+            match d {
+                Declaration::Function(_, _, _) => result.function_declarations.push(Box::new(FunctionDeclaration { 
+                    id: -1,
+                    declaration: d,
+                    variable_declarations: vec![],
+                    block: Block::new()})),
+                Declaration::Procedure(_, _) => result.procedure_declarations.push(Box::new(FunctionDeclaration { 
+                    id: -1,
+                    declaration: d,
+                    variable_declarations: vec![],
+                    block: Block::new()})),
+                Declaration::Variable(_, _) => result.variable_declarations.push(d),
+                Declaration::Variable1(_, _, _) => result.variable_declarations.push(d),
+                Declaration::Variable2(_, _, _, _) => result.variable_declarations.push(d),
+                Declaration::Variable3(_, _, _, _, _) => result.variable_declarations.push(d),
+            }
+        }
     }
+
+    result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tables::{ StatementDefinition };
+
+    #[test]
+    fn test_parse_hello_world() {
+        let mut p = Program::new();
+        p.main_block.statements.push(Statement::Call(get_statement_definition(&"PRINT").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))]));
+        assert_eq!(p, parse_program(";This is a comment\nPRINT \"Hello World\"\n\t\n\n"));
+    }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
     {

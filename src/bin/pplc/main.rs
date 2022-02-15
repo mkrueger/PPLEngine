@@ -1,8 +1,7 @@
-use std::env;
 use argh::FromArgs;
 
 #[derive(FromArgs)]
-///   original by Clark Development Company, Inc. rewritten in rust https://github.com/mkrueger/PPLEngine 
+/// original by Clark Development Company, Inc. rewritten in rust https://github.com/mkrueger/PPLEngine 
 struct Arguments {
     /// srcname[.ext] .ext defaults to .ppe
     #[argh(positional)]
@@ -14,7 +13,7 @@ fn main() {
     let arguments: Arguments = argh::from_env();
     
     let mut file_name = arguments.file_name;
-    if !file_name.ends_with(".pps") {
+    if !file_name.to_lowercase().ends_with(".pps") {
         file_name.push_str(".pps");
     }
     println!("parse {}", file_name);

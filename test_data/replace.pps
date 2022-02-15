@@ -1,2 +1,2 @@
 STRING STR001
-LET STR001=REPLACE("foo", "o", "bar")
+STR001=REPLACE("foo", "o", "bar")

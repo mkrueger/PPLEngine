@@ -1,2 +1,2 @@
 STRING STR001
-LET STR001=STRIP("evlevl", "e")
+STR001=STRIP("evlevl", "e")

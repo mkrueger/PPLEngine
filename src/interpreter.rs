@@ -390,7 +390,7 @@ fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
 
 pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 {
-    let mut interpreter = &mut Interpreter {
+    let interpreter = &mut Interpreter {
         lookup: HashMap::new(),
         label_tables: Vec::new(),
         stack_frames: vec![]
@@ -436,10 +436,10 @@ mod tests {
         let mut ctx = TestContext { output: String::new() };
         
         run(&parse_program("PRINTLN 1, 2, 3, \"Hello World\""), &mut ctx);
-        assert_eq!("123\"Hello World\"\n".to_string(), ctx.output);
+        assert_eq!("123Hello World\n".to_string(), ctx.output);
 
         ctx = TestContext { output: String::new() };
         run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx);
-        assert_eq!("TRUE\",\"$41.43\",\"16".to_string(), ctx.output);
+        assert_eq!("1,$41.43,16".to_string(), ctx.output);
     }
 }

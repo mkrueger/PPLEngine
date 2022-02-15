@@ -4,6 +4,8 @@ use crate::ast::*;
 use crate::executable::*;
 use crate::tables::*;
 
+pub mod reconstruct;
+
 const LAST_FUNC: i32 = -286;
 const LAST_STMT: i32 = 0x00e2;
 
@@ -12,7 +14,7 @@ struct FuncL
     func: i32,
 }
 
-pub fn decompile(file_name: &str, to_file : bool) -> Program {
+pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
     
@@ -34,10 +36,12 @@ pub fn decompile(file_name: &str, to_file : bool) -> Program {
         println!("Pass 2 ...");
     }
     d.do_pass2(&mut prg);
-    if to_file {
-        println!("Pass 3 ...");
+    if !raw {
+        if to_file {
+            println!("Pass 3 ...");
+        }
+        reconstruct::do_pass3(&mut prg);
     }
-    Decompiler::do_pass3(&mut prg);
     if to_file {
         println!();
         println!("Source decompilation complete...");
@@ -722,30 +726,30 @@ impl Decompiler {
         let var_nr = var_number - 1;
         if (self.executable.version < 300 && var_nr < 0x17 && self.uvar_flag) || (self.executable.version >= 300 && var_nr < 0x18 && self.uvar_flag) {
             match var_nr {
-                0 => return Expression::FunctionCall("U_EXPERT".to_string(), vec![]),
-                1 => return Expression::FunctionCall("U_FSE".to_string(), vec![]),
-                2 => return Expression::FunctionCall("U_FSEP".to_string(), vec![]),
-                3 => return Expression::FunctionCall("U_CLS".to_string(), vec![]),
-                4 => return Expression::FunctionCall("U_EXPDATE".to_string(), vec![]),
-                5 => return Expression::FunctionCall("U_SEC".to_string(), vec![]),
-                6 => return Expression::FunctionCall("U_PAGELEN".to_string(), vec![]),
-                7 => return Expression::FunctionCall("U_EXPSEC".to_string(), vec![]),
-                8 => return Expression::FunctionCall("U_CITY".to_string(), vec![]),
-                9 => return Expression::FunctionCall("U_BDPHONE".to_string(), vec![]),
-                10 => return Expression::FunctionCall("U_HVPHONE".to_string(), vec![]),
-                11 => return Expression::FunctionCall("U_TRANS".to_string(), vec![]),
-                12 => return Expression::FunctionCall("U_CMNT1".to_string(), vec![]),
-                13 => return Expression::FunctionCall("U_CMNT2".to_string(), vec![]),
-                14 => return Expression::FunctionCall("U_PWD".to_string(), vec![]),
-                15 => return Expression::FunctionCall("U_SCROLL".to_string(), vec![]),
-                16 => return Expression::FunctionCall("U_LONGHDR".to_string(), vec![]),
-                17 => return Expression::FunctionCall("U_DEF79".to_string(), vec![]),
-                18 => return Expression::FunctionCall("U_ALIAS".to_string(), vec![]),
-                19 => return Expression::FunctionCall("U_VER".to_string(), vec![]),
-                20 => return Expression::FunctionCall("U_ADDR".to_string(), vec![]),
-                21 => return Expression::FunctionCall("U_NOTES".to_string(), vec![]),
-                22 => return Expression::FunctionCall("U_PWDEXP".to_string(), vec![]),
-                23 => return Expression::FunctionCall("U_ACCOUNT".to_string(), vec![]),
+                0 => return Expression::Identifier("U_EXPERT".to_string()),
+                1 => return Expression::Identifier("U_FSE".to_string()),
+                2 => return Expression::Identifier("U_FSEP".to_string()),
+                3 => return Expression::Identifier("U_CLS".to_string()),
+                4 => return Expression::Identifier("U_EXPDATE".to_string()),
+                5 => return Expression::Identifier("U_SEC".to_string()),
+                6 => return Expression::Identifier("U_PAGELEN".to_string()),
+                7 => return Expression::Identifier("U_EXPSEC".to_string()),
+                8 => return Expression::Identifier("U_CITY".to_string()),
+                9 => return Expression::Identifier("U_BDPHONE".to_string()),
+                10 => return Expression::Identifier("U_HVPHONE".to_string()),
+                11 => return Expression::Identifier("U_TRANS".to_string()),
+                12 => return Expression::Identifier("U_CMNT1".to_string()),
+                13 => return Expression::Identifier("U_CMNT2".to_string()),
+                14 => return Expression::Identifier("U_PWD".to_string()),
+                15 => return Expression::Identifier("U_SCROLL".to_string()),
+                16 => return Expression::Identifier("U_LONGHDR".to_string()),
+                17 => return Expression::Identifier("U_DEF79".to_string()),
+                18 => return Expression::Identifier("U_ALIAS".to_string()),
+                19 => return Expression::Identifier("U_VER".to_string()),
+                20 => return Expression::Identifier("U_ADDR".to_string()),
+                21 => return Expression::Identifier("U_NOTES".to_string()),
+                22 => return Expression::Identifier("U_PWDEXP".to_string()),
+                23 => return Expression::Identifier("U_ACCOUNT".to_string()),
                 _ => return Expression::FunctionCall("????".to_string(), vec![])
             }
         }
@@ -1284,555 +1288,7 @@ impl Decompiler {
         self.labelout(prg, self.src_ptr * 2);
     }
 
-    fn do_pass3(prg: &mut Program)
-    {
-        Decompiler::optimize_block(&mut prg.main_block);
-        for fd in &mut prg.function_declarations {
-            Decompiler::optimize_block(&mut fd.block);
-        }
-        for pd in &mut prg.procedure_declarations {
-            Decompiler::optimize_block(&mut pd.block);
-        }
-    }
 
-    fn optimize_block(block: &mut Block)
-    {
-        Decompiler::scan_for_next(block);
-        Decompiler::scan_do_while(block);
-        Decompiler::scan_break_continue(block);
-        Decompiler::scan_if_else(block);
-        Decompiler::scan_if(block);
-        Decompiler::strip_unused_labels(block);
-    }
-
-    fn get_label_index(block: &Block, from : i32, to : i32, label: &String) -> i32
-    {
-        for j in from..to {
-            if let Statement::Label(next_label) = &block.statements[j as usize] {
-                if next_label == label {
-                    return j as i32;
-                }
-            }
-
-            /*
-            if let Statement::Call(def, params) = &block.statements[j as usize] {
-                if def.opcode == OpCode::GOTO {
-                    if let Expression::Identifier(next_label) = &params[0] {
-                        if next_label == label {
-                            return j as i32;
-                        }
-                    }
-                }
-            }
-            */
-        }
-        return -1;
-    }
-
-    fn get_goto_label(stmt : &Statement) -> Option<&String>
-    {
-        if let Statement::Call(def, params) = stmt {
-            if def.opcode != OpCode::GOTO || params.len() != 1 {
-                return None;
-            }
-            if let Expression::Identifier(label) = &params[0] {
-                return Some(label);
-            }
-        }
-        None
-    }
-
-    fn scan_if(block: &mut Block)
-    {
-        for i in 0..block.statements.len() {
-            if let Statement::If(cond, stmt) = &block.statements[i] {
-                if let Some(endif_label) = Decompiler::get_goto_label(&**stmt) {
-                    let endif_label_index = Decompiler::get_label_index(block, i as i32 + 1, block.statements.len() as i32, endif_label);
-                    if endif_label_index < 0 { continue; }
-                     //block.statements[i] = Statement::IfThen(Box::new(Expression::Not(Box::new((**cond).clone())))); // replace if with if…then
-                    block.statements[i] = Statement::IfThen(Box::new(Expression::Not(Box::new((**cond).clone())))); // replace if with if…then
-                // do not remove labels they may be needed to analyze other constructs
-                    block.statements.insert(endif_label_index as usize, Statement::EndIf); // insert Endif before label
-                }
-            }
-        }
-    }
-
-    fn scan_if_else(block: &mut Block)
-    {
-        for i in 0..block.statements.len() {
-            if let Statement::If(cond, stmt) = &block.statements[i] {
-                if let Some(else_label) = Decompiler::get_goto_label(&**stmt) {
-                    let else_label_index = Decompiler::get_label_index(block, i as i32 + 1, block.statements.len() as i32, else_label);
-                    if else_label_index < 0 { continue; }
-
-                    if let Some(endif_label) = Decompiler::get_goto_label(&block.statements[else_label_index as usize - 1]) {
-                        let endif_label_index = Decompiler::get_label_index(block, else_label_index + 1, block.statements.len() as i32, endif_label);
-                        if endif_label_index < 0 { continue; }
-
-                        block.statements[i] = Statement::IfThen(Box::new((**cond).clone())); // replace if with if…then
-                        block.statements[else_label_index as usize - 1] = Statement::Else;   // replace goto with Else
-                        block.statements.insert(endif_label_index as usize, Statement::EndIf); // insert Endif before label
-
-                        // do not remove labels they may be needed to analyze other constructs
-                    }
-                }
-            }
-        }
-    }
-
-    fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(String, String, String, Expression)> // for_label, indexName, breakout_label, to_expr
-    {
-        let for_label;
-        let breakout_label;
-        match label {
-            Statement::Label(label) => for_label = label,
-            _ => return None
-        }
-        match if_statement {
-            Statement::If(expr, s) => {
-                match &**s {
-                    Statement::Call(def, params) => {
-                        if def.opcode != OpCode::GOTO {
-                            return None;
-                        }
-                        // todo: match expression
-                        breakout_label = params[0].to_string();
-                    }
-                    _ => return None
-                }
-
-                if let Expression::Not(not_expr) = &**expr {
-                    if let Expression::Parens(p_expr) = &**not_expr {
-                        if let Expression::BinaryExpression(_op, lvalue, rvalue) = &**p_expr {
-                            // TODO: Check _op
-                            if let Expression::Parens(p_expr_l) = &**lvalue {
-                                if let Expression::Parens(p_expr_r) = &**rvalue {
-                                    if let Expression::BinaryExpression(_opl, _llvalue, lrvalue) = &**p_expr_l {
-                                        if let Expression::BinaryExpression(_opr, _rlvalue, rrvalue) = &**p_expr_r {
-                                            // TODO: Check _op
-
-                                            /*     if *opl != BinOp::Add || *opr != BinOp::Add {
-                                                     return None;
-                                                 }*/
-
-                                            if let Expression::Parens(left_binop) = &**lrvalue {
-                                                if let Expression::Parens(right_binop) = &**rrvalue {
-                                                    if let Expression::BinaryExpression(_opl, llvalue, lrvalue) = &**left_binop {
-                                                        if let Expression::BinaryExpression(_opr, rlvalue, rrvalue) = &**right_binop {
-                                                            // TODO: Check _op
-                                                            if llvalue != rlvalue/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| lrvalue != rrvalue {
-                                                                return None;
-                                                            }
-                                                            return Some((for_label.clone(), llvalue.to_string(), breakout_label.clone(), (**lrvalue).clone()));
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            _ => return None
-        }
-
-        None
-    }
-
-    fn scan_for_next(block: &mut Block)
-    {
-        // FOR Header:
-        // LET VAR001 = [START]
-        // :LABEL002
-        // IF (!(((1 < 0) + (VAR001 > [END])) & ((1 > 0) + (VAR001 <= [END])))) GOTO LABEL001
-        // ...
-        // LET VAR001 = VAR001 + [STEP]
-        // GOTO LABEL002
-        // :LABEL001
-        let mut i = 0;
-        let mut var_name;
-        while i < block.statements.len() {
-            let cur = &block.statements[i];
-            if let Statement::Call(def, params) = cur {
-                if def.opcode != OpCode::LET || params.len() != 2 || i + 3 >= block.statements.len() {
-                    i += 1;
-                    continue;
-                }
-                var_name = params[0].to_string();
-
-                let label = &block.statements[i + 1];
-                let if_statement = &block.statements[i + 2];
-                let m = Decompiler::mach_for_construct(&label, &if_statement);
-
-                if let Some((for_label, index_label, breakout_label, to_expr)) = m {
-                    let mut j = i + 1;
-                    let mut matching_goto = -1;
-                    while j < block.statements.len() {
-                        if let Statement::Call(def, params) = &block.statements[j] {
-                            if def.opcode == OpCode::GOTO {
-                                if let Expression::Identifier(next_label) = &params[0] {
-                                    if *next_label == for_label {
-                                        if j + 1 >= block.statements.len() { continue; }
-                                        if let Statement::Label(next_label) = &block.statements[j + 1] {
-                                            if *next_label == breakout_label {
-                                                matching_goto = j as i32;
-                                                break;
-                                            }
-                                        }
-                                        i += 1;
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-                        j += 1;
-                    }
-                    if matching_goto < 0 {
-                        i += 1;
-                        continue;
-                    }
-
-                    let step_expr;
-                    match &block.statements[matching_goto as usize - 1] {
-                        Statement::Call(def, params) => {
-                            if def.opcode != OpCode::LET || params.len() != 2 {
-                                i += 1;
-                                continue;
-                            }
-                            // todo: match expression as string
-                            if params[0].to_string() != var_name {
-                                i += 1;
-                                continue;
-                            }
-
-                            if let Expression::BinaryExpression(_op, lvalue, rvalue) = &params[1] {
-                                if *_op != BinOp::Add { continue; } // always add even if step is negative
-                                if let Expression::Identifier(lstr) = &**lvalue {
-                                    if *lstr != index_label {
-                                        i += 1;
-                                        continue;
-                                    }
-                                }
-                                step_expr = (**rvalue).clone();
-                            } else {
-                                i += 1;
-                                continue;
-                            }
-                        }
-                        _ =>  {
-                            i += 1;
-                            continue;
-                        }
-                    }
-
-                    let from_expr = Box::new(params[1].clone());
-                    // let label_cp = breakout_label.clone();
-                    // replace with next
-                    block.statements[matching_goto as usize] = Statement::Next;
-                    // block.statements.remove((matching_goto + 1) as usize); // remove breakout_label
-                    block.statements.remove((matching_goto - 1) as usize); // remove LET
-
-                    // replace for… next part
-                    block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
-                    block.statements.remove((i + 1) as usize); // remove for_label
-                    block.statements.remove((i + 1) as usize); // remove if
-/*
-                    Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize - 3, label_cp.as_str());
-
-                    // there needs to be a better way to handle that
-                    let mut continue_label = String::new();
-                    if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 3] {
-                        continue_label = lbl.clone();
-                    }
-
-                    if continue_label.len() > 0 {
-                        Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize - 3, continue_label.as_str());
-                        block.statements.remove((matching_goto - 1) as usize);
-                    }*/
-                    continue;
-                }
-            }
-            i += 1;
-        }
-    }
-
-    fn scan_possible_breaks(block: &mut Vec<Statement>, start : usize, end : usize, break_label : &str)
-    {
-        for i in start..end {
-            match &block[i] {
-                Statement::While(cond, stmt) => {
-                    if let Statement::Call(def, params) = &**stmt {
-                        if params.len() != 1 { continue; }
-                        if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
-                            block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Break));
-                        }
-                    }
-                }
-                Statement::If(cond, stmt) => {
-                    if let Statement::Call(def, params) = &**stmt {
-                        if params.len() != 1 { continue; }
-                        if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
-                            block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Break));
-                        }
-                    }
-                }
-                Statement::Call(def, params) => {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
-                        block[i] = Statement::Break;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn scan_possible_continues(block: &mut Vec<Statement>, start : usize, end : usize, continue_label : &str)
-    {
-        println!("   scan continues from {} to {}", start, end);
-        for i in start..end {
-            print!("scan continue: {:?}", block[i]);
-            match &block[i] {
-                Statement::While(cond, stmt) => {
-                    if let Statement::Call(def, params) = &**stmt {
-                        if params.len() != 1 { continue; }
-                        if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
-                            block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Continue));
-                        }
-                    }
-                }
-                Statement::If(cond, stmt) => {
-                    if let Statement::Call(def, params) = &**stmt {
-                        if params.len() != 1 { continue; }
-                        if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
-                            block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Continue));
-                        }
-                    }
-                }
-                Statement::Call(def, params) => {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
-                        block[i] = Statement::Continue;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn scan_do_while(block: &mut Block)
-    {
-        let mut i = 0;
-        while i < block.statements.len() {
-            let cur = &block.statements[i];
-            if let Statement::Label(label) = cur {
-                i += 1;
-                if i >= block.statements.len() {
-                    break;
-                }
-                if let Statement::If(exp, stmt) = &block.statements[i] {
-                    match &(**stmt) {
-                        Statement::Call(def, params) => {
-                            if def.opcode != OpCode::GOTO || params.len() != 1 {
-                                continue;
-                            }
-                            if let Expression::Identifier(break_label) = &params[0] {
-                                // search matching goto
-                                let mut j = i + 1;
-                                let mut matching_goto = -1;
-                                while j < block.statements.len() {
-                                    if let Statement::Call(def, params) = &block.statements[j] {
-                                        if def.opcode == OpCode::GOTO {
-                                            if let Expression::Identifier(next_label) = &params[0] {
-                                                if next_label == label {
-                                                    if j + 1 >= block.statements.len() { continue; }
-                                                    if let Statement::Label(next_label) = &block.statements[j + 1] {
-                                                        if next_label == break_label {
-                                                            matching_goto = j as i32;
-                                                            break;
-                                                        }
-                                                    }
-                                                    j += 1;
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    j += 1;
-                                }
-                                if matching_goto < 0 {
-                                    i += 1;
-                                    continue;
-                                }
-                                //let label_cp = break_label.clone();
-
-                                block.statements[i] = Statement::DoWhile(Box::new(Expression::Not(exp.clone())));
-                                block.statements[matching_goto as usize] = Statement::EndWhile;
-                                // block.statements.remove((matching_goto + 1) as usize); // breakout label
-                                block.statements.remove((i - 1) as usize);
-
-                                /*
-                                Decompiler::scan_possible_breaks(&mut block.statements, i, matching_goto as usize, label_cp.as_str());
-                                // there needs to be a better way to handle that
-                                let mut continue_label = String::new();
-                                if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 2] {
-                                    continue_label = lbl.clone();
-                                }
-
-                                if continue_label.len() > 0 {
-                                    Decompiler::scan_possible_continues(&mut block.statements, i, matching_goto as usize, continue_label.as_str());
-                                    block.statements.remove((matching_goto - 1) as usize);
-                                }
-                                */
-                                i = 0;
-                                continue;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-
-            i += 1;
-        }
-    }
-
-    fn scan_break_continue(block: &mut Block)
-    {
-        let mut i = 0;
-        while i < block.statements.len() {
-            let mut start : i32 = -1;
-            let mut end : i32 = -1;
-            let mut nested = 0;
-
-            match &block.statements[i] {
-                Statement::DoWhile(_cond) => {
-                    for j in (i + 1)..block.statements.len() {
-                        match  &block.statements[j] {
-                            Statement::DoWhile(_cond) => { nested += 1 },
-                            Statement::EndWhile => {
-                                nested -= 1;
-                                if nested < 0 {
-                                    let l1 = match &block.statements[j as usize - 1] {
-                                        Statement::Label(continue_label) => continue_label.clone(),
-                                        _ => String::new()
-                                    };
-                                    let l2 = match &block.statements[j as usize + 1] {
-                                        Statement::Label(break_label) => break_label.clone(),
-                                        _ => String::new()
-                                    };
-
-                                    if start < 0 {
-                                        if !l1.is_empty() {
-                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, j as usize, l1.as_str());
-                                        }
-                                        if !l2.is_empty() {
-                                            Decompiler::scan_possible_breaks(&mut block.statements, i + 1, j as usize, l2.as_str());
-                                        }
-                                    } else {
-                                        if !l1.is_empty() {
-                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, start as usize, l1.as_str());
-                                            Decompiler::scan_possible_continues(&mut block.statements, end as usize, j as usize, l1.as_str());
-                                        }
-                                        if !l2.is_empty() {
-                                            Decompiler::scan_possible_breaks(&mut block.statements, i, start as usize, l2.as_str());
-                                            Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
-                                        }
-                                    }
-                                    break;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Statement::For(_label, _from, _to, _step) => {
-                    for j in (i + 1)..block.statements.len() {
-                        match  &block.statements[j] {
-                            Statement::For(_label, _from, _to, _step) => {
-                                if nested == 0 {
-                                    start = j as i32;
-                                }
-                                nested += 1;
-                            },
-                            Statement::Next => {
-                                nested -= 1;
-                                if nested < 0 {
-                                    let l1 = match &block.statements[j as usize - 1] {
-                                        Statement::Label(continue_label) => continue_label.clone(),
-                                        _ => String::new()
-                                    };
-                                    let l2 = match &block.statements[j as usize + 1] {
-                                        Statement::Label(break_label) => break_label.clone(),
-                                        _ => String::new()
-                                    };
-
-                                    if start < 0 {
-                                        if !l1.is_empty() {
-                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, j as usize, l1.as_str());
-                                        }
-                                        if !l2.is_empty() {
-                                            Decompiler::scan_possible_breaks(&mut block.statements, i + 1, j as usize, l2.as_str());
-                                        }
-                                    } else {
-                                        if !l1.is_empty() {
-                                            Decompiler::scan_possible_continues(&mut block.statements, i + 1, start as usize, l1.as_str());
-                                            Decompiler::scan_possible_continues(&mut block.statements, end as usize, j as usize, l1.as_str());
-                                        }
-                                        if !l2.is_empty() {
-                                            Decompiler::scan_possible_breaks(&mut block.statements, i, start as usize, l2.as_str());
-                                            Decompiler::scan_possible_breaks(&mut block.statements, end as usize, j as usize, l2.as_str());
-                                        }
-                                    }
-                                    break;
-                                }
-                                end = j as i32 + 1;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
-            i += 1;
-        }
-    }
-
-    fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>)
-    {
-        match stmt {
-            Statement::If(_cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
-            Statement::While(_cond, stmt) => { Decompiler::gather_labels(stmt, used_labels); }
-            Statement::Call(def, params) => {
-                if def.opcode == OpCode::GOTO || def.opcode == OpCode::GOSUB {
-                    used_labels.insert(params[0].to_string());
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn strip_unused_labels(block: &mut Block)
-    {
-        let mut used_labels = HashSet::new();
-        for stmt in &block.statements {
-            Decompiler::gather_labels(stmt, &mut used_labels);
-        }
-        let mut i = 0;
-        while i < block.statements.len() {
-            if let Statement::Label(label) = &block.statements[i] {
-                if !used_labels.contains(label) {
-                    block.statements.remove(i as usize);
-                    continue;
-                }
-            }
-            i += 1;
-        }
-    }
 }
 
 #[cfg(test)]
@@ -1847,6 +1303,13 @@ mod tests {
         let original = original.as_bytes();
 
         while i < output.len() && j < original.len() {
+            // skip comments - assume that ';' is not inside a string
+            if output[i] == b';' {
+                while output[i] != b'\n' {
+                    i += 1;
+                }
+            }
+
             if output[i] == original[j] {
                 i += 1;
                 j += 1;
@@ -1860,7 +1323,7 @@ mod tests {
                 j += 1;
                 continue;
             }
-            i += 1;
+            return false;
         }
         // skip original trailing ws.
         while j < original.len() && char::is_whitespace(original[j] as char) {
@@ -1888,15 +1351,15 @@ mod tests {
 
             let file_name = cur_entry.as_os_str();
             print!("File: {}…\n", cur_entry.file_name().unwrap().to_str().unwrap());
-
+/* 
             if cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
             {
                 // println!("skip.");
                 //skipped += 1;
                 continue;
-            }
+            }*/
 
-            let d = crate::decompiler::decompile(file_name.to_str().unwrap(), false);
+            let d = crate::decompiler::decompile(file_name.to_str().unwrap(), false, false);
             let source_file = cur_entry.with_extension("pps");
             let orig_text = fs::read_to_string(source_file).unwrap();
 

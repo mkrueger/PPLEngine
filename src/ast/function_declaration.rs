@@ -57,7 +57,7 @@ impl FunctionDeclaration {
             if indent > out.1 {
                 indent = out.1;
             }
-            for _ in 0..indent {
+            for _ in 0..(indent + out.2) {
                 res.push_str("    ");
             }
             res.push_str(out.0.as_str());

@@ -1,2 +1,2 @@
 STRING STR001
-LET STR001=CCTYPE("Credit card number")
+STR001=CCTYPE("Credit card number")

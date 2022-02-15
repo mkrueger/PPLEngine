@@ -17,7 +17,7 @@ fn main() {
     let arguments: Arguments = argh::from_env();
 
     let mut file_name = arguments.file_name;
-    if !file_name.ends_with(".pps") {
+    if !file_name.to_lowercase().ends_with(".pps") {
         file_name.push_str(".pps");
     }
     let prg = load_file(&file_name);

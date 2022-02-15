@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::string::String;
 use crate::ast::*;
 
-use crate::tables::{ StatementDefinition, STATEMENT_DEFINITIONS};
+use crate::tables::{ STATEMENT_DEFINITIONS};
 
 pub fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(
@@ -309,16 +309,6 @@ fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
     )(line)
 }
 
-fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
-{
-    for def in &STATEMENT_DEFINITIONS {
-        if def.name == name {
-            return Some(def);
-        }
-    }
-    None
-}
-
 pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
 {
     alt((
@@ -357,7 +347,18 @@ pub fn parse_program(input: &str) -> Program
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tables::{ StatementDefinition };
 
+    fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
+    {
+        for def in &STATEMENT_DEFINITIONS {
+            if def.name == name {
+                return Some(def);
+            }
+        }
+        None
+    }
+    
     #[test]
     fn test_parse_statement() {
         assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"ADJTIME").unwrap(), vec![Expression::Const(Constant::Integer(1))]))), parse_statement("ADJTIME 1"));

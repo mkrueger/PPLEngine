@@ -1,3 +1,5 @@
+use std::{path::Path, ffi::OsStr};
+
 use ppl_engine::decompiler::*;
 
 mod console_context;
@@ -17,8 +19,10 @@ fn main() {
     let arguments: Arguments = argh::from_env();
 
     let mut file_name = arguments.file_name;
-    if !file_name.to_lowercase().ends_with(".pps") {
-        file_name.push_str(".pps");
+    let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
+    println!("ext:{:?}", extension);
+    if let None = extension {
+        file_name.push_str(".ppe");
     }
     let prg = load_file(&file_name);
 

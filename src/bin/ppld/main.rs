@@ -1,5 +1,7 @@
+use std::ffi::OsStr;
 use std::fs::*;
 use std::io::*;
+use std::path::Path;
 use argh::FromArgs;
 
 #[derive(FromArgs)]
@@ -24,13 +26,16 @@ fn main() {
     let mut arguments: Arguments = argh::from_env();
 
     let file_name = &mut arguments.srcname;
-    if !file_name.to_lowercase().ends_with(".ppe") {
+
+    let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
+    if let None = extension {
         file_name.push_str(".ppe");
     }
 
     if let Some(out_file_name) = &mut arguments.dstname  {
-        if !out_file_name.to_lowercase().ends_with(".ppd") {
-            out_file_name.push_str(".ppd");
+        let extension = Path::new(&out_file_name).extension().and_then(OsStr::to_str);
+        if let None = extension {
+                out_file_name.push_str(".ppd");
         }
         let d = ppl_engine::decompiler::decompile(file_name, true, arguments.raw);
         let cpy_file = out_file_name.as_str().clone();

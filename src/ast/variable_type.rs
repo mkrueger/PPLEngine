@@ -1,3 +1,5 @@
+use crate::output_keyword;
+
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(dead_code)]
@@ -28,25 +30,25 @@ impl VariableType {
     pub fn to_string(&self) -> String
     {
         match self {
-            VariableType::Boolean => "BOOLEAN".to_string(),
-            VariableType::Unsigned => "UNSIGNED".to_string(),
-            VariableType::Date => "DATE".to_string(),
-            VariableType::EDate => "EDATE".to_string(),
-            VariableType::Integer => "INTEGER".to_string(),
-            VariableType::Money => "MONEY".to_string(),
-            VariableType::Real => "REAL".to_string(),
-            VariableType::String => "STRING".to_string(),
-            VariableType::Time => "TIME".to_string(),
-            VariableType::Byte => "BYTE".to_string(),
-            VariableType::Word => "WORD".to_string(),
-            VariableType::SByte => "SBYTE".to_string(),
-            VariableType::SWord => "INT".to_string(),
-            VariableType::BigStr => "BIGSTR".to_string(),
-            VariableType::Double => "DOUBLE".to_string(),
-            VariableType::Function => "???FUNCTION".to_string(),
-            VariableType::Procedure => "???PROCEDURE".to_string(),
-            VariableType::DDate => "DATE".to_string(),
-            VariableType::Unknown => "???".to_string()
+            VariableType::Boolean => output_keyword("Boolean"),
+            VariableType::Unsigned => output_keyword("Unsigned"),
+            VariableType::Date => output_keyword("Date"),
+            VariableType::EDate => output_keyword("EDate"),
+            VariableType::Integer => output_keyword("Integer"),
+            VariableType::Money => output_keyword("Money"),
+            VariableType::Real => output_keyword("Real"),
+            VariableType::String => output_keyword("String"),
+            VariableType::Time => output_keyword("Time"),
+            VariableType::Byte => output_keyword("Byte"),
+            VariableType::Word => output_keyword("Word"),
+            VariableType::SByte => output_keyword("SByte"),
+            VariableType::SWord => output_keyword("Int"),
+            VariableType::BigStr => output_keyword("BigStr"),
+            VariableType::Double => output_keyword("Double"),
+            VariableType::Function => output_keyword("???FUNCTION"),
+            VariableType::Procedure => output_keyword("???PROCEDURE"),
+            VariableType::DDate => output_keyword("DDate"),
+            VariableType::Unknown => output_keyword("Unknown")
         }
     }
 }

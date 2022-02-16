@@ -1250,6 +1250,14 @@ impl Decompiler {
                     let variable = self.pop_expr().unwrap().to_string();
                     self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(variable));
                 }
+                OpCode::FPCLR => {
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);
+                    self.src_ptr += 1;
+                }
+                OpCode::FEND => {
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::EndFunc);
+                    self.src_ptr += 1;
+                }
                 OpCode::PCALL => { // PCALL
                     self.src_ptr += 2;
                     self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;

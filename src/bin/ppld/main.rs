@@ -1,8 +1,11 @@
+use std::char::ParseCharError;
 use std::ffi::OsStr;
 use std::fs::*;
 use std::io::*;
 use std::path::Path;
+use std::str::FromStr;
 use argh::FromArgs;
+use ppl_engine::*;
 
 #[derive(FromArgs)]
 /// original by chicken/tools4fools https://github.com/astuder/ppld rust port https://github.com/mkrueger/PPLEngine
@@ -11,6 +14,10 @@ struct Arguments {
     /// raw ppe without reconstruction control structures
     #[argh(switch, short = 'r')]
     raw: bool,
+
+    #[argh(option, short = 's')]
+    /// keyword casing style, valid values are u=upper (default), l=lower, c=camel
+    style: Option<char>,
 
     /// srcname[.ext] .ext defaults to .ppe
     #[argh(positional)]
@@ -21,9 +28,20 @@ struct Arguments {
     dstname: Option<String>,
 }
 
+
 fn main() {
     println!("PPLD Version 4.00alpha - PCBoard Programming Language Decompiler");
     let mut arguments: Arguments = argh::from_env();
+
+    unsafe {
+        match arguments.style {
+            Some('u') => DEFAULT_OUTPUT_FUNC = OutputFunc::Upper,
+            Some('l') => DEFAULT_OUTPUT_FUNC = OutputFunc::Lower,
+            Some('c') => DEFAULT_OUTPUT_FUNC = OutputFunc::CamelCase,
+            Some(x) => panic!("unsupported keyword style {}", x),
+            None => {},
+        }
+    }
 
     let file_name = &mut arguments.srcname;
 

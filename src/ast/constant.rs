@@ -1,3 +1,5 @@
+use crate::output_keyword;
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Constant
@@ -17,7 +19,6 @@ impl Constant
     pub const DEFS : Constant = Constant::Builtin("DEFS");
     pub const ECHODOTS : Constant = Constant::Builtin("ECHODOTS");
     pub const ERASELINE : Constant = Constant::Builtin("ERASELINE");
-    pub const FALSE : Constant = Constant::Builtin("FALSE");
     pub const FCL : Constant = Constant::Builtin("FCL");
     pub const FIELDLEN : Constant = Constant::Builtin("FIELDLEN");
     pub const FNS : Constant = Constant::Builtin("FNS");
@@ -49,7 +50,6 @@ impl Constant
     pub const S_DN : Constant = Constant::Builtin("S_DN");
     pub const S_DR : Constant = Constant::Builtin("S_DR");
     pub const S_DW : Constant = Constant::Builtin("S_DW");
-    pub const TRUE : Constant = Constant::Builtin("TRUE");
     pub const UPCASE : Constant = Constant::Builtin("UPCASE");
     pub const WORDWRAP : Constant = Constant::Builtin("WORDWRAP");
     pub const YESNO : Constant = Constant::Builtin("YESNO");
@@ -81,7 +81,7 @@ impl Constant
             Constant::Integer(i) => format!("{}", i),
             Constant::String(str) => format!("\"{}\"", str),
             Constant::Double(f) => format!("{}", f),
-            Constant::Boolean(b) => if *b { "TRUE".to_string() } else { "FALSE".to_string() },
+            Constant::Boolean(b) => if *b { output_keyword("True") } else { output_keyword("False") },
             Constant::Builtin(s) => format!("{}", s),
         }
     }

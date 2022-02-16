@@ -27,6 +27,7 @@ Basically it's PPLD
  * PPE 3.30 Support
  * Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue support
  * It's possible to see the raw output with the -r option
+ * A bit more control over the output keyword style with the -s option
 ### Compiler
   * Just prints what it could parse
   * Known bugs: dim expressions not working correctly as lvalue
@@ -37,8 +38,6 @@ Basically it's PPLD
 * Implement naming scheme - many names can be guessed. Like for loop variables i, j, k… or file handles, file names etc..
   There are many possibilities to implement variable name guessing strategies from the variable usage.
 * Execution engine just started.
-* Finish parsing layer. Basically all control constructs are missing and semantic error checking is missing.
-
 
 ## Building & Running
 

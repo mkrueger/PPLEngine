@@ -538,8 +538,9 @@ mod tests {
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
     {
+        let name = name.to_uppercase();
         for def in &STATEMENT_DEFINITIONS {
-            if def.name == name {
+            if def.name.to_uppercase() == name {
                 return Some(def);
             }
         }

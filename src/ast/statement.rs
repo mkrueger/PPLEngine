@@ -1,6 +1,7 @@
 use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext};
 
 use super::*;
+use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -21,6 +22,8 @@ pub enum Statement {
     Gosub(String),
     Return,
     Stop,
+    EndFunc,
+    EndProc,
     Let(Box<Expression>, Box<Expression>),
     Goto(String),
     Label(String),
@@ -107,19 +110,21 @@ impl Statement
     {
         match self {
             Statement::Comment(str) => (format!(";{}", str), indent, 0),
-            Statement::While(cond, stmt) => (format!("WHILE ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
-            Statement::If(cond, stmt) => (format!("IF ({}) {}", Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
-            Statement::IfThen(cond) => (format!("IF ({}) THEN", Statement::out_bool_func(cond)), indent + 1, 0),
-            Statement::ElseIf(cond) => (format!("ELSEIF ({}) THEN", Statement::out_bool_func(cond)), indent, -1),
-            Statement::Else => ("ELSE".to_string(), indent, -1),
-            Statement::EndIf => ("ENDIF".to_string(), indent - 1, 0),
-            Statement::DoWhile(cond) => (format!("WHILE ({}) DO", Statement::out_bool_func(cond)), indent + 1, 0),
-            Statement::EndWhile => ("ENDWHILE".to_string(), indent - 1, 0),
-            Statement::Break => ("BREAK".to_string(), indent, 0),
-            Statement::Continue => ("CONTINUE".to_string(), indent, 0),
-            Statement::End => ("END".to_string(), indent, 0),
-            Statement::Gosub(label) => (format!("GOSUB {}", label.to_string()), indent, 0),
-            Statement::Return => ("RETURN".to_string(), indent, 0),
+            Statement::While(cond, stmt) => (format!("{} ({}) {}", output_keyword("While"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
+            Statement::If(cond, stmt) => (format!("{} ({}) {}", output_keyword("If"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
+            Statement::IfThen(cond) => (format!("{} ({}) {}", output_keyword("If"), Statement::out_bool_func(cond), output_keyword("Then")), indent + 1, 0),
+            Statement::ElseIf(cond) => (format!("{} ({}) {}", output_keyword("ElseIf"), Statement::out_bool_func(cond), output_keyword("Then")), indent, -1),
+            Statement::Else => (output_keyword("Else"), indent, -1),
+            Statement::EndIf => (output_keyword("EndIf"), indent - 1, 0),
+            Statement::DoWhile(cond) => (format!("{} ({}) {}", output_keyword("While"), Statement::out_bool_func(cond), output_keyword("Do")), indent + 1, 0),
+            Statement::EndWhile => (output_keyword("EndWhile"), indent - 1, 0),
+            Statement::Break => (output_keyword("Break"), indent, 0),
+            Statement::Continue => (output_keyword("Continue"), indent, 0),
+            Statement::End => (output_keyword("End"), indent, 0),
+            Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label.to_string()), indent, 0),
+            Statement::Return => (output_keyword("Return"), indent, 0),
+            Statement::EndFunc => (output_keyword("EndFunc"), indent, 0),
+            Statement::EndProc => (output_keyword("EndProc"), indent, 0),
             Statement::Let(var, expr) => {
                 let expected_type = prg.get_var_type(&Statement::get_var_name(var));
                 let expr2;
@@ -130,26 +135,26 @@ impl Statement
                 }
                 (format!("{} = {}", var.to_string(), expr2.to_string()), indent, 0)
             },
-            Statement::Goto(label) => (format!("GOTO {}", label.to_string()), indent, 0),
-            Statement::Inc(expr) => (format!("INC {}", expr.to_string()), indent, 0),
-            Statement::Dec(expr) => (format!("DEC {}", expr.to_string()), indent, 0),
+            Statement::Goto(label) => (format!("{} {}", output_keyword("GoTo"), label.to_string()), indent, 0),
+            Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr.to_string()), indent, 0),
+            Statement::Dec(expr) => (format!("{} {}", output_keyword("Dec"), expr.to_string()), indent, 0),
             Statement::For(var_name, from, to, step) => {
                 let var_name = &Statement::get_var_name(var_name);
                 if let Some(s) = step {
-                    (format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), s.to_string()), indent + 1, 0)
+                    (format!("{} {} = {} {} {} {} {}", output_keyword("For"), var_name, from.to_string(), output_keyword("To"), to.to_string(), output_keyword("Step"), s.to_string()), indent + 1, 0)
                 } else {
-                    (format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string()), indent + 1, 0)
+                    (format!("{} {} = {} {} {}",  output_keyword("For"), var_name, from.to_string(), output_keyword("To"), to.to_string()), indent + 1, 0)
                 }
             }
-            Statement::Next => ("NEXT".to_string(), indent - 1, 0),
-            Statement::Stop => ("STOP".to_string(), indent, 0),
+            Statement::Next => (output_keyword("Next"), indent - 1, 0),
+            Statement::Stop => (output_keyword("Stop"), indent, 0),
             Statement::Label(str) => (format!("\n{}:{}", Statement::get_indent(indent - 1), str), indent, -1),
             Statement::ProcedureCall(name, params) => (format!("{}({})", name, Statement::param_list_to_string(params)), indent, 0),
             Statement::Call(def, params) => {
                 if params.is_empty() {
-                    (def.name.to_string(), indent, 0)
+                    (output_keyword(def.name), indent, 0)
                 } else {
-                    (format!("{} {}", def.name, Statement::param_list_to_string(params)), indent, 0)
+                    (format!("{} {}", output_keyword(def.name), Statement::param_list_to_string(params)), indent, 0)
                 }
             }
         }

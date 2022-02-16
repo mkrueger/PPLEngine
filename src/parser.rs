@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
 use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
@@ -7,7 +7,6 @@ use std::string::String;
 use crate::ast::*;
 
 use crate::tables::{ STATEMENT_DEFINITIONS};
-
 
 fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
     let chars = " \t\r\n";
@@ -19,7 +18,7 @@ pub fn ppl_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (
 {
   value(
     (),
-    pair(alt((tag(";"), tag("'"))), is_not("\n\r"))
+    pair(alt((tag(";"), tag("'"))), opt(is_not("\n\r")))
   )(i)
 }
 
@@ -39,7 +38,8 @@ fn parse_vartype<'a>(input: &'a str) -> IResult<&'a str, VariableType> {
         value(VariableType::Boolean, tag_no_case("BOOLEAN")),
         value(VariableType::Date, tag_no_case("DATE")),
         value(VariableType::Time, tag_no_case("TIME")),
-        value(VariableType::Money, tag_no_case("MONEY"))
+        value(VariableType::Money, tag_no_case("MONEY")),
+        value(VariableType::Word, tag_no_case("WORD"))
     ))(input)
 }
 
@@ -164,38 +164,39 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
         predefined_constants2,
         money,
         map(
+            preceded(
+                tag_no_case("@X"),
+                take_while_m_n(2, 2, |z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f')),
+            |z: &str| Constant::Integer(i32::from_str_radix(z, 16).unwrap()),
+        ),
+        map(
             terminated(
-                take_while(|z| '0' <= z && z <= '9'),
+                take_while1(|z| '0' <= z && z <= '9'),
                 tag_no_case("D"),
             ),
             |z: &str| Constant::Integer(i32::from_str_radix(z, 10).unwrap()),
         ),
         map(
             terminated(
-                take_while(|z| '0' <= z && z <= '1'),
+                take_while1(|z| '0' <= z && z <= '1'),
                 tag_no_case("B"),
             ),
             |z: &str| Constant::Integer(i32::from_str_radix(z, 2).unwrap()),
         ),
         map(
             terminated(
-                take_while(|z| '0' <= z && z <= '8'),
+                take_while1(|z| '0' <= z && z <= '8'),
                 tag_no_case("O"),
             ),
             |z: &str| Constant::Integer(i32::from_str_radix(z, 8).unwrap()),
         ),
         map(
             terminated(
-                take_while(|z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f'),
+                take_while1(|z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f'),
                 tag_no_case("H"),
             ),
             |z: &str| Constant::Integer(i32::from_str_radix(z, 16).unwrap()),
-        ), map(
-            preceded(
-                tag_no_case("@X"),
-                take_while_m_n(2, 2, |z| '0' <= z && z <= '9' || 'A' <= z && z <= 'F' || 'a' <= z && z <= 'f')),
-            |z: &str| Constant::Integer(i32::from_str_radix(z, 16).unwrap()),
-        ),
+        ), 
         // string \"(.)*\"
         map(delimited(
             tag("\""),
@@ -313,7 +314,7 @@ fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
         map(separated_pair(tag("-"), multispace0, parse_expression),
             |z| Expression::Minus(Box::new(z.1))),
         map(parse_constant, |z| Expression::Const(z)),
-        map(alphanumeric1, |z: &str| Expression::Identifier(z.to_string()))
+        map(identifier, |z: &str| Expression::Identifier(z.to_string()))
     ));
 
     map(pair(
@@ -324,18 +325,117 @@ fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
     )(line)
 }
 
+
+pub fn parse_if_statement(input: &str) -> nom::IResult<&str, Statement>
+{
+    alt((
+        map(
+            tuple((
+                tag_no_case("IF"), 
+                ws(tag("(")), 
+                parse_expression,
+                ws(tag(")")),
+                alt((map(tag_no_case("THEN"), |_| None), map(parse_statement, |z| Some(z))))
+            )),
+            |z| match z.4 {
+                Some(s) => Statement::If(Box::new(z.2), Box::new(s)),
+                None => Statement::IfThen(Box::new(z.2))
+            }),
+            map(
+                tuple((
+                    tag_no_case("ELSEIF"), 
+                    ws(tag("(")), 
+                    parse_expression,
+                    ws(tag(")")),
+                    tag_no_case("THEN")
+                )),
+                |z| Statement::ElseIf(Box::new(z.2)))
+    
+    ))(input)
+}
+
+pub fn parse_while_statement(input: &str) -> nom::IResult<&str, Statement>
+{
+    map(
+        tuple((
+            tag_no_case("WHILE"), 
+            ws(tag("(")), 
+            parse_expression,
+            ws(tag(")")),
+            alt((map(tag_no_case("DO"), |_| None), map(parse_statement, |z| Some(z))))
+        )),
+        |z| match z.4 {
+            Some(s) => Statement::While(Box::new(z.2), Box::new(s)),
+            None => Statement::DoWhile(Box::new(z.2))
+    })(input)
+}
+
+pub fn parse_for_statement(input: &str) -> nom::IResult<&str, Statement>
+{
+    map(
+        tuple((
+            tag_no_case("FOR"), 
+            ws(identifier), 
+            ws(tag("=")),
+            parse_expression,
+            ws(tag_no_case("TO")),
+            parse_expression,
+            opt(pair(ws(tag_no_case("STEP")),  parse_expression))
+        )),
+        |z| Statement::For(Box::new(Expression::Identifier(z.1.to_string())), Box::new(z.3), Box::new(z.5), if let Some(step) = z.6 { Some(Box::new(step.1)) } else { None })
+    )(input)
+}
+
+pub fn parse_let_statement(input: &str) -> nom::IResult<&str, Statement>
+{
+    map(
+        tuple((
+            opt(pair(tag_no_case("LET"), multispace1)), 
+            identifier, 
+            ws(tag("=")),
+            parse_expression
+        )),
+        |z| Statement::Let(Box::new(Expression::Identifier(z.1.to_string())), Box::new(z.3))
+    )(input)
+}
+
 pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
 {
     alt((
+        map(tuple((tag(":"), identifier)), |z| Statement::Label(z.1.to_string())),
+        parse_if_statement,
+        parse_while_statement,
+        parse_for_statement,
+        parse_let_statement,
+        map(tuple((tag_no_case("GOTO"), sp, identifier)), |z| Statement::Goto(z.2.to_string())),
+        map(tuple((tag_no_case("GOSUB"), sp, identifier)), |z| Statement::Gosub(z.2.to_string())),
+        map(tuple((tag_no_case("INC"), sp, identifier)), |z| Statement::Inc(z.2.to_string())),
+        map(tuple((tag_no_case("DEC"), sp, identifier)), |z| Statement::Dec(z.2.to_string())),
+        map(tag_no_case("ENDWHILE"), |_| Statement::EndWhile),
+        map(tag_no_case("ENDIF"), |_| Statement::EndIf),
+        map(tag_no_case("END"), |_| Statement::End),
+        map(tag_no_case("ELSE"), |_| Statement::Else),
+        map(tag_no_case("NEXT"), |_| Statement::Next),
+        map(tag_no_case("BREAK"), |_| Statement::Break),
+        map(tag_no_case("CONTINUE"), |_| Statement::Continue),
+        map(tag_no_case("RETURN"), |_| Statement::Return),
+        map(tag_no_case("STOP"), |_| Statement::Stop),
+        map(tuple((
+            identifier, 
+            ws(tag("(")), 
+            parse_exprlist,
+            ws(tag(")")),
+        )), |z| Statement::ProcedureCall(z.0.to_string(), z.2)),
         map_res(separated_pair(alpha1, multispace0, parse_exprlist), |z| {
+            let tag_name = z.0.to_uppercase();
             for def in &STATEMENT_DEFINITIONS {
-                if def.name == z.0 {
-                    if (z.1.len() as i8) < def.min_args {
+                if def.name.to_uppercase() == tag_name {
+              /*    if (z.1.len() as i8) < def.min_args {
                         return Err(format!("{} has too few arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
                     }
                     if (z.1.len() as i8) > def.max_args {
                         return Err(format!("{} has too many arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
-                    }
+                    }*/
 
                     return Ok(Statement::Call(def, z.1));
                 }
@@ -345,51 +445,56 @@ pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
     ))(input)
 }
 
-
 pub fn parse_lines(input: &str) -> nom::IResult<&str, Vec<(Option<Statement>, Option<Declaration>)>>
 {
-    many0(
+    terminated(many0(
         delimited(opt(sp),alt((
         map( ppl_comment, |_| (None, None)),
         map(parse_declaration, |z| (None, Some(z))),
         map(parse_statement, |z| (Some(z), None)),
         )), opt(sp))
-    )(input)
+    ), eof)(input)
 }
 
 pub fn parse_program(input: &str) -> Program
 {
-    let mut result = Program::new();
 
-    let parse_result = parse_lines(input).unwrap();
-    println!("parsed lines: {}", parse_result.1.len());
-    for line in parse_result.1 {
-        print!("{:?}", line);
-        if let Some(s) = line.0 {
-            result.main_block.statements.push(s);
-        }
+    let parse_result = parse_lines(input);
 
-        if let Some(d) = line.1 {
-            match d {
-                Declaration::Function(_, _, _) => result.function_declarations.push(Box::new(FunctionDeclaration { 
-                    id: -1,
-                    declaration: d,
-                    variable_declarations: vec![],
-                    block: Block::new()})),
-                Declaration::Procedure(_, _) => result.procedure_declarations.push(Box::new(FunctionDeclaration { 
-                    id: -1,
-                    declaration: d,
-                    variable_declarations: vec![],
-                    block: Block::new()})),
-                Declaration::Variable(_, _) => result.variable_declarations.push(d),
-                Declaration::Variable1(_, _, _) => result.variable_declarations.push(d),
-                Declaration::Variable2(_, _, _, _) => result.variable_declarations.push(d),
-                Declaration::Variable3(_, _, _, _, _) => result.variable_declarations.push(d),
+    match parse_result {
+        Ok(parse_result) => {
+            let mut result = Program::new();
+            for line in parse_result.1 {
+                if let Some(s) = line.0 {
+                    result.main_block.statements.push(s);
+                }
+
+                if let Some(d) = line.1 {
+                    match d {
+                        Declaration::Function(_, _, _) => result.function_declarations.push(Box::new(FunctionDeclaration { 
+                            id: -1,
+                            declaration: d,
+                            variable_declarations: vec![],
+                            block: Block::new()})),
+                        Declaration::Procedure(_, _) => result.procedure_declarations.push(Box::new(FunctionDeclaration { 
+                            id: -1,
+                            declaration: d,
+                            variable_declarations: vec![],
+                            block: Block::new()})),
+                        Declaration::Variable(_, _) => result.variable_declarations.push(d),
+                        Declaration::Variable1(_, _, _) => result.variable_declarations.push(d),
+                        Declaration::Variable2(_, _, _, _) => result.variable_declarations.push(d),
+                        Declaration::Variable3(_, _, _, _, _) => result.variable_declarations.push(d),
+                    }
+                }
             }
+            result
+        },
+        Err(err) => {
+            panic!("{}", err);
         }
     }
 
-    result
 }
 
 #[cfg(test)]
@@ -397,11 +502,71 @@ mod tests {
     use super::*;
     use crate::tables::{ StatementDefinition };
 
+    fn check_statements(input: &str, statements: Vec<Statement>)
+    {
+        assert_eq!(statements, parse_program(input).main_block.statements);
+    }
+
     #[test]
     fn test_parse_hello_world() {
-        let mut p = Program::new();
-        p.main_block.statements.push(Statement::Call(get_statement_definition(&"PRINT").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))]));
-        assert_eq!(p, parse_program(";This is a comment\nPRINT \"Hello World\"\n\t\n\n"));
+        check_statements(";This is a comment\nPRINT \"Hello World\"\n\t\n\n", vec![Statement::Call(get_statement_definition(&"PRINT").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))])]);
+    }
+
+    #[test]
+    fn test_parse_simple_noncalls() {
+        check_statements("End ; Predifined End", vec![Statement::End]);
+        check_statements("Else", vec![Statement::Else]);
+        check_statements(";Endif\nENDIF", vec![Statement::EndIf]);
+        check_statements("NEXT ; FOR", vec![Statement::Next]);
+        check_statements("\nBREAK\n", vec![Statement::Break]);
+        check_statements("     CONTINUE        ", vec![Statement::Continue]);
+        check_statements("          RETURN", vec![Statement::Return]);
+        check_statements("STOP      ", vec![Statement::Stop]);
+        check_statements("ENDWHILE ", vec![Statement::EndWhile]);
+    }
+
+    #[test]
+    fn test_parse_if() {
+        check_statements("IF (FALSE) END", vec![Statement::If(Box::new(Expression::Const(Constant::FALSE)), Box::new(Statement::End))]);
+        check_statements("IF (TRUE) THEN", vec![Statement::IfThen(Box::new(Expression::Const(Constant::TRUE)))]);
+        check_statements("ELSEIF (TRUE) THEN", vec![Statement::ElseIf(Box::new(Expression::Const(Constant::TRUE)))]);
+    }  
+    
+    #[test]
+    fn test_parse_while() {
+        check_statements("WHILE (FALSE) END", vec![Statement::While(Box::new(Expression::Const(Constant::FALSE)), Box::new(Statement::End))]);
+        check_statements("WHILE (TRUE) DO", vec![Statement::DoWhile(Box::new(Expression::Const(Constant::TRUE)))]);
+    }
+
+    #[test]
+    fn test_let() {
+        check_statements("LET FOO = FALSE", vec![Statement::Let(Box::new(Expression::Identifier("FOO".to_string())), Box::new(Expression::Const(Constant::FALSE)))]);
+    }
+
+    #[test]
+    fn test_gotogosub() {
+        check_statements("GOTO LABEL1", vec![Statement::Goto("LABEL1".to_string())]);
+        check_statements("GOSUB LABEL2", vec![Statement::Gosub("LABEL2".to_string())]);
+        check_statements(":LABEL1", vec![Statement::Label("LABEL1".to_string())]);
+    }
+
+    #[test]
+    fn test_incdec() {
+        check_statements("INC VAR1", vec![Statement::Inc("VAR1".to_string())]);
+        check_statements("DEC VAR2", vec![Statement::Dec("VAR2".to_string())]);
+    }
+
+    #[test]
+    fn test_procedure_calls() {
+        check_statements("PROC(TRUE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::TRUE)])]);
+        check_statements("PROC(TRUE, FALSE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::TRUE), Expression::Const(Constant::FALSE)])]);
+    }
+
+    #[test]
+    fn test_for_next() {
+        check_statements("FOR i = 1 TO 10", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), None)]);
+        check_statements("FOR i = 1 TO 10 STEP 5", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Const(Constant::Integer(5)))))]);
+        check_statements("FOR i = 1 TO 10 STEP -1", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Minus(Box::new(Expression::Const(Constant::Integer(1)))))))]);
     }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>
@@ -416,6 +581,7 @@ mod tests {
     
     #[test]
     fn test_parse_statement() {
+        assert_eq!(Ok(("", Statement::Let(Box::new(Expression::Identifier("foo_bar".to_string())), Box::new(Expression::Const(Constant::Integer(1)))))), parse_statement("foo_bar=1"));
         assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"ADJTIME").unwrap(), vec![Expression::Const(Constant::Integer(1))]))), parse_statement("ADJTIME 1"));
         assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"ANSIPOS").unwrap(), vec![Expression::Const(Constant::Integer(1)), Expression::Const(Constant::Integer(2))]))), parse_statement("ANSIPOS 1, 2"));
         assert_eq!(Ok(("", Statement::Call(get_statement_definition(&"BROADCAST").unwrap(), vec![Expression::Const(Constant::Integer(1)), Expression::Const(Constant::Integer(2)), Expression::Const(Constant::Integer(3))]))), parse_statement("BROADCAST 1, 2, 3"));

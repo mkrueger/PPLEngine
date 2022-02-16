@@ -28,8 +28,8 @@ Basically it's PPLD
  * Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue support
  * It's possible to see the raw output with the -r option
 ### Compiler
-  * Nothing
-
+  * Just prints what it could parse
+  * Known bugs: dim expressions not working correctly as lvalue
 ### Runner
   * pplrun is able to run 99bottles.ppe
 ## TODO

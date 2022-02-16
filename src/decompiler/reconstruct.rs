@@ -95,7 +95,6 @@ fn scan_elseif(block: &mut Block)
                                         i = 0;
                                     } else if let Statement::Goto(_label) = &block.statements[j - 1]  {
                                         // TODO: Check goto label needs to move out of if...then construct
-
                                         block.statements[i] = Statement::ElseIf(Box::new((**cond).clone())); // replace 1st ELSE
                                         block.statements[j] = Statement::Else; // Replace Endif with ELSE
                                         block.statements.remove((j - 1) as usize); // remove goto
@@ -300,7 +299,11 @@ fn scan_for_next(block: &mut Block)
                 block.statements[matching_goto as usize] = Statement::Next;
 
                 // replace for… next part
-                block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
+                if step_expr.to_string() == "1" {
+                    block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), None); // replace LET
+                } else {
+                    block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Some(Box::new(step_expr))); // replace LET
+                }
                 block.statements.remove((matching_goto - 1) as usize); // remove LET
                 block.statements.remove((i + 1) as usize); // remove for_label
                 block.statements.remove((i + 1) as usize); // remove if

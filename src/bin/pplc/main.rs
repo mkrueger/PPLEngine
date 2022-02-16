@@ -22,10 +22,18 @@ fn main() {
         file_name.push_str(".pps");
     }
 
-    let content = fs::read_to_string(file_name).unwrap();
-    
-    let prg = parse_program(&content);
+    let read_result = fs::read_to_string(file_name);
+    match read_result {
+        Ok(content) => {
+            let prg = parse_program(&content);
 
-    println!("parse result: {:?}", prg);
+            println!("parse result: {:?}", prg);
+            println!("---- Output:");
+            println!("{}", prg.to_string());
+        }
+        Err(err) => {
+            println!("Error while reading file {}", err);
+        }
+    }
 }
 

@@ -14,14 +14,14 @@ pub enum Statement {
     EndIf,
     DoWhile(Box<Expression>),
     EndWhile,
-    For(String, Box<Expression>, Box<Expression>, Box<Expression>),
+    For(Box<Expression>, Box<Expression>, Box<Expression>, Option<Box<Expression>>),
     Next,
     Break,
     Continue,
     Gosub(String),
     Return,
     Stop,
-    Let(String, Box<Expression>),
+    Let(Box<Expression>, Box<Expression>),
     Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
@@ -79,7 +79,7 @@ impl Statement
         }
         res
     }
-/* 
+
     fn get_var_name(expr : &Expression) -> String {
         match expr {
             Expression::Dim1(expr, _vec) => Statement::get_var_name(expr),
@@ -87,7 +87,7 @@ impl Statement
             Expression::Dim3(expr, _vec, _mat, _cube) => Statement::get_var_name(expr),
             _ => expr.to_string()
         }
-    }*/
+    }
 
     fn strip_outer_parens(exp : &Expression) -> &Expression
     {
@@ -121,7 +121,7 @@ impl Statement
             Statement::Gosub(label) => (format!("GOSUB {}", label.to_string()), indent, 0),
             Statement::Return => ("RETURN".to_string(), indent, 0),
             Statement::Let(var, expr) => {
-                let expected_type = prg.get_var_type(&var);
+                let expected_type = prg.get_var_type(&Statement::get_var_name(var));
                 let expr2;
                 if expected_type == VariableType::Boolean {
                     expr2 = Statement::try_boolean_conversion(&**expr);
@@ -134,11 +134,11 @@ impl Statement
             Statement::Inc(expr) => (format!("INC {}", expr.to_string()), indent, 0),
             Statement::Dec(expr) => (format!("DEC {}", expr.to_string()), indent, 0),
             Statement::For(var_name, from, to, step) => {
-                let step = step.to_string();
-                if step == "1" {
-                    (format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string()), indent + 1, 0)
+                let var_name = &Statement::get_var_name(var_name);
+                if let Some(s) = step {
+                    (format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), s.to_string()), indent + 1, 0)
                 } else {
-                    (format!("FOR {} = {} TO {} STEP {}", var_name, from.to_string(), to.to_string(), step), indent + 1, 0)
+                    (format!("FOR {} = {} TO {}", var_name, from.to_string(), to.to_string()), indent + 1, 0)
                 }
             }
             Statement::Next => ("NEXT".to_string(), indent - 1, 0),

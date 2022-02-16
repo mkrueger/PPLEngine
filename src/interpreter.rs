@@ -221,10 +221,10 @@ struct StackFrame {
     label_table: i32
 }
 
-struct Interpreter<'a> {
-    lookup: HashMap<&'a Block, i32>,
+struct Interpreter/*<'a> */{
+    // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
-    stack_frames: Vec<StackFrame>
+   //  stack_frames: Vec<StackFrame>
 }
 
 fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionContext, expr: &Expression) -> VariableValue
@@ -391,9 +391,9 @@ fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
 pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 {
     let interpreter = &mut Interpreter {
-        lookup: HashMap::new(),
+       // lookup: HashMap::new(),
         label_tables: Vec::new(),
-        stack_frames: vec![]
+      //  stack_frames: vec![]
     };
 
     interpreter.label_tables.push(calc_table(&prg.main_block));

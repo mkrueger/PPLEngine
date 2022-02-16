@@ -1230,8 +1230,8 @@ impl Decompiler {
                 }
                 OpCode::LET => {
                     let value = self.pop_expr().unwrap();
-                    let variable = self.pop_expr().unwrap().to_string();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Let(variable, Box::new(value)));
+                    let variable = self.pop_expr().unwrap();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Let(Box::new(variable), Box::new(value)));
                 }
                 OpCode::WHILE | OpCode::IF => {
                     if_ptr = self.src_ptr;

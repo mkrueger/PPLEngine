@@ -22,12 +22,15 @@ I still have to learn a lot of the rust programming language but it was worth ev
 Decompiler is pretty complete (report bugs!). I would say it's better than everything we had back in the 90'.
  
 ### Decompiler
-Basically it's PPLD
+Basically it's the PPLD from DOS in an enchanced version.
+It adds:
 
  * PPE 3.30 Support
  * Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue support
+ * It tries to do some name guessing based on variable usage. 
  * It's possible to see the raw output with the -r option
  * A bit more control over the output keyword style with the -s option
+
 ### Compiler
   * Just prints what it could parse
   * Known bugs: dim expressions not working correctly as lvalue
@@ -35,8 +38,6 @@ Basically it's PPLD
   * pplrun is able to run 99bottles.ppe
 ## TODO
 
-* Implement naming scheme - many names can be guessed. Like for loop variables i, j, k… or file handles, file names etc..
-  There are many possibilities to implement variable name guessing strategies from the variable usage.
 * Execution engine just started.
 
 ## Building & Running

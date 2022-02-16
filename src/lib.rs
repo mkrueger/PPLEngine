@@ -2,7 +2,6 @@
 #![feature(core_panic)]
 #![feature(unchecked_math)]
 
-use argh::FromArgs;
 extern crate core;
 extern crate nom;
 extern crate lazy_static;

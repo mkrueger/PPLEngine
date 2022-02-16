@@ -28,6 +28,9 @@ impl Program
     pub fn to_string(&self) -> String
     {
         let mut res = String::new();
+        res.push_str("; ---------------------------------------\n");
+        res.push_str("; PCBoard programming language decompiler\n");
+        res.push_str("; ---------------------------------------\n");
 
         if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
             res.push_str("; Function declarations\n");
@@ -44,7 +47,6 @@ impl Program
             res.push_str(&v.to_string());
             res.push('\n');
         }
-        res.push_str("; Entrypoint\n");
 
         res.push_str(&self.main_block.to_string(self));
 

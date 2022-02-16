@@ -33,6 +33,16 @@ pub enum Statement {
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 
+
+pub fn get_var_name(expr : &Expression) -> String {
+    match expr {
+        Expression::Dim1(expr, _vec) => get_var_name(expr),
+        Expression::Dim2(expr, _vec, _mat) => get_var_name(expr),
+        Expression::Dim3(expr, _vec, _mat, _cube) => get_var_name(expr),
+        _ => expr.to_string()
+    }
+}
+
 impl Statement
 {
     pub fn param_list_to_string(l: &Vec<Expression>) -> String
@@ -83,14 +93,6 @@ impl Statement
         res
     }
 
-    fn get_var_name(expr : &Expression) -> String {
-        match expr {
-            Expression::Dim1(expr, _vec) => Statement::get_var_name(expr),
-            Expression::Dim2(expr, _vec, _mat) => Statement::get_var_name(expr),
-            Expression::Dim3(expr, _vec, _mat, _cube) => Statement::get_var_name(expr),
-            _ => expr.to_string()
-        }
-    }
 
     fn strip_outer_parens(exp : &Expression) -> &Expression
     {
@@ -123,10 +125,10 @@ impl Statement
             Statement::End => (output_keyword("End"), indent, 0),
             Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label.to_string()), indent, 0),
             Statement::Return => (output_keyword("Return"), indent, 0),
-            Statement::EndFunc => (output_keyword("EndFunc"), indent, 0),
-            Statement::EndProc => (output_keyword("EndProc"), indent, 0),
+            Statement::EndFunc => (output_keyword("EndFunc"), indent, -1),
+            Statement::EndProc => (output_keyword("EndProc"), indent, -1),
             Statement::Let(var, expr) => {
-                let expected_type = prg.get_var_type(&Statement::get_var_name(var));
+                let expected_type = prg.get_var_type(&get_var_name(var));
                 let expr2;
                 if expected_type == VariableType::Boolean {
                     expr2 = Statement::try_boolean_conversion(&**expr);
@@ -139,7 +141,7 @@ impl Statement
             Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr.to_string()), indent, 0),
             Statement::Dec(expr) => (format!("{} {}", output_keyword("Dec"), expr.to_string()), indent, 0),
             Statement::For(var_name, from, to, step) => {
-                let var_name = &Statement::get_var_name(var_name);
+                let var_name = &get_var_name(var_name);
                 if let Some(s) = step {
                     (format!("{} {} = {} {} {} {} {}", output_keyword("For"), var_name, from.to_string(), output_keyword("To"), to.to_string(), output_keyword("Step"), s.to_string()), indent + 1, 0)
                 } else {

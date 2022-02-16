@@ -233,6 +233,8 @@ fn scan_for_next(block: &mut Block)
     // LET VAR001 = VAR001 + [STEP]
     // GOTO LABEL002
     // :LABEL001
+
+    if block.statements.len() < 2 { return; }
     let mut i = 0;
     while i < block.statements.len() - 2 {
         if let Statement::Let(var_name, expr) = &block.statements[i] {
@@ -569,5 +571,162 @@ fn strip_unused_labels(block: &mut Block)
             }
         }
         i += 1;
+    }
+}
+
+
+
+pub fn do_pass4(prg: &mut Program)
+{
+    rename_variables(&mut prg.main_block, &mut prg.variable_declarations);
+    for fd in &mut prg.function_declarations {
+        rename_variables(&mut fd.block, &mut fd.variable_declarations);
+    }
+    for pd in &mut prg.procedure_declarations {
+        rename_variables(&mut pd.block, &mut pd.variable_declarations);
+    }
+}
+
+
+const INDEX_VARS : [&str; 4] = ["i", "j", "k", "l"];
+
+fn scan_replace_vars(stmt : &Statement, rename_map : &mut HashMap<String, String>, index : &mut i32, file_names : &mut i32)
+{
+    match stmt {
+        Statement::For(v, _, _, _) => {
+            let var_name = get_var_name(&*v);
+            if !rename_map.contains_key(&var_name) && *index < INDEX_VARS.len() as i32 {
+                rename_map.insert(var_name, INDEX_VARS[*index as usize].to_string());
+
+                *index = *index + 1;
+            }
+        }
+        Statement::If(_, s) => scan_replace_vars(s, rename_map, index, file_names),
+        Statement::While(_, s) => scan_replace_vars(s, rename_map, index, file_names),
+        Statement::Call(def, parameters) => {
+            match &def.opcode {
+                OpCode::FOPEN => {
+                    let var_name = get_var_name(&parameters[1]);
+                    if !rename_map.contains_key(&var_name) {
+                        *file_names += 1;
+                        rename_map.insert(var_name, format!("fileName{}", file_names));
+                    }
+                } 
+                OpCode::DELETE => {
+                    let var_name = get_var_name(&parameters[0]);
+                    if !rename_map.contains_key(&var_name) {
+                        *file_names += 1;
+                        rename_map.insert(var_name, format!("fileName{}", file_names));
+                    }
+                } 
+                OpCode::DISPFILE => {
+                    let var_name = get_var_name(&parameters[0]);
+                    if !rename_map.contains_key(&var_name) {
+                        *file_names += 1;
+                        rename_map.insert(var_name, format!("fileName{}", file_names));
+                    }
+                } 
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+}
+
+fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>)
+{
+    let mut rename_map = HashMap::new();
+    let mut index = 0;
+    let mut file_names = 0;
+
+    for stmt in &block.statements {
+        scan_replace_vars(stmt, &mut rename_map, &mut index, &mut file_names);
+    }
+
+    for decl in declarations {
+        match decl {
+            Declaration::Variable(_, name) => { if rename_map.contains_key(name) { *name = rename_map.get(name).unwrap().to_string(); } }
+            Declaration::Variable1(_, name, _) => { if rename_map.contains_key(name) { *name = rename_map.get(name).unwrap().to_string(); } }
+            Declaration::Variable2(_, name, _ , _) => { if rename_map.contains_key(name) { *name = rename_map.get(name).unwrap().to_string(); } }
+            Declaration::Variable3(_, name, _ , _, _) => { if rename_map.contains_key(name) { *name = rename_map.get(name).unwrap().to_string(); } }
+            _ => {}
+        }
+    }
+
+    for stmt in &mut block.statements {
+        replace_in_statement(stmt, &rename_map);
+    }
+}
+
+fn replace_in_statement(stmt : &mut Statement, rename_map : &HashMap<String, String>)
+{
+    match stmt {
+        Statement::While(expr, stmt2) => {
+            replace_in_expression(expr, rename_map);
+            replace_in_statement(stmt2, rename_map);
+        },
+        Statement::If(expr, stmt2) => {
+            replace_in_expression(expr, rename_map);
+            replace_in_statement(stmt2, rename_map);
+        },
+        Statement::IfThen(expr) => replace_in_expression(expr, rename_map),
+        Statement::ElseIf(expr) => replace_in_expression(expr, rename_map),
+        Statement::DoWhile(expr) => replace_in_expression(expr, rename_map),
+        Statement::For(expr1, expr2, expr3, _) => {
+            replace_in_expression(expr1, rename_map);
+            replace_in_expression(expr2, rename_map);
+            replace_in_expression(expr3, rename_map);
+        }
+        Statement::Let(expr, rvalue) => {
+            replace_in_expression(expr, rename_map);
+            replace_in_expression(rvalue, rename_map);
+        }
+        Statement::ProcedureCall(_, parameters) => {
+            for p in parameters {
+                replace_in_expression(p, rename_map);
+            }
+        },
+        Statement::Call(_, parameters) => {
+            for p in parameters {
+                replace_in_expression(p, rename_map);
+            }
+        },
+        _ => {}
+    }
+
+}
+
+fn replace_in_expression(expr : &mut Expression, rename_map : &HashMap<String, String>)
+{
+    match expr {
+        Expression::Identifier(id) => {  if rename_map.contains_key(id) { *id = rename_map.get(id).unwrap().to_string(); }  },
+        Expression::Parens(pexpr) => replace_in_expression(pexpr, rename_map),
+        Expression::FunctionCall(_, parameters) => {
+            for p in parameters {
+                replace_in_expression(p, rename_map);
+            }
+        },
+        Expression::Not(nexpr) => replace_in_expression(nexpr, rename_map),
+        Expression::Minus(mexpr) => replace_in_expression(mexpr, rename_map),
+        Expression::BinaryExpression(_, lvalue, rvalue) => {
+            replace_in_expression(lvalue, rename_map);
+            replace_in_expression(rvalue, rename_map);
+        }
+        Expression::Dim1(expr1, expr2) => {
+            replace_in_expression(expr1, rename_map);
+            replace_in_expression(expr2, rename_map);
+        }
+        Expression::Dim2(expr1, expr2, expr3) => {
+            replace_in_expression(expr1, rename_map);
+            replace_in_expression(expr2, rename_map);
+            replace_in_expression(expr3, rename_map);
+        }
+        Expression::Dim3(expr1, expr2, expr3, expr4) =>  {
+            replace_in_expression(expr1, rename_map);
+            replace_in_expression(expr2, rename_map);
+            replace_in_expression(expr3, rename_map);
+            replace_in_expression(expr4, rename_map);
+        }
+            _ => {}
     }
 }

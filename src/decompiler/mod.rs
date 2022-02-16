@@ -20,9 +20,6 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     
     println!("{}.{} detected", d.executable.version / 100, d.executable.version % 100);
 
-    d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
-    d.output_stmt(&mut prg, Statement::Comment("PCBoard programming language decompiler".to_string()));
-    d.output_stmt(&mut prg, Statement::Comment("---------------------------------------".to_string()));
 
     if to_file {
         println!("Pass 1 ...");
@@ -41,6 +38,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
             println!("Pass 3 ...");
         }
         reconstruct::do_pass3(&mut prg);
+        reconstruct::do_pass4(&mut prg);
     }
     if to_file {
         println!();

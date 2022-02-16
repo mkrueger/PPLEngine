@@ -49,9 +49,9 @@ impl Statement
         match Statement::strip_outer_parens(expr) {
             Expression::Const(Constant::Integer(i)) => {
                 if *i == PPL_TRUE {
-                    &Expression::Const(Constant::TRUE)
+                    &Expression::Const(Constant::Boolean(true))
                 } else {
-                    &Expression::Const(Constant::FALSE)
+                    &Expression::Const(Constant::Boolean(false))
                 }
             }
             Expression::Parens(expr) => {
@@ -59,8 +59,8 @@ impl Statement
             }
             Expression::Not(notexpr) => {
                 match &**notexpr {
-                    Expression::Const(Constant::FALSE) => &Expression::Const(Constant::TRUE),
-                    Expression::Const(Constant::TRUE) => &Expression::Const(Constant::FALSE),
+                    Expression::Const(Constant::Boolean(false)) => &Expression::Const(Constant::Boolean(true)),
+                    Expression::Const(Constant::Boolean(true)) => &Expression::Const(Constant::Boolean(false)),
                     Expression::Not(notexpr2) => {
                         Statement::try_boolean_conversion(&*notexpr2)
                     },

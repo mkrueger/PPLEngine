@@ -108,61 +108,18 @@ fn parse_declaration<'a>(input: &'a str) -> nom::IResult<&'a str, Declaration>
     alt((parse_variable, parse_functiondeclaration, parse_proceduredeclaration))(input)
 }
 
-fn predefined_constants1<'a>(input: &'a str) -> nom::IResult<&'a str, Constant> {
-    alt((
-        map(tag_no_case("LOGITLEFT"), |_| Constant::LOGITLEFT),
-        map(tag_no_case("NC"), |_| Constant::NC),
-        map(tag_no_case("NEWLINE"), |_| Constant::NEWLINE),
-        map(tag_no_case("NOCLEAR"), |_| Constant::NOCLEAR),
-        map(tag_no_case("O_RD"), |_| Constant::O_RD),
-        map(tag_no_case("O_RW"), |_| Constant::O_RW),
-        map(tag_no_case("O_WR"), |_| Constant::O_WR),
-        map(tag_no_case("SEC"), |_| Constant::SEC),
-        map(tag_no_case("SEEK_CUR"), |_| Constant::SEEK_CUR),
-        map(tag_no_case("SEEK_END"), |_| Constant::SEEK_END),
-        map(tag_no_case("SEEK_SET"), |_| Constant::SEEK_SET),
-        map(tag_no_case("STACKED"), |_| Constant::STACKED),
-        map(tag_no_case("S_DB"), |_| Constant::S_DB),
-        map(tag_no_case("S_DN"), |_| Constant::S_DN),
-        map(tag_no_case("S_DR"), |_| Constant::S_DR),
-        map(tag_no_case("S_DW"), |_| Constant::S_DW),
-        map(tag_no_case("TRUE"), |_| Constant::TRUE),
-        map(tag_no_case("UPCASE"), |_| Constant::UPCASE),
-        map(tag_no_case("WORDWRAP"), |_| Constant::WORDWRAP),
-        map(tag_no_case("YESNO"), |_| Constant::YESNO)))(input)
-}
-
-fn predefined_constants2<'a>(input: &'a str) -> nom::IResult<&'a str, Constant> {
-    alt((
-        map(tag_no_case("AUTO"), |_| Constant::AUTO),
-        map(tag_no_case("BELL"), |_| Constant::BELL),
-        map(tag_no_case("DEFS"), |_| Constant::DEFS),
-        map(tag_no_case("ECHODOTS"), |_| Constant::ECHODOTS),
-        map(tag_no_case("ERASELINE"), |_| Constant::ERASELINE),
-        map(tag_no_case("FALSE"), |_| Constant::FALSE),
-        map(tag_no_case("FCL"), |_| Constant::FCL),
-        map(tag_no_case("FIELDLEN"), |_| Constant::FIELDLEN),
-        map(tag_no_case("FNS"), |_| Constant::FNS),
-        map(tag_no_case("F_EXP"), |_| Constant::F_EXP),
-        map(tag_no_case("F_MW"), |_| Constant::F_MW),
-        map(tag_no_case("F_REG"), |_| Constant::F_REG),
-        map(tag_no_case("F_SEL"), |_| Constant::F_SEL),
-        map(tag_no_case("F_SYS"), |_| Constant::F_SYS),
-        map(tag_no_case("GRAPH"), |_| Constant::GRAPH),
-        map(tag_no_case("GUIDE"), |_| Constant::GUIDE),
-        map(tag_no_case("HIGHASCII"), |_| Constant::HIGHASCII),
-        map(tag_no_case("LANG"), |_| Constant::LANG),
-        map(tag_no_case("LFAFTER"), |_| Constant::LFAFTER),
-        map(tag_no_case("LFBEFORE"), |_| Constant::LFBEFORE),
-        map(tag_no_case("LOGIT"), |_| Constant::LOGIT)
-    ))(input)
-}
 
 fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
     alt((
-        predefined_constants1,
-        predefined_constants2,
         money,
+        map(
+            tag_no_case("TRUE"),
+            |_| Constant::Boolean(true),
+        ),
+        map(
+            tag_no_case("FALSE"),
+            |_| Constant::Boolean(false),
+        ),
         map(
             preceded(
                 tag_no_case("@X"),
@@ -212,7 +169,17 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
                 nom::lib::std::result::Result::Ok(i) => { nom::lib::std::result::Result::Ok(Constant::Integer(i)) }
                 _ => { nom::lib::std::result::Result::Err("Error parsing number.") }
             }
-        })
+        }),
+        // builtin constants
+        map_res(identifier, |z| {
+            let tag_name = z.to_uppercase();
+            for cnst in &crate::tables::CONSTANT_VALUES {
+                if cnst.0 == tag_name {
+                    return Ok(Constant::Builtin(cnst.0));
+                }
+            }
+            Err(format!("unknown constant {}", z))
+        }),
     ))(line)
 }
 
@@ -527,20 +494,20 @@ mod tests {
 
     #[test]
     fn test_parse_if() {
-        check_statements("IF (FALSE) END", vec![Statement::If(Box::new(Expression::Const(Constant::FALSE)), Box::new(Statement::End))]);
-        check_statements("IF (TRUE) THEN", vec![Statement::IfThen(Box::new(Expression::Const(Constant::TRUE)))]);
-        check_statements("ELSEIF (TRUE) THEN", vec![Statement::ElseIf(Box::new(Expression::Const(Constant::TRUE)))]);
+        check_statements("IF (FALSE) END", vec![Statement::If(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
+        check_statements("IF (TRUE) THEN", vec![Statement::IfThen(Box::new(Expression::Const(Constant::Boolean(true))))]);
+        check_statements("ELSEIF (TRUE) THEN", vec![Statement::ElseIf(Box::new(Expression::Const(Constant::Boolean(true))))]);
     }  
     
     #[test]
     fn test_parse_while() {
-        check_statements("WHILE (FALSE) END", vec![Statement::While(Box::new(Expression::Const(Constant::FALSE)), Box::new(Statement::End))]);
-        check_statements("WHILE (TRUE) DO", vec![Statement::DoWhile(Box::new(Expression::Const(Constant::TRUE)))]);
+        check_statements("WHILE (FALSE) END", vec![Statement::While(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
+        check_statements("WHILE (TRUE) DO", vec![Statement::DoWhile(Box::new(Expression::Const(Constant::Boolean(true))))]);
     }
 
     #[test]
     fn test_let() {
-        check_statements("LET FOO = FALSE", vec![Statement::Let(Box::new(Expression::Identifier("FOO".to_string())), Box::new(Expression::Const(Constant::FALSE)))]);
+        check_statements("LET FOO = FALSE", vec![Statement::Let(Box::new(Expression::Identifier("FOO".to_string())), Box::new(Expression::Const(Constant::Boolean(false))))]);
     }
 
     #[test]
@@ -558,8 +525,8 @@ mod tests {
 
     #[test]
     fn test_procedure_calls() {
-        check_statements("PROC(TRUE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::TRUE)])]);
-        check_statements("PROC(TRUE, FALSE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::TRUE), Expression::Const(Constant::FALSE)])]);
+        check_statements("PROC(TRUE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::Boolean(true))])]);
+        check_statements("PROC(TRUE, FALSE)", vec![Statement::ProcedureCall("PROC".to_string(), vec![Expression::Const(Constant::Boolean(true)), Expression::Const(Constant::Boolean(false))])]);
     }
 
     #[test]
@@ -594,7 +561,7 @@ mod tests {
     fn test_parse_expression() {
         assert_eq!(Ok(("", Expression::Const(Constant::Money(42.42)))), parse_expression("$42.42"));
         assert_eq!(Ok(("", Expression::Parens(Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("(5)"));
-        assert_eq!(Ok(("", Expression::Not(Box::new(Expression::Const(Constant::FALSE))))), parse_expression("!FALSE"));
+        assert_eq!(Ok(("", Expression::Not(Box::new(Expression::Const(Constant::Boolean(false)))))), parse_expression("!FALSE"));
         assert_eq!(Ok(("", Expression::FunctionCall("ABORT".to_string(), Vec::new()))), parse_expression("ABORT()"));
         assert_eq!(Ok(("", Expression::FunctionCall("ABS".to_string(), vec!(Expression::Const(Constant::Integer(5)))))), parse_expression("ABS(5)"));
         assert_eq!(Ok(("", Expression::BinaryExpression(BinOp::PoW, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))))), parse_expression("2^5"));
@@ -625,8 +592,8 @@ mod tests {
         assert_eq!(Ok(("", Constant::Integer(0o5234))), parse_constant("5234o"));
         assert_eq!(Ok(("", Constant::Integer(4711))), parse_constant("4711d"));
         assert_eq!(Ok(("", Constant::Integer(0xAFFE))), parse_constant("AFFEh"));
-        assert_eq!(Ok(("", Constant::TRUE)), parse_constant("TRUE"));
-        assert_eq!(Ok(("", Constant::FALSE)), parse_constant("FALSE"));
+        assert_eq!(Ok(("", Constant::Boolean(true))), parse_constant("TRUE"));
+        assert_eq!(Ok(("", Constant::Boolean(false))), parse_constant("FALSE"));
     }
 
     #[test]

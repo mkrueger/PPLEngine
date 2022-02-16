@@ -6,71 +6,74 @@ pub enum Constant
     Integer(i32),
     String(String),
     Double(f64),
-    AUTO,
-    BELL,
-    DEFS,
-    ECHODOTS,
-    ERASELINE,
-    FALSE,
-    FCL,
-    FIELDLEN,
-    FNS,
-    F_EXP,
-    F_MW,
-    F_REG,
-    F_SEL,
-    F_SYS,
-    GRAPH,
-    GUIDE,
-    HIGHASCII,
-    LANG,
-    LFAFTER,
-    LFBEFORE,
-    LOGIT,
-    LOGITLEFT,
-    NC,
-    NEWLINE,
-    NOCLEAR,
-    O_RD,
-    O_RW,
-    O_WR,
-    SEC,
-    SEEK_CUR,
-    SEEK_END,
-    SEEK_SET,
-    STACKED,
-    S_DB,
-    S_DN,
-    S_DR,
-    S_DW,
-    TRUE,
-    UPCASE,
-    WORDWRAP,
-    YESNO,
-
-    // Debug
-    START_BAL,
-    START_SESSION,
-    DEB_CALL,
-    DEB_TIME,
-    DEB_MSGREAD,
-    DEB_MSGCAP,
-    DEB_MSGWRITE,
-    DEB_MSGECHOED,
-    DEB_MSGPRIVATE,
-    DEB_DOWNFILE,
-    DEB_DOWNBYTES,
-    DEB_CHAT,
-    DEB_TPU,
-    DEB_SPECIAL,
-    CRED_UPFILE,
-    CRED_UPBYTES,
-    CRED_SPECIAL,
-    SEC_DROP,
+    Boolean(bool),
+    Builtin(&'static str)
 }
 
 impl Constant
 {
+    pub const AUTO : Constant = Constant::Builtin("AUTO");
+    pub const BELL : Constant = Constant::Builtin("BELL");
+    pub const DEFS : Constant = Constant::Builtin("DEFS");
+    pub const ECHODOTS : Constant = Constant::Builtin("ECHODOTS");
+    pub const ERASELINE : Constant = Constant::Builtin("ERASELINE");
+    pub const FALSE : Constant = Constant::Builtin("FALSE");
+    pub const FCL : Constant = Constant::Builtin("FCL");
+    pub const FIELDLEN : Constant = Constant::Builtin("FIELDLEN");
+    pub const FNS : Constant = Constant::Builtin("FNS");
+    pub const F_EXP : Constant = Constant::Builtin("F_EXP");
+    pub const F_MW : Constant = Constant::Builtin("F_MW");
+    pub const F_REG : Constant = Constant::Builtin("F_REG");
+    pub const F_SEL : Constant = Constant::Builtin("F_SEL");
+    pub const F_SYS : Constant = Constant::Builtin("F_SYS");
+    pub const GRAPH : Constant = Constant::Builtin("GRAPH");
+    pub const GUIDE : Constant = Constant::Builtin("GUIDE");
+    pub const HIGHASCII : Constant = Constant::Builtin("HIGHASCII");
+    pub const LANG : Constant = Constant::Builtin("LANG");
+    pub const LFAFTER : Constant = Constant::Builtin("LFAFTER");
+    pub const LFBEFORE : Constant = Constant::Builtin("LFBEFORE");
+    pub const LOGIT : Constant = Constant::Builtin("LOGIT");
+    pub const LOGITLEFT : Constant = Constant::Builtin("LOGITLEFT");
+    pub const NC : Constant = Constant::Builtin("NC");
+    pub const NEWLINE : Constant = Constant::Builtin("NEWLINE");
+    pub const NOCLEAR : Constant = Constant::Builtin("NOCLEAR");
+    pub const O_RD : Constant = Constant::Builtin("O_RD");
+    pub const O_RW : Constant = Constant::Builtin("O_RW");
+    pub const O_WR : Constant = Constant::Builtin("O_WR");
+    pub const SEC : Constant = Constant::Builtin("SEC");
+    pub const SEEK_CUR : Constant = Constant::Builtin("SEEK_CUR");
+    pub const SEEK_END : Constant = Constant::Builtin("SEEK_END");
+    pub const SEEK_SET : Constant = Constant::Builtin("SEEK_SET");
+    pub const STACKED : Constant = Constant::Builtin("STACKED");
+    pub const S_DB : Constant = Constant::Builtin("S_DB");
+    pub const S_DN : Constant = Constant::Builtin("S_DN");
+    pub const S_DR : Constant = Constant::Builtin("S_DR");
+    pub const S_DW : Constant = Constant::Builtin("S_DW");
+    pub const TRUE : Constant = Constant::Builtin("TRUE");
+    pub const UPCASE : Constant = Constant::Builtin("UPCASE");
+    pub const WORDWRAP : Constant = Constant::Builtin("WORDWRAP");
+    pub const YESNO : Constant = Constant::Builtin("YESNO");
+
+    // Debug
+    pub const START_BAL : Constant = Constant::Builtin("START_BAL");
+    pub const START_SESSION : Constant = Constant::Builtin("START_SESSION");
+    pub const DEB_CALL : Constant = Constant::Builtin("DEB_CALL");
+    pub const DEB_TIME : Constant = Constant::Builtin("DEB_TIME");
+    pub const DEB_MSGREAD : Constant = Constant::Builtin("DEB_MSGREAD");
+    pub const DEB_MSGCAP : Constant = Constant::Builtin("DEB_MSGCAP");
+    pub const DEB_MSGWRITE : Constant = Constant::Builtin("DEB_MSGWRITE");
+    pub const DEB_MSGECHOED : Constant = Constant::Builtin("DEB_MSGECHOED");
+    pub const DEB_MSGPRIVATE : Constant = Constant::Builtin("DEB_MSGPRIVATE");
+    pub const DEB_DOWNFILE : Constant = Constant::Builtin("DEB_DOWNFILE");
+    pub const DEB_DOWNBYTES : Constant = Constant::Builtin("DEB_DOWNBYTES");
+    pub const DEB_CHAT : Constant = Constant::Builtin("DEB_CHAT");
+    pub const DEB_TPU : Constant = Constant::Builtin("DEB_TPU");
+    pub const DEB_SPECIAL : Constant = Constant::Builtin("DEB_SPECIAL");
+    pub const CRED_UPFILE : Constant = Constant::Builtin("CRED_UPFILE");
+    pub const CRED_UPBYTES : Constant = Constant::Builtin("CRED_UPBYTES");
+    pub const CRED_SPECIAL : Constant = Constant::Builtin("CRED_SPECIAL");
+    pub const SEC_DROP : Constant = Constant::Builtin("SEC_DROP");
+
     pub fn to_string(&self) -> String
     {
         match self {
@@ -78,68 +81,8 @@ impl Constant
             Constant::Integer(i) => format!("{}", i),
             Constant::String(str) => format!("\"{}\"", str),
             Constant::Double(f) => format!("{}", f),
-
-            Constant::AUTO => String::from("AUTO"),
-            Constant::BELL => String::from("BELL"),
-            Constant::DEFS => String::from("DEFS"),
-            Constant::ECHODOTS => String::from("ECHODOTS"),
-            Constant::ERASELINE => String::from("ERASELINE"),
-            Constant::FALSE => String::from("FALSE"),
-            Constant::FCL => String::from("FCL"),
-            Constant::FIELDLEN => String::from("FIELDLEN"),
-            Constant::FNS => String::from("FNS"),
-            Constant::F_EXP => String::from("F_EXP"),
-            Constant::F_MW => String::from("F_MW"),
-            Constant::F_REG => String::from("F_REG"),
-            Constant::F_SEL => String::from("F_SEL"),
-            Constant::F_SYS => String::from("F_SYS"),
-            Constant::GRAPH => String::from("GRAPH"),
-            Constant::GUIDE => String::from("GUIDE"),
-            Constant::HIGHASCII => String::from("HIGHASCII"),
-            Constant::LANG => String::from("LANG"),
-            Constant::LFAFTER => String::from("LFAFTER"),
-            Constant::LFBEFORE => String::from("LFBEFORE"),
-            Constant::LOGIT => String::from("LOGIT"),
-            Constant::LOGITLEFT => String::from("LOGITLEFT"),
-            Constant::NC => String::from("NC"),
-            Constant::NEWLINE => String::from("NEWLINE"),
-            Constant::NOCLEAR => String::from("NOCLEAR"),
-            Constant::O_RD => String::from("O_RD"),
-            Constant::O_RW => String::from("O_RW"),
-            Constant::O_WR => String::from("O_WR"),
-            Constant::SEC => String::from("SEC"),
-            Constant::STACKED => String::from("STACKED"),
-            Constant::S_DB => String::from("S_DB"),
-            Constant::S_DN => String::from("S_DN"),
-            Constant::S_DR => String::from("S_DR"),
-            Constant::S_DW => String::from("S_DW"),
-            Constant::TRUE => String::from("TRUE"),
-            Constant::UPCASE => String::from("UPCASE"),
-            Constant::WORDWRAP => String::from("WORDWRAP"),
-            Constant::YESNO => String::from("YESNO"),
-
-            Constant::SEEK_CUR => String::from("SEEK_CUR"),
-            Constant::SEEK_END => String::from("SEEK_END"),
-            Constant::SEEK_SET => String::from("SEEK_SET"),
-
-            Constant::START_BAL => String::from("?"),
-            Constant::START_SESSION => String::from("?"),
-            Constant::DEB_CALL => String::from("?"),
-            Constant::DEB_TIME => String::from("?"),
-            Constant::DEB_MSGREAD => String::from("?"),
-            Constant::DEB_MSGCAP => String::from("?"),
-            Constant::DEB_MSGWRITE => String::from("?"),
-            Constant::DEB_MSGECHOED => String::from("?"),
-            Constant::DEB_MSGPRIVATE => String::from("?"),
-            Constant::DEB_DOWNFILE => String::from("?"),
-            Constant::DEB_DOWNBYTES => String::from("?"),
-            Constant::DEB_CHAT => String::from("?"),
-            Constant::DEB_TPU => String::from("?"),
-            Constant::DEB_SPECIAL => String::from("?"),
-            Constant::CRED_UPFILE => String::from("?"),
-            Constant::CRED_UPBYTES => String::from("?"),
-            Constant::CRED_SPECIAL => String::from("?"),
-            Constant::SEC_DROP => String::from("?")
+            Constant::Boolean(b) => if *b { "TRUE".to_string() } else { "FALSE".to_string() },
+            Constant::Builtin(s) => format!("{}", s),
         }
     }
 }

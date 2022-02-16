@@ -778,9 +778,9 @@ impl Decompiler {
         match cur_var.variable_type {
             VariableType::Boolean => {
                 if cur_var.content != 0 {
-                    Expression::Const(Constant::TRUE)
+                    Expression::Const(Constant::Boolean(true))
                 } else {
-                    Expression::Const(Constant::FALSE)
+                    Expression::Const(Constant::Boolean(false))
                 }
             }
             VariableType::Date => {

@@ -236,8 +236,8 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
         },
         Expression::Const(constant) => { 
             match constant {
-                Constant::TRUE => VariableValue::Integer(PPL_TRUE),
-                Constant::FALSE => VariableValue::Integer(PPL_FALSE),
+                Constant::Boolean(true) => VariableValue::Integer(PPL_TRUE),
+                Constant::Boolean(false) => VariableValue::Integer(PPL_FALSE),
                 Constant::Money(x) => VariableValue::Money(*x),
                 Constant::Integer(x) => VariableValue::Integer(*x),
                 Constant::String(x) => VariableValue::String(x.clone()),

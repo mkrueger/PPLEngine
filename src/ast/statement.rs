@@ -1,10 +1,11 @@
-use crate::{tables::{StatementDefinition, OpCode, PPL_TRUE}, interpreter::ProgramContext};
+use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext};
 
 use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Comment(String),
+    End,
     While(Box<Expression>, Box<Statement>),
     If(Box<Expression>, Box<Statement>),
     IfThen(Box<Expression>),
@@ -17,8 +18,15 @@ pub enum Statement {
     Next,
     Break,
     Continue,
+    Gosub(String),
+    Return,
+    Stop,
+    Let(String, Box<Expression>),
+    Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
+    Inc(String),
+    Dec(String),
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 
@@ -71,6 +79,7 @@ impl Statement
         }
         res
     }
+/* 
     fn get_var_name(expr : &Expression) -> String {
         match expr {
             Expression::Dim1(expr, _vec) => Statement::get_var_name(expr),
@@ -78,7 +87,7 @@ impl Statement
             Expression::Dim3(expr, _vec, _mat, _cube) => Statement::get_var_name(expr),
             _ => expr.to_string()
         }
-    }
+    }*/
 
     fn strip_outer_parens(exp : &Expression) -> &Expression
     {
@@ -105,9 +114,25 @@ impl Statement
             Statement::Else => ("ELSE".to_string(), indent, -1),
             Statement::EndIf => ("ENDIF".to_string(), indent - 1, 0),
             Statement::DoWhile(cond) => (format!("WHILE ({}) DO", Statement::out_bool_func(cond)), indent + 1, 0),
-            Statement::EndWhile => ("END WHILE".to_string(), indent - 1, 0),
+            Statement::EndWhile => ("ENDWHILE".to_string(), indent - 1, 0),
             Statement::Break => ("BREAK".to_string(), indent, 0),
             Statement::Continue => ("CONTINUE".to_string(), indent, 0),
+            Statement::End => ("END".to_string(), indent, 0),
+            Statement::Gosub(label) => (format!("GOSUB {}", label.to_string()), indent, 0),
+            Statement::Return => ("RETURN".to_string(), indent, 0),
+            Statement::Let(var, expr) => {
+                let expected_type = prg.get_var_type(&var);
+                let expr2;
+                if expected_type == VariableType::Boolean {
+                    expr2 = Statement::try_boolean_conversion(&**expr);
+                } else {
+                    expr2 = &**expr;
+                }
+                (format!("{} = {}", var.to_string(), expr2.to_string()), indent, 0)
+            },
+            Statement::Goto(label) => (format!("GOTO {}", label.to_string()), indent, 0),
+            Statement::Inc(expr) => (format!("INC {}", expr.to_string()), indent, 0),
+            Statement::Dec(expr) => (format!("DEC {}", expr.to_string()), indent, 0),
             Statement::For(var_name, from, to, step) => {
                 let step = step.to_string();
                 if step == "1" {
@@ -117,30 +142,14 @@ impl Statement
                 }
             }
             Statement::Next => ("NEXT".to_string(), indent - 1, 0),
+            Statement::Stop => ("STOP".to_string(), indent, 0),
             Statement::Label(str) => (format!("\n{}:{}", Statement::get_indent(indent - 1), str), indent, -1),
             Statement::ProcedureCall(name, params) => (format!("{}({})", name, Statement::param_list_to_string(params)), indent, 0),
             Statement::Call(def, params) => {
-                let op: OpCode = unsafe { std::intrinsics::transmute(def.opcode) };
-                match op {
-                    OpCode::LET => {
-                        let var = Statement::get_var_name(&params[0]);
-                        let expected_type = prg.get_var_type(&var);
-                        let mut expr = &params[1];
-                        if expected_type == VariableType::Boolean {
-                            expr = &Statement::try_boolean_conversion(expr);
-                        }
-                        (format!("{} = {}", var.as_str(), expr.to_string().as_str()), indent, 0)
-                    }
-                    OpCode::IF => {
-                        (format!("IF ({})", params[0].to_string().as_str()), indent + 1, 0)
-                    }
-                    _ => {
-                        if params.is_empty() {
-                            (def.name.to_string(), indent, 0)
-                        } else {
-                            (format!("{} {}", def.name, Statement::param_list_to_string(params)), indent, 0)
-                        }
-                    }
+                if params.is_empty() {
+                    (def.name.to_string(), indent, 0)
+                } else {
+                    (format!("{} {}", def.name, Statement::param_list_to_string(params)), indent, 0)
                 }
             }
         }

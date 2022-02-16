@@ -35,19 +35,6 @@ fn get_label_index(block: &Block, from : i32, to : i32, label: &String) -> Optio
     None
 }
 
-fn get_goto_label(stmt : &Statement) -> Option<&String>
-{
-    if let Statement::Call(def, params) = stmt {
-        if def.opcode != OpCode::GOTO || params.len() != 1 {
-            return None;
-        }
-        if let Expression::Identifier(label) = &params[0] {
-            return Some(label);
-        }
-    }
-    None
-}
-
 /// Check if no next, endwhile or endif is between from…to that is not starting inside from…to
 fn is_balanced(block: &Block, from : usize, to : usize) -> bool
 {
@@ -106,10 +93,7 @@ fn scan_elseif(block: &mut Block)
                                         block.statements.remove((i + 1) as usize); // remove if
                                         block.statements.remove(j as usize); // remove 2nd EndIf
                                         i = 0;
-                                    } else if let Statement::Call(def, _params) = &block.statements[j - 1]  {
-                                        if def.opcode != OpCode::GOTO {
-                                            break;
-                                        }
+                                    } else if let Statement::Goto(_label) = &block.statements[j - 1]  {
                                         // TODO: Check goto label needs to move out of if...then construct
 
                                         block.statements[i] = Statement::ElseIf(Box::new((**cond).clone())); // replace 1st ELSE
@@ -125,19 +109,13 @@ fn scan_elseif(block: &mut Block)
                     }
                 },
                 Statement::If(cond, stmt) => { // may be an end if without else block 
-                    if let Statement::Call(def, params) = &**stmt  {
-                        if def.opcode != OpCode::GOTO || params.len() != 1 {
-                            break;
-                        }
-                        let label = params[0].to_string();
+                    if let Statement::Goto(label) = &**stmt  {
                         if let Some(label_index) = get_label_index(block, i as i32 + 1, block.statements.len() as i32, &label) {
                             if let Statement::EndIf = block.statements[label_index - 1] {
                                 // todo check if the EndIf matches the if block
                                 block.statements[i] = Statement::ElseIf(Box::new(Expression::Not(Box::new((**cond).clone())))); // replace ELSE
                                 block.statements.remove((i + 1) as usize); // remove if
-
                             }
-
                         }
                     }
                 },
@@ -152,7 +130,7 @@ fn scan_if(block: &mut Block)
 {
     for i in 0..block.statements.len() {
         if let Statement::If(cond, stmt) = &block.statements[i] {
-            if let Some(endif_label) = get_goto_label(&**stmt) {
+            if let Statement::Goto(endif_label) = &**stmt {
                 let endif_label_index = get_label_index(block, i as i32 + 1, block.statements.len() as i32, endif_label);
                 if let None = endif_label_index { continue; }
                 if !is_balanced(block, i + 1, endif_label_index.unwrap()) { continue ; }
@@ -168,10 +146,10 @@ fn scan_if_else(block: &mut Block)
 {
     for i in 0..block.statements.len() {
         if let Statement::If(cond, stmt) = &block.statements[i] {
-            if let Some(else_label) = get_goto_label(&**stmt) {
+            if let Statement::Goto(else_label) = &**stmt {
                 let else_label_index = get_label_index(block, i as i32 + 1, block.statements.len() as i32, else_label);
                 if let None = else_label_index { continue; }
-                if let Some(endif_label) = get_goto_label(&block.statements[else_label_index.unwrap() - 1]) {
+                if let Statement::Goto(endif_label) = &block.statements[else_label_index.unwrap() - 1] {
                     let endif_label_index = get_label_index(block, else_label_index.unwrap() as i32 + 1, block.statements.len() as i32, endif_label);
                     if let None = endif_label_index { continue; }
                     if !is_balanced(block, i + 1, endif_label_index.unwrap() - 1) { continue ; }
@@ -198,12 +176,9 @@ fn mach_for_construct(label: &Statement, if_statement: &Statement) -> Option<(St
     match if_statement {
         Statement::If(expr, s) => {
             match &**s {
-                Statement::Call(def, params) => {
-                    if def.opcode != OpCode::GOTO {
-                        return None;
-                    }
+                Statement::Goto(label) => {
                     // todo: match expression
-                    breakout_label = params[0].to_string();
+                    breakout_label = label;
                 }
                 _ => return None
             }
@@ -260,16 +235,8 @@ fn scan_for_next(block: &mut Block)
     // GOTO LABEL002
     // :LABEL001
     let mut i = 0;
-    let mut var_name;
-    while i < block.statements.len() {
-        let cur = &block.statements[i];
-        if let Statement::Call(def, params) = cur {
-            if def.opcode != OpCode::LET || params.len() != 2 || i + 3 >= block.statements.len() {
-                i += 1;
-                continue;
-            }
-            var_name = params[0].to_string();
-
+    while i < block.statements.len() - 2 {
+        if let Statement::Let(var_name, expr) = &block.statements[i] {
             let label = &block.statements[i + 1];
             let if_statement = &block.statements[i + 2];
             let m = mach_for_construct(&label, &if_statement);
@@ -278,21 +245,17 @@ fn scan_for_next(block: &mut Block)
                 let mut j = i + 1;
                 let mut matching_goto = -1;
                 while j < block.statements.len() {
-                    if let Statement::Call(def, params) = &block.statements[j] {
-                        if def.opcode == OpCode::GOTO {
-                            if let Expression::Identifier(next_label) = &params[0] {
-                                if *next_label == for_label {
-                                    if j + 1 >= block.statements.len() { continue; }
-                                    if let Statement::Label(next_label) = &block.statements[j + 1] {
-                                        if *next_label == breakout_label {
-                                            matching_goto = j as i32;
-                                            break;
-                                        }
-                                    }
-                                    i += 1;
-                                    continue;
+                    if let Statement::Goto(next_label) = &block.statements[j] {
+                        if *next_label == for_label {
+                            if j + 1 >= block.statements.len() { continue; }
+                            if let Statement::Label(next_label) = &block.statements[j + 1] {
+                                if *next_label == breakout_label {
+                                    matching_goto = j as i32;
+                                    break;
                                 }
                             }
+                            i += 1;
+                            continue;
                         }
                     }
                     j += 1;
@@ -304,18 +267,14 @@ fn scan_for_next(block: &mut Block)
 
                 let step_expr;
                 match &block.statements[matching_goto as usize - 1] {
-                    Statement::Call(def, params) => {
-                        if def.opcode != OpCode::LET || params.len() != 2 {
-                            i += 1;
-                            continue;
-                        }
+                    Statement::Let(var2, expr) => {
                         // todo: match expression as string
-                        if params[0].to_string() != var_name {
+                        if var2 != var_name {
                             i += 1;
                             continue;
                         }
 
-                        if let Expression::BinaryExpression(_op, lvalue, rvalue) = &params[1] {
+                        if let Expression::BinaryExpression(_op, lvalue, rvalue) = &**expr {
                             if *_op != BinOp::Add { continue; } // always add even if step is negative
                             if let Expression::Identifier(lstr) = &**lvalue {
                                 if *lstr != index_label {
@@ -335,13 +294,14 @@ fn scan_for_next(block: &mut Block)
                     }
                 }
 
-                let from_expr = Box::new(params[1].clone());
+                let from_expr = Box::new(*expr.clone());
+                let var_name = (*var_name).clone();
                 // replace with next
                 block.statements[matching_goto as usize] = Statement::Next;
-                block.statements.remove((matching_goto - 1) as usize); // remove LET
 
                 // replace for… next part
                 block.statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), Box::new(step_expr)); // replace LET
+                block.statements.remove((matching_goto - 1) as usize); // remove LET
                 block.statements.remove((i + 1) as usize); // remove for_label
                 block.statements.remove((i + 1) as usize); // remove if
                 continue;
@@ -356,24 +316,21 @@ fn scan_possible_breaks(block: &mut Vec<Statement>, start : usize, end : usize, 
     for i in start..end {
         match &block[i] {
             Statement::While(cond, stmt) => {
-                if let Statement::Call(def, params) = &**stmt {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+                if let Statement::Goto(label) = &**stmt {
+                    if label == break_label {
                         block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Break));
                     }
                 }
             }
             Statement::If(cond, stmt) => {
-                if let Statement::Call(def, params) = &**stmt {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+                if let Statement::Goto(label) = &**stmt {
+                    if label == break_label {
                         block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Break));
                     }
                 }
             }
-            Statement::Call(def, params) => {
-                if params.len() != 1 { continue; }
-                if def.opcode == OpCode::GOTO && params[0].to_string() == break_label {
+            Statement::Goto(label) => {
+                if label == break_label {
                     block[i] = Statement::Break;
                 }
             }
@@ -387,24 +344,21 @@ fn scan_possible_continues(block: &mut Vec<Statement>, start : usize, end : usiz
     for i in start..end {
         match &block[i] {
             Statement::While(cond, stmt) => {
-                if let Statement::Call(def, params) = &**stmt {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+                if let Statement::Goto(label) = &**stmt {
+                    if label == continue_label {
                         block[i] = Statement::While(Box::new((**cond).clone()), Box::new(Statement::Continue));
                     }
                 }
             }
             Statement::If(cond, stmt) => {
-                if let Statement::Call(def, params) = &**stmt {
-                    if params.len() != 1 { continue; }
-                    if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+                if let Statement::Goto(label) = &**stmt {
+                    if label == continue_label {
                         block[i] = Statement::If(Box::new((**cond).clone()), Box::new(Statement::Continue));
                     }
                 }
             }
-            Statement::Call(def, params) => {
-                if params.len() != 1 { continue; }
-                if def.opcode == OpCode::GOTO && params[0].to_string() == continue_label {
+            Statement::Goto(label) => {
+                if label.to_string() == continue_label {
                     block[i] = Statement::Continue;
                 }
             }
@@ -425,61 +379,52 @@ fn scan_do_while(block: &mut Block)
             }
             if let Statement::If(exp, stmt) = &block.statements[i] {
                 match &(**stmt) {
-                    Statement::Call(def, params) => {
-                        if def.opcode != OpCode::GOTO || params.len() != 1 {
-                            continue;
-                        }
-                        if let Expression::Identifier(break_label) = &params[0] {
-                            // search matching goto
-                            let mut j = i + 1;
-                            let mut matching_goto = -1;
-                            while j < block.statements.len() {
-                                if let Statement::Call(def, params) = &block.statements[j] {
-                                    if def.opcode == OpCode::GOTO {
-                                        if let Expression::Identifier(next_label) = &params[0] {
-                                            if next_label == label {
-                                                if j + 1 >= block.statements.len() { continue; }
-                                                if let Statement::Label(next_label) = &block.statements[j + 1] {
-                                                    if next_label == break_label {
-                                                        matching_goto = j as i32;
-                                                        break;
-                                                    }
-                                                }
-                                                j += 1;
-                                                continue;
-                                            }
+                    Statement::Goto(break_label) => {
+                        // search matching goto
+                        let mut j = i + 1;
+                        let mut matching_goto = -1;
+                        while j < block.statements.len() {
+                            if let Statement::Goto(next_label) = &block.statements[j] {
+                                if next_label == label {
+                                    if j + 1 >= block.statements.len() { continue; }
+                                    if let Statement::Label(next_label) = &block.statements[j + 1] {
+                                        if next_label == break_label {
+                                            matching_goto = j as i32;
+                                            break;
                                         }
                                     }
+                                    j += 1;
+                                    continue;
                                 }
-                                j += 1;
                             }
-                            if matching_goto < 0 {
-                                i += 1;
-                                continue;
-                            }
-                            //let label_cp = break_label.clone();
-
-                            block.statements[i] = Statement::DoWhile(Box::new(Expression::Not(exp.clone())));
-                            block.statements[matching_goto as usize] = Statement::EndWhile;
-                            // block.statements.remove((matching_goto + 1) as usize); // breakout label
-                            block.statements.remove((i - 1) as usize);
-
-                            /*
-                            scan_possible_breaks(&mut block.statements, i, matching_goto as usize, label_cp.as_str());
-                            // there needs to be a better way to handle that
-                            let mut continue_label = String::new();
-                            if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 2] {
-                                continue_label = lbl.clone();
-                            }
-
-                            if continue_label.len() > 0 {
-                                scan_possible_continues(&mut block.statements, i, matching_goto as usize, continue_label.as_str());
-                                block.statements.remove((matching_goto - 1) as usize);
-                            }
-                            */
-                            i = 0;
+                            j += 1;
+                        }
+                        if matching_goto < 0 {
+                            i += 1;
                             continue;
                         }
+                        //let label_cp = break_label.clone();
+
+                        block.statements[i] = Statement::DoWhile(Box::new(Expression::Not(exp.clone())));
+                        block.statements[matching_goto as usize] = Statement::EndWhile;
+                        // block.statements.remove((matching_goto + 1) as usize); // breakout label
+                        block.statements.remove((i - 1) as usize);
+
+                        /*
+                        scan_possible_breaks(&mut block.statements, i, matching_goto as usize, label_cp.as_str());
+                        // there needs to be a better way to handle that
+                        let mut continue_label = String::new();
+                        if let Statement::Label(lbl) = &block.statements[matching_goto as usize - 2] {
+                            continue_label = lbl.clone();
+                        }
+
+                        if continue_label.len() > 0 {
+                            scan_possible_continues(&mut block.statements, i, matching_goto as usize, continue_label.as_str());
+                            block.statements.remove((matching_goto - 1) as usize);
+                        }
+                        */
+                        i = 0;
+                        continue;
                     }
                     _ => {}
                 }
@@ -596,12 +541,13 @@ fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>)
     match stmt {
         Statement::If(_cond, stmt) => { gather_labels(stmt, used_labels); }
         Statement::While(_cond, stmt) => { gather_labels(stmt, used_labels); }
-        Statement::Call(def, params) => {
-            if def.opcode == OpCode::GOTO || def.opcode == OpCode::GOSUB {
-                used_labels.insert(params[0].to_string());
-            }
-        }
-        _ => {}
+        Statement::Goto(label) => {
+            used_labels.insert(label.clone());
+         }
+         Statement::Gosub(label) => {
+            used_labels.insert(label.clone());
+         }
+          _ => {}
     }
 }
 

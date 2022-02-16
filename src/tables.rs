@@ -460,64 +460,35 @@ pub enum OpCode {
     STATIC = 172,
     STACKABORT = 173,
     DCREATE = 174,
-    // dbfchan,name,exclusive, fieldinfo, taginfo
     DOPEN = 175,
-    // dbfchan,name, exclusive
     DCLOSE = 176,
-    // dbfchan
     DSETALIAS = 177,
-    // dbfchan,name
     DPACK = 178,
-    // dbfchannel
     DCLOSEALL = 179,
-    // -
     DLOCK = 180,
-    // dbfchannel dlock & dlockf do the same thing
     DLOCKR = 181,
-    // dbfchannel, recno
     DLOCKG = 182,
-    // dbfchannel, recnos,count
     DUNLOCK = 183,
-    // dbfchannel
     DNCREATE = 184,
-    // dbfchannel,name,taginfo
     DNOPEN = 185,
-    // dbfchannle, name
     DNCLOSE = 186,
-    // dbfchannel, name
     DNCLOSEALL = 187,
-    // channel
     DNEW = 188,
-    // channel
     DADD = 189,
-    // channel
     DAPPEND = 190,
-    // channel
     DTOP = 191,
-    // channel
     DGO = 192,
-    // channel, recno
     DBOTTOM = 193,
-    // channel
     DSKIP = 194,
-    // channel, number
     DBLANK = 195,
-    // channel
     DDELETE = 196,
-    // channel
     DRECALL = 197,
-    // channel
     DTAG = 198,
-    // channel, name
     DSEEK = 199,
-    // channel, expression
     DFBLANK = 200,
-    // channel, name
     DGET = 201,
-    // channel, name , var
     DPUT = 202,
-    // channel, name, expression
-    DFCOPY = 203,     // channel, name, channel, name
+    DFCOPY = 203,
 
     EVAL = 204,
     ACCOUNT = 205,
@@ -544,18 +515,18 @@ pub enum OpCode {
     SOUNDDELAY = 226,
 }
 
-pub static STATEMENT_DEFINITIONS: [StatementDefinition; 227] = [
-    StatementDefinition { name: "END", opcode: OpCode::END, min_args: 0, max_args: 0 },
+pub static STATEMENT_DEFINITIONS: [StatementDefinition; 217] = [
+    // StatementDefinition { name: "END", opcode: OpCode::END, min_args: 0, max_args: 0 },
     StatementDefinition { name: "CLS", opcode: OpCode::CLS, min_args: 0, max_args: 0 },
     StatementDefinition { name: "CLREOL", opcode: OpCode::CLREOL, min_args: 0, max_args: 0 },
     StatementDefinition { name: "MORE", opcode: OpCode::MORE, min_args: 0, max_args: 0 },
     StatementDefinition { name: "WAIT", opcode: OpCode::WAIT, min_args: 0, max_args: 0 },
     StatementDefinition { name: "COLOR", opcode: OpCode::COLOR, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "GOTO", opcode: OpCode::GOTO, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "LET", opcode: OpCode::LET, min_args: 2, max_args: 2 },
+    // StatementDefinition { name: "GOTO", opcode: OpCode::GOTO, min_args: 1, max_args: 1 },
+    // StatementDefinition { name: "LET", opcode: OpCode::LET, min_args: 2, max_args: 2 },
     StatementDefinition { name: "PRINT", opcode: OpCode::PRINT, min_args: 1, max_args: 99 },
     StatementDefinition { name: "PRINTLN", opcode: OpCode::PRINTLN, min_args: 0, max_args: 99 },
-    StatementDefinition { name: "IF", opcode: OpCode::IF, min_args: 2, max_args: 2 },
+    // StatementDefinition { name: "IF", opcode: OpCode::IF, min_args: 2, max_args: 2 },
     StatementDefinition { name: "CONFFLAG", opcode: OpCode::CONFFLAG, min_args: 2, max_args: 2 },
     StatementDefinition { name: "CONFUNFLAG", opcode: OpCode::CONFUNFLAG, min_args: 2, max_args: 2 },
     StatementDefinition { name: "DISPFILE", opcode: OpCode::DISPFILE, min_args: 2, max_args: 2 },
@@ -585,8 +556,8 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 227] = [
     StatementDefinition { name: "INPUTCC", opcode: OpCode::INPUTCC, min_args: 3, max_args: 3 },
     StatementDefinition { name: "INPUTDATE", opcode: OpCode::INPUTDATE, min_args: 3, max_args: 3 },
     StatementDefinition { name: "INPUTTIME", opcode: OpCode::INPUTTIME, min_args: 3, max_args: 3 },
-    StatementDefinition { name: "GOSUB", opcode: OpCode::GOSUB, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "RETURN", opcode: OpCode::RETURN, min_args: 0, max_args: 0 },
+    // StatementDefinition { name: "GOSUB", opcode: OpCode::GOSUB, min_args: 1, max_args: 1 },
+    // StatementDefinition { name: "RETURN", opcode: OpCode::RETURN, min_args: 0, max_args: 0 },
     StatementDefinition { name: "PROMPTSTR", opcode: OpCode::PROMPTSTR, min_args: 5, max_args: 5 },
     StatementDefinition { name: "DTRON", opcode: OpCode::DTRON, min_args: 0, max_args: 0 },
     StatementDefinition { name: "DTROFF", opcode: OpCode::DTROFF, min_args: 0, max_args: 0 },
@@ -594,15 +565,15 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 227] = [
     StatementDefinition { name: "CDCHKOFF", opcode: OpCode::CDCHKOFF, min_args: 0, max_args: 0 },
     StatementDefinition { name: "DELAY", opcode: OpCode::DELAY, min_args: 1, max_args: 1 },
     StatementDefinition { name: "SENDMODEM", opcode: OpCode::SENDMODEM, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "INC", opcode: OpCode::INC, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "DEC", opcode: OpCode::DEC, min_args: 1, max_args: 1 },
+    // StatementDefinition { name: "INC", opcode: OpCode::INC, min_args: 1, max_args: 1 },
+    // StatementDefinition { name: "DEC", opcode: OpCode::DEC, min_args: 1, max_args: 1 },
     StatementDefinition { name: "NEWLINE", opcode: OpCode::NEWLINE, min_args: 0, max_args: 0 },
     StatementDefinition { name: "NEWLINES", opcode: OpCode::NEWLINES, min_args: 1, max_args: 1 },
     StatementDefinition { name: "TOKENIZE", opcode: OpCode::TOKENIZE, min_args: 1, max_args: 1 },
     StatementDefinition { name: "GETTOKEN", opcode: OpCode::GETTOKEN, min_args: 1, max_args: 1 },
     StatementDefinition { name: "SHELL", opcode: OpCode::SHELL, min_args: 4, max_args: 4 },
     StatementDefinition { name: "DISPTEXT", opcode: OpCode::DISPTEXT, min_args: 2, max_args: 2 },
-    StatementDefinition { name: "STOP", opcode: OpCode::STOP, min_args: 0, max_args: 0 },
+    // StatementDefinition { name: "STOP", opcode: OpCode::STOP, min_args: 0, max_args: 0 },
     StatementDefinition { name: "INPUTTEXT", opcode: OpCode::INPUTTEXT, min_args: 4, max_args: 4 },
     StatementDefinition { name: "BEEP", opcode: OpCode::BEEP, min_args: 0, max_args: 0 },
     StatementDefinition { name: "PUSH", opcode: OpCode::PUSH, min_args: 1, max_args: 99 },
@@ -712,7 +683,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 227] = [
     StatementDefinition { name: "DECLARE", opcode: OpCode::DECLARE, min_args: 2, max_args: 2 },
     StatementDefinition { name: "FUNCTION", opcode: OpCode::FUNCTION, min_args: 1, max_args: 1 },
     StatementDefinition { name: "PROCEDURE", opcode: OpCode::PROCEDURE, min_args: 1, max_args: 1 },
-    StatementDefinition { name: "PCALL", opcode: OpCode::PCALL, min_args: -1, max_args: -1 }, // ????
+    // StatementDefinition { name: "PCALL", opcode: OpCode::PCALL, min_args: -1, max_args: -1 }, // ????
     StatementDefinition { name: "FPCLR", opcode: OpCode::FPCLR, min_args: 0, max_args: 0 }, // ????
     StatementDefinition { name: "BEGIN", opcode: OpCode::BEGIN, min_args: 0, max_args: 0 },
     StatementDefinition { name: "FEND", opcode: OpCode::FEND, min_args: 0, max_args: 0 }, // Both functions and procedures

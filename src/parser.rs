@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult, Err};
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
 use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
@@ -350,7 +350,7 @@ pub fn parse_lines(input: &str) -> nom::IResult<&str, Vec<(Option<Statement>, Op
 {
     many0(
         delimited(opt(sp),alt((
-        map( ppl_comment, |z| (None, None)),
+        map( ppl_comment, |_| (None, None)),
         map(parse_declaration, |z| (None, Some(z))),
         map(parse_statement, |z| (Some(z), None)),
         )), opt(sp))

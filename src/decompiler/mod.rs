@@ -1097,20 +1097,20 @@ impl Decompiler {
             i - 5
         }
     }
-    /*
-        fn out_simple_statement(&mut self, prg : &mut Program, stmt : Statement) {
-            self.output_stmt(prg, stmt);
-            self.src_ptr += 1;
-        }
 
-        fn get_expressions(&mut self) -> Vec<Expression> {
-            let mut parameters = vec![];
-            while self.string_stack.len() > 0 {
-                parameters.push(self.popstr().unwrap());
+    fn outputpass2(&mut self, prg: &mut Program, if_while_stack: &mut Vec<OpCode>, stmt: Statement) {
+        if !if_while_stack.is_empty() {
+            let op = if_while_stack.pop().unwrap();
+            let expr = self.pop_expr().unwrap();
+            match op {
+                OpCode::WHILE => self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(stmt))),
+                OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(stmt))),
+                _ => {}
             }
-            parameters.reverse();
-            parameters
-        }*/
+        } else {
+            self.output_stmt(prg, stmt);
+        }
+    }
 
     fn do_pass2(&mut self, prg: &mut Program) {
         self.cur_stmt = -1;
@@ -1208,6 +1208,31 @@ impl Decompiler {
             }
             let op: OpCode = unsafe { transmute(self.cur_stmt as u8) };
             match op {
+                OpCode::END => {
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::End);
+                    self.src_ptr += 1;
+                }
+                OpCode::RETURN => {
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Return);
+                    self.src_ptr += 1;
+                }
+                OpCode::STOP => {
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Stop);
+                    self.src_ptr += 1;
+                }
+                OpCode::GOTO => {
+                    let label = self.pop_expr().unwrap().to_string();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Goto(label));
+                }
+                OpCode::GOSUB => {
+                    let label = self.pop_expr().unwrap().to_string();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Gosub(label));
+                }
+                OpCode::LET => {
+                    let value = self.pop_expr().unwrap();
+                    let variable = self.pop_expr().unwrap().to_string();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Let(variable, Box::new(value)));
+                }
                 OpCode::WHILE | OpCode::IF => {
                     if_ptr = self.src_ptr;
                     if self.parse_expr(0x001, 0) != 0 {
@@ -1216,6 +1241,14 @@ impl Decompiler {
                     if_ptr = self.set_if_ptr(if_ptr);
                     self.src_ptr += 1;
                     if_while_stack.push(op);
+                }
+                OpCode::INC => {
+                    let variable = self.pop_expr().unwrap().to_string();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Inc(variable));
+                }
+                OpCode::DEC => {
+                    let variable = self.pop_expr().unwrap().to_string();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(variable));
                 }
                 OpCode::PCALL => { // PCALL
                     self.src_ptr += 2;
@@ -1247,18 +1280,7 @@ impl Decompiler {
                                 }
                             }
                             parameters.reverse();
-
-                            if !if_while_stack.is_empty() {
-                                let op = if_while_stack.pop().unwrap();
-                                let expr = self.pop_expr().unwrap();
-                                match op {
-                                    OpCode::WHILE => self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(Statement::Call(&def, parameters)))),
-                                    OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(Statement::Call(&def, parameters)))),
-                                    _ => {}
-                                }
-                            } else {
-                                self.output_stmt(prg, Statement::Call(&def, parameters));
-                            }
+                            self.outputpass2(prg, &mut if_while_stack, Statement::Call(&def, parameters));
                             found = true;
                             if def.max_args <= 0 {
                                 self.src_ptr += 1;

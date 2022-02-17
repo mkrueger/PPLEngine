@@ -1,3 +1,5 @@
+use crate::{tables::FunctionDefinition, output_keyword};
+
 use super::*;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -48,6 +50,7 @@ pub enum Expression
     Const(Constant),
     Parens(Box<Expression>),
     FunctionCall(String, Vec<Expression>),
+    PredefinedFunctionCall(&'static FunctionDefinition<'static>, Vec<Expression>),
     Not(Box<Expression>),
     Minus(Box<Expression>),
     BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
@@ -68,6 +71,7 @@ impl Expression
             Expression::Minus(expr) => format!("-{}", (**expr).to_string()),
             Expression::BinaryExpression(op, lexpr, rexpr) => format!("{} {} {}", (**lexpr).to_string(), op.to_string(), (**rexpr).to_string()),
             Expression::FunctionCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
+            Expression::PredefinedFunctionCall(name, params) => format!("{}({})", output_keyword(name.name), Statement::param_list_to_string(params)),
             Expression::Dim1(expr, vec) => format!("{}({})", (**expr).to_string(), (**vec).to_string()),
             Expression::Dim2(expr, vec, mat) => format!("{}({}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string()),
             Expression::Dim3(expr, vec, mat, cub) => format!("{}({}, {}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string(), (**cub).to_string()),

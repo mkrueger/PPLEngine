@@ -177,11 +177,11 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
             take_while(|z| z != '"'),
             tag("\"")),
             |s: &'a str| Constant::String(s.to_string())),
-        map(double, |s| { Constant::Real(s) }),
         // integer [+-i]\d+
-        map_res(recognize(pair(
+        map_res(recognize(tuple((
             opt(alt((tag("+"), tag("-")))),
             alphanumeric1)
+        )
         ), |s| {
             match i64::from_str(s) {
                 nom::lib::std::result::Result::Ok(i) => { 
@@ -194,6 +194,7 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
                 _ => { nom::lib::std::result::Result::Err("Error parsing number.") }
             }
         }),
+  //      map(double, |s| { Constant::Real(s)  }),
         
     ))(line)
 }

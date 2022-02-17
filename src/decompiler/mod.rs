@@ -614,6 +614,13 @@ impl Decompiler {
                 }
                 Expression::FunctionCall(n, p2)
             }
+            Expression::PredefinedFunctionCall(n, p) => {
+                let mut p2 = vec![];
+                for e in p {
+                    p2.push(self.repl_const(e, vars, names));
+                }
+                Expression::PredefinedFunctionCall(n, p2)
+            }
             Expression::Not(e) => Expression::Not(Box::new(self.repl_const(*e, vars, names))),
             Expression::Minus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(op, Box::new(self.repl_const(*l, vars, names)), Box::new(self.repl_const(*r, vars, names))),
@@ -807,52 +814,56 @@ impl Decompiler {
 
     fn fnktout(&mut self, func: i32) -> i32
     {
-        let mut i = 0;
-        if (func as usize) < FUNCTION_SIGNATURE_TABLE.len() {
-            match FUNCTION_SIGNATURE_TABLE[func as usize] {
-                0x10 => {
-                    if self.exp_count < 1 {
-                        return -1;
-                    }
-                    let tmp = self.pop_expr().unwrap();
-                    match func {
-                        15 => self.push_expr(Expression::Not(Box::new(tmp))),
-                        2 => self.push_expr(Expression::Minus(Box::new(tmp))),
-                        _ => panic!("{}", format!("unknown unary function {}", func))
-                    }
-                    return 0;
-                }
-                0x11 => {
-                    if self.exp_count < 2 {
-                        return -1;
-                    }
-                    let rvalue = self.pop_expr().unwrap();
-                    let lvalue = self.pop_expr().unwrap();
-
-                    let binop = BIN_EXPR[func as usize];
-
-                    self.push_expr(Expression::Parens(
-                        Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
-                    ));
-
-                    return 0;
-                }
-                _ => {}
-            }
-        }
-
-        if (func as usize) >= FUNCTION_SIGNATURE_TABLE.len() || self.exp_count < FUNCTION_SIGNATURE_TABLE[func as usize] {
-            println!("unknown func {} at {}", func, self.src_ptr);
+        let offset = -func as usize;
+        if offset >= FUNCTION_DEFINITIONS.len() {
+            println!("unknown built in function {} at {}", func, self.src_ptr);
             return -1;
         }
-        let func_name = if (func as usize) < EXPR_NAMES.len() { EXPR_NAMES[func as usize].to_string() } else { "_TODO_".to_string() };
+
+        let func_def = &FUNCTION_DEFINITIONS[(-func) as usize];
+
+        match func_def.args {
+            0x10 => {
+                if self.exp_count < 1 {
+                    return -1;
+                }
+                let tmp = self.pop_expr().unwrap();
+                match func_def.opcode {
+                    FuncOpCode::NOT => self.push_expr(Expression::Not(Box::new(tmp))),
+                    FuncOpCode::UMINUS => self.push_expr(Expression::Minus(Box::new(tmp))),
+                    _ => panic!("{}", format!("unknown unary function {}", func))
+                }
+                return 0;
+            }
+            0x11 => {
+                if self.exp_count < 2 {
+                    return -1;
+                }
+                let rvalue = self.pop_expr().unwrap();
+                let lvalue = self.pop_expr().unwrap();
+
+                let binop = BIN_EXPR[offset];
+
+                self.push_expr(Expression::Parens(
+                    Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
+                ));
+
+                return 0;
+            }
+            _ => {}
+        }
+
+        if self.exp_count < func_def.args as i32 {
+            println!("too few argument for built in function {} should be {} was {} at {}", func_def.name, func_def.args, self.exp_count, self.src_ptr);
+            return -1;
+        }
         let mut parameters = Vec::new();
-        while FUNCTION_SIGNATURE_TABLE[func as usize] > i {
-            i += 1;
+
+        for _ in 0..func_def.args {
             parameters.push(self.pop_expr().unwrap());
         }
         parameters.reverse();
-        self.push_expr(Expression::FunctionCall(func_name, parameters));
+        self.push_expr(Expression::PredefinedFunctionCall(&func_def, parameters));
         return 0;
     }
 
@@ -915,9 +926,9 @@ impl Decompiler {
                         }
                     }
                 } else {
-                    let x = -self.executable.source_buffer[self.src_ptr as usize] - 1;
+                    let x = self.executable.source_buffer[self.src_ptr as usize];
 
-                    if self.executable.source_buffer[self.src_ptr as usize] < LAST_FUNC || (x >= 0 && FUNCTION_SIGNATURE_TABLE[x as usize] == 0xaa) {
+                    if self.executable.source_buffer[self.src_ptr as usize] < LAST_FUNC {
                         println!("Error: Unknown function {} at {} avoiding...", self.executable.source_buffer[self.src_ptr as usize], self.src_ptr);
                         return 1;
                     }
@@ -925,7 +936,7 @@ impl Decompiler {
                         if self.fnktout(x) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
-                        } else if tmp_func != 0 && self.fnktout(-tmp_func - 1) == 0 {
+                        } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
                             tmp_func = 0;
                         }
                     }
@@ -1052,17 +1063,11 @@ impl Decompiler {
                         }
                     }
                 } else {
-                    let func_idx = (-self.executable.source_buffer[self.src_ptr as usize] - 1) as usize;
-                    if func_idx >= FUNCTION_SIGNATURE_TABLE.len() || FUNCTION_SIGNATURE_TABLE[func_idx] == 0xaa {
-                        println!("Error: Unknown function {:04X} avoiding...", self.executable.source_buffer[self.src_ptr as usize]);
-                        return 1;
-                    }
-
                     if self.pass == 1 {
-                        if self.fnktout((-self.executable.source_buffer[self.src_ptr as usize] - 1) as i32) != 0 {
+                        if self.fnktout((self.executable.source_buffer[self.src_ptr as usize]) as i32) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
-                        } else if tmp_func != 0 && self.fnktout(-tmp_func - 1) == 0 {
+                        } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
                             tmp_func = 0;
                         }
                     }

@@ -245,61 +245,380 @@ impl VariableValue {
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    VariableValue::Integer(x - y)
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Integer(x.overflowing_sub(y).0)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Unsigned(x.overflowing_sub(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Byte(x.overflowing_sub(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::SByte(x.overflowing_sub(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Word(x.overflowing_sub(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::SWord(x.overflowing_sub(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Real(x - y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+
+            _ => panic!("unsupported lvalue for sub {:?}", self)
         }
     }
 
-    pub fn or(&self, other : VariableValue) -> VariableValue
+    pub fn mul(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    VariableValue::Integer(x | y)
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Integer(x.overflowing_mul(y).0)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Unsigned(x.overflowing_mul(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Byte(x.overflowing_mul(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::SByte(x.overflowing_mul(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Word(x.overflowing_mul(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::SWord(x.overflowing_mul(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Real(x * y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+
+            _ => panic!("unsupported lvalue for sub {:?}", self)
         }
+    }
+
+    pub fn div(&self, other : VariableValue) -> VariableValue
+    {
+        match self {
+            VariableValue::Integer(x) => {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Integer(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Unsigned(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Byte(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::SByte(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Word(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::SWord(x.overflowing_div(y).0)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Real(x / y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+
+            _ => panic!("unsupported lvalue for sub {:?}", self)
+        }
+    }
+
+    pub fn modulo(&self, other : VariableValue) -> VariableValue
+    {
+        match self {
+            VariableValue::Integer(x) => {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Integer(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Unsigned(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Byte(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::SByte(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Word(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::SWord(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Real(x % y)
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+
+            _ => panic!("unsupported lvalue for sub {:?}", self)
+        }
+    }
+
+
+    pub fn pow(&self, other : VariableValue) -> VariableValue
+    {
+        match self {
+            VariableValue::Integer(x) => {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Integer(x.pow( y as u32))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Unsigned(x.pow( y))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Byte(x.pow( y as u32))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::SByte(x.pow( y as u32))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Word(x.pow( y as u32))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::SWord(x.pow( y as u32))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Real(x.powf(y))
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+
+            _ => panic!("unsupported lvalue for sub {:?}", self)
+        }
+    }
+
+
+    pub fn or(&self, other : VariableValue) -> VariableValue
+    {
+        if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, self.clone()) { 
+            if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, other) {
+                VariableValue::Boolean(x | y)
+            } else {
+                panic!("can't or to rvalue");
+            } 
+        } else {
+            panic!("can't or to lvalue {:?}", &self);
+        } 
     }
 
     pub fn and(&self, other : VariableValue) -> VariableValue
     {
-        match self {
-            VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    VariableValue::Integer(x & y)
-                } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
-            }
-            _ => panic!("unsupported lvalue for add {:?}", self)
-        }
+        if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, self.clone()) { 
+            if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, other) {
+                VariableValue::Boolean(x & y)
+            } else {
+                panic!("can't and to rvalue");
+            } 
+        } else {
+            panic!("can't and to lvalue {:?}", &self);
+        } 
     }
     
     pub fn eq(&self, other : VariableValue) -> bool
     {
         match self {
-            VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
+            VariableValue::Boolean(x) => {
+                if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, other) {
                     *x == y
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Integer(x) => {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
             }
             VariableValue::String(x) => {
-                match other {
-                    VariableValue::String(y) => {
-                        *x == y
-                    }
-                    _ => panic!("can't add string to rvalue {:?}", other)
-                }
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
+                    *x == y
+                } else {
+                    panic!("can't add to lvalue {:?}", &self);
+                } 
             }
             _ => panic!("unsupported lvalue for add {:?}", self)
         }
@@ -309,72 +628,253 @@ impl VariableValue {
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    if *x < y {
-                        VariableValue::Integer(PPL_TRUE)
-                    } else {
-                        VariableValue::Integer(PPL_FALSE)
-                    }
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Boolean(*x < y)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
-        }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::String(x) => {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
+                    VariableValue::Boolean(*x < y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            _ => panic!("unsupported lvalue {:?}", self)
+        } 
     }
+
 
     pub fn lower_eq(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    if *x <= y {
-                        VariableValue::Integer(PPL_TRUE)
-                    } else {
-                        VariableValue::Integer(PPL_FALSE)
-                    }
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Boolean(*x <= y)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
-        }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::String(x) => {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
+                    VariableValue::Boolean(*x <= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            _ => panic!("unsupported lvalue {:?}", self)
+        } 
     }
 
     pub fn greater(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    if *x > y {
-                        VariableValue::Integer(PPL_TRUE)
-                    } else {
-                        VariableValue::Integer(PPL_FALSE)
-                    }
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Boolean(*x > y)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
-        }
-    
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::String(x) => {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
+                    VariableValue::Boolean(*x > y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            _ => panic!("unsupported lvalue {:?}", self)
+        } 
     }
+    
     pub fn greater_eq(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = other {
-                    if *x >= y {
-                        VariableValue::Integer(PPL_TRUE)
-                    } else {
-                        VariableValue::Integer(PPL_FALSE)
-                    }
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
+                    VariableValue::Boolean(*x >= y)
                 } else {
-                    panic!("can't add int to rvalue {:?}", other)
-                }
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }            
+            VariableValue::Unsigned(x) => {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
             }
-            _ => panic!("unsupported lvalue for add {:?}", self)
-        }
+            VariableValue::Byte(x) => {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SByte(x) => {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Word(x) => {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::SWord(x) => {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::Real(x) => {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            VariableValue::String(x) => {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
+                    VariableValue::Boolean(*x >= y)
+                } else {
+                    panic!("unsupported lvalue {:?}", &self);
+                } 
+            }
+            _ => panic!("unsupported lvalue {:?}", self)
+        } 
     }
 
     pub fn to_string(&self) -> String
@@ -457,6 +957,18 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
                 BinOp::Sub => {
                     evaluate_exp(prg, cur_frame, ctx, lvalue).sub(evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
+                BinOp::Mul => {
+                    evaluate_exp(prg, cur_frame, ctx, lvalue).mul(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                }
+                BinOp::Div => {
+                    evaluate_exp(prg, cur_frame, ctx, lvalue).div(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                }
+                BinOp::Mod => {
+                    evaluate_exp(prg, cur_frame, ctx, lvalue).modulo(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                }
+                BinOp::PoW => {
+                    evaluate_exp(prg, cur_frame, ctx, lvalue).pow(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                }
                 BinOp::Eq => {
                     if evaluate_exp(prg, cur_frame, ctx, lvalue).eq(evaluate_exp(prg, cur_frame, ctx, rvalue)) {
                         VariableValue::Integer(PPL_TRUE)
@@ -490,7 +1002,6 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
                 BinOp::GreaterEq => {
                     evaluate_exp(prg, cur_frame, ctx, lvalue).greater_eq(evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
-                _ => { panic!("not supported bin op {:?}", op); }
             }
         },
         Expression::Dim1(_expr, _vec) => { panic!("not supported"); },

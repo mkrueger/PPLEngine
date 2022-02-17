@@ -127,6 +127,16 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
             tag_no_case("FALSE"),
             |_| Constant::Boolean(false),
         ),
+        // builtin constants
+        map_res(identifier, |z| {
+            let tag_name = z.to_uppercase();
+            for cnst in &crate::tables::CONSTANT_VALUES {
+                if cnst.0 == tag_name {
+                    return Ok(Constant::Builtin(cnst.0));
+                }
+            }
+            Err(format!("unknown constant {}", z))
+        }),
         map(
             preceded(
                 tag_no_case("@X"),
@@ -184,16 +194,7 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
                 _ => { nom::lib::std::result::Result::Err("Error parsing number.") }
             }
         }),
-        // builtin constants
-        map_res(identifier, |z| {
-            let tag_name = z.to_uppercase();
-            for cnst in &crate::tables::CONSTANT_VALUES {
-                if cnst.0 == tag_name {
-                    return Ok(Constant::Builtin(cnst.0));
-                }
-            }
-            Err(format!("unknown constant {}", z))
-        }),
+        
     ))(line)
 }
 

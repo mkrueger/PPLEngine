@@ -4,7 +4,7 @@ use std::string::String;
 use std::collections::HashMap;
 
 use std::mem::transmute;
-use crate::tables::{OpCode, PPL_TRUE, PPL_FALSE};
+use crate::tables::{OpCode, PPL_TRUE, PPL_FALSE, CONSTANT_VALUES};
 use crate::ast::VariableType;
 
 pub trait ProgramContext
@@ -18,10 +18,8 @@ pub trait ExecutionContext
 }
 
 #[derive(Debug, Clone)]
-enum VariableValue
+pub enum VariableValue
 {
-//   Date(u32),
-//    EDate(u32),
     Boolean(bool),   
     Integer(i32),   
     Unsigned(u32),
@@ -35,9 +33,10 @@ enum VariableValue
     Real(f64),
 
     String(String),
-//    Time(u32),
-//    BigStr(String),
-//    None
+//  Date(u32),
+//  EDate(u32),
+//  Time(u32),
+//  None
 }
 
 fn convert_to(var_type: VariableType, value : VariableValue) -> VariableValue
@@ -422,6 +421,14 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
                 Constant::String(x) => VariableValue::String(x.clone()),
                 Constant::Real(x) => VariableValue::Real(*x),
                 Constant::Unsigned(x) => VariableValue::Unsigned(*x),
+                Constant::Builtin(x) => {
+                    for val in &CONSTANT_VALUES {
+                        if *x == val.0 {
+                            return val.1.clone();
+                        }
+                    }
+                    panic!("unknown built in const {}", x)
+                }
                 _ => {panic!("unsupported const {:?}", constant)}
             }
         },
@@ -727,6 +734,69 @@ PRINT B, ","
 DEC B
 PRINT B
 "#, "32767,-32768,32767");
+    }
+    
+    #[test]
+    fn test_constants() {        
+        check_output(r#"
+        PRINT AUTO,","
+        PRINT BELL,","
+        PRINT DEFS,","
+        PRINT ECHODOTS,","
+        PRINT ERASELINE,","
+        PRINT FCL,","
+        PRINT FIELDLEN,","
+        PRINT FNS,","
+        PRINT F_EXP,","
+        PRINT F_MW,","
+        PRINT F_REG,","
+        PRINT F_SEL,","
+        PRINT F_SYS,","
+        PRINT GRAPH,","
+        PRINT GUIDE,","
+        PRINT HIGHASCII,","
+        PRINT LANG,","
+        PRINT LFAFTER,","
+        PRINT LFBEFORE,","
+        PRINT LOGIT,","
+        PRINT LOGITLEFT,","
+        PRINT NC,","
+        PRINT NEWLINE,","
+        PRINT NOCLEAR,","
+        PRINT O_RD,","
+        PRINT O_RW,","
+        PRINT O_WR,","
+        PRINT SEC,","
+        PRINT SEEK_CUR,","
+        PRINT SEEK_END,","
+        PRINT SEEK_SET,","
+        PRINT STACKED,","
+        PRINT S_DB,","
+        PRINT S_DN,","
+        PRINT S_DR,","
+        PRINT S_DW,","
+        PRINT UPCASE,","
+        PRINT WORDWRAP,","
+        PRINT YESNO,","
+        PRINT START_BAL,","
+        PRINT START_SESSION,","
+        PRINT DEB_CALL,","
+        PRINT DEB_TIME,","
+        PRINT DEB_MSGREAD,","
+        PRINT DEB_MSGCAP,","
+        PRINT DEB_MSGWRITE,","
+        PRINT DEB_MSGECHOED,","
+        PRINT DEB_MSGPRIVATE,","
+        PRINT DEB_DOWNFILE,","
+        PRINT DEB_DOWNBYTES,","
+        PRINT DEB_CHAT,","
+        PRINT DEB_TPU,","
+        PRINT DEB_SPECIAL,","
+        PRINT CRED_UPFILE,","
+        PRINT CRED_UPBYTES,","
+        PRINT CRED_SPECIAL,","
+        PRINT SEC_DROP,","
+        "#, "8192,2048,0,1,32,2,2,1,2,16,1,4,8,1,4,4096,4,256,128,32768,65536,0,64,1024,0,2,1,2,1,2,0,16,3,0,1,2,8,512,16384,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,");
     }
     
 

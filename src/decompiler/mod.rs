@@ -794,7 +794,7 @@ impl Decompiler {
                 return Expression::Const(Constant::Integer(cur_var.content as i32));
             }
             VariableType::Double => {
-                return Expression::Const(Constant::Double(cur_var.content as f64));
+                return Expression::Const(Constant::Real(cur_var.content as f64));
             }
             VariableType::Integer => {
                 return Expression::Const(Constant::Integer(cur_var.content as i32));
@@ -1241,12 +1241,12 @@ impl Decompiler {
                     if_while_stack.push(op);
                 }
                 OpCode::INC => {
-                    let variable = self.pop_expr().unwrap().to_string();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Inc(variable));
+                    let variable = self.pop_expr().unwrap();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Inc(Box::new(variable)));
                 }
                 OpCode::DEC => {
-                    let variable = self.pop_expr().unwrap().to_string();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(variable));
+                    let variable = self.pop_expr().unwrap();
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(Box::new(variable)));
                 }
                 OpCode::FPCLR => {
                     self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);

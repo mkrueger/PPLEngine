@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult, number::complete::double };
 use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
@@ -34,12 +34,19 @@ pub fn identifier(input: &str) -> IResult<&str, &str> {
 fn parse_vartype<'a>(input: &'a str) -> IResult<&'a str, VariableType> {
     alt((
         value(VariableType::Integer, tag_no_case("INTEGER")),
-        value(VariableType::String, tag_no_case("STRING")),
+        value(VariableType::String, tag_no_case("STRING")), // make no difference between STRING and BIGSTR
+        value(VariableType::String, tag_no_case("BIGSTR")), 
         value(VariableType::Boolean, tag_no_case("BOOLEAN")),
         value(VariableType::Date, tag_no_case("DATE")),
         value(VariableType::Time, tag_no_case("TIME")),
         value(VariableType::Money, tag_no_case("MONEY")),
-        value(VariableType::Word, tag_no_case("WORD"))
+        value(VariableType::Word, tag_no_case("WORD")),
+        value(VariableType::SWord, tag_no_case("SWORD")),
+        value(VariableType::Byte, tag_no_case("BYTE")),
+        value(VariableType::Unsigned, tag_no_case("UNSIGNED")),
+        value(VariableType::SByte, tag_no_case("SBYTE")),
+        value(VariableType::Real, tag_no_case("REAL")), // just use f64 for both
+        value(VariableType::Real, tag_no_case("DREAL")),
     ))(input)
 }
 
@@ -160,13 +167,20 @@ fn parse_constant<'a>(line: &'a str) -> nom::IResult<&'a str, Constant> {
             take_while(|z| z != '"'),
             tag("\"")),
             |s: &'a str| Constant::String(s.to_string())),
+        map(double, |s| { Constant::Real(s) }),
         // integer [+-i]\d+
         map_res(recognize(pair(
             opt(alt((tag("+"), tag("-")))),
             alphanumeric1)
         ), |s| {
-            match i32::from_str(s) {
-                nom::lib::std::result::Result::Ok(i) => { nom::lib::std::result::Result::Ok(Constant::Integer(i)) }
+            match i64::from_str(s) {
+                nom::lib::std::result::Result::Ok(i) => { 
+                    if i > i32::MAX.into() {
+                        nom::lib::std::result::Result::Ok(Constant::Unsigned(i as u32))
+                    } else {
+                        nom::lib::std::result::Result::Ok(Constant::Integer(i as i32))
+                    }
+                }
                 _ => { nom::lib::std::result::Result::Err("Error parsing number.") }
             }
         }),
@@ -376,8 +390,8 @@ pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
         parse_let_statement,
         map(tuple((tag_no_case("GOTO"), sp, identifier)), |z| Statement::Goto(z.2.to_string())),
         map(tuple((tag_no_case("GOSUB"), sp, identifier)), |z| Statement::Gosub(z.2.to_string())),
-        map(tuple((tag_no_case("INC"), sp, identifier)), |z| Statement::Inc(z.2.to_string())),
-        map(tuple((tag_no_case("DEC"), sp, identifier)), |z| Statement::Dec(z.2.to_string())),
+        map(tuple((tag_no_case("INC"), sp, parse_expression)), |z| Statement::Inc(Box::new(z.2))),
+        map(tuple((tag_no_case("DEC"), sp, parse_expression)), |z| Statement::Dec(Box::new(z.2))),
         map(tag_no_case("ENDWHILE"), |_| Statement::EndWhile),
         map(tag_no_case("ENDIF"), |_| Statement::EndIf),
         map(tag_no_case("END"), |_| Statement::End),
@@ -519,8 +533,8 @@ mod tests {
 
     #[test]
     fn test_incdec() {
-        check_statements("INC VAR1", vec![Statement::Inc("VAR1".to_string())]);
-        check_statements("DEC VAR2", vec![Statement::Dec("VAR2".to_string())]);
+        check_statements("INC VAR1", vec![Statement::Inc(Box::new(Expression::Identifier("VAR1".to_string())))]);
+        check_statements("DEC VAR2", vec![Statement::Dec(Box::new(Expression::Identifier("VAR2".to_string())))]);
     }
 
     #[test]

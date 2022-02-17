@@ -6,8 +6,9 @@ pub enum Constant
 {
     Money(f64),
     Integer(i32),
+    Unsigned(u32),
     String(String),
-    Double(f64),
+    Real(f64),
     Boolean(bool),
     Builtin(&'static str)
 }
@@ -79,8 +80,9 @@ impl Constant
         match self {
             Constant::Money(f) => format!("${}", f),
             Constant::Integer(i) => format!("{}", i),
+            Constant::Unsigned(i) => format!("{}", i),
             Constant::String(str) => format!("\"{}\"", str),
-            Constant::Double(f) => format!("{}", f),
+            Constant::Real(f) => format!("{}", f),
             Constant::Boolean(b) => if *b { output_keyword("True") } else { output_keyword("False") },
             Constant::Builtin(s) => format!("{}", s),
         }

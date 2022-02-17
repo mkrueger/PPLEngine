@@ -28,8 +28,8 @@ pub enum Statement {
     Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
-    Inc(String),
-    Dec(String),
+    Inc(Box<Expression>),
+    Dec(Box<Expression>),
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 

@@ -212,16 +212,17 @@ pub struct StackFrame {
 
 pub struct Interpreter<'a> {
     prg : &'a Program,
+    ctx: &'a mut dyn ExecutionContext,
     // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
    //  stack_frames: Vec<StackFrame>
 }
 
-fn execute_statement(interpreter: &Interpreter, cur_frame: &mut StackFrame, ctx: &mut dyn ExecutionContext, stmt: &Statement)
+fn execute_statement(interpreter: &mut Interpreter, cur_frame: &mut StackFrame, stmt: &Statement)
 {
     match stmt {
         Statement::Let(variable, expr) => {
-            let value = evaluate_exp(interpreter, cur_frame, ctx, &expr);
+            let value = evaluate_exp(interpreter, cur_frame, &expr);
             let var_name = get_var_name(variable);
             let var_type = interpreter.prg.get_var_type(&var_name);
 
@@ -232,15 +233,15 @@ fn execute_statement(interpreter: &Interpreter, cur_frame: &mut StackFrame, ctx:
             cur_frame.cur_ptr = *table.get(label).unwrap();
         }
         Statement::Call(def, params) => {
-            call_predefined_procedure(interpreter, cur_frame, ctx, def, params);
+            call_predefined_procedure(interpreter, cur_frame, def, params);
         }
         Statement::ProcedureCall(_, _) => { panic!("procedures not yet supported."); },          
 
         Statement::If(cond, statement) => {
-            let value = evaluate_exp(interpreter, cur_frame, ctx, cond);
+            let value = evaluate_exp(interpreter, cur_frame, cond);
             if let VariableValue::Integer(x) = value {
                 if x == PPL_TRUE {
-                    execute_statement(interpreter, cur_frame, ctx, statement);
+                    execute_statement(interpreter, cur_frame, statement);
                 }
             } else {
                 panic!("no bool value {:?}", value);
@@ -249,12 +250,12 @@ fn execute_statement(interpreter: &Interpreter, cur_frame: &mut StackFrame, ctx:
         }
 
         Statement::Inc(expr) => {
-            let new_value = evaluate_exp(interpreter, cur_frame, ctx, expr) + VariableValue::Integer(1);
+            let new_value = evaluate_exp(interpreter, cur_frame, expr) + VariableValue::Integer(1);
             cur_frame.values.insert(expr.to_string(), new_value);
         }
 
         Statement::Dec(expr) => {
-            let new_value = evaluate_exp(interpreter, cur_frame, ctx, expr) + VariableValue::Integer(-1);
+            let new_value = evaluate_exp(interpreter, cur_frame, expr) + VariableValue::Integer(-1);
             cur_frame.values.insert(expr.to_string(), new_value);
         }
 
@@ -292,8 +293,9 @@ fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
 
 pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 {
-    let interpreter = &mut Interpreter {
+    let mut interpreter =Interpreter {
         prg,
+        ctx,
        // lookup: HashMap::new(),
         label_tables: Vec::new(),
         //  stack_frames: vec![]
@@ -310,7 +312,7 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 
     while cur_frame.cur_ptr < prg.main_block.statements.len() {
         let stmt = &prg.main_block.statements[cur_frame.cur_ptr as usize];
-        execute_statement(&interpreter, &mut cur_frame, ctx, stmt);
+        execute_statement(&mut interpreter, &mut cur_frame, stmt);
         cur_frame.cur_ptr += 1;
     }
 }

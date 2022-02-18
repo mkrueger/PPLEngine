@@ -20,122 +20,121 @@ pub trait ExecutionContext
     fn print(&mut self, str: String);
 }
 
-fn convert_to(var_type: VariableType, value : VariableValue) -> VariableValue
+fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
 {
     match var_type {
         VariableType::Integer => {
             match value {
-                VariableValue::Byte(s) =>  VariableValue::Integer(s as i32),
-                VariableValue::SByte(s) =>  VariableValue::Integer(s as i32),
-                VariableValue::Integer(_) => value,
-                VariableValue::Unsigned(n) =>  VariableValue::Integer(n as i32),
-                VariableValue::Word(x) => VariableValue::Integer(x as i32),
-                VariableValue::SWord(x) => VariableValue::Integer(x as i32),
-                VariableValue::Real(x) => VariableValue::Integer(x as i32),
-                VariableValue::Boolean(x) => VariableValue::Integer(if x { PPL_TRUE as i32 } else { PPL_FALSE as i32}),
+                VariableValue::Byte(v) => VariableValue::Integer(*v as i32),
+                VariableValue::SByte(v) => VariableValue::Integer(*v as i32),
+                VariableValue::Integer(v) => VariableValue::Integer(*v),
+                VariableValue::Unsigned(v) => VariableValue::Integer(*v as i32),
+                VariableValue::Word(v) => VariableValue::Integer(*v as i32),
+                VariableValue::SWord(v) => VariableValue::Integer(*v as i32),
+                VariableValue::Real(v) => VariableValue::Integer(*v as i32),
+                VariableValue::Boolean(v) => VariableValue::Integer(if *v { PPL_TRUE as i32 } else { PPL_FALSE as i32}),
                 _ => panic!("can't convert {:?} to i32", value)
             }
         }
         VariableType::Unsigned => {
             match value {
-                VariableValue::Byte(s) =>  VariableValue::Unsigned(s as u32),
-                VariableValue::SByte(s) =>  VariableValue::Unsigned(s as u32),
-                VariableValue::Integer(x) => VariableValue::Unsigned(x as u32),
-                VariableValue::Unsigned(_) =>  value,
-                VariableValue::Word(x) => VariableValue::Unsigned(x as u32),
-                VariableValue::SWord(x) => VariableValue::Unsigned(x as u32),
-                VariableValue::Real(x) => VariableValue::Unsigned(x as u32),
-                VariableValue::Boolean(x) => VariableValue::Unsigned(if x { PPL_TRUE as u32 } else { PPL_FALSE as u32}),
+                VariableValue::Byte(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::SByte(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::Integer(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::Unsigned(v) => VariableValue::Unsigned(*v),
+                VariableValue::Word(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::SWord(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::Real(v) => VariableValue::Unsigned(*v as u32),
+                VariableValue::Boolean(v) => VariableValue::Unsigned(if *v { PPL_TRUE as u32 } else { PPL_FALSE as u32}),
                 _ => panic!("can't convert {:?} to u32", value)
             }
         }
 
         VariableType::Word => {
             match value {
-                VariableValue::Byte(s) =>  VariableValue::Word(s as u16),
-                VariableValue::SByte(s) =>  VariableValue::Word(s as u16),
-                VariableValue::Integer(x) => VariableValue::Word(x as u16),
-                VariableValue::Unsigned(n) =>  VariableValue::Word(n as u16),
-                VariableValue::Word(_) => value,
-                VariableValue::SWord(x) => VariableValue::Word(x as u16),
-                VariableValue::Real(x) => VariableValue::Word(x as u16),
-                VariableValue::Boolean(x) => VariableValue::Word(if x { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
+                VariableValue::Byte(v) => VariableValue::Word(*v as u16),
+                VariableValue::SByte(v) => VariableValue::Word(*v as u16),
+                VariableValue::Integer(v) => VariableValue::Word(*v as u16),
+                VariableValue::Unsigned(v) => VariableValue::Word(*v as u16),
+                VariableValue::Word(v) => VariableValue::Word(*v),
+                VariableValue::SWord(v) => VariableValue::Word(*v as u16),
+                VariableValue::Real(v) => VariableValue::Word(*v as u16),
+                VariableValue::Boolean(v) => VariableValue::Word(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
                 _ => panic!("can't convert {:?} to u16", value)
             }
         }
 
         VariableType::SWord => {
             match value {
-                VariableValue::Byte(s) =>  VariableValue::SWord(s as i16),
-                VariableValue::SByte(s) =>  VariableValue::SWord(s as i16),
-                VariableValue::Integer(x) => VariableValue::SWord(x as i16),
-                VariableValue::Unsigned(n) =>  VariableValue::SWord(n as i16),
-                VariableValue::Word(x) => VariableValue::SWord(x as i16),
-                VariableValue::SWord(_) => value,
-                VariableValue::Real(x) => VariableValue::SWord(x as i16),
-                VariableValue::Boolean(x) => VariableValue::SWord(if x { PPL_TRUE as i16 } else { PPL_FALSE as i16}),
+                VariableValue::Byte(v) => VariableValue::SWord(*v as i16),
+                VariableValue::SByte(v) => VariableValue::SWord(*v as i16),
+                VariableValue::Integer(v) => VariableValue::SWord(*v as i16),
+                VariableValue::Unsigned(v) => VariableValue::SWord(*v as i16),
+                VariableValue::Word(v) => VariableValue::SWord(*v as i16),
+                VariableValue::SWord(v) => VariableValue::SWord(*v),
+                VariableValue::Real(v) => VariableValue::SWord(*v as i16),
+                VariableValue::Boolean(v) => VariableValue::SWord(if *v { PPL_TRUE as i16 } else { PPL_FALSE as i16}),
                 _ => panic!("can't convert {:?} to i16", value)
             }
         }
 
         VariableType::Byte => {
             match value {
-                VariableValue::Byte(_) =>  value,
-                VariableValue::SByte(s) =>  VariableValue::Byte(s as u8),
-                VariableValue::Integer(x) => VariableValue::Byte(x as u8),
-                VariableValue::Unsigned(n) =>  VariableValue::Byte(n as u8),
-                VariableValue::Word(x) => VariableValue::Byte(x as u8),
-                VariableValue::SWord(x) => VariableValue::Byte(x as u8),
-                VariableValue::Real(x) => VariableValue::Byte(x as u8),
-                VariableValue::Boolean(x) => VariableValue::Byte(if x { PPL_TRUE as u8 } else { PPL_FALSE as u8}),
+                VariableValue::Byte(v) => VariableValue::Byte(*v),
+                VariableValue::SByte(v) => VariableValue::Byte(*v as u8),
+                VariableValue::Integer(v) => VariableValue::Byte(*v as u8),
+                VariableValue::Unsigned(v) => VariableValue::Byte(*v as u8),
+                VariableValue::Word(v) => VariableValue::Byte(*v as u8),
+                VariableValue::SWord(v) => VariableValue::Byte(*v as u8),
+                VariableValue::Real(v) => VariableValue::Byte(*v as u8),
+                VariableValue::Boolean(v) => VariableValue::Byte(if *v { PPL_TRUE as u8 } else { PPL_FALSE as u8}),
                 _ => panic!("can't convert {:?} to u8", value)
             }
         }
 
         VariableType::SByte => {
             match value {
-                VariableValue::Byte(s) =>  VariableValue::SByte(s as i8),
-                VariableValue::SByte(_) =>  value,
-                VariableValue::Integer(x) => VariableValue::SByte(x as i8),
-                VariableValue::Unsigned(n) =>  VariableValue::SByte(n as i8),
-                VariableValue::Word(x) => VariableValue::SByte(x as i8),
-                VariableValue::SWord(x) => VariableValue::SByte(x as i8),
-                VariableValue::Real(x) => VariableValue::SByte(x as i8),
-                VariableValue::Boolean(x) => VariableValue::SByte(if x { PPL_TRUE as i8 } else { PPL_FALSE as i8}),
+                VariableValue::Byte(v) => VariableValue::SByte(*v as i8),
+                VariableValue::SByte(v) => VariableValue::SByte(*v),
+                VariableValue::Integer(v) => VariableValue::SByte(*v as i8),
+                VariableValue::Unsigned(v) => VariableValue::SByte(*v as i8),
+                VariableValue::Word(v) => VariableValue::SByte(*v as i8),
+                VariableValue::SWord(v) => VariableValue::SByte(*v as i8),
+                VariableValue::Real(v) => VariableValue::SByte(*v as i8),
+                VariableValue::Boolean(v) => VariableValue::SByte(if *v { PPL_TRUE as i8 } else { PPL_FALSE as i8}),
                 _ => panic!("can't convert {:?} to i8", value)
             }
         }
 
         VariableType::Real => {
             match value {
-                VariableValue::Real(_) => value,
-                VariableValue::Byte(s) =>  VariableValue::Real(s as f64),
-                VariableValue::SByte(s) =>  VariableValue::Real(s as f64),
-                VariableValue::Integer(x) => VariableValue::Real(x as f64),
-                VariableValue::Unsigned(n) =>  VariableValue::Real(n as f64),
-                VariableValue::Word(x) => VariableValue::Real(x as f64),
-                VariableValue::SWord(x) => VariableValue::Real(x as f64),
-                VariableValue::Boolean(x) => VariableValue::Real(if x { PPL_TRUE as f64 } else { PPL_FALSE as f64}),
+                VariableValue::Real(v) => VariableValue::Real(*v),
+                VariableValue::Byte(v) => VariableValue::Real(*v as f64),
+                VariableValue::SByte(v) => VariableValue::Real(*v as f64),
+                VariableValue::Integer(v) => VariableValue::Real(*v as f64),
+                VariableValue::Unsigned(v) => VariableValue::Real(*v as f64),
+                VariableValue::Word(v) => VariableValue::Real(*v as f64),
+                VariableValue::SWord(v) => VariableValue::Real(*v as f64),
+                VariableValue::Boolean(v) => VariableValue::Real(if *v { PPL_TRUE as f64 } else { PPL_FALSE as f64}),
                 _ => panic!("can't convert {:?} to f64", value)
             }
         }
 
-
         VariableType::String => {
             match value {
-                VariableValue::String(_) => value,
+                VariableValue::String(v) => VariableValue::String(v.clone()),
                 _ => VariableValue::String(value.to_string())
             }
         }
         VariableType::Money => {
             match value {
-                VariableValue::Money(_) => value,
+                VariableValue::Money(v) => VariableValue::Money(*v),
                 _ => VariableValue::Money(value.to_string().parse().unwrap())
             }
         }
         VariableType::Boolean => {
             match value {
-                VariableValue::Boolean(_) => value,
+                VariableValue::Boolean(v) => VariableValue::Boolean(*v),
                 _ => {
                     match value.to_string().as_str() {
                         "1" => VariableValue::Boolean(true),
@@ -145,10 +144,61 @@ fn convert_to(var_type: VariableType, value : VariableValue) -> VariableValue
                 }
             }
         }
+
+        VariableType::Date => {
+            match value {
+                VariableValue::Byte(v) => VariableValue::Date(*v as u16),
+                VariableValue::SByte(v) => VariableValue::Date(*v as u16),
+                VariableValue::Integer(v) => VariableValue::Date(*v as u16),
+                VariableValue::Unsigned(v) => VariableValue::Date(*v as u16),
+                VariableValue::Word(v) => VariableValue::Date(*v as u16),
+                VariableValue::SWord(v) => VariableValue::Date(*v as u16),
+                VariableValue::Real(v) => VariableValue::Date(*v as u16),
+                VariableValue::Date(v) => VariableValue::Date(*v),
+                VariableValue::EDate(v) => VariableValue::Date(*v),
+                VariableValue::Time(v) => VariableValue::Date(*v as u16),
+                VariableValue::Boolean(v) => VariableValue::Date(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
+                _ => panic!("can't convert {:?} to u16", value)
+            }
+        }
+
+        VariableType::EDate => {
+            match value {
+                VariableValue::Byte(v) => VariableValue::EDate(*v as u16),
+                VariableValue::SByte(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Integer(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Unsigned(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Word(v) => VariableValue::EDate(*v as u16),
+                VariableValue::SWord(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Real(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Date(v) => VariableValue::EDate(*v as u16),
+                VariableValue::EDate(v) => VariableValue::EDate(*v),
+                VariableValue::Time(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Boolean(v) => VariableValue::EDate(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
+                _ => panic!("can't convert {:?} to u16", value)
+            }
+        }
+
+        VariableType::Time => {
+            match value {
+                VariableValue::Byte(v) => VariableValue::Time(*v as u32),
+                VariableValue::SByte(v) => VariableValue::Time(*v as u32),
+                VariableValue::Integer(v) => VariableValue::Time(*v as u32),
+                VariableValue::Unsigned(v) => VariableValue::Time(*v as u32),
+                VariableValue::Word(v) => VariableValue::Time(*v as u32),
+                VariableValue::SWord(v) => VariableValue::Time(*v as u32),
+                VariableValue::Real(v) => VariableValue::Time(*v as u32),
+                VariableValue::Date(v) => VariableValue::Time(*v as u32),
+                VariableValue::EDate(v) => VariableValue::Time(*v as u32),
+                VariableValue::Time(v) => VariableValue::Time(*v),
+                VariableValue::Boolean(v) => VariableValue::Time(if *v { PPL_TRUE as u32 } else { PPL_FALSE as u32}),
+                _ => panic!("can't convert {:?} to u16", value)
+            }
+        }
+
         _ => {panic!("unsupported {:?}", var_type);}
     }
 }
-
 
 struct StackFrame {
     values: HashMap<String, VariableValue>,
@@ -212,16 +262,16 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
         Expression::BinaryExpression(op, lvalue, rvalue) => {
             match op {
                 BinOp::Add => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).add(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    evaluate_exp(prg, cur_frame, ctx, lvalue) + evaluate_exp(prg, cur_frame, ctx, rvalue)
                 }
                 BinOp::Sub => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).sub(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    evaluate_exp(prg, cur_frame, ctx, lvalue) - evaluate_exp(prg, cur_frame, ctx, rvalue)
                 }
                 BinOp::Mul => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).mul(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    evaluate_exp(prg, cur_frame, ctx, lvalue) * evaluate_exp(prg, cur_frame, ctx, rvalue)
                 }
                 BinOp::Div => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).div(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    evaluate_exp(prg, cur_frame, ctx, lvalue) / evaluate_exp(prg, cur_frame, ctx, rvalue)
                 }
                 BinOp::Mod => {
                     evaluate_exp(prg, cur_frame, ctx, lvalue).modulo(evaluate_exp(prg, cur_frame, ctx, rvalue))
@@ -230,19 +280,14 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
                     evaluate_exp(prg, cur_frame, ctx, lvalue).pow(evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
                 BinOp::Eq => {
-                    if evaluate_exp(prg, cur_frame, ctx, lvalue).eq(evaluate_exp(prg, cur_frame, ctx, rvalue)) {
-                        VariableValue::Integer(PPL_TRUE)
-                    } else {
-                        VariableValue::Integer(PPL_FALSE)
-                    }
+                    let l = evaluate_exp(prg, cur_frame, ctx, lvalue);
+                    let r = evaluate_exp(prg, cur_frame, ctx, rvalue);
+                    VariableValue::Boolean(l == r)
                 }
                 BinOp::NotEq => {
-                    let eq = evaluate_exp(prg, cur_frame, ctx, lvalue).eq(evaluate_exp(prg, cur_frame, ctx, rvalue));
-                    if eq {
-                        VariableValue::Integer(PPL_FALSE)
-                    } else {
-                        VariableValue::Integer(PPL_TRUE)
-                    }
+                    let l = evaluate_exp(prg, cur_frame, ctx, lvalue);
+                    let r = evaluate_exp(prg, cur_frame, ctx, rvalue);
+                    VariableValue::Boolean(l != r)
                 }
                 BinOp::Or => {
                     evaluate_exp(prg, cur_frame, ctx, lvalue).or(evaluate_exp(prg, cur_frame, ctx, rvalue))
@@ -251,16 +296,16 @@ fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionC
                     evaluate_exp(prg, cur_frame, ctx, lvalue).and(evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
                 BinOp::Lower => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).lower(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) < evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
                 BinOp::LowerEq => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).lower_eq(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) <= evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
                 BinOp::Greater => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).greater(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) > evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
                 BinOp::GreaterEq => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).greater_eq(evaluate_exp(prg, cur_frame, ctx, rvalue))
+                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) >= evaluate_exp(prg, cur_frame, ctx, rvalue))
                 }
             }
         },
@@ -278,7 +323,7 @@ fn execute_statement(prg : &Program, interpreter: &Interpreter, cur_frame: &mut 
             let var_name = get_var_name(variable);
             let var_type = prg.get_var_type(&var_name);
 
-            cur_frame.values.insert(var_name, convert_to(var_type, value));
+            cur_frame.values.insert(var_name, convert_to(var_type, &value));
         }
         Statement::Goto(label) => {
             let table = &interpreter.label_tables[cur_frame.label_table as usize];
@@ -318,12 +363,12 @@ fn execute_statement(prg : &Program, interpreter: &Interpreter, cur_frame: &mut 
         }
 
         Statement::Inc(expr) => {
-            let new_value = evaluate_exp(prg, cur_frame, ctx, expr).add(VariableValue::Integer(1));
+            let new_value = evaluate_exp(prg, cur_frame, ctx, expr) + VariableValue::Integer(1);
             cur_frame.values.insert(expr.to_string(), new_value);
         }
 
         Statement::Dec(expr) => {
-            let new_value = evaluate_exp(prg, cur_frame, ctx, expr).add(VariableValue::Integer(-1));
+            let new_value = evaluate_exp(prg, cur_frame, ctx, expr) + VariableValue::Integer(-1);
             cur_frame.values.insert(expr.to_string(), new_value);
         }
 

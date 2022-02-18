@@ -30,24 +30,24 @@ impl VariableType {
     pub fn to_string(&self) -> String
     {
         match self {
-            VariableType::Boolean => output_keyword("Boolean"),
-            VariableType::Unsigned => output_keyword("Unsigned"),
-            VariableType::Date => output_keyword("Date"),
-            VariableType::EDate => output_keyword("EDate"),
-            VariableType::Integer => output_keyword("Integer"),
-            VariableType::Money => output_keyword("Money"),
-            VariableType::Real => output_keyword("Real"),
-            VariableType::String => output_keyword("String"),
-            VariableType::Time => output_keyword("Time"),
-            VariableType::Byte => output_keyword("Byte"),
-            VariableType::Word => output_keyword("Word"),
-            VariableType::SByte => output_keyword("SByte"),
-            VariableType::SWord => output_keyword("Int"),
-            VariableType::BigStr => output_keyword("BigStr"),
-            VariableType::Double => output_keyword("Double"),
-            VariableType::Function => output_keyword("???FUNCTION"),
-            VariableType::Procedure => output_keyword("???PROCEDURE"),
-            VariableType::DDate => output_keyword("DDate"),
+            VariableType::Boolean => output_keyword("Boolean"),    // BOOL 0 = false, 1 = true
+            VariableType::Unsigned => output_keyword("Unsigned"),  // u32
+            VariableType::Date => output_keyword("Date"),          // 2*u8 - julian date
+            VariableType::EDate => output_keyword("EDate"),        // 2*u8 - julian date
+            VariableType::Integer => output_keyword("Integer"),    // i32
+            VariableType::Money => output_keyword("Money"),        // i32 - x/100 Dollar x%100 Cents 
+            VariableType::Real => output_keyword("Real"),          // f32
+            VariableType::String => output_keyword("String"),      // String without \0 and maximum length of 255 (Pascal like)
+            VariableType::Time => output_keyword("Time"),          // u32 - Seconds elapsed since midnight
+            VariableType::Byte => output_keyword("Byte"),          // u8
+            VariableType::Word => output_keyword("Word"),          // u16
+            VariableType::SByte => output_keyword("SByte") ,       // i8
+            VariableType::SWord => output_keyword("SWord"),        // i16 
+            VariableType::BigStr => output_keyword("BigStr"),      // String (max 2kb)
+            VariableType::Double => output_keyword("Double"),      // f65
+            VariableType::Function => output_keyword("FUNC"),      // 2*u8
+            VariableType::Procedure => output_keyword("PROC"),     // 2*u8
+            VariableType::DDate => output_keyword("DDate"),        // i32
             VariableType::Unknown => output_keyword("Unknown")
         }
     }

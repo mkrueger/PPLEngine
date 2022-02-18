@@ -211,37 +211,38 @@ pub struct StackFrame {
 }
 
 pub struct Interpreter<'a> {
-    prg : &'a Program,
+    prg: &'a Program,
     ctx: &'a mut dyn ExecutionContext,
     // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
+    cur_frame: &'a mut StackFrame
    //  stack_frames: Vec<StackFrame>
 }
 
-fn execute_statement(interpreter: &mut Interpreter, cur_frame: &mut StackFrame, stmt: &Statement)
+fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
 {
     match stmt {
         Statement::Let(variable, expr) => {
-            let value = evaluate_exp(interpreter, cur_frame, &expr);
+            let value = evaluate_exp(interpreter, &expr);
             let var_name = get_var_name(variable);
             let var_type = interpreter.prg.get_var_type(&var_name);
 
-            cur_frame.values.insert(var_name, convert_to(var_type, &value));
+            interpreter.cur_frame.values.insert(var_name, convert_to(var_type, &value));
         }
         Statement::Goto(label) => {
-            let table = &interpreter.label_tables[cur_frame.label_table as usize];
-            cur_frame.cur_ptr = *table.get(label).unwrap();
+            let table = &interpreter.label_tables[interpreter.cur_frame.label_table as usize];
+            interpreter.cur_frame.cur_ptr = *table.get(label).unwrap();
         }
         Statement::Call(def, params) => {
-            call_predefined_procedure(interpreter, cur_frame, def, params);
+            call_predefined_procedure(interpreter, def, params);
         }
         Statement::ProcedureCall(_, _) => { panic!("procedures not yet supported."); },          
 
         Statement::If(cond, statement) => {
-            let value = evaluate_exp(interpreter, cur_frame, cond);
+            let value = evaluate_exp(interpreter, cond);
             if let VariableValue::Integer(x) = value {
                 if x == PPL_TRUE {
-                    execute_statement(interpreter, cur_frame, statement);
+                    execute_statement(interpreter, statement);
                 }
             } else {
                 panic!("no bool value {:?}", value);
@@ -250,13 +251,13 @@ fn execute_statement(interpreter: &mut Interpreter, cur_frame: &mut StackFrame, 
         }
 
         Statement::Inc(expr) => {
-            let new_value = evaluate_exp(interpreter, cur_frame, expr) + VariableValue::Integer(1);
-            cur_frame.values.insert(expr.to_string(), new_value);
+            let new_value = evaluate_exp(interpreter, expr) + VariableValue::Integer(1);
+            interpreter.cur_frame.values.insert(expr.to_string(), new_value);
         }
 
         Statement::Dec(expr) => {
-            let new_value = evaluate_exp(interpreter, cur_frame, expr) + VariableValue::Integer(-1);
-            cur_frame.values.insert(expr.to_string(), new_value);
+            let new_value = evaluate_exp(interpreter, expr) + VariableValue::Integer(-1);
+            interpreter.cur_frame.values.insert(expr.to_string(), new_value);
         }
 
         /* unsupported for now - the compiler does not generate them */
@@ -293,27 +294,29 @@ fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
 
 pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 {
-    let mut interpreter =Interpreter {
-        prg,
-        ctx,
-       // lookup: HashMap::new(),
-        label_tables: Vec::new(),
-        //  stack_frames: vec![]
-    };
-
-    interpreter.label_tables.push(calc_table(&prg.main_block));
-    //nterpreter.lookup.insert(&prg.main_block, 0);
-
     let mut cur_frame = StackFrame { 
         values: HashMap::new(),
         cur_ptr:0,
         label_table:0
     };
 
-    while cur_frame.cur_ptr < prg.main_block.statements.len() {
-        let stmt = &prg.main_block.statements[cur_frame.cur_ptr as usize];
-        execute_statement(&mut interpreter, &mut cur_frame, stmt);
-        cur_frame.cur_ptr += 1;
+
+    let mut interpreter =Interpreter {
+        prg,
+        ctx,
+       // lookup: HashMap::new(),
+        label_tables: Vec::new(),
+        cur_frame: &mut cur_frame
+        //  stack_frames: vec![]
+    };
+
+    interpreter.label_tables.push(calc_table(&prg.main_block));
+    //nterpreter.lookup.insert(&prg.main_block, 0);
+
+    while interpreter.cur_frame.cur_ptr < prg.main_block.statements.len() {
+        let stmt = &prg.main_block.statements[interpreter.cur_frame.cur_ptr as usize];
+        execute_statement(&mut interpreter, stmt);
+        interpreter.cur_frame.cur_ptr += 1;
     }
 }
 

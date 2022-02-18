@@ -8,7 +8,9 @@ pub use self::variable_value::*;
 pub mod expressions;
 pub use self::expressions::*;
 
-use std::mem::transmute;
+pub mod statements;
+pub use self::statements::*;
+
 use crate::tables::{OpCode, PPL_TRUE, PPL_FALSE, CONSTANT_VALUES};
 use crate::ast::VariableType;
 
@@ -229,23 +231,7 @@ fn execute_statement(prg : &Program, interpreter: &Interpreter, cur_frame: &mut 
             cur_frame.cur_ptr = *table.get(label).unwrap();
         }
         Statement::Call(def, params) => {
-            let op: OpCode = unsafe { transmute(def.opcode) };
-            match op {
-                OpCode::PRINT => {
-                    for expr in params {
-                        let value = evaluate_exp(prg, cur_frame, ctx, expr);
-                        ctx.print(value.to_string());
-                    }
-                }
-                OpCode::PRINTLN => {
-                    for expr in params {
-                        let value = evaluate_exp(prg, cur_frame, ctx, expr);
-                        ctx.print(value.to_string());
-                    }
-                    ctx.print("\n".to_string());
-                }
-                _ => { panic!("unsupported op code {:?}", op); }
-            }
+            call_predefined_procedure(prg, cur_frame, ctx, def, params);
         }
         Statement::ProcedureCall(_, _) => { panic!("procedures not yet supported."); },          
 

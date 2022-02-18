@@ -1,10 +1,12 @@
 use crate::ast::*;
-use core::panic;
 use std::string::String;
 use std::collections::HashMap;
 
 pub mod variable_value;
 pub use self::variable_value::*;
+
+pub mod expressions;
+pub use self::expressions::*;
 
 use std::mem::transmute;
 use crate::tables::{OpCode, PPL_TRUE, PPL_FALSE, CONSTANT_VALUES};
@@ -200,7 +202,7 @@ fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
     }
 }
 
-struct StackFrame {
+pub struct StackFrame {
     values: HashMap<String, VariableValue>,
     cur_ptr: usize,
     label_table: i32
@@ -210,109 +212,6 @@ struct Interpreter/*<'a> */{
     // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
    //  stack_frames: Vec<StackFrame>
-}
-
-fn evaluate_exp(prg : &Program, cur_frame: &StackFrame, ctx: &mut dyn ExecutionContext, expr: &Expression) -> VariableValue
-{
-    match expr {
-        Expression::Identifier(str) => {
-            let res = cur_frame.values.get(str).unwrap().clone();
-            res
-        },
-        Expression::Const(constant) => { 
-            match constant {
-                Constant::Boolean(true) => VariableValue::Integer(PPL_TRUE),
-                Constant::Boolean(false) => VariableValue::Integer(PPL_FALSE),
-                Constant::Money(x) => VariableValue::Money(*x),
-                Constant::Integer(x) => VariableValue::Integer(*x),
-                Constant::String(x) => VariableValue::String(x.clone()),
-                Constant::Real(x) => VariableValue::Real(*x),
-                Constant::Unsigned(x) => VariableValue::Unsigned(*x),
-                Constant::Builtin(x) => {
-                    for val in &CONSTANT_VALUES {
-                        if *x == val.0 {
-                            return val.1.clone();
-                        }
-                    }
-                    panic!("unknown built in const {}", x)
-                }
-            }
-        },
-        Expression::Parens(pexpr) => { evaluate_exp(prg, cur_frame, ctx, pexpr) },
-        Expression::FunctionCall(func_name, _params) => { panic!("not supported function call {}", func_name); },
-        Expression::PredefinedFunctionCall(func_def, _params) => { panic!("not supported predef function call {}", func_def.name); },
-        Expression::Not(expr) => {
-            let value = evaluate_exp(prg, cur_frame, ctx, expr);
-            match value {
-                VariableValue::Integer(x) => VariableValue::Integer(if x == PPL_FALSE { PPL_TRUE } else { PPL_FALSE }),
-                VariableValue::Boolean(x) => VariableValue::Boolean(!x),
-                _ => {panic!("unsupported for minus {:?} value {:?}", expr, value);}
-            }
-        },
-        Expression::Minus(expr) => { 
-            let value = evaluate_exp(prg, cur_frame, ctx, expr);
-            match value {
-                VariableValue::Integer(x) => VariableValue::Integer(-x),
-                _ => {panic!("unsupported for minus {:?} value {:?}", expr, value);}
-            }
-        },
-        Expression::Plus(expr) => { 
-            evaluate_exp(prg, cur_frame, ctx, expr)
-        },
-        Expression::BinaryExpression(op, lvalue, rvalue) => {
-            match op {
-                BinOp::Add => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue) + evaluate_exp(prg, cur_frame, ctx, rvalue)
-                }
-                BinOp::Sub => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue) - evaluate_exp(prg, cur_frame, ctx, rvalue)
-                }
-                BinOp::Mul => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue) * evaluate_exp(prg, cur_frame, ctx, rvalue)
-                }
-                BinOp::Div => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue) / evaluate_exp(prg, cur_frame, ctx, rvalue)
-                }
-                BinOp::Mod => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).modulo(evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::PoW => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).pow(evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::Eq => {
-                    let l = evaluate_exp(prg, cur_frame, ctx, lvalue);
-                    let r = evaluate_exp(prg, cur_frame, ctx, rvalue);
-                    VariableValue::Boolean(l == r)
-                }
-                BinOp::NotEq => {
-                    let l = evaluate_exp(prg, cur_frame, ctx, lvalue);
-                    let r = evaluate_exp(prg, cur_frame, ctx, rvalue);
-                    VariableValue::Boolean(l != r)
-                }
-                BinOp::Or => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).or(evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::And => {
-                    evaluate_exp(prg, cur_frame, ctx, lvalue).and(evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::Lower => {
-                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) < evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::LowerEq => {
-                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) <= evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::Greater => {
-                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) > evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-                BinOp::GreaterEq => {
-                    VariableValue::Boolean(evaluate_exp(prg, cur_frame, ctx, lvalue) >= evaluate_exp(prg, cur_frame, ctx, rvalue))
-                }
-            }
-        },
-        Expression::Dim1(_expr, _vec) => { panic!("not supported"); },
-        Expression::Dim2(_expr, _vec, _mat) => { panic!("not supported"); },
-        Expression::Dim3(_expr, _vec, _mat, _cube) => { panic!("not supported"); },
-    }
 }
 
 fn execute_statement(prg : &Program, interpreter: &Interpreter, cur_frame: &mut StackFrame, ctx: &mut dyn ExecutionContext, stmt: &Statement)
@@ -372,7 +271,6 @@ fn execute_statement(prg : &Program, interpreter: &Interpreter, cur_frame: &mut 
             cur_frame.values.insert(expr.to_string(), new_value);
         }
 
-
         /* unsupported for now - the compiler does not generate them */
         Statement::Continue => { panic!("unsupported statement Continue")},
         Statement::Break => { panic!("unsupported statement Break")},
@@ -424,7 +322,6 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 
     while cur_frame.cur_ptr < prg.main_block.statements.len() {
         let stmt = &prg.main_block.statements[cur_frame.cur_ptr as usize];
-//        println!("{}", stmt.to_string(prg, 0).0);
         execute_statement(prg, &interpreter, &mut cur_frame, ctx, stmt);
         cur_frame.cur_ptr += 1;
     }
@@ -614,7 +511,6 @@ PRINT B
         PRINT SEC_DROP,","
         "#, "8192,2048,0,1,32,2,2,1,2,16,1,4,8,1,4,4096,4,256,128,32768,65536,0,64,1024,0,2,1,2,1,2,0,16,3,0,1,2,8,512,16384,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,");
     }
-    
 
     fn check_output(prg: &str, out: &str) {        
         let mut ctx = TestContext { output: String::new() };
@@ -633,4 +529,91 @@ PRINT B
         run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx);
         assert_eq!("1,$41.43,16".to_string(), ctx.output);
     }
+
+    #[test]
+    fn test_func_len()
+    {
+        check_output(r#"
+        STRING STR001
+        STRING STR002
+        STR001 = "hello"
+        STR002 = 1234
+        PRINT LEN(STR001), ",", LEN(STR002), ","
+        STR001 = TRUE
+        STR002 = ""
+        PRINT LEN(STR001), ",", LEN(STR002)
+        "#, "5,4,1,0");
+    }
+
+    #[test]
+    fn test_func_lower()
+    {
+        check_output(r#"PRINT LOWER("HELLO")"#, "hello");
+    }
+
+    #[test]
+    fn test_func_upper()
+    {
+        check_output(r#"PRINT UPPER("hello")"#, "HELLO");
+    }
+
+    #[test]
+    fn test_func_mid()
+    {
+        check_output(r#"
+STRING STR001
+STR001 = "Hello World"
+PRINT MID(STR001, 1, 2), ",", MID(STR001, -1, 3), ",", MID(STR001, 4,1), ",", MID(STR001, 7, -3)
+"#, "He,  H,l,");
+    }
+
+    #[test]
+    fn test_func_left()
+    {
+        check_output(r#"
+STRING STR001
+STR001 = "Hello World"
+PRINT LEFT(STR001, 5), ",", LEFT("A", 5), ",", LEFT(STR001, -10), ",", LEFT(1, 2)
+"#, "Hello,A    ,,1 ");
+    }
+
+    #[test]
+    fn test_func_right()
+    {
+        check_output(r#"
+STRING STR001
+STR001 = "Hello World"
+PRINT RIGHT(STR001, 5), ",", RIGHT("A", 5), ",", RIGHT(STR001, -10), ",", RIGHT(1, 2)
+"#, "World,    A,, 1");
+    }
+
+    #[test]
+    fn test_func_space()
+    {
+        check_output(r#"PRINT SPACE(5), ",", SPACE(0), ",", SPACE(-10), ",", SPACE(1)"#, "     ,,, ");
+    }
+    
+    #[test]
+    fn test_func_chr()
+    {
+        check_output(r#"PRINT CHR(65), ",", CHR(0), ",", CHR(-10), ",",CHR(16705),".""#, "A,,, .");
+    }
+
+    #[test]
+    fn test_func_asc()
+    {
+        check_output(r#"PRINT ASC("A"), ",", ASC(""), ",", ASC(true)"#, "65,0,49");
+    }
+    
+    #[test]
+    fn test_func_instr()
+    {
+        check_output(r#"PRINT INSTR("ABCDEF", "CD"), ",", INSTR("ABCDEF", ""), ",", INSTR("", "ABC")"#, "3,0,0");
+    }
+
+    #[test]
+    fn test_func_ltrim()
+    {
+        check_output(r#"PRINT LTRIM("....FOO", "."), ",", LTRIM(".BAR", ""), ",""#, "FOO,.BAR,");
+    }   
 }

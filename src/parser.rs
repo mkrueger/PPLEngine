@@ -4,7 +4,7 @@ use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
 use std::str::FromStr;
 use std::string::String;
-use crate::ast::*;
+use crate::{ast::*, tables::FUNCTION_DEFINITIONS};
 
 use crate::tables::{ STATEMENT_DEFINITIONS};
 
@@ -290,7 +290,16 @@ fn parse_expression<'a>(line: &'a str) -> nom::IResult<&'a str, Expression> {
         parse_parenexpr,
         // function call
         map(separated_pair(identifier, multispace0, parse_parameterlist),
-            |z| Expression::FunctionCall(z.0.to_string(), z.1)),
+            |z| {
+                for i in 0..FUNCTION_DEFINITIONS.len() {
+                    if FUNCTION_DEFINITIONS[i].name.eq_ignore_ascii_case(z.0) {
+                        return Expression::PredefinedFunctionCall(&FUNCTION_DEFINITIONS[i], z.1);
+                    }
+                }
+
+                Expression::FunctionCall(z.0.to_string(), z.1)
+            
+        }),
         // !expr
         map(separated_pair(tag("!"), multispace0, parse_expression),
             |z| Expression::Not(Box::new(z.1))),

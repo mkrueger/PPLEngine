@@ -623,6 +623,7 @@ impl Decompiler {
             }
             Expression::Not(e) => Expression::Not(Box::new(self.repl_const(*e, vars, names))),
             Expression::Minus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
+            Expression::Plus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(op, Box::new(self.repl_const(*l, vars, names)), Box::new(self.repl_const(*r, vars, names))),
         }
     }
@@ -831,6 +832,7 @@ impl Decompiler {
                 match func_def.opcode {
                     FuncOpCode::NOT => self.push_expr(Expression::Not(Box::new(tmp))),
                     FuncOpCode::UMINUS => self.push_expr(Expression::Minus(Box::new(tmp))),
+                    FuncOpCode::UPLUS => self.push_expr(Expression::Plus(Box::new(tmp))),
                     _ => panic!("{}", format!("unknown unary function {}", func))
                 }
                 return 0;

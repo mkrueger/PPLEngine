@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult, number::complete::double };
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::*, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
 use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;

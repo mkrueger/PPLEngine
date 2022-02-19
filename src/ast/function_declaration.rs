@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{interpreter::ProgramContext, tables::OpCode};
 
-use super::*;
+use super::{Declaration, Block, Statement, VariableType};
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDeclaration
@@ -15,7 +15,7 @@ pub struct FunctionDeclaration
 
 impl fmt::Display for FunctionDeclaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.declaration.to_string())
+        write!(f, "{}", self.declaration)
     }
 }
 
@@ -26,7 +26,7 @@ impl FunctionDeclaration {
         res.push('\n');
         let mut indent = 1;
 
-        if self.variable_declarations.len() > 0 {
+        if !self.variable_declarations.is_empty() {
             for v in &self.variable_declarations {
                 res.push_str("    ");
                 res.push_str(&v.to_string());
@@ -36,23 +36,20 @@ impl FunctionDeclaration {
         }
 
         for stmt in &self.block.statements {
-            match stmt {
-                Statement::Call(def, _params) => {
-                    if def.opcode == OpCode::FEND || def.opcode == OpCode::FPCLR {
-                        match &self.declaration {
-                            Declaration::Procedure(_name, _param) => {
-                                res.push_str(format!("ENDPROC ;--{}", _name).as_str());
-                                continue;
-                            }
-                            Declaration::Function(_name, _param, _t) => {
-                                res.push_str(format!("ENDFUNC ;--{}", _name).as_str());
-                                continue;
-                            }
-                            _ => {}
+            if let Statement::Call(def, _params) = stmt {
+                if def.opcode == OpCode::FEND || def.opcode == OpCode::FPCLR {
+                    match &self.declaration {
+                        Declaration::Procedure(name, _param) => {
+                            res.push_str(format!("ENDPROC ;--{}", name).as_str());
+                            continue;
                         }
+                        Declaration::Function(name, _param, _t) => {
+                            res.push_str(format!("ENDFUNC ;--{}", name).as_str());
+                            continue;
+                        }
+                        _ => {}
                     }
                 }
-                _ => {}
             }
             let out = stmt.to_string(self, indent);
             if indent > out.1 {
@@ -67,12 +64,12 @@ impl FunctionDeclaration {
         }
         res.push('\n');
 
-        return res;
+        res
     }
 }
 
 
-fn match_var_name(decl : &Declaration, var_name : &String) -> Option<VariableType>
+fn match_var_name(decl : &Declaration, var_name : &str) -> Option<VariableType>
 {
     match decl {
         Declaration::Variable(var_type, name) => if *name == *var_name { return Some(*var_type); },
@@ -86,20 +83,17 @@ fn match_var_name(decl : &Declaration, var_name : &String) -> Option<VariableTyp
 
 impl ProgramContext for FunctionDeclaration
 {
-    fn get_var_type(&self, var_name: &String) -> VariableType
+    fn get_var_type(&self, var_name: &str) -> VariableType
     {
-        match &self.declaration {
-            Declaration::Function(func_name, param, func_type) => {
-                if var_name == func_name {
-                    return *func_type;
-                }
-                for p in param {
-                    if let Some(t) = match_var_name(p, var_name) {
-                        return t;
-                    }
+        if let Declaration::Function(func_name, param, func_type) = &self.declaration {
+            if var_name == func_name {
+                return *func_type;
+            }
+            for p in param {
+                if let Some(t) = match_var_name(p, var_name) {
+                    return t;
                 }
             }
-            _ => {}
         }
         for decl in &self.variable_declarations {
             if let Some(t) = match_var_name(decl, var_name) {

@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::{BinOp, Block, Constant, Expression, Program, Statement, get_var_name};
 use std::string::String;
 use std::collections::HashMap;
 
@@ -11,12 +11,15 @@ pub use self::expressions::*;
 pub mod statements;
 pub use self::statements::*;
 
+pub mod io;
+pub use self::io::*;
+
 use crate::tables::{OpCode, PPL_TRUE, PPL_FALSE, CONSTANT_VALUES};
 use crate::ast::VariableType;
 
 pub trait ProgramContext
 {
-    fn get_var_type(&self, var_name: &String) -> VariableType;
+    fn get_var_type(&self, var_name: &str) -> VariableType;
 }
 
 pub trait ExecutionContext
@@ -154,13 +157,13 @@ fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
                 VariableValue::Byte(v) => VariableValue::Date(*v as u16),
                 VariableValue::SByte(v) => VariableValue::Date(*v as u16),
                 VariableValue::Integer(v) => VariableValue::Date(*v as u16),
-                VariableValue::Unsigned(v) => VariableValue::Date(*v as u16),
+                VariableValue::Unsigned(v) |
+                VariableValue::Time(v) => VariableValue::Date(*v as u16),
                 VariableValue::Word(v) => VariableValue::Date(*v as u16),
                 VariableValue::SWord(v) => VariableValue::Date(*v as u16),
                 VariableValue::Real(v) => VariableValue::Date(*v as u16),
-                VariableValue::Date(v) => VariableValue::Date(*v),
+                VariableValue::Date(v) |
                 VariableValue::EDate(v) => VariableValue::Date(*v),
-                VariableValue::Time(v) => VariableValue::Date(*v as u16),
                 VariableValue::Boolean(v) => VariableValue::Date(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
                 _ => panic!("can't convert {:?} to u16", value)
             }
@@ -171,13 +174,13 @@ fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
                 VariableValue::Byte(v) => VariableValue::EDate(*v as u16),
                 VariableValue::SByte(v) => VariableValue::EDate(*v as u16),
                 VariableValue::Integer(v) => VariableValue::EDate(*v as u16),
-                VariableValue::Unsigned(v) => VariableValue::EDate(*v as u16),
-                VariableValue::Word(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Unsigned(v) |
+                VariableValue::Time(v) => VariableValue::EDate(*v as u16),
+                VariableValue::Word(v) |
+                VariableValue::Date(v) |
+                VariableValue::EDate(v) => VariableValue::EDate(*v),
                 VariableValue::SWord(v) => VariableValue::EDate(*v as u16),
                 VariableValue::Real(v) => VariableValue::EDate(*v as u16),
-                VariableValue::Date(v) => VariableValue::EDate(*v as u16),
-                VariableValue::EDate(v) => VariableValue::EDate(*v),
-                VariableValue::Time(v) => VariableValue::EDate(*v as u16),
                 VariableValue::Boolean(v) => VariableValue::EDate(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
                 _ => panic!("can't convert {:?} to u16", value)
             }
@@ -189,10 +192,10 @@ fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
                 VariableValue::SByte(v) => VariableValue::Time(*v as u32),
                 VariableValue::Integer(v) => VariableValue::Time(*v as u32),
                 VariableValue::Unsigned(v) => VariableValue::Time(*v as u32),
-                VariableValue::Word(v) => VariableValue::Time(*v as u32),
                 VariableValue::SWord(v) => VariableValue::Time(*v as u32),
                 VariableValue::Real(v) => VariableValue::Time(*v as u32),
-                VariableValue::Date(v) => VariableValue::Time(*v as u32),
+                VariableValue::Word(v) |
+                VariableValue::Date(v) |
                 VariableValue::EDate(v) => VariableValue::Time(*v as u32),
                 VariableValue::Time(v) => VariableValue::Time(*v),
                 VariableValue::Boolean(v) => VariableValue::Time(if *v { PPL_TRUE as u32 } else { PPL_FALSE as u32}),
@@ -215,7 +218,8 @@ pub struct Interpreter<'a> {
     ctx: &'a mut dyn ExecutionContext,
     // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
-    cur_frame: &'a mut StackFrame
+    cur_frame: &'a mut StackFrame,
+    io: &'a mut dyn PCBoardIO
    //  stack_frames: Vec<StackFrame>
 }
 
@@ -223,7 +227,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
 {
     match stmt {
         Statement::Let(variable, expr) => {
-            let value = evaluate_exp(interpreter, &expr);
+            let value = evaluate_exp(interpreter, expr);
             let var_name = get_var_name(variable);
             let var_type = interpreter.prg.get_var_type(&var_name);
 
@@ -272,14 +276,14 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
         Statement::Else => { panic!("unsupported statement Else")},
 
         // nop statements
-        Statement::Label(_) => { /* skip */},
+        Statement::Label(_) |
         Statement::Comment(_) => { /* skip */ },
 
         _ => { panic!("unsupported statement {:?}", stmt); }
     }
 }
 
-fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
+fn calc_table(blk : &Block) -> HashMap<String, usize>
 {
     let mut res = HashMap::new();
 
@@ -292,7 +296,7 @@ fn calc_table<'a>(blk : &Block) -> HashMap<String, usize>
     res
 }
 
-pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
+pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext, io: &mut dyn PCBoardIO)
 {
     let mut cur_frame = StackFrame { 
         values: HashMap::new(),
@@ -306,7 +310,8 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
         ctx,
        // lookup: HashMap::new(),
         label_tables: Vec::new(),
-        cur_frame: &mut cur_frame
+        cur_frame: &mut cur_frame,
+        io
         //  stack_frames: vec![]
     };
 
@@ -323,6 +328,7 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext)
 #[cfg(test)]
 mod tests {
     use crate::parser::parse_program;
+
     use super::*;
 
     struct TestContext
@@ -412,8 +418,7 @@ DEC B
 PRINT B        
 "#, "4294967295,0,4294967295");
     }
-
-
+    
     #[test]
     fn test_word_overflow() {        
         check_output(r#"
@@ -430,7 +435,8 @@ PRINT B
 
 
     #[test]
-    fn test_sword_overflow() {        
+    fn test_sword_overflow() {      
+
         check_output(r#"
 SWORD B
 B = 32767
@@ -507,19 +513,21 @@ PRINT B
 
     fn check_output(prg: &str, out: &str) {        
         let mut ctx = TestContext { output: String::new() };
-        run(&parse_program(prg), &mut ctx);
+        let mut io = MemoryIO::new();
+        run(&parse_program(prg), &mut ctx, &mut io);
         assert_eq!(out, ctx.output);
     }
 
     #[test]
     fn test_println() {
         let mut ctx = TestContext { output: String::new() };
-        
-        run(&parse_program("PRINTLN 1, 2, 3, \"Hello World\""), &mut ctx);
+        let mut io = MemoryIO::new();
+
+        run(&parse_program("PRINTLN 1, 2, 3, \"Hello World\""), &mut ctx, &mut io);
         assert_eq!("123Hello World\n".to_string(), ctx.output);
 
         ctx = TestContext { output: String::new() };
-        run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx);
+        run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx, &mut io);
         assert_eq!("1,$41.43,16".to_string(), ctx.output);
     }
 
@@ -608,5 +616,19 @@ PRINT RIGHT(STR001, 5), ",", RIGHT("A", 5), ",", RIGHT(STR001, -10), ",", RIGHT(
     fn test_func_ltrim()
     {
         check_output(r#"PRINT LTRIM("....FOO", "."), ",", LTRIM(".BAR", ""), ",""#, "FOO,.BAR,");
-    }   
+    }
+
+
+    #[test]
+    fn test_func_ferr()
+    {
+        check_output(r#"
+        PRINT LTRIM("....FOO", "."), ",", LTRIM(".BAR", ""), ","
+        
+        
+        "#, "FOO,.BAR,");
+    }
+
+
+    
 }

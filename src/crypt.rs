@@ -14,6 +14,7 @@ fn crypt3(block: &mut [u8]) {
     }
 }
 
+#[allow(clippy::pedantic)]
 pub fn decrypt(block: &mut [u8], version: u16) {
     if version < 300 { return; }
     if version >= 330 { crypt3(block); }
@@ -36,7 +37,7 @@ pub fn decrypt(block: &mut [u8], version: u16) {
             let cur_word = (block[i + 1] as u16) << 8 | block[i] as u16;
             let dl = dx as u8;
             rotate_count = ((xor_value & 0xFF) + (dl as u16)) & 0xFF;
-            let outx = rotate_right(cur_word, rotate_count.into()) ^ xor_value;
+            let outx = rotate_right(cur_word, rotate_count) ^ xor_value;
             block[i] = (outx as u8) ^ dl;
             i += 1;
             block[i] = (outx >> 8) as u8 ^ dl;
@@ -91,11 +92,9 @@ pub fn decode_rle(src: &[u8]) -> Vec<u8> {
             if i >= src.len() {
                 break;
             }
-            let count = src[i];
+            let count = src[i] - 1;
             i += 1;
-            for _ in 1..count {
-                result.push(0);
-            }
+            result.resize(result.len() + count as usize, 0);
         }
     }
     result
@@ -107,6 +106,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_cypt3_simple() {
         let o_buffer = b"Hello World here I'am.";
         let mut buffer = o_buffer.clone();

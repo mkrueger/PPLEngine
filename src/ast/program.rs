@@ -1,32 +1,21 @@
+use std::fmt;
+
 use crate::interpreter::ProgramContext;
 
-use super::*;
+use super::{Declaration, Block, FunctionDeclaration, VariableType};
+
 
 #[derive(Debug, PartialEq)]
 pub struct Program
 {
     pub variable_declarations: Vec<Declaration>,
-    pub function_declarations: Vec<Box<FunctionDeclaration>>,
-    pub procedure_declarations: Vec<Box<FunctionDeclaration>>,
+    pub function_declarations: Vec<FunctionDeclaration>,
+    pub procedure_declarations: Vec<FunctionDeclaration>,
     pub main_block: Block,
 }
 
-impl Program
-{
-    pub fn new() -> Self
-    {
-        Program {
-            variable_declarations: vec![],
-            main_block: Block {
-                statements: vec![]
-            },
-            function_declarations: vec![],
-            procedure_declarations: vec![],
-        }
-    }
-
-    pub fn to_string(&self) -> String
-    {
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = String::new();
         res.push_str("; ---------------------------------------\n");
         res.push_str("; PCBoard programming language decompiler\n");
@@ -59,16 +48,38 @@ impl Program
         }
 
         for v in &self.procedure_declarations {
-            res.push_str(&v.print_content().as_str());
+            res.push_str(v.print_content().as_str());
             res.push('\n');
         }
-        res
+        writeln!(f, "{}", res)
+    }
+}
+
+
+impl Program
+{
+    pub fn new() -> Self
+    {
+        Program {
+            variable_declarations: vec![],
+            main_block: Block {
+                statements: vec![]
+            },
+            function_declarations: vec![],
+            procedure_declarations: vec![],
+        }
+    }
+}
+
+impl Default for Program {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl ProgramContext for Program
 {
-    fn get_var_type(&self, var_name: &String) -> VariableType
+    fn get_var_type(&self, var_name: &str) -> VariableType
     {
         for decl in &self.variable_declarations {
             match decl {

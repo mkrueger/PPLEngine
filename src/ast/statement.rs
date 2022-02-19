@@ -1,6 +1,6 @@
 use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext};
 
-use super::*;
+use super::{Constant, Expression, VariableType};
 use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,11 +35,12 @@ pub enum Statement {
 
 
 pub fn get_var_name(expr : &Expression) -> String {
-    match expr {
-        Expression::Dim1(expr, _vec) => get_var_name(expr),
-        Expression::Dim2(expr, _vec, _mat) => get_var_name(expr),
-        Expression::Dim3(expr, _vec, _mat, _cube) => get_var_name(expr),
-        _ => expr.to_string()
+    if let Expression::Dim1(expr, _) |
+            Expression::Dim2(expr, _, _) |
+            Expression::Dim3(expr, _, _, _) = expr {
+        get_var_name(expr)
+    } else {
+        expr.to_string()
     }
 }
 
@@ -49,7 +50,7 @@ impl Statement
     {
         let mut res = String::new();
         for expr in l {
-            if res.len() > 0 {
+            if !res.is_empty() {
                 res.push_str(", ");
             }
             res.push_str(expr.to_string().as_str());
@@ -68,7 +69,7 @@ impl Statement
                 }
             }
             Expression::Parens(expr) => {
-                Statement::try_boolean_conversion(&expr)
+                Statement::try_boolean_conversion(expr)
             }
             Expression::Not(notexpr) => {
                 match &**notexpr {
@@ -103,9 +104,9 @@ impl Statement
         }
     }
 
-    pub fn out_bool_func(expr : &Box<Expression>) -> String
+    pub fn out_bool_func(expr : &Expression) -> String
     {
-        Statement::strip_outer_parens(&Statement::try_boolean_conversion(Statement::strip_outer_parens(expr))).to_string()
+        Statement::strip_outer_parens(Statement::try_boolean_conversion(Statement::strip_outer_parens(expr))).to_string()
     }
 
     pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32, i32) // (str, indent, cur_line_inden_tmodifier)
@@ -123,29 +124,28 @@ impl Statement
             Statement::Break => (output_keyword("Break"), indent, 0),
             Statement::Continue => (output_keyword("Continue"), indent, 0),
             Statement::End => (output_keyword("End"), indent, 0),
-            Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label.to_string()), indent, 0),
+            Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label), indent, 0),
             Statement::Return => (output_keyword("Return"), indent, 0),
             Statement::EndFunc => (output_keyword("EndFunc"), indent, -1),
             Statement::EndProc => (output_keyword("EndProc"), indent, -1),
             Statement::Let(var, expr) => {
                 let expected_type = prg.get_var_type(&get_var_name(var));
-                let expr2;
-                if expected_type == VariableType::Boolean {
-                    expr2 = Statement::try_boolean_conversion(&**expr);
+                let expr2 = if expected_type == VariableType::Boolean {
+                    Statement::try_boolean_conversion(&**expr)
                 } else {
-                    expr2 = &**expr;
-                }
-                (format!("{} = {}", var.to_string(), expr2.to_string()), indent, 0)
+                    &**expr
+                };
+                (format!("{} = {}", var, expr2), indent, 0)
             },
-            Statement::Goto(label) => (format!("{} {}", output_keyword("GoTo"), label.to_string()), indent, 0),
-            Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr.to_string()), indent, 0),
-            Statement::Dec(expr) => (format!("{} {}", output_keyword("Dec"), expr.to_string()), indent, 0),
+            Statement::Goto(label) => (format!("{} {}", output_keyword("GoTo"), label), indent, 0),
+            Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr), indent, 0),
+            Statement::Dec(expr) => (format!("{} {}", output_keyword("Dec"), expr), indent, 0),
             Statement::For(var_name, from, to, step) => {
                 let var_name = &get_var_name(var_name);
                 if let Some(s) = step {
-                    (format!("{} {} = {} {} {} {} {}", output_keyword("For"), var_name, from.to_string(), output_keyword("To"), to.to_string(), output_keyword("Step"), s.to_string()), indent + 1, 0)
+                    (format!("{} {} = {} {} {} {} {}", output_keyword("For"), var_name, from, output_keyword("To"), to, output_keyword("Step"), s), indent + 1, 0)
                 } else {
-                    (format!("{} {} = {} {} {}",  output_keyword("For"), var_name, from.to_string(), output_keyword("To"), to.to_string()), indent + 1, 0)
+                    (format!("{} {} = {} {} {}",  output_keyword("For"), var_name, from, output_keyword("To"), to), indent + 1, 0)
                 }
             }
             Statement::Next => (output_keyword("Next"), indent - 1, 0),

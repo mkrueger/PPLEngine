@@ -1,4 +1,5 @@
-use super::*;
+use super::{Statement, Program};
+
 
 #[derive(Debug, PartialEq)]
 pub struct Block
@@ -29,8 +30,14 @@ impl Block
             }
             result.push_str(out.0.as_str());
             indent = out.1;
-            result.push_str("\n");
+            result.push('\n');
         }
         result
+    }
+}
+
+impl Default for Block {
+    fn default() -> Self {
+        Self::new()
     }
 }

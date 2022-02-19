@@ -1,4 +1,4 @@
-use std::{ops::{Add, Sub, Mul, Div}, cmp::Ordering};
+use std::{ops::{Add, Sub, Mul, Div}, cmp::Ordering, fmt};
 
 use crate::ast::variable_type::VariableType;
 
@@ -31,63 +31,63 @@ impl PartialEq for VariableValue {
     {
         match self {
             VariableValue::Boolean(x) => {
-                if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, &other) {
+                if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }            
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, &other) {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }            
             VariableValue::Unsigned(x) => {
-                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, &other) {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::Byte(x) => {
-                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, &other) {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::SByte(x) => {
-                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, &other) {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::Word(x) => {
-                if let VariableValue::Word(y) = convert_to(VariableType::Word, &other) {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::SWord(x) => {
-                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, &other) {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::Real(x) => {
-                if let VariableValue::Real(y) = convert_to(VariableType::Real, &other) {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
                 } 
             }
             VariableValue::String(x) => {
-                if let VariableValue::String(y) = convert_to(VariableType::String, &other) {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
                     *x == y
                 } else {
                     panic!("can't add to lvalue {:?}", &self);
@@ -97,8 +97,6 @@ impl PartialEq for VariableValue {
             _ => panic!("unsupported lvalue for add {:?}", self)
         }
     }
-
-    fn ne(&self, other: &Self) -> bool { !(self == other) }
 }
 
 impl Add<VariableValue> for VariableValue {
@@ -159,12 +157,12 @@ impl Add<VariableValue> for VariableValue {
             VariableValue::String(x) => {
                 match other {
                     VariableValue::Integer(y) => {
-                        let mut x = x.clone();
+                        let mut x = x;
                         x.push_str(&y.to_string());
                         VariableValue::String(x)
                     }
                     VariableValue::String(y) => {
-                        let mut x = x.clone();
+                        let mut x = x;
                         x.push_str(&y);
                         VariableValue::String(x)
                     }
@@ -366,56 +364,56 @@ impl PartialOrd for VariableValue {
     {
         match self {
             VariableValue::Integer(x) => {
-                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, &other) {
+                if let VariableValue::Integer(y) = convert_to(VariableType::Integer, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }            
             VariableValue::Unsigned(x) => {
-                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, &other) {
+                if let VariableValue::Unsigned(y) = convert_to(VariableType::Unsigned, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::Byte(x) => {
-                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, &other) {
+                if let VariableValue::Byte(y) = convert_to(VariableType::Byte, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::SByte(x) => {
-                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, &other) {
+                if let VariableValue::SByte(y) = convert_to(VariableType::SByte, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::Word(x) => {
-                if let VariableValue::Word(y) = convert_to(VariableType::Word, &other) {
+                if let VariableValue::Word(y) = convert_to(VariableType::Word, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::SWord(x) => {
-                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, &other) {
+                if let VariableValue::SWord(y) = convert_to(VariableType::SWord, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::Real(x) => {
-                if let VariableValue::Real(y) = convert_to(VariableType::Real, &other) {
+                if let VariableValue::Real(y) = convert_to(VariableType::Real, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
                 } 
             }
             VariableValue::String(x) => {
-                if let VariableValue::String(y) = convert_to(VariableType::String, &other) {
+                if let VariableValue::String(y) = convert_to(VariableType::String, other) {
                     x.partial_cmp(&y)
                 } else {
                     panic!("unsupported lvalue {:?}", &self);
@@ -428,8 +426,34 @@ impl PartialOrd for VariableValue {
 
 }
 
+impl fmt::Display for VariableValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VariableValue::Money(i) => write!(f, "${}", i),
+            VariableValue::Integer(i) => write!(f, "{}", i),
+            VariableValue::Unsigned(i) |
+            VariableValue::Time(i) => write!(f, "{}", i),
+            VariableValue::Byte(i) => write!(f, "{}", i),
+            VariableValue::SByte(i) => write!(f, "{}", i),
+            VariableValue::Date(i) |
+            VariableValue::Word(i) |
+            VariableValue::EDate(i) => write!(f, "{}", i),
+            VariableValue::SWord(i) => write!(f, "{}", i),
+            VariableValue::String(str) => write!(f, "{}", str),
+            VariableValue::Real(i) => write!(f, "{}", i),
+            VariableValue::Boolean(b) => if *b { write!(f, "1") } else { write!(f, "0") } 
+        }
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)]
 impl VariableValue {
-    pub fn modulo(&self, other : VariableValue) -> VariableValue
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use] pub fn modulo(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
@@ -486,7 +510,13 @@ impl VariableValue {
         }
     }
 
-    pub fn pow(&self, other : VariableValue) -> VariableValue
+    /// .
+    ///
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use] pub fn pow(&self, other : VariableValue) -> VariableValue
     {
         match self {
             VariableValue::Integer(x) => {
@@ -543,7 +573,12 @@ impl VariableValue {
         }
     }
 
-    pub fn or(&self, other : VariableValue) -> VariableValue
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use] pub fn or(&self, other : VariableValue) -> VariableValue
     {
         if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, &self.clone()) { 
             if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, &other) {
@@ -556,7 +591,12 @@ impl VariableValue {
         } 
     }
 
-    pub fn and(&self, other : VariableValue) -> VariableValue
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use] pub fn and(&self, other : VariableValue) -> VariableValue
     {
         if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, &self.clone()) { 
             if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, &other) {
@@ -569,22 +609,5 @@ impl VariableValue {
         } 
     }
 
-    pub fn to_string(&self) -> String
-    {
-        match self {
-            VariableValue::Money(f) => format!("${}", f),
-            VariableValue::Integer(i) => format!("{}", i),
-            VariableValue::Unsigned(i) => format!("{}", i),
-            VariableValue::Byte(i) => format!("{}", i),
-            VariableValue::SByte(i) => format!("{}", i),
-            VariableValue::Word(i) => format!("{}", i),
-            VariableValue::SWord(i) => format!("{}", i),
-            VariableValue::String(str) => format!("{}", str),
-            VariableValue::Real(f) => format!("{}", f),
-            VariableValue::Date(f) => format!("{}", f),
-            VariableValue::EDate(f) => format!("{}", f),
-            VariableValue::Time(f) => format!("{}", f),
-            VariableValue::Boolean(f) => if *f { "1".to_string() } else { "0".to_string() } 
-        }
-    }
+        
 }

@@ -18,7 +18,7 @@ fn main() {
     let mut file_name = arguments.file_name;
 
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
-    if let None = extension {
+    if extension.is_none() {
         file_name.push_str(".pps");
     }
 
@@ -29,7 +29,7 @@ fn main() {
 
             println!("parse result: {:?}", prg);
             println!("---- Output:");
-            println!("{}", prg.to_string());
+            println!("{}", prg);
         }
         Err(err) => {
             println!("Error while reading file {}", err);

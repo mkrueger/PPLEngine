@@ -1,10 +1,22 @@
-use super::*;
+use super::{BinOp, CONSTANT_VALUES, Constant, Interpreter, PPL_FALSE, PPL_TRUE, VariableType, VariableValue, convert_to};
 use crate::{
     ast::{expression::Expression},
     tables::{FuncOpCode, FunctionDefinition},
 };
 
-pub fn evaluate_exp(
+/// .
+///
+/// # Examples
+///
+/// ```
+/// use ppl_engine::interpreter::expressions::evaluate_exp;
+///
+/// ```
+///
+/// # Panics
+///
+/// Panics if .
+#[must_use] pub fn evaluate_exp(
     interpreter: &Interpreter, 
     expr: &Expression,
 ) -> VariableValue {
@@ -30,7 +42,8 @@ pub fn evaluate_exp(
                 panic!("unknown built in const {}", x)
             }
         },
-        Expression::Parens(pexpr) => evaluate_exp(interpreter, pexpr),
+        Expression::Parens(expr) |
+        Expression::Plus(expr) => evaluate_exp(interpreter, expr),
         Expression::PredefinedFunctionCall(func_def, params) => {
             call_function(interpreter, func_def, params)
         }
@@ -58,57 +71,56 @@ pub fn evaluate_exp(
                 }
             }
         }
-        Expression::Plus(expr) => evaluate_exp(interpreter, expr),
-        Expression::BinaryExpression(op, lvalue, rvalue) => match op {
+        Expression::BinaryExpression(op, l_value, r_value) => match op {
             BinOp::Add => {
-                evaluate_exp(interpreter, lvalue)
-                    + evaluate_exp(interpreter, rvalue)
+                evaluate_exp(interpreter, l_value)
+                    + evaluate_exp(interpreter, r_value)
             }
             BinOp::Sub => {
-                evaluate_exp(interpreter, lvalue)
-                    - evaluate_exp(interpreter, rvalue)
+                evaluate_exp(interpreter, l_value)
+                    - evaluate_exp(interpreter, r_value)
             }
             BinOp::Mul => {
-                evaluate_exp(interpreter, lvalue)
-                    * evaluate_exp(interpreter, rvalue)
+                evaluate_exp(interpreter, l_value)
+                    * evaluate_exp(interpreter, r_value)
             }
             BinOp::Div => {
-                evaluate_exp(interpreter, lvalue)
-                    / evaluate_exp(interpreter, rvalue)
+                evaluate_exp(interpreter, l_value)
+                    / evaluate_exp(interpreter, r_value)
             }
-            BinOp::Mod => evaluate_exp(interpreter, lvalue)
-                .modulo(evaluate_exp(interpreter, rvalue)),
-            BinOp::PoW => evaluate_exp(interpreter, lvalue)
-                .pow(evaluate_exp(interpreter, rvalue)),
+            BinOp::Mod => evaluate_exp(interpreter, l_value)
+                .modulo(evaluate_exp(interpreter, r_value)),
+            BinOp::PoW => evaluate_exp(interpreter, l_value)
+                .pow(evaluate_exp(interpreter, r_value)),
             BinOp::Eq => {
-                let l = evaluate_exp(interpreter, lvalue);
-                let r = evaluate_exp(interpreter, rvalue);
+                let l = evaluate_exp(interpreter, l_value);
+                let r = evaluate_exp(interpreter, r_value);
                 VariableValue::Boolean(l == r)
             }
             BinOp::NotEq => {
-                let l = evaluate_exp(interpreter, lvalue);
-                let r = evaluate_exp(interpreter, rvalue);
+                let l = evaluate_exp(interpreter, l_value);
+                let r = evaluate_exp(interpreter, r_value);
                 VariableValue::Boolean(l != r)
             }
-            BinOp::Or => evaluate_exp(interpreter, lvalue)
-                .or(evaluate_exp(interpreter, rvalue)),
-            BinOp::And => evaluate_exp(interpreter, lvalue)
-                .and(evaluate_exp(interpreter, rvalue)),
+            BinOp::Or => evaluate_exp(interpreter, l_value)
+                .or(evaluate_exp(interpreter, r_value)),
+            BinOp::And => evaluate_exp(interpreter, l_value)
+                .and(evaluate_exp(interpreter, r_value)),
             BinOp::Lower => VariableValue::Boolean(
-                evaluate_exp(interpreter, lvalue)
-                    < evaluate_exp(interpreter, rvalue),
+                evaluate_exp(interpreter, l_value)
+                    < evaluate_exp(interpreter, r_value),
             ),
             BinOp::LowerEq => VariableValue::Boolean(
-                evaluate_exp(interpreter, lvalue)
-                    <= evaluate_exp(interpreter, rvalue),
+                evaluate_exp(interpreter, l_value)
+                    <= evaluate_exp(interpreter, r_value),
             ),
             BinOp::Greater => VariableValue::Boolean(
-                evaluate_exp(interpreter, lvalue)
-                    > evaluate_exp(interpreter, rvalue),
+                evaluate_exp(interpreter, l_value)
+                    > evaluate_exp(interpreter, r_value),
             ),
             BinOp::GreaterEq => VariableValue::Boolean(
-                evaluate_exp(interpreter, lvalue)
-                    >= evaluate_exp(interpreter, rvalue),
+                evaluate_exp(interpreter, l_value)
+                    >= evaluate_exp(interpreter, r_value),
             ),
         },
         Expression::Dim1(_expr, _vec) => {
@@ -123,7 +135,19 @@ pub fn evaluate_exp(
     }
 }
 
-fn get_int(val: &VariableValue) -> i32 {
+/// .
+///
+/// # Examples
+///
+/// ```
+/// use ppl_engine::interpreter::expressions::get_int;
+///
+/// ```
+///
+/// # Panics
+///
+/// Panics if .
+#[must_use] pub fn get_int(val: &VariableValue) -> i32 {
     if let VariableValue::Integer(i) = convert_to(VariableType::Integer, val) {
         i
     } else {
@@ -134,7 +158,7 @@ fn get_int(val: &VariableValue) -> i32 {
 fn call_function(
     interpreter: &Interpreter,
     func_def: &'static FunctionDefinition,
-    params: &Vec<Expression>,
+    params: &[Expression],
 ) -> VariableValue {
     match func_def.opcode {
         FuncOpCode::LEN => predefined_functions::len(evaluate_exp(interpreter, &params[0])),
@@ -161,7 +185,7 @@ fn call_function(
             predefined_functions::space(evaluate_exp(interpreter, &params[0]))
         }
         FuncOpCode::FERR => {
-            predefined_functions::ferr(evaluate_exp(interpreter, &params[0]))
+            predefined_functions::ferr(interpreter, evaluate_exp(interpreter, &params[0]))
         }
         FuncOpCode::CHR => predefined_functions::chr(evaluate_exp(interpreter, &params[0])),
         FuncOpCode::ASC => predefined_functions::asc(evaluate_exp(interpreter, &params[0])),

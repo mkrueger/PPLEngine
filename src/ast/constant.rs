@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::output_keyword;
 
 #[allow(non_camel_case_types)]
@@ -74,17 +76,18 @@ impl Constant
     pub const CRED_UPBYTES : Constant = Constant::Builtin("CRED_UPBYTES");
     pub const CRED_SPECIAL : Constant = Constant::Builtin("CRED_SPECIAL");
     pub const SEC_DROP : Constant = Constant::Builtin("SEC_DROP");
+}
 
-    pub fn to_string(&self) -> String
-    {
+impl fmt::Display for Constant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Constant::Money(f) => format!("${}", f),
-            Constant::Integer(i) => format!("{}", i),
-            Constant::Unsigned(i) => format!("{}", i),
-            Constant::String(str) => format!("\"{}\"", str),
-            Constant::Real(f) => format!("{}", f),
-            Constant::Boolean(b) => if *b { output_keyword("True") } else { output_keyword("False") },
-            Constant::Builtin(s) => format!("{}", s),
+            Constant::Money(i) => write!(f, "${}", i),
+            Constant::Integer(i) => write!(f, "{}", i),
+            Constant::Unsigned(i) => write!(f, "{}", i),
+            Constant::String(str) => write!(f, "\"{}\"", str),
+            Constant::Real(i) => write!(f, "{}", i),
+            Constant::Boolean(b) => write!(f, "{}",  if *b { output_keyword("True") } else { output_keyword("False") }),
+            Constant::Builtin(s) => write!(f, "{}", s)
         }
     }
 }

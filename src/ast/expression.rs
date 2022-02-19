@@ -1,6 +1,8 @@
+use std::fmt;
+
 use crate::{tables::FunctionDefinition, output_keyword};
 
-use super::*;
+use super::{Constant, Statement};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinOp {
@@ -20,25 +22,24 @@ pub enum BinOp {
     Or,
 }
 
-impl BinOp
-{
-    pub fn to_string(&self) -> String
-    {
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BinOp::PoW => "^".to_string(),
-            BinOp::Mul => "*".to_string(),
-            BinOp::Div => "/".to_string(),
-            BinOp::Mod => "%".to_string(),
-            BinOp::Add => "+".to_string(),
-            BinOp::Sub => "-".to_string(),
-            BinOp::Eq => "=".to_string(),
-            BinOp::NotEq => "<>".to_string(),
-            BinOp::Lower => "<".to_string(),
-            BinOp::LowerEq => "<=".to_string(),
-            BinOp::Greater => ">".to_string(),
-            BinOp::GreaterEq => ">=".to_string(),
-            BinOp::And => "&".to_string(),
-            BinOp::Or => "|".to_string()
+            BinOp::PoW => write!(f, "^"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Mod => write!(f, "%"),
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Eq => write!(f, "="),
+            BinOp::NotEq => write!(f, "<>"),
+            BinOp::Lower => write!(f, "<"),
+            BinOp::LowerEq => write!(f, "<="),
+            BinOp::Greater => write!(f, ">"),
+            BinOp::GreaterEq => write!(f, ">="),
+            BinOp::And => write!(f, "&"),
+            BinOp::Or => write!(f, "|")
         }
     }
 }
@@ -60,23 +61,21 @@ pub enum Expression
     Dim3(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
-impl Expression
-{
-    pub fn to_string(&self) -> String
-    {
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(id) => id.to_string(),
-            Expression::Const(c) => c.to_string(),
-            Expression::Parens(expr) => format!("({})", (**expr).to_string()),
-            Expression::Not(expr) => format!("!{}", (**expr).to_string()),
-            Expression::Minus(expr) => format!("-{}", (**expr).to_string()),
-            Expression::Plus(expr) => format!("+{}", (**expr).to_string()),
-            Expression::BinaryExpression(op, lexpr, rexpr) => format!("{} {} {}", (**lexpr).to_string(), op.to_string(), (**rexpr).to_string()),
-            Expression::FunctionCall(name, params) => format!("{}({})", name, Statement::param_list_to_string(params)),
-            Expression::PredefinedFunctionCall(name, params) => format!("{}({})", output_keyword(name.name), Statement::param_list_to_string(params)),
-            Expression::Dim1(expr, vec) => format!("{}({})", (**expr).to_string(), (**vec).to_string()),
-            Expression::Dim2(expr, vec, mat) => format!("{}({}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string()),
-            Expression::Dim3(expr, vec, mat, cub) => format!("{}({}, {}, {})", (**expr).to_string(), (**vec).to_string(), (**mat).to_string(), (**cub).to_string()),
+            Expression::Identifier(id) => write!(f, "{}", id),
+            Expression::Const(c) => write!(f, "{}", c),
+            Expression::Parens(expr) => write!(f, "({})", **expr),
+            Expression::Not(expr) => write!(f, "!{}", **expr),
+            Expression::Minus(expr) => write!(f, "-{}", **expr),
+            Expression::Plus(expr) => write!(f, "+{}", **expr),
+            Expression::BinaryExpression(op, l_expr, r_expr) => write!(f, "{} {} {}", **l_expr, op, **r_expr),
+            Expression::FunctionCall(name, params) => write!(f, "{}({})", name, Statement::param_list_to_string(params)),
+            Expression::PredefinedFunctionCall(name, params) => write!(f, "{}({})", output_keyword(name.name), Statement::param_list_to_string(params)),
+            Expression::Dim1(expr, vec) => write!(f, "{}({})", **expr, **vec),
+            Expression::Dim2(expr, vec, mat) => write!(f, "{}({}, {})", **expr, **vec, **mat),
+            Expression::Dim3(expr, vec, mat, cub) => write!(f, "{}({}, {}, {})", **expr, **vec, **mat, **cub),
 
         }
     }

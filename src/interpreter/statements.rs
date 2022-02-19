@@ -1,6 +1,18 @@
-use super::*;
+use super::{Expression, Interpreter, OpCode, evaluate_exp};
 use crate::tables::StatementDefinition;
 
+/// .
+///
+/// # Examples
+///
+/// ```
+/// use ppl_engine::interpreter::statements::call_predefined_procedure;
+///
+/// ```
+///
+/// # Panics
+///
+/// Panics if .
 pub fn call_predefined_procedure(
     interpreter: &mut Interpreter,
     def: &'static StatementDefinition,

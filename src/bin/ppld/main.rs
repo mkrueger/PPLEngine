@@ -44,23 +44,22 @@ fn main() {
     let file_name = &mut arguments.srcname;
 
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
-    if let None = extension {
+    if extension.is_none() {
         file_name.push_str(".ppe");
     }
 
     if let Some(out_file_name) = &mut arguments.dstname  {
         let extension = Path::new(&out_file_name).extension().and_then(OsStr::to_str);
-        if let None = extension {
+        if extension.is_none() {
                 out_file_name.push_str(".ppd");
         }
         let d = ppl_engine::decompiler::decompile(file_name, true, arguments.raw);
-        let cpy_file = out_file_name.as_str().clone();
+        let cpy_file = out_file_name.as_str();
         println!("output written to {}", out_file_name);
         let mut output = File::create(cpy_file).unwrap();
-        write!(output, "{}", d.to_string()).expect(format!("Error: Can't create {} on disk, aborting...", cpy_file).as_str());
+        write!(output, "{}", d).unwrap_or_else(|_| panic!("Error: Can't create {} on disk, aborting...", cpy_file));
     } else {
         let d = ppl_engine::decompiler::decompile(file_name, false, arguments.raw);
-        println!("{}", d.to_string());
-        return;
+        println!("{}", d);
     }
 }

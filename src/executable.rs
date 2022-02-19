@@ -1,9 +1,9 @@
-use std::fs::*;
-use std::io::*;
+use std::fs::File;
+use std::io::Read;
 use std::collections::HashMap;
 
 use crate::ast::VariableType;
-use crate::crypt::*;
+use crate::crypt::{decode_rle, decrypt};
 
 #[derive(Clone)]
 pub struct VarDecl
@@ -46,39 +46,45 @@ static PREAMBLE: &[u8] = "PCBoard Programming Language Executable".as_bytes();
 const LAST_PPLC: u16 = 330;
 const HEADER_SIZE: usize = 48;
 
-pub fn read_file(file_name: &str) -> Executable
+/// .
+///
+/// # Examples
+///
+/// ```
+/// use ppl_engine::executable::read_file;
+///
+/// ```
+///
+/// # Panics
+///
+/// Panics if .
+#[must_use] pub fn read_file(file_name: &str) -> Executable
 {
-    let mut f = File::open(file_name).expect(format!("Error: {} not found on disk, aborting...", file_name).as_str());
+    let mut f = File::open(file_name).unwrap_or_else(|_| panic!("Error: {} not found on disk, aborting...", file_name));
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer).expect("Error while reading file.");
 
     for i in 0..PREAMBLE.len() {
-        if PREAMBLE[i] != buffer[i]
-        {
-            panic!("Invalid PPE file");
-        }
+        assert!(PREAMBLE[i] == buffer[i], "Invalid PPE file");
     }
     let version = ((buffer[40] & 15) as u16 * 10 + (buffer[41] as u16 & 15)) * 100 +
         (buffer[43] as u16 & 15) * 10 + (buffer[44] as u16 & 15);
 
-    if version > LAST_PPLC
-    {
-        panic!("Invalid PPE file");
-    }
-    let max_var = u16::from_le_bytes((&buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap()) as i32;
+    assert!(version <= LAST_PPLC, "Invalid PPE file");
+    let max_var = u16::from_le_bytes((buffer[HEADER_SIZE..=(HEADER_SIZE + 1)]).try_into().unwrap()) as i32;
     let (mut i, variable_declarations) = read_vars(version, &mut buffer, max_var);
-    let code_size = u16::from_le_bytes((&buffer[i..=(i + 1)]).try_into().unwrap()) as usize;
+    let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
     i += 2;
     let real_size = buffer.len() - i;
 
     let data: Vec<u8> = if version >= 300 {
         let data = &mut buffer[i..real_size + i];
         decrypt(data, version);
-        if real_size != code_size {
-            decode_rle(data)
-        } else {
+        if real_size == code_size {
             data.to_vec()
+        } else {
+            decode_rle(data)
         }
     } else { buffer[i..real_size + i].to_vec() };
 
@@ -88,7 +94,7 @@ pub fn read_file(file_name: &str) -> Executable
         let k = if i + 1 >= data.len() {
             data[i] as i32
         } else {
-            i16::from_le_bytes((&data[i..i + 2]).try_into().unwrap()) as i32
+            i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
         };
         source_buffer.push(k);
         i += 2;

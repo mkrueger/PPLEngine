@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
-use crate::ast::*;
-use crate::executable::*;
-use crate::tables::*;
+use crate::ast::{BinOp, Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType, get_var_name};
+use crate::executable::{Executable, read_file};
+use crate::tables::{BIN_EXPR, FUNCTION_DEFINITIONS, FuncOpCode, OpCode, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 
 pub mod reconstruct;
 
@@ -14,7 +14,7 @@ struct FuncL
     func: i32,
 }
 
-pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
+#[must_use] pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
     
@@ -61,7 +61,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     prg
 }
 
-pub fn load_file(file_name: &str) -> Program {
+#[must_use]pub fn load_file(file_name: &str) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
     d.do_pass1();
@@ -82,7 +82,8 @@ struct Decompiler
     func_flag: i32,
     proc_flag: i32,
     src_ptr: i32,
-    symbol: i32,
+    symbol:
+     i32,
     valid_buffer: Vec<bool>,
     exp_count: i32,
     trash_flag: i32,
@@ -96,9 +97,7 @@ struct Decompiler
 impl Decompiler {
     fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
-        for _ in 0..executable.code_size / 2 + 1 {
-            valid_buffer.push(false);
-        }
+        valid_buffer.resize(executable.code_size as usize / 2, false);
         Decompiler {
             executable,
             cur_stmt: 0,
@@ -165,16 +164,12 @@ impl Decompiler {
             } else {
                 let prev_stat = self.cur_stmt;
                 if self.src_ptr == if_ptr { self.src_ptr += 2; }
-
                 self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
-                if self.cur_stmt > LAST_STMT || (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len() && STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa {
-                    panic!("Error: Unknown statement {} at {}.", self.cur_stmt, self.src_ptr);
-                }
-                if self.cur_stmt < 0 || self.cur_stmt > LAST_STMT {
-                    panic!("opCode needs to be 0..226 at {} was {}", self.src_ptr, self.cur_stmt);
-                }
-                let mut trap = false;
 
+                assert!(self.cur_stmt < LAST_STMT && (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len() && STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] != 0xaa, "Error: Unknown statement {} at {}.", self.cur_stmt, self.src_ptr);
+                assert!(self.cur_stmt >= 0 && self.cur_stmt < LAST_STMT, "opCode needs to be 0..226 at {} was {}", self.src_ptr, self.cur_stmt);
+                
+                let mut trap = false;
                 match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
                     0xf6 => {
                         self.src_ptr += 2;
@@ -185,22 +180,22 @@ impl Decompiler {
 
                         self.funcin(act_dec_start, self.akt_proc);
                         self.pushlabel(act_dec_start);
-                        trap = self.parse_expr(act_dec_args, 0) != 0;
+                        trap = !self.parse_expr(act_dec_args, 0);
                     }
                     0xf7 => {
-                        if self.parse_expr(0x01, 0) != 0 {
-                            trap = true;
-                        } else {
+                        if self.parse_expr(0x01, 0) {
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
-                            trap = self.parse_expr(0x01, 0) != 0;
+                            trap = !self.parse_expr(0x01, 0);
+                        } else {
+                            trap = true;
                         }
                     }
                     0xf8 => {
-                        if self.parse_expr(0x03, 0) != 0 {
-                            trap = true;
-                        } else {
+                        if self.parse_expr(0x03, 0) {
                             self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
                             self.src_ptr += 1;
+                        } else {
+                            trap = true;
                         }
                     }
                     0xf9 => {
@@ -210,16 +205,16 @@ impl Decompiler {
                     }
                     0xfe => {
                         self.src_ptr += 1;
-                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0;
+                        trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0);
                     }
                     0xfa => {
                         self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize + 2] - 1)).unwrap().flag = 1;
                         self.src_ptr += 2;
-                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0;
+                        trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0);
                     }
                     0xfc => {
                         self.src_ptr += 1;
-                        trap = self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0;
+                        trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0);
                     }
                     0xfd => {
                         self.src_ptr += 1;
@@ -228,15 +223,15 @@ impl Decompiler {
                     }
                     0xff => {
                         if_ptr = self.src_ptr;
-                        if self.parse_expr(0x01, 0) != 0 {
-                            trap = true;
-                        } else {
+                        if self.parse_expr(0x01, 0) {
                             if_ptr = self.set_if_ptr(if_ptr);
                             self.src_ptr += 1;
+                        } else {
+                            trap = true;
                         }
                     }
                     _ => {
-                        trap = self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0;
+                        trap = !self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0);
                     }
                 }
                 if !trap {
@@ -252,8 +247,9 @@ impl Decompiler {
                                 continue;
                             }
                         }
-                        0x0029 => {
-                            self.fill_valid(last_point, self.src_ptr); // GOSUB
+                        0x0029 | 0x000b // GOSUB & IF 
+                        => {
+                            self.fill_valid(last_point, self.src_ptr);
                             last_point = self.src_ptr;
                             self.pushlabel(self.executable.source_buffer[self.src_ptr as usize - 1]);
                             continue;
@@ -266,12 +262,6 @@ impl Decompiler {
                                 continue;
                             }
                         }
-                        0x000b => {
-                            self.fill_valid(last_point, self.src_ptr); // IF
-                            last_point = self.src_ptr;
-                            self.pushlabel(self.executable.source_buffer[self.src_ptr as usize - 1]);
-                            continue;
-                        }
                         _ => {
                             continue;
                         }
@@ -283,6 +273,8 @@ impl Decompiler {
         }
         self.pass += 1;
     }
+
+
     fn dump_vars(&mut self, prg: &mut Program) {
         self.uvar_flag =
             self.executable.variable_declarations[&0].variable_type == VariableType::Boolean &&
@@ -310,10 +302,8 @@ impl Decompiler {
                 (self.executable.variable_declarations[&22].variable_type == VariableType::Date) &&
                 (self.executable.variable_declarations[&20].vector_size == 5);
 
-        if self.uvar_flag && self.executable.version >= 300 {
-            if !(self.executable.variable_declarations[&23].variable_type == VariableType::Integer && self.executable.variable_declarations[&23].vector_size == 16) {
-                self.uvar_flag = false;
-            }
+        if self.uvar_flag && self.executable.version >= 300 && !(self.executable.variable_declarations[&23].variable_type == VariableType::Integer && self.executable.variable_declarations[&23].vector_size == 16) {
+            self.uvar_flag = false;
         }
 
         if self.symbol == 0 {
@@ -337,51 +327,49 @@ impl Decompiler {
         let mut generic_vars = 0;
 
         while i < self.executable.max_var {
-            if i > 0x16 || !self.uvar_flag {
-                if self.executable.variable_declarations.get_mut(&i).unwrap().lflag == 0 {
-                    match self.executable.variable_declarations.get_mut(&i).unwrap().variable_type {
-                        VariableType::Function => {
-                            if self.executable.variable_declarations.get_mut(&i).unwrap().flag == 1 {
-                                c_func += 1;
-                                self.executable.variable_declarations.get_mut(&i).unwrap().number = c_func;
-                                let n = &(self.executable.variable_declarations.get_mut(&i).unwrap().return_var - 1);
-                                self.executable.variable_declarations.get_mut(n).unwrap().number = c_func;
-                            }
+            if (i > 0x16 || !self.uvar_flag) && self.executable.variable_declarations.get_mut(&i).unwrap().lflag == 0 {
+                match self.executable.variable_declarations.get_mut(&i).unwrap().variable_type {
+                    VariableType::Function => {
+                        if self.executable.variable_declarations.get_mut(&i).unwrap().flag == 1 {
+                            c_func += 1;
+                            self.executable.variable_declarations.get_mut(&i).unwrap().number = c_func;
+                            let n = &(self.executable.variable_declarations.get_mut(&i).unwrap().return_var - 1);
+                            self.executable.variable_declarations.get_mut(n).unwrap().number = c_func;
                         }
-                        VariableType::Procedure => {
-                            let mut cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
-                            if cur_var.flag == 1 {
-                                c_proc += 1;
-                                cur_var.number = c_proc;
-                            }
+                    }
+                    VariableType::Procedure => {
+                        let mut cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
+                        if cur_var.flag == 1 {
+                            c_proc += 1;
+                            cur_var.number = c_proc;
                         }
-                        _ => {
-                            let cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
-                            if cur_var.flag == 0 {
-                                c_const += 1;
-                                cur_var.number = c_const;
-                            } else {
-                                c_vars += 1;
-                                cur_var.number = c_vars;
-                                if self.symbol == 0 {
-                                    let var_type = TYPE_NAMES[cur_var.variable_type as usize];
-                                    cur_var.var_name = match cur_var.variable_type {
-                                        VariableType::String => { string_vars += 1; format!("STR{0:>03}", string_vars) }
-                                        VariableType::Integer => { int_vars += 1; format!("INT{0:>03}", int_vars) }
-                                        VariableType::Boolean => { bool_vars += 1; format!("BOOL{0:>03}", bool_vars) }
-                                        VariableType::Byte => { byte_vars += 1; format!("BYTE{0:>03}", byte_vars) }
-                                        VariableType::Money => { money_vars += 1; format!("MONEY{0:>03}", money_vars) }
-                                        VariableType::Time => { time_vars += 1; format!("TIME{0:>03}", time_vars) }
-                                        VariableType::Date => { date_vars += 1; format!("DATE{0:>03}", date_vars) }
-                                        _ => { generic_vars += 1; format!("VAR{0:>03}", generic_vars) }
+                    }
+                    _ => {
+                        let cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
+                        if cur_var.flag == 0 {
+                            c_const += 1;
+                            cur_var.number = c_const;
+                        } else {
+                            c_vars += 1;
+                            cur_var.number = c_vars;
+                            if self.symbol == 0 {
+                                let var_type = TYPE_NAMES[cur_var.variable_type as usize];
+                                cur_var.var_name = match cur_var.variable_type {
+                                    VariableType::String => { string_vars += 1; format!("STR{0:>03}", string_vars) }
+                                    VariableType::Integer => { int_vars += 1; format!("INT{0:>03}", int_vars) }
+                                    VariableType::Boolean => { bool_vars += 1; format!("BOOL{0:>03}", bool_vars) }
+                                    VariableType::Byte => { byte_vars += 1; format!("BYTE{0:>03}", byte_vars) }
+                                    VariableType::Money => { money_vars += 1; format!("MONEY{0:>03}", money_vars) }
+                                    VariableType::Time => { time_vars += 1; format!("TIME{0:>03}", time_vars) }
+                                    VariableType::Date => { date_vars += 1; format!("DATE{0:>03}", date_vars) }
+                                    _ => { generic_vars += 1; format!("VAR{0:>03}", generic_vars) }
 
-                                    };
-                                    match cur_var.dim {
-                                        1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
-                                        2 => prg.variable_declarations.push(Declaration::Variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
-                                        3 => prg.variable_declarations.push(Declaration::Variable3(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
-                                        _ => prg.variable_declarations.push(Declaration::Variable(var_type, cur_var.var_name.clone()))
-                                    }
+                                };
+                                match cur_var.dim {
+                                    1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
+                                    2 => prg.variable_declarations.push(Declaration::Variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
+                                    3 => prg.variable_declarations.push(Declaration::Variable3(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
+                                    _ => prg.variable_declarations.push(Declaration::Variable(var_type, cur_var.var_name.clone()))
                                 }
                             }
                         }
@@ -409,12 +397,12 @@ impl Decompiler {
             j += 1;
         }
         let func_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
-        prg.function_declarations.push(Box::new(FunctionDeclaration {
+        prg.function_declarations.push(FunctionDeclaration {
             id: func,
             declaration: Declaration::Function(func_name, func_parameters, func_type),
             block: Block::new(),
             variable_declarations: Vec::new(),
-        }));
+        });
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -428,12 +416,12 @@ impl Decompiler {
             self.executable.variable_declarations.get_mut(&j).unwrap().function_id = proc;
             j += 1;
         }
-        prg.procedure_declarations.push(Box::new(FunctionDeclaration {
+        prg.procedure_declarations.push(FunctionDeclaration {
             id: proc,
             declaration: Declaration::Procedure(proc_name, proc_parameters),
             block: Block::new(),
             variable_declarations: Vec::new(),
-        }));
+        });
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
@@ -444,35 +432,34 @@ impl Decompiler {
     }
 
     fn funcout(&mut self, prg: &mut Program, label: i32) {
-        match self.func_used.get(&label) {
-            Some(funcl) => {
-                let func = funcl.func;
-                self.func_flag = 0;
-                self.proc_flag = 0;
-                if self.executable.variable_declarations.get(&func).unwrap().variable_type == VariableType::Function {
-                    self.output_func(prg, func);
-                    self.func_flag = func;
-                } else {
-                    self.output_proc(prg, func);
-                    self.proc_flag = func;
-                }
-                self.dump_locs(prg, func);
+
+        if let Some(funcl) = self.func_used.get(&label) {
+            let func = funcl.func;
+            self.func_flag = 0;
+            self.proc_flag = 0;
+            if self.executable.variable_declarations.get(&func).unwrap().variable_type == VariableType::Function {
+                self.output_func(prg, func);
+                self.func_flag = func;
+            } else {
+                self.output_proc(prg, func);
+                self.proc_flag = func;
             }
-            _ => {}
+            self.dump_locs(prg, func);
         }
     }
-    fn get_function<'a>(&self, prg: &'a mut Program, func: i32) -> Option<&'a mut FunctionDeclaration> {
+    
+    fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionDeclaration> {
         for f in &mut prg.function_declarations {
             if f.id == func {
-                return Some(&mut **f);
+                return Some(f);
             }
         }
         for f in &mut prg.procedure_declarations {
             if f.id == func {
-                return Some(&mut **f);
+                return Some(f);
             }
         }
-        return None
+        None
     }
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
@@ -501,7 +488,7 @@ impl Decompiler {
                     let var_name = format!("LOC{0:>03}", self.executable.variable_declarations.get(&i).unwrap().number);
                     let cur_var = &self.executable.variable_declarations[&i];
 
-                    let func = self.get_function(prg, func).unwrap();
+                    let func = Decompiler::get_function_mut(prg, func).unwrap();
 
                     match cur_var.dim {
                         1 => func.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
@@ -534,12 +521,9 @@ impl Decompiler {
     }
 
     fn labelout(&mut self, prg: &mut Program, label: i32) {
-        match self.label_used.get(&label) {
-            Some(x) => {
-                let label_stmt = Statement::Label(format!("LABEL{0:>03}", x));
-                self.output_stmt(prg, label_stmt);
-            }
-            _ => {}
+        if let Some(x) = self.label_used.get(&label) {
+            let label_stmt = Statement::Label(format!("LABEL{0:>03}", x));
+            self.output_stmt(prg, label_stmt);
         }
     }
 
@@ -548,7 +532,7 @@ impl Decompiler {
     }
 
     fn poplabel(&mut self) -> i32 {
-        if self.label_stack.len() == 0 {
+        if self.label_stack.is_empty() {
             -2
         } else {
             self.label_stack.pop().unwrap()
@@ -562,7 +546,7 @@ impl Decompiler {
     }
 
     fn pop_expr(&mut self) -> Option<Expression> {
-        if self.expr_stack.len() == 0 {
+        if self.expr_stack.is_empty() {
             None
         } else {
             self.exp_count -= 1;
@@ -580,10 +564,7 @@ impl Decompiler {
 
     fn popstrip(&mut self) -> Option<Expression> {
         let expr = self.pop_expr();
-        match expr {
-            Some(t) => Some(Decompiler::stripper(t)),
-            None => None
-        }
+        expr.map(Decompiler::stripper)
     }
     fn repl_const(&mut self, expr: Expression, vars: &'static [i32], names: &'static [Constant]) -> Expression {
         match expr {
@@ -597,7 +578,7 @@ impl Decompiler {
                         if vars[i] != -1 {
                             return Expression::Const(names[i].clone());
                         }
-                        return Expression::Const(Constant::Integer(parse_result));
+                        Expression::Const(Constant::Integer(parse_result))
                     }
                     _ => Expression::Const(c)
                 }
@@ -623,7 +604,7 @@ impl Decompiler {
             }
             Expression::Not(e) => Expression::Not(Box::new(self.repl_const(*e, vars, names))),
             Expression::Minus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
-            Expression::Plus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
+            Expression::Plus(e) => Expression::Plus(Box::new(self.repl_const(*e, vars, names))),
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(op, Box::new(self.repl_const(*l, vars, names)), Box::new(self.repl_const(*r, vars, names))),
         }
     }
@@ -635,27 +616,15 @@ impl Decompiler {
 
     fn trans_exp(&mut self, cur_expr: i32) -> Expression {
         match self.cur_stmt {
-            0x00c => {
-                if cur_expr != 2 {
-                    self.popstrip().unwrap()
-                } else {
-                    self.const_name(&crate::tables::CONSTANT_CONFERENCE_OFFSETS, &crate::tables::CONSTANT_CONFERENCE_NAMES)
-                }
-            }
-            0x00d => {
-                if cur_expr != 2 {
-                    self.popstrip().unwrap()
-                } else {
-                    self.const_name(&crate::tables::CONSTANT_CONFERENCE_OFFSETS, &crate::tables::CONSTANT_CONFERENCE_NAMES)
-                }
-            }
-            0x00e => {
-                if cur_expr != 2 {
-                    self.popstrip().unwrap()
-                } else {
-                    self.const_name(&crate::tables::CONSTANT_NAMES_OFFSETS, &crate::tables::CONSTANT_NAMES_DISPLAY)
-                }
-            }
+            0x00c if cur_expr != 2 => self.popstrip().unwrap(),
+            0x00c => self.const_name(&crate::tables::CONSTANT_CONFERENCE_OFFSETS, &crate::tables::CONSTANT_CONFERENCE_NAMES),
+
+            0x00d if cur_expr != 2 => self.popstrip().unwrap(),
+            0x00d => self.const_name(&crate::tables::CONSTANT_CONFERENCE_OFFSETS, &crate::tables::CONSTANT_CONFERENCE_NAMES),
+            
+            0x00e if cur_expr != 2 => self.popstrip().unwrap(),
+            0x00e => self.const_name(&crate::tables::CONSTANT_NAMES_OFFSETS, &crate::tables::CONSTANT_NAMES_DISPLAY),
+            
             0x010 => {
                 if cur_expr == 3 {
                     self.const_name(&crate::tables::CONSTANT_FACCESS_OFFSETS, &crate::tables::CONSTANT_FACCESS_NAMES)
@@ -665,62 +634,42 @@ impl Decompiler {
                     self.popstrip().unwrap()
                 }
             }
-            0x011 => {
-                if cur_expr == 3 {
-                    self.const_name(&crate::tables::CONSTANT_FACCESS_OFFSETS, &crate::tables::CONSTANT_FACCESS_NAMES)
-                } else if cur_expr == 4 {
-                    self.const_name(&crate::tables::CONSTANT_OPENFLAGS_OFFSETS, &crate::tables::CONSTANT_OPENFLAGS_NAMES)
-                } else {
-                    self.popstrip().unwrap()
-                }
-            }
-            0x012 => {
-                if cur_expr == 3 {
-                    self.const_name(&crate::tables::CONSTANT_FACCESS_OFFSETS, &crate::tables::CONSTANT_FACCESS_NAMES)
-                } else if cur_expr == 4 {
-                    self.const_name(&crate::tables::CONSTANT_OPENFLAGS_OFFSETS, &crate::tables::CONSTANT_OPENFLAGS_NAMES)
-                } else {
-                    self.popstrip().unwrap()
-                }
-            }
+            
+            0x011 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_OFFSETS, &crate::tables::CONSTANT_FACCESS_NAMES),
+            0x011 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_OFFSETS, &crate::tables::CONSTANT_OPENFLAGS_NAMES),
+            0x011 => self.popstrip().unwrap(),
+
+            0x012 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_OFFSETS, &crate::tables::CONSTANT_FACCESS_NAMES),
+            0x012 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_OFFSETS, &crate::tables::CONSTANT_OPENFLAGS_NAMES),
+            0x012 => self.popstrip().unwrap(),
+            
             0x018 => {
                 self.const_name(&crate::tables::CONSTANT_LINECOUNT_OFFSETS, &crate::tables::CONSTANT_LINECOUNT_NAMES)
             }
             0x022 => {
-                if cur_expr != 6 {
-                    self.popstrip().unwrap()
-                } else {
+                if cur_expr == 6 {
                     self.const_name(&crate::tables::CONSTANT_1_OFFSETS, &crate::tables::CONSTANT_1_NAMES)
+                } else {
+                    self.popstrip().unwrap()
                 }
             }
             0x02b => {
-                if cur_expr != 5 {
-                    self.popstrip().unwrap()
-                } else {
+                if cur_expr == 5 {
                     self.const_name(&crate::tables::CONSTANT_1_OFFSETS, &crate::tables::CONSTANT_1_NAMES)
-                }
-            }
-            0x039 => {
-                if cur_expr != 2 {
-                    self.popstrip().unwrap()
                 } else {
-                    self.const_name(&crate::tables::CONSTANT_1_OFFSETS, &crate::tables::CONSTANT_1_NAMES)
-                }
-            }
-            0x070 => {
-                if cur_expr != 3 {
                     self.popstrip().unwrap()
-                } else {
-                    self.const_name(&crate::tables::CONSTANT_SEEK_OFFSETS, &crate::tables::CONSTANT_SEEK_NAMES)
                 }
             }
-            0x0cd | 0x0ce => {
-                if cur_expr != 1 {
-                    self.popstrip().unwrap()
-                } else {
-                    self.const_name(&crate::tables::CONSTANT_2_OFFSETS, &crate::tables::CONSTANT_2_NAMES)
-                }
-            }
+            
+            0x039 if cur_expr != 2 => self.popstrip().unwrap(),
+            0x039 => self.const_name(&crate::tables::CONSTANT_1_OFFSETS, &crate::tables::CONSTANT_1_NAMES),
+            
+            0x070 if cur_expr != 3 => self.popstrip().unwrap(),
+            0x070 => self.const_name(&crate::tables::CONSTANT_SEEK_OFFSETS, &crate::tables::CONSTANT_SEEK_NAMES),
+            
+            0x0cd | 0x0ce if cur_expr != 1 => self.popstrip().unwrap(),
+            0x0cd | 0x0ce => self.const_name(&crate::tables::CONSTANT_2_OFFSETS, &crate::tables::CONSTANT_2_NAMES),
+            
             _ => {
                 self.popstrip().unwrap()
             }
@@ -730,7 +679,8 @@ impl Decompiler {
     fn varout(&mut self, var_number: i32) -> Expression
     {
         let var_nr = var_number - 1;
-        if (self.executable.version < 300 && var_nr < 0x17 && self.uvar_flag) || (self.executable.version >= 300 && var_nr < 0x18 && self.uvar_flag) {
+        if self.uvar_flag && (self.executable.version < 300 && var_nr < 0x17 || 
+                              self.executable.version >= 300 && var_nr < 0x18) {
             match var_nr {
                 0 => return Expression::Identifier("U_EXPERT".to_string()),
                 1 => return Expression::Identifier("U_FSE".to_string()),
@@ -783,33 +733,28 @@ impl Decompiler {
         }
         match cur_var.variable_type {
             VariableType::Boolean => {
-                if cur_var.content != 0 {
-                    Expression::Const(Constant::Boolean(true))
-                } else {
+                if cur_var.content == 0 {
                     Expression::Const(Constant::Boolean(false))
+                } else {
+                    Expression::Const(Constant::Boolean(true))
                 }
             }
-            VariableType::Date => {
-                return Expression::Const(Constant::Integer(cur_var.content as i32));
-            }
-            VariableType::Money => {
-                return Expression::Const(Constant::Money(((cur_var.content as f32) / 10.0) as f64));
-            }
-            VariableType::String => {
-                return Expression::Const(Constant::String(cur_var.string_value.clone()));
-            }
-            VariableType::Time => {
-                return Expression::Const(Constant::Integer(cur_var.content as i32));
-            }
-            VariableType::Double => {
-                return Expression::Const(Constant::Real(cur_var.content as f64));
-            }
-            VariableType::Integer => {
-                return Expression::Const(Constant::Integer(cur_var.content as i32));
-            }
-            _ => {
-                return Expression::Const(Constant::String(cur_var.string_value.clone()));
-            }
+            VariableType::Integer |
+            VariableType::Unsigned |
+            VariableType::Byte |
+            VariableType::SByte |
+            VariableType::Word |
+            VariableType::SWord |
+            VariableType::Date |
+            VariableType::EDate |
+            VariableType::DDate |
+            VariableType::Money |
+            VariableType::Time => Expression::Const(Constant::Integer(cur_var.content as i32)),
+            VariableType::BigStr | 
+            VariableType::String => Expression::Const(Constant::String(cur_var.string_value.clone())),
+            VariableType::Double |
+            VariableType::Real => Expression::Const(Constant::Real(cur_var.content as f64)),
+            _ => Expression::Const(Constant::Integer(0))
         }
     }
 
@@ -841,13 +786,13 @@ impl Decompiler {
                 if self.exp_count < 2 {
                     return -1;
                 }
-                let rvalue = self.pop_expr().unwrap();
-                let lvalue = self.pop_expr().unwrap();
+                let r_value = self.pop_expr().unwrap();
+                let l_value = self.pop_expr().unwrap();
 
                 let binop = BIN_EXPR[offset];
 
                 self.push_expr(Expression::Parens(
-                    Box::new(Expression::BinaryExpression(binop, Box::new(lvalue), Box::new(rvalue)))
+                    Box::new(Expression::BinaryExpression(binop, Box::new(l_value), Box::new(r_value)))
                 ));
 
                 return 0;
@@ -855,7 +800,7 @@ impl Decompiler {
             _ => {}
         }
 
-        if self.exp_count < func_def.args as i32 {
+        if self.exp_count < i32::from(func_def.args) {
             println!("too few argument for built in function {} should be {} was {} at {}", func_def.name, func_def.args, self.exp_count, self.src_ptr);
             return -1;
         }
@@ -865,8 +810,8 @@ impl Decompiler {
             parameters.push(self.pop_expr().unwrap());
         }
         parameters.reverse();
-        self.push_expr(Expression::PredefinedFunctionCall(&func_def, parameters));
-        return 0;
+        self.push_expr(Expression::PredefinedFunctionCall(func_def, parameters));
+        0
     }
 
     fn dimexpr(&mut self, dims: i32) -> i32
@@ -900,16 +845,14 @@ impl Decompiler {
                                 match e {
                                     Expression::Dim1(expr, vec_expr) => self.push_expr(Expression::Dim2(expr, vec_expr, Box::new(temp_str2))),
                                     Expression::Dim2(expr, vec_expr, mat_expr) => self.push_expr(Expression::Dim3(expr, vec_expr, mat_expr, Box::new(temp_str2))),
-                                    _ => {
-                                        self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2)))
-                                    },
+                                    _ => self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2))),
                                 }
                             } else {
                                 self.push_expr(temp_str2);
                             }
                         }
                         self.src_ptr += 1;
-                        if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
+                        if !self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) {
                             return 1;
                         }
                         self.src_ptr -= 1;
@@ -969,10 +912,10 @@ impl Decompiler {
         }
 
         self.exp_count = temp_expr;
-        return 0;
+        0
     }
 
-    fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> i32
+    fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> bool
     {
         let mut cur_expr = 0;
         let temp_expr = self.exp_count;
@@ -997,24 +940,18 @@ impl Decompiler {
                         if self.executable.source_buffer[self.src_ptr as usize] != 0
                         {
                             if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
-                                return 1;
+                                return false;
                             }
                             if self.pass == 1 {
                                 let temp_str2 = self.pop_expr().unwrap();
                                 let tmp3 = self.pop_expr();
-                                match tmp3 {
-                                    Some(t) => self.push_expr(t),
-                                    _ => {}
-                                }
+                                if let Some(t) = tmp3 { self.push_expr(t) }
                                 self.push_expr(temp_str2);
                             }
                         }
                     } else {
-                        if self.cur_stmt == 0xa8
-                        {
-                            if ((self.executable.variable_declarations.get(&self.akt_proc).unwrap().return_var >> (cur_expr - 1)) & 1) != 0 {
-                                self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
-                            }
+                        if self.cur_stmt == 0xa8 && ((self.executable.variable_declarations.get(&self.akt_proc).unwrap().return_var >> (cur_expr - 1)) & 1) != 0 {
+                            self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().flag = 1;
                         }
                         if self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().variable_type == VariableType::Function {
                             self.pushlabel(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize] - 1)).unwrap().start);
@@ -1024,17 +961,14 @@ impl Decompiler {
                             if self.pass == 1 {
                                 let tmp2 = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
                                 let tmp3 = self.pop_expr();
-                                match tmp3 {
-                                    Some(t) => self.push_expr(t),
-                                    _ => {}
-                                }
+                                if let Some(t) = tmp3 { self.push_expr(t) }
                                 self.push_expr(tmp2);
                                 stack_len = self.expr_stack.len();
                             }
 
                             self.src_ptr += 1;
-                            if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) != 0 {
-                                return 1;
+                            if !self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 1) {
+                                return false;
                             }
                             if self.pass == 1 {
                                 let mut params = Vec::new();
@@ -1058,7 +992,7 @@ impl Decompiler {
                             if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                                 self.executable.variable_declarations.get_mut(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().flag = 1;
                                 if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
-                                    return 1;
+                                    return false;
                                 }
                             }
                             self.src_ptr += 1;
@@ -1081,15 +1015,12 @@ impl Decompiler {
             if self.pass == 1 {
                 let tmp2 = self.trans_exp(cur_expr);
                 let tmp3 = self.pop_expr();
-                match tmp3 {
-                    Some(t) => self.push_expr(t),
-                    _ => {}
-                }
+                if let Some(t) = tmp3 { self.push_expr(t) }
                 self.push_expr(tmp2);
             }
         }
         self.exp_count = temp_expr + 1;
-        0
+        true
     }
 
     fn set_if_ptr(&mut self, i: i32) -> i32
@@ -1104,7 +1035,9 @@ impl Decompiler {
     }
 
     fn outputpass2(&mut self, prg: &mut Program, if_while_stack: &mut Vec<OpCode>, stmt: Statement) {
-        if !if_while_stack.is_empty() {
+        if if_while_stack.is_empty() {
+            self.output_stmt(prg, stmt);
+        } else {
             let op = if_while_stack.pop().unwrap();
             let expr = self.pop_expr().unwrap();
             match op {
@@ -1112,8 +1045,6 @@ impl Decompiler {
                 OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(stmt))),
                 _ => {}
             }
-        } else {
-            self.output_stmt(prg, stmt);
         }
     }
 
@@ -1140,9 +1071,7 @@ impl Decompiler {
             }
 
             self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
-            if self.cur_stmt > LAST_STMT || STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa {
-                panic!("Error: Unknown statement {}, aborting…", self.cur_stmt);
-            }
+            assert!(!(self.cur_stmt > LAST_STMT || STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa), "Error: Unknown statement {}, aborting…", self.cur_stmt);
 
             if prev_stat < 0 || STATEMENT_SIGNATURE_TABLE[prev_stat as usize] != 0xff {
                 // self.output.push_str("    ");
@@ -1150,21 +1079,22 @@ impl Decompiler {
 
             let stack_begin = self.expr_stack.len();
             match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
-                0x00 => {}
-                0xf6 => { // procedure
-                }
+                0x00 | 
+                0xff |
+                0xf6  // procedure 
+                => {}
                 0xf7 => { // dlockg
-                    if self.parse_expr(0x01, 0) != 0 {
+                    if !self.parse_expr(0x01, 0) {
                         return;
                     }
                     let tmp = self.varout(*self.executable.source_buffer.get(self.src_ptr as usize).unwrap());
                     self.push_expr(tmp);
-                    if self.parse_expr(0x01, 0) != 0 {
+                    if !self.parse_expr(0x01, 0) {
                         return;
                     }
                 }
                 0xf8 => { // dcreate
-                    if self.parse_expr(0x03, 0) != 0 {
+                    if !self.parse_expr(0x03, 0) {
                         return;
                     }
                     let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
@@ -1180,7 +1110,7 @@ impl Decompiler {
                 }
                 0xfe => { // variable expressions - Println
                     self.src_ptr += 1;
-                    if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) != 0 {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) {
                         return;
                     }
                 }
@@ -1188,13 +1118,13 @@ impl Decompiler {
                     let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 2]);
                     self.push_expr(tmp);
                     self.src_ptr += 2;
-                    if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) != 0 {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) {
                         return;
                     }
                 }
                 0xfc => { // varies var
                     self.src_ptr += 1;
-                    if self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) != 0 {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) {
                         return;
                     }
                 }
@@ -1204,9 +1134,8 @@ impl Decompiler {
                     self.push_expr(Expression::Identifier(format!("LABEL{0:>03}", tmp)));
                     self.src_ptr += 1;
                 }
-                0xff => {}
                 _ => {
-                    if self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) != 0 {
+                    if !self.parse_expr((STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] & 0x0f), 0) {
                         return;
                     }
                 }
@@ -1240,7 +1169,7 @@ impl Decompiler {
                 }
                 OpCode::WHILE | OpCode::IF => {
                     if_ptr = self.src_ptr;
-                    if self.parse_expr(0x001, 0) != 0 {
+                    if !self.parse_expr(0x001, 0) {
                         return;
                     }
                     if_ptr = self.set_if_ptr(if_ptr);
@@ -1267,12 +1196,12 @@ impl Decompiler {
                     self.src_ptr += 2;
                     self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;
                     let proc_name = format!("PROC{0:>03}", self.executable.variable_declarations.get(&self.akt_proc).unwrap().number);
-                    if self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 0) != 0 {
+                    if !self.parse_expr(self.executable.variable_declarations.get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1)).unwrap().args, 0) {
                         self.output_stmt(prg, Statement::ProcedureCall(proc_name, vec![]));
                         return;
                     }
                     let mut params = Vec::new();
-                    while self.expr_stack.len() > 0 {
+                    while !self.expr_stack.is_empty() {
                         params.push(self.pop_expr().unwrap());
                     }
 
@@ -1293,7 +1222,7 @@ impl Decompiler {
                                 }
                             }
                             parameters.reverse();
-                            self.outputpass2(prg, &mut if_while_stack, Statement::Call(&def, parameters));
+                            self.outputpass2(prg, &mut if_while_stack, Statement::Call(def, parameters));
                             found = true;
                             if def.max_args <= 0 {
                                 self.src_ptr += 1;
@@ -1330,7 +1259,7 @@ impl Decompiler {
 mod tests {
     use std::env;
 
-    fn is_match(output: &String, original: &String) -> bool {
+    fn is_match(output: &str, original: &str) -> bool {
         let mut i = 0;
         let mut j = 0;
 
@@ -1385,7 +1314,7 @@ mod tests {
             }
 
             let file_name = cur_entry.as_os_str();
-            print!("File: {}…\n", cur_entry.file_name().unwrap().to_str().unwrap());
+            println!("File: {}...", cur_entry.file_name().unwrap().to_str().unwrap());
 /* 
             if cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
             {
@@ -1400,14 +1329,14 @@ mod tests {
 
             let are_equal = is_match(&d.to_string(), &orig_text);
 
-            if !are_equal {
-                println!("'{}' not matched…", cur_entry.file_name().unwrap().to_str().unwrap());
-                print!("{}", d.to_string());
-                println!("-----");
-                print!("{}", orig_text);
-            } else {
+            if are_equal {
                 // println!(" match.");
                 //success += 1;
+            } else {
+                println!("'{}' not matched…", cur_entry.file_name().unwrap().to_str().unwrap());
+                print!("{}", d);
+                println!("-----");
+                print!("{}", orig_text);
             }
 
             assert!(are_equal);

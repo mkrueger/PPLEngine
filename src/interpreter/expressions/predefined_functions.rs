@@ -1,6 +1,8 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use substring::Substring;
 
-use crate::interpreter::{ VariableValue, Interpreter};
+use crate::{interpreter::{ VariableValue, Interpreter}};
 
 use super::get_int;
 
@@ -8,7 +10,7 @@ use super::get_int;
 /// # Arguments
 ///  * `str` - A string value
 /// # Returns
-///  VariableValue::Integer - the length of `str`
+///  `VariableValue::Integer` - the length of `str`
 /// # Remarks
 /// 0 means empty string
 /// According to specs 256 is the maximum returned
@@ -20,7 +22,7 @@ pub fn len(str: VariableValue) -> VariableValue {
 /// # Arguments
 ///  * `str` - A string value
 /// # Returns
-///  VariableValue::String - lowercase equivalent of `str`
+///  `VariableValue::String` - lowercase equivalent of `str`
 pub fn lower(str: VariableValue) -> VariableValue {
     VariableValue::String(str.to_string().to_lowercase())
 }
@@ -29,7 +31,7 @@ pub fn lower(str: VariableValue) -> VariableValue {
 /// # Arguments
 ///  * `str` - A string value
 /// # Returns
-///  VariableValue::String - uppercase equivalent of `str`
+///  `VariableValue::String` - uppercase equivalent of `str`
 pub fn upper(str: VariableValue) -> VariableValue {
     VariableValue::String(str.to_string().to_uppercase())
 }
@@ -119,8 +121,9 @@ pub fn space(chars: VariableValue) -> VariableValue {
     VariableValue::String(res)
 }
 
-pub fn ferr(_str: VariableValue) -> VariableValue {
-    panic!("TODO FILES") // TODO
+pub fn ferr(interpreter: &Interpreter, channel: VariableValue) -> VariableValue {
+    let channel = get_int(&channel);
+    VariableValue::Boolean(interpreter.io.ferr(channel as usize))
 }
 
 pub fn chr(chr: VariableValue) -> VariableValue {
@@ -141,7 +144,7 @@ pub fn chr(chr: VariableValue) -> VariableValue {
 
 pub fn asc(chr: VariableValue) -> VariableValue {
     let c = chr.to_string();
-    if c.len() <= 0 {
+    if c.is_empty() {
         return VariableValue::Integer(0);
     }
     VariableValue::Integer(c.as_bytes()[0] as i32)
@@ -156,7 +159,7 @@ pub fn asc(chr: VariableValue) -> VariableValue {
 pub fn instr(str: VariableValue, sub: VariableValue) -> VariableValue {
     let str = str.to_string();
     let sub = sub.to_string();
-    if sub.len() <= 0 {
+    if sub.is_empty() {
         return VariableValue::Integer(0);
     }
 
@@ -179,7 +182,7 @@ pub fn abort(interpreter: &Interpreter) -> VariableValue {
 ///  The trimmed `str`
 pub fn ltrim(str: VariableValue, ch: VariableValue) -> VariableValue {
     let mut ch = ch.to_string();
-    if ch.len() == 0 {
+    if ch.is_empty() {
         return str;
     }
 
@@ -234,7 +237,7 @@ pub fn strip_string(_str: VariableValue, _strip: VariableValue) -> VariableValue
 ///  The trimmed `str`
 pub fn rtrim(str: VariableValue, ch: VariableValue) -> VariableValue {
     let mut ch = ch.to_string();
-    if ch.len() == 0 {
+    if ch.is_empty() {
         return str;
     }
 
@@ -251,7 +254,7 @@ pub fn rtrim(str: VariableValue, ch: VariableValue) -> VariableValue {
 ///  The trimmed `str`
 pub fn trim(str: VariableValue, ch: VariableValue) -> VariableValue {
     let mut ch = ch.to_string();
-    if ch.len() == 0 {
+    if ch.is_empty() {
         return str;
     }
 

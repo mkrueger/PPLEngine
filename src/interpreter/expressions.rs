@@ -22,7 +22,7 @@ use crate::{
 ) -> VariableValue {
     match expr {
         Expression::Identifier(str) => {
-            let res = interpreter.cur_frame.values.get(str).unwrap().clone();
+            let res = interpreter.cur_frame.values.get(str).unwrap_or_else(|| panic!("variable {} not found", str)).clone();
             res
         }
         Expression::Const(constant) => match constant {

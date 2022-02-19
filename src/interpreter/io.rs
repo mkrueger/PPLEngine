@@ -298,7 +298,7 @@ impl SimulatedFileChannel {
 
 pub struct MemoryIO {
     channels: [SimulatedFileChannel; 8],
-    files: HashMap<String, String>,
+    pub files: HashMap<String, String>,
 }
 
 impl MemoryIO {
@@ -378,10 +378,12 @@ impl PCBoardIO for MemoryIO {
     }
 
     fn fput(&mut self, channel: usize, text: String) {
-        if let Some(v) = &mut self.channels[channel].file {
-            v.insert_str(self.channels[channel].filepos as usize, &text);
+        if let Some(v) = &self.channels[channel].file {
+            let content = self.files.get_mut(v).unwrap();
+            content.insert_str(self.channels[channel].filepos as usize, &text);
             self.channels[channel].filepos += text.len() as i32;
         } else {
+            println!("error");
             self.channels[channel] = SimulatedFileChannel {
                 file: None,
                 filepos: 0,
@@ -391,7 +393,8 @@ impl PCBoardIO for MemoryIO {
     }
 
     fn fget(&mut self, channel: usize) -> String {
-        if let Some(f) = &mut self.channels[channel].file {
+        if let Some(v) = &mut self.channels[channel].file {
+            let f = self.files.get(v).unwrap();
             if self.channels[channel].filepos as usize >= f.len() {
                 self.channels[channel].err = true;
                 return "".to_string();

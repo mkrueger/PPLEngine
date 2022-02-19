@@ -33,24 +33,24 @@ pub fn input(interpreter: &Interpreter, params: &[Expression]) {
 pub fn fcreate(interpreter: &mut Interpreter, params: &[Expression]) {
     let channel = get_int(&evaluate_exp(interpreter,&params[0])) as usize;
     let file = &evaluate_exp(interpreter,&params[1]).to_string();
-    let am = get_int(&evaluate_exp(interpreter,&params[1]));
-    let sm = get_int(&evaluate_exp(interpreter,&params[2]));
+    let am = get_int(&evaluate_exp(interpreter,&params[2]));
+    let sm = get_int(&evaluate_exp(interpreter,&params[3]));
     interpreter.io.fcreate(channel, file, am, sm);
 }
 
 pub fn fopen(interpreter: &mut Interpreter, params: &[Expression]) {
     let channel = get_int(&evaluate_exp(interpreter,&params[0])) as usize;
     let file = &evaluate_exp(interpreter,&params[1]).to_string();
-    let am = get_int(&evaluate_exp(interpreter,&params[1]));
-    let sm = get_int(&evaluate_exp(interpreter,&params[2]));
+    let am = get_int(&evaluate_exp(interpreter,&params[2]));
+    let sm = get_int(&evaluate_exp(interpreter,&params[3]));
     interpreter.io.fopen(channel, file, am, sm);
 }
 
 pub fn fappend(interpreter: &mut Interpreter, params: &[Expression]) {
     let channel = get_int(&evaluate_exp(interpreter,&params[0])) as usize;
     let file = &evaluate_exp(interpreter,&params[1]).to_string();
-    let am = get_int(&evaluate_exp(interpreter,&params[1]));
-    let sm = get_int(&evaluate_exp(interpreter,&params[2]));
+    let am = get_int(&evaluate_exp(interpreter,&params[2]));
+    let sm = get_int(&evaluate_exp(interpreter,&params[3]));
     interpreter.io.fappend(channel, file, am, sm);
 }
 
@@ -62,7 +62,7 @@ pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) {
 pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) {
     let channel = get_int(&evaluate_exp(interpreter,&params[0])) as usize;
     let value = VariableValue::String(interpreter.io.fget(channel));
-    let var_name = get_var_name(&params[0]);
+    let var_name = get_var_name(&params[1]);
     let var_type = interpreter.prg.get_var_type(&var_name);
     interpreter.cur_frame.values.insert(var_name, convert_to(var_type, &value));
 }

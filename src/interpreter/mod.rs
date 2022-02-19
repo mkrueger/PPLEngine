@@ -248,6 +248,10 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
                 if x == PPL_TRUE {
                     execute_statement(interpreter, statement);
                 }
+            } else if let VariableValue::Boolean(x) = value {
+                if x {
+                    execute_statement(interpreter, statement);
+                }
             } else {
                 panic!("no bool value {:?}", value);
             }
@@ -327,6 +331,7 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext, io: &mut dyn PCBoardI
 
 #[cfg(test)]
 mod tests {
+
     use crate::parser::parse_program;
 
     use super::*;
@@ -511,10 +516,14 @@ PRINT B
         "#, "8192,2048,0,1,32,2,2,1,2,16,1,4,8,1,4,4096,4,256,128,32768,65536,0,64,1024,0,2,1,2,1,2,0,16,3,0,1,2,8,512,16384,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,");
     }
 
-    fn check_output(prg: &str, out: &str) {        
-        let mut ctx = TestContext { output: String::new() };
+    fn check_output(prg: &str, out: &str) {
         let mut io = MemoryIO::new();
-        run(&parse_program(prg), &mut ctx, &mut io);
+        check_output_withio(prg, &mut io, out);
+    }
+
+    fn check_output_withio(prg: &str, io: &mut dyn PCBoardIO, out: &str) {
+        let mut ctx = TestContext { output: String::new() };
+        run(&parse_program(prg), &mut ctx, io);
         assert_eq!(out, ctx.output);
     }
 
@@ -629,6 +638,66 @@ PRINT RIGHT(STR001, 5), ",", RIGHT("A", 5), ",", RIGHT(STR001, -10), ",", RIGHT(
         "#, "FOO,.BAR,");
     }
 
+    #[test]
+    fn test_func_fput()
+    {
+        let prg = r#"
+FCREATE 1, "C:\PCB\MAIN\PPE.LOG", O_RW, S_DN
+FPUT 1, "Hello World"
+FCLOSE 1
+"#;
+        let mut io = MemoryIO::new();
+        let mut ctx = TestContext { output: String::new() };
+        run(&parse_program(prg), &mut ctx, &mut io);
+        assert!(io.files.contains_key(r"C:\PCB\MAIN\PPE.LOG"));
+        let content = io.files.get(r"C:\PCB\MAIN\PPE.LOG").unwrap();
+        assert!(*content == "Hello World".to_string());
+    }
 
-    
+    #[test]
+    fn test_func_fputln()
+    {
+        let prg = r#"
+        FCREATE 1, "C:\PCB\MAIN\PPE.LOG", O_RW, S_DN
+        FPUTLN 1, 1, 2, 3
+        FPUTLN 1, "Hello"
+        FPUTLN 1
+        FCLOSE 1
+                "#;
+        let mut io = MemoryIO::new();
+        let mut ctx = TestContext { output: String::new() };
+        run(&parse_program(prg), &mut ctx, &mut io);
+        assert!(io.files.contains_key(r"C:\PCB\MAIN\PPE.LOG"));
+    }
+
+    #[test]
+    fn test_func_fopen_ferr_fget()
+    {
+        let prg = r#"
+INTEGER i
+STRING s
+LET i = 0
+FCREATE 1, "FILE.DAT", O_RW, S_DN
+FPUTLN 1, "Hello"
+FPUTLN 1, "World"
+FPUTLN 1, "!"
+FCLOSE 1
+
+FOPEN 1,"FILE.DAT", O_RD, S_DW
+FGET 1, s
+:LOOP
+IF (FERR(1)) GOTO SKIP
+   INC i
+   PRINTLN "Line ", RIGHT(i, 2), ": ", s
+   FGET 1, s
+GOTO LOOP
+:SKIP
+FCLOSE 1
+"#;
+        let mut io = MemoryIO::new();
+
+        check_output_withio(prg, &mut io, "Line  1: Hello\nLine  2: World\nLine  3: !\n");
+    }
+
+
 }

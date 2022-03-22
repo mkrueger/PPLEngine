@@ -1,10 +1,10 @@
-use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::{many0, separated_list0}, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
+use nom::{branch::alt, bytes::complete::{tag, tag_no_case, take_while, take_while1}, character::complete::{alpha1, space1, alphanumeric1, multispace0, none_of}, combinator::{map, map_res, opt, recognize, value, eof}, error::{ParseError}, multi::{many0, separated_list0}, sequence::{delimited, preceded, pair, separated_pair, terminated}, IResult };
 use nom::bytes::complete::{take_while_m_n,is_not};
 use nom::character::complete::{multispace1};
 use nom::sequence::tuple;
 use std::str::FromStr;
 use std::string::String;
-use crate::{ast::{BinOp, Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType}, tables::FUNCTION_DEFINITIONS};
+use crate::{ast::{BinOp, Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType, ElseIfBlock}, tables::FUNCTION_DEFINITIONS};
 
 use crate::tables::{ STATEMENT_DEFINITIONS};
 
@@ -228,7 +228,6 @@ pub fn money(input: &str) -> IResult<&str, Constant> {
             })(input)
 }
 
-
 fn parse_parenexpr(input: &str) -> nom::IResult<&str, Expression>
 {
     map(delimited(
@@ -310,9 +309,7 @@ fn parse_expression(line: &str) -> nom::IResult<&str, Expression> {
                         return Expression::PredefinedFunctionCall(item, z.1);
                     }
                 }
-
                 Expression::FunctionCall(z.0.to_string(), z.1)
-            
         }),
         // !expr
         map(separated_pair(tag("!"), multispace0, parse_expression),
@@ -331,7 +328,10 @@ fn parse_expression(line: &str) -> nom::IResult<&str, Expression> {
     )(line)
 }
 
-
+enum IfType {
+    IfThen(Vec<Statement>, Option<Vec<ElseIfBlock>>, Option<Vec<Statement>>),
+    If(Statement)
+}
 /// .
 ///
 /// # Examples
@@ -346,31 +346,52 @@ fn parse_expression(line: &str) -> nom::IResult<&str, Expression> {
 /// This function will return an error if .
 pub fn parse_if_statement(input: &str) -> nom::IResult<&str, Statement>
 {
-    alt((
-        map(
-            tuple((
-                tag_no_case("IF"), 
-                ws(tag("(")), 
-                parse_expression,
-                ws(tag(")")),
-                alt((map(tag_no_case("THEN"), |_| None), map(parse_statement, Some)))
+    map(
+        tuple((
+            tag_no_case("IF"), 
+            ws(tag("(")), 
+            parse_expression,
+            ws(tag(")")),
+            alt((
+                map(tuple((
+                    ws(tag_no_case("THEN")), 
+                    many0(parse_statement),
+                    many0(
+                        map(
+                        tuple((
+                            ws(tag_no_case("ELSEIF")), 
+                            ws(tag("(")), 
+                            parse_expression,
+                            ws(tag(")")),
+                            ws(tag_no_case("THEN")),
+                            many0(parse_statement)
+                        )), |z| { ElseIfBlock { cond: Box::new(z.2), block: z.5} }
+                    )),
+                    opt(preceded(
+                        ws(tag_no_case("ELSE")), 
+                        many0(parse_statement)
+                    )),
+                    ws(tag_no_case("ENDIF"))
+                )), |z| IfType::IfThen(z.1, if z.2.is_empty() { None } else { Some(z.2) }, z.3)), 
+                
+                map(parse_statement, IfType::If)
             )),
-            |z| match z.4 {
-                Some(s) => Statement::If(Box::new(z.2), Box::new(s)),
-                None => Statement::IfThen(Box::new(z.2))
-            }),
-            map(
-                tuple((
-                    tag_no_case("ELSEIF"), 
-                    ws(tag("(")), 
-                    parse_expression,
-                    ws(tag(")")),
-                    tag_no_case("THEN")
-                )),
-                |z| Statement::ElseIf(Box::new(z.2)))
+         )),
+        |z| match z.4 {
+            IfType::If(s) => Statement::If(Box::new(z.2), Box::new(s)),
+            IfType::IfThen(stmts, blocks, elseBlock) => Statement::IfThen(Box::new(z.2), stmts, blocks, elseBlock)
+        })
     
-    ))(input)
+    (input)
 }
+
+
+
+enum WhileType {
+    WhileBlock(Vec<Statement>),
+    While(Statement)
+}
+
 
 /// .
 ///
@@ -392,11 +413,20 @@ pub fn parse_while_statement(input: &str) -> nom::IResult<&str, Statement>
             ws(tag("(")), 
             parse_expression,
             ws(tag(")")),
-            alt((map(tag_no_case("DO"), |_| None), map(parse_statement, Some)))
+            alt((
+                map(tuple((
+                    tag_no_case("DO"), 
+                    multispace0,
+                    opt(many0(parse_statement)),
+                    multispace0,
+                    tag_no_case("ENDWHILE")
+                )), |z| WhileType::WhileBlock(Vec::new())), 
+                map(parse_statement, WhileType::While)
+            )),
         )),
         |z| match z.4 {
-            Some(s) => Statement::While(Box::new(z.2), Box::new(s)),
-            None => Statement::DoWhile(Box::new(z.2))
+            WhileType::While(s) => Statement::While(Box::new(z.2), Box::new(s)),
+            WhileType::WhileBlock(stmt) => Statement::DoWhile(Box::new(z.2), stmt)
     })(input)
 }
 
@@ -422,9 +452,11 @@ pub fn parse_for_statement(input: &str) -> nom::IResult<&str, Statement>
             parse_expression,
             ws(tag_no_case("TO")),
             parse_expression,
-            opt(pair(ws(tag_no_case("STEP")),  parse_expression))
+            opt(pair(ws(tag_no_case("STEP")),  parse_expression)),
+            many0(parse_statement),
+            ws(tag_no_case("NEXT")),
         )),
-        |z| Statement::For(Box::new(Expression::Identifier(z.1.to_string())), Box::new(z.3), Box::new(z.5), if let Some(step) = z.6 { Some(Box::new(step.1)) } else { None })
+        |z| Statement::For(Box::new(Expression::Identifier(z.1.to_string())), Box::new(z.3), Box::new(z.5), if let Some(step) = z.6 { Some(Box::new(step.1)) } else { None }, z.7)
     )(input)
 }
 
@@ -477,11 +509,7 @@ pub fn parse_statement(input: &str) -> nom::IResult<&str, Statement>
         map(tuple((tag_no_case("GOSUB"), sp, identifier)), |z| Statement::Gosub(z.2.to_string())),
         map(tuple((tag_no_case("INC"), sp, parse_expression)), |z| Statement::Inc(Box::new(z.2))),
         map(tuple((tag_no_case("DEC"), sp, parse_expression)), |z| Statement::Dec(Box::new(z.2))),
-        map(tag_no_case("ENDWHILE"), |_| Statement::EndWhile),
-        map(tag_no_case("ENDIF"), |_| Statement::EndIf),
-        map(tag_no_case("END"), |_| Statement::End),
-        map(tag_no_case("ELSE"), |_| Statement::Else),
-        map(tag_no_case("NEXT"), |_| Statement::Next),
+        map(tuple((tag_no_case("END"), space1 )), |_| Statement::End),
         map(tag_no_case("BREAK"), |_| Statement::Break),
         map(tag_no_case("CONTINUE"), |_| Statement::Continue),
         map(tag_no_case("RETURN"), |_| Statement::Return),
@@ -607,27 +635,51 @@ mod tests {
     #[test]
     fn test_parse_simple_noncalls() {
         check_statements("End ; Predifined End", vec![Statement::End]);
-        check_statements("Else", vec![Statement::Else]);
-        check_statements(";Endif\nENDIF", vec![Statement::EndIf]);
-        check_statements("NEXT ; FOR", vec![Statement::Next]);
         check_statements("\nBREAK\n", vec![Statement::Break]);
         check_statements("     CONTINUE        ", vec![Statement::Continue]);
         check_statements("          RETURN", vec![Statement::Return]);
         check_statements("STOP      ", vec![Statement::Stop]);
-        check_statements("ENDWHILE ", vec![Statement::EndWhile]);
     }
 
     #[test]
     fn test_parse_if() {
-        check_statements("IF (FALSE) END", vec![Statement::If(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
-        check_statements("IF (TRUE) THEN", vec![Statement::IfThen(Box::new(Expression::Const(Constant::Boolean(true))))]);
-        check_statements("ELSEIF (TRUE) THEN", vec![Statement::ElseIf(Box::new(Expression::Const(Constant::Boolean(true))))]);
+        check_statements("IF (FALSE) END ", vec![Statement::If(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
+
+        let print_hello = parse_statement("PRINT \"Hello Word\"").unwrap();
+        let print_5 = parse_statement("PRINT 5").unwrap();
+
+        check_statements("IF (TRUE) THEN PRINT \"Hello Word\" ENDIF", vec![Statement::IfThen(
+            Box::new(Expression::Const(Constant::Boolean(true))),
+            vec![print_hello.1.clone()], None, None)]);
+
+        check_statements("IF (TRUE) THEN PRINT \"Hello Word\" ELSEIF (TRUE) THEN PRINT 5 ENDIF", 
+        vec![
+            Statement::IfThen(
+                Box::new(Expression::Const(Constant::Boolean(true))),
+                vec![print_hello.1.clone()],
+                Some(vec![ElseIfBlock { 
+                    cond: Box::new(Expression::Const(Constant::Boolean(true))),
+                    block:vec![print_5.1]
+                }]), 
+                None
+            )
+        ]);
+
+        let print_5 = parse_statement("PRINT 5").unwrap();
+        check_statements("IF (FALSE) THEN ELSE PRINT 5 ENDIF", vec![Statement::IfThen(
+            Box::new(Expression::Const(Constant::Boolean(false))),
+            Vec::new(),
+            None,
+            Some(vec![print_5.1]))
+            
+            ]);
+
     }  
     
     #[test]
     fn test_parse_while() {
-        check_statements("WHILE (FALSE) END", vec![Statement::While(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
-        check_statements("WHILE (TRUE) DO", vec![Statement::DoWhile(Box::new(Expression::Const(Constant::Boolean(true))))]);
+        check_statements("WHILE (FALSE) END ", vec![Statement::While(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End))]);
+        check_statements("WHILE (TRUE) DO ENDWHILE", vec![Statement::DoWhile(Box::new(Expression::Const(Constant::Boolean(true))), Vec::new() )]);
     }
 
     #[test]
@@ -656,9 +708,15 @@ mod tests {
 
     #[test]
     fn test_for_next() {
-        check_statements("FOR i = 1 TO 10", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), None)]);
-        check_statements("FOR i = 1 TO 10 STEP 5", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Const(Constant::Integer(5)))))]);
-        check_statements("FOR i = 1 TO 10 STEP -1", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Minus(Box::new(Expression::Const(Constant::Integer(1)))))))]);
+        check_statements("FOR i = 1 TO 10 NEXT", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), None, Vec::new())]);
+        check_statements("FOR i = 1 TO 10 STEP 5 NEXT", vec![Statement::For(
+            Box::new(Expression::Identifier("i".to_string())), 
+            Box::new(Expression::Const(Constant::Integer(1))), 
+            Box::new(Expression::Const(Constant::Integer(10))), 
+            Some(Box::new(Expression::Const(Constant::Integer(5)))),
+            Vec::new())
+        ]);
+        check_statements("FOR i = 1 TO 10 STEP -1 NEXT", vec![Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Minus(Box::new(Expression::Const(Constant::Integer(1)))))), Vec::new())]);
     }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition>

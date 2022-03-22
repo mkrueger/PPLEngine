@@ -271,13 +271,9 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
         /* unsupported for now - the compiler does not generate them */
         Statement::Continue => { panic!("unsupported statement Continue")},
         Statement::Break => { panic!("unsupported statement Break")},
-        Statement::EndWhile => { panic!("unsupported statement EndWhile")},
-        Statement::EndIf => { panic!("unsupported statement EndIf")},
-        Statement::Next => { panic!("unsupported statement Next")},
-        Statement::For(_, _, _, _) => { panic!("unsupported statement For")},
-        Statement::DoWhile(_) => { panic!("unsupported statement DoWhile")},
-        Statement::IfThen(_) => { panic!("unsupported statement IfThen")},
-        Statement::Else => { panic!("unsupported statement Else")},
+        Statement::For(_, _, _, _, _) => { panic!("unsupported statement For")},
+        Statement::DoWhile(_, _) => { panic!("unsupported statement DoWhile")},
+        Statement::IfThen(_, _, _, _) => { panic!("unsupported statement IfThen")},
 
         // nop statements
         Statement::Label(_) |

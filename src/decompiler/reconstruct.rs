@@ -11,13 +11,13 @@ pub fn do_pass3(prg: &mut Program) {
 }
 
 fn optimize_block(block: &mut Block) {
-    scan_for_next(block);
-    scan_do_while(block);
-    scan_break_continue(block);
-    scan_if_else(block);
-    scan_if(block);
+    // scan_for_next(block);
+    // scan_do_while(block);
+    // scan_break_continue(block);
+    // scan_if_else(block);
+    // scan_if(block);
     strip_unused_labels(block);
-    scan_elseif(block);
+   // scan_elseif(block);
     strip_unused_labels(block);
 }
 
@@ -31,49 +31,13 @@ fn get_label_index(block: &Block, from: i32, to: i32, label: &String) -> Option<
     }
     None
 }
-
-/// Check if no next, endwhile or endif is between from…to that is not starting inside from…to
-fn is_balanced(block: &Block, from: usize, to: usize) -> bool {
-    let mut if_nesting = 0;
-    let mut for_nesting = 0;
-    let mut while_nesting = 0;
-
-    for i in from..to {
-        match &block.statements[i] {
-            Statement::IfThen(_cond) => if_nesting += 1,
-            Statement::EndIf => {
-                if_nesting -= 1;
-                if if_nesting < 0 {
-                    return false;
-                }
-            }
-            Statement::DoWhile(_cond) => while_nesting += 1,
-            Statement::EndWhile => {
-                while_nesting -= 1;
-                if while_nesting < 0 {
-                    return false;
-                }
-            }
-            Statement::For(_iter, _from, _to, _step) => for_nesting += 1,
-            Statement::Next => {
-                for_nesting -= 1;
-                if for_nesting < 0 {
-                    return false;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    true
-}
-
+/*
 fn scan_elseif(block: &mut Block) {
     let mut i = 0;
     while i < block.statements.len() - 1 {
         if let Statement::Else = &block.statements[i] {
             match &block.statements[i + 1] {
-                Statement::IfThen(cond) => {
+                /*Statement::IfThen(cond) => {
                     let mut nested = 1;
                     for j in (i + 2)..(block.statements.len() - 1) {
                         match &block.statements[j] {
@@ -126,14 +90,14 @@ fn scan_elseif(block: &mut Block) {
                             }
                         }
                     }
-                }
+                }*/
                 _ => {}
             }
         }
         i += 1;
     }
-}
-
+} */
+/* 
 fn scan_if(block: &mut Block) {
     for i in 0..block.statements.len() {
         if let Statement::If(cond, stmt) = &block.statements[i] {
@@ -203,7 +167,7 @@ fn scan_if_else(block: &mut Block) {
         }
     }
 }
-
+*/
 fn mach_for_construct(
     label: &Statement,
     if_statement: &Statement,
@@ -285,7 +249,7 @@ fn mach_for_construct(
 
     None
 }
-
+/*
 fn scan_for_next(block: &mut Block) {
     // FOR Header:
     // LET VAR001 = [START]
@@ -387,7 +351,7 @@ fn scan_for_next(block: &mut Block) {
         i += 1;
     }
 }
-
+*/
 fn scan_possible_breaks(block: &mut [Statement], start: usize, end: usize, break_label: &str) {
     for cur_stmt in &mut block[start..end] {
         match cur_stmt {
@@ -457,7 +421,7 @@ fn scan_possible_continues(
         }
     }
 }
-
+/*
 fn scan_do_while(block: &mut Block) {
     let mut i = 0;
     while i < block.statements.len() {
@@ -533,6 +497,7 @@ fn scan_break_continue(block: &mut Block) {
         let mut nested = 0;
 
         match &block.statements[i] {
+            /*
             Statement::DoWhile(_cond) => {
                 for j in (i + 1)..block.statements.len() {
                     match &block.statements[j] {
@@ -603,6 +568,7 @@ fn scan_break_continue(block: &mut Block) {
                     }
                 }
             }
+            */
             Statement::For(_label, _from, _to, _step) => {
                 for j in (i + 1)..block.statements.len() {
                     match &block.statements[j] {
@@ -684,7 +650,7 @@ fn scan_break_continue(block: &mut Block) {
         i += 1;
     }
 }
-
+*/
 fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
     match stmt {
         Statement::If(_cond, stmt) => {
@@ -736,7 +702,7 @@ fn scan_replace_vars(
     file_names: &mut i32,
 ) {
     match stmt {
-        Statement::For(v, _, _, _) => {
+        Statement::For(v, _, _, _, _) => {
             let var_name = get_var_name(&*v);
             if !rename_map.contains_key(&var_name) && *index < INDEX_VARS.len() as i32 {
                 rename_map.insert(var_name, INDEX_VARS[*index as usize].to_string());
@@ -808,10 +774,10 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             replace_in_expression(expr, rename_map);
             replace_in_statement(stmt2, rename_map);
         }
-        Statement::IfThen(expr) |
-        Statement::ElseIf(expr) |
-        Statement::DoWhile(expr) => replace_in_expression(expr, rename_map),
-        Statement::For(expr1, expr2, expr3, _) => {
+       // Statement::IfThen(expr) |
+       // Statement::ElseIf(expr) |
+       // Statement::DoWhile(expr) => replace_in_expression(expr, rename_map),
+        Statement::For(expr1, expr2, expr3, _, _ ) => {
             replace_in_expression(expr1, rename_map);
             replace_in_expression(expr2, rename_map);
             replace_in_expression(expr3, rename_map);

@@ -259,12 +259,12 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
         }
 
         Statement::Inc(expr) => {
-            let new_value = evaluate_exp(interpreter, expr) + VariableValue::Integer(1);
+            let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone())) + VariableValue::Integer(1);
             interpreter.cur_frame.values.insert(expr.to_string(), new_value);
         }
 
         Statement::Dec(expr) => {
-            let new_value = evaluate_exp(interpreter, expr) + VariableValue::Integer(-1);
+            let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone())) + VariableValue::Integer(-1);
             interpreter.cur_frame.values.insert(expr.to_string(), new_value);
         }
 

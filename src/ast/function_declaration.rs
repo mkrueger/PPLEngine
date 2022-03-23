@@ -4,7 +4,7 @@ use crate::{interpreter::ProgramContext, tables::OpCode};
 
 use super::{Declaration, Block, Statement, VariableType};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration
 {
     pub id: i32,
@@ -68,14 +68,16 @@ impl FunctionDeclaration {
     }
 }
 
-
 fn match_var_name(decl : &Declaration, var_name : &str) -> Option<VariableType>
 {
     match decl {
-        Declaration::Variable(var_type, name) => if *name == *var_name { return Some(*var_type); },
-        Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return Some(*var_type); },
-        Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return Some(*var_type); },
-        Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return Some(*var_type); },
+        Declaration::Variable(var_type, name) => {
+            for info in name { 
+                if *info.get_name() == *var_name { 
+                    return Some(*var_type); 
+                } 
+            }
+        }
         _ => {  }
     }
     None

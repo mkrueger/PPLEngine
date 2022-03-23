@@ -23,14 +23,12 @@ pub enum Statement {
     Gosub(String),
     Return,
     Stop,
-    EndFunc,
-    EndProc,
     Let(Box<Expression>, Box<Expression>),
     Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
-    Inc(Box<Expression>),
-    Dec(Box<Expression>),
+    Inc(String),
+    Dec(String),
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 
@@ -111,21 +109,21 @@ impl Statement
         res
     }
 
-    fn output_if_stmts(prg: &dyn ProgramContext, stmts: &Vec<Statement>, elseIf: &Option<Vec<ElseIfBlock>>, elseBlock: &Option<Vec<Statement>>, indent: i32) -> String
+    fn output_if_stmts(prg: &dyn ProgramContext, stmts: &Vec<Statement>, else_if: &Option<Vec<ElseIfBlock>>, else_block: &Option<Vec<Statement>>, indent: i32) -> String
     {
         let mut res = String::new();
 
         res.push_str(&Statement::output_stmts(prg, stmts, indent));
 
-        if let Some(else_if_blocks) = &elseIf {
+        if let Some(else_if_blocks) = &else_if {
             for else_if_block in else_if_blocks {
                 res.push_str(&format!("{} ({}) {}\n", output_keyword("ElseIf"), Statement::out_bool_func(&else_if_block.cond), output_keyword("Then")));
                 res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
             }
         }
-        if let Some(elseBlock) = elseBlock {
+        if let Some(else_block) = else_block {
             res.push_str(&output_keyword("Else"));
-            res.push_str(&Statement::output_stmts(prg, &elseBlock, indent));
+            res.push_str(&Statement::output_stmts(prg, &else_block, indent));
         }
 
         res
@@ -151,15 +149,13 @@ impl Statement
             Statement::Comment(str) => (format!(";{}", str), indent, 0),
             Statement::While(cond, stmt) => (format!("{} ({}) {}", output_keyword("While"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
             Statement::If(cond, stmt) => (format!("{} ({}) {}", output_keyword("If"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
-            Statement::IfThen(cond, stmts, elseIfBlocks, elseBlock) => (format!("{} ({}) {}\n{}\n{}{}", output_keyword("If"), Statement::out_bool_func(cond), output_keyword("Then"), Statement::output_if_stmts(prg, stmts, elseIfBlocks, elseBlock, indent), Statement::get_indent(indent), output_keyword("EndIf")), indent + 1, 0),
+            Statement::IfThen(cond, stmts, else_if_blocks, else_block) => (format!("{} ({}) {}\n{}\n{}{}", output_keyword("If"), Statement::out_bool_func(cond), output_keyword("Then"), Statement::output_if_stmts(prg, stmts, else_if_blocks, else_block, indent), Statement::get_indent(indent), output_keyword("EndIf")), indent + 1, 0),
             Statement::DoWhile(cond,stmts) => (format!("{} ({}) {}\n{}\n{}{}", output_keyword("While"), Statement::out_bool_func(cond), output_keyword("Do"), Statement::output_stmts(prg, stmts, indent), Statement::get_indent(indent), output_keyword("EndWhile")), indent + 1, 0),
             Statement::Break => (output_keyword("Break"), indent, 0),
             Statement::Continue => (output_keyword("Continue"), indent, 0),
             Statement::End => (output_keyword("End"), indent, 0),
             Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label), indent, 0),
             Statement::Return => (output_keyword("Return"), indent, 0),
-            Statement::EndFunc => (output_keyword("EndFunc"), indent, -1),
-            Statement::EndProc => (output_keyword("EndProc"), indent, -1),
             Statement::Let(var, expr) => {
                 let expected_type = prg.get_var_type(&get_var_name(var));
                 let expr2 = if expected_type == VariableType::Boolean {

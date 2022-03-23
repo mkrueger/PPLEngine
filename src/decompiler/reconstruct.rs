@@ -1,4 +1,4 @@
-use super::{BinOp, Block, Declaration, Expression, HashMap, HashSet, OpCode, Program, Statement, get_var_name};
+use super::{Block, Declaration, Expression, HashMap, HashSet, OpCode, Program, Statement, get_var_name};
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.main_block);
@@ -684,7 +684,7 @@ fn strip_unused_labels(block: &mut Block) {
 }
 
 pub fn do_pass4(prg: &mut Program) {
-    rename_variables(&mut prg.main_block, &mut prg.variable_declarations);
+    rename_variables(&mut prg.main_block, &mut prg.declarations);
     for fd in &mut prg.function_declarations {
         rename_variables(&mut fd.block, &mut fd.variable_declarations);
     }
@@ -748,7 +748,7 @@ fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>) {
     for stmt in &block.statements {
         scan_replace_vars(stmt, &mut rename_map, &mut index, &mut file_names);
     }
-
+/* 
     for decl in declarations {
         match decl {
             Declaration::Variable(_, name) |
@@ -762,7 +762,7 @@ fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>) {
             _ => {}
         }
     }
-
+*/
     for stmt in &mut block.statements {
         replace_in_statement(stmt, &rename_map);
     }

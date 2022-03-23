@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
-use crate::ast::{BinOp, Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType, get_var_name};
+use crate::ast::{Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType, get_var_name};
 use crate::executable::{Executable, read_file};
 use crate::tables::{BIN_EXPR, FUNCTION_DEFINITIONS, FuncOpCode, OpCode, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 
@@ -366,10 +366,10 @@ impl Decompiler {
 
                                 };
                                 match cur_var.dim {
-                                    1 => prg.variable_declarations.push(Declaration::Variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
-                                    2 => prg.variable_declarations.push(Declaration::Variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
-                                    3 => prg.variable_declarations.push(Declaration::Variable3(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
-                                    _ => prg.variable_declarations.push(Declaration::Variable(var_type, cur_var.var_name.clone()))
+                                    1 => prg.declarations.push(Declaration::create_variable1(var_type, cur_var.var_name.clone(), cur_var.vector_size)),
+                                    2 => prg.declarations.push(Declaration::create_variable2(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size)),
+                                    3 => prg.declarations.push(Declaration::create_variable3(var_type, cur_var.var_name.clone(), cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
+                                    _ => prg.declarations.push(Declaration::create_variable(var_type, cur_var.var_name.clone()))
                                 }
                             }
                         }
@@ -392,7 +392,7 @@ impl Decompiler {
         for _ in 0..self.executable.variable_declarations.get(&func).unwrap().args {
             let var_name = format!("LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
             let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
-            func_parameters.push(Declaration::Variable(var_type, var_name));
+            func_parameters.push(Declaration::create_variable(var_type, var_name));
             self.executable.variable_declarations.get_mut(&j).unwrap().function_id = func;
             j += 1;
         }
@@ -412,7 +412,7 @@ impl Decompiler {
         for _ in 0..self.executable.variable_declarations.get(&proc).unwrap().args {
             let var_name = format!(" LOC{0:>03}", self.executable.variable_declarations.get(&j).unwrap().number);
             let var_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
-            proc_parameters.push(Declaration::Variable(var_type, var_name));
+            proc_parameters.push(Declaration::create_variable(var_type, var_name));
             self.executable.variable_declarations.get_mut(&j).unwrap().function_id = proc;
             j += 1;
         }
@@ -491,10 +491,10 @@ impl Decompiler {
                     let func = Decompiler::get_function_mut(prg, func).unwrap();
 
                     match cur_var.dim {
-                        1 => func.variable_declarations.push(Declaration::Variable1(var_type, var_name, cur_var.vector_size)),
-                        2 => func.variable_declarations.push(Declaration::Variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
-                        3 => func.variable_declarations.push(Declaration::Variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
-                        _ => func.variable_declarations.push(Declaration::Variable(var_type, var_name))
+                        1 => func.variable_declarations.push(Declaration::create_variable1(var_type, var_name, cur_var.vector_size)),
+                        2 => func.variable_declarations.push(Declaration::create_variable2(var_type, var_name, cur_var.vector_size, cur_var.matrix_size)),
+                        3 => func.variable_declarations.push(Declaration::create_variable3(var_type, var_name, cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size)),
+                        _ => func.variable_declarations.push(Declaration::create_variable(var_type, var_name))
                     }
                 }
             }
@@ -1178,18 +1178,20 @@ impl Decompiler {
                 }
                 OpCode::INC => {
                     let variable = self.pop_expr().unwrap();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Inc(Box::new(variable)));
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Inc(variable.to_string()));
                 }
                 OpCode::DEC => {
                     let variable = self.pop_expr().unwrap();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(Box::new(variable)));
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Dec(variable.to_string()));
                 }
                 OpCode::FPCLR => {
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);
+                    // TODO?
+                    //self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);
                     self.src_ptr += 1;
                 }
                 OpCode::FEND => {
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::EndFunc);
+                    // TODO?
+                    //self.outputpass2(prg, &mut if_while_stack,  Statement::EndFunc);
                     self.src_ptr += 1;
                 }
                 OpCode::PCALL => { // PCALL

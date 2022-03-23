@@ -8,7 +8,7 @@ use super::{Declaration, Block, FunctionDeclaration, VariableType};
 #[derive(Debug, PartialEq)]
 pub struct Program
 {
-    pub variable_declarations: Vec<Declaration>,
+    pub declarations: Vec<Declaration>,
     pub function_declarations: Vec<FunctionDeclaration>,
     pub procedure_declarations: Vec<FunctionDeclaration>,
     pub main_block: Block,
@@ -32,7 +32,7 @@ impl fmt::Display for Program {
             res.push_str(&v.to_string());
             res.push('\n');
         }
-        for v in &self.variable_declarations {
+        for v in &self.declarations {
             res.push_str(&v.to_string());
             res.push('\n');
         }
@@ -61,7 +61,7 @@ impl Program
     pub fn new() -> Self
     {
         Program {
-            variable_declarations: vec![],
+            declarations: vec![],
             main_block: Block {
                 statements: vec![]
             },
@@ -81,12 +81,14 @@ impl ProgramContext for Program
 {
     fn get_var_type(&self, var_name: &str) -> VariableType
     {
-        for decl in &self.variable_declarations {
+        for decl in &self.declarations {
             match decl {
-                Declaration::Variable(var_type, name) => if *name == *var_name { return *var_type; },
-                Declaration::Variable1(var_type, name, _dim1) => if *name == *var_name { return *var_type; },
-                Declaration::Variable2(var_type, name, _dim1, _dim2) => if *name == *var_name { return *var_type; },
-                Declaration::Variable3(var_type, name, _dim1, _dim2, _dim3) => if *name == *var_name { return *var_type; },
+                Declaration::Variable(var_type, var_infos) => {
+                    for var_info in var_infos {
+                        if *var_info.get_name() == *var_name { return *var_type; }
+                    }
+                
+                },
                 _ => {}
             }
         }

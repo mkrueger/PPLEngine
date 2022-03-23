@@ -1026,6 +1026,18 @@ pub struct FunctionDefinition<'a>
     pub args: i8
 }
 
+pub fn get_function_definition(str: &str) -> i32
+{
+    let mut i = 0;
+    for item in &FUNCTION_DEFINITIONS {
+        if item.name.eq_ignore_ascii_case(str) {
+            return i;
+        }
+        i += 1;
+    }
+    -1
+}
+
 pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 287] = [
     FunctionDefinition { name: "END", opcode: FuncOpCode::END, args: -1 },
     FunctionDefinition { name: "CPAR", opcode: FuncOpCode::CPAR, args: -1 },

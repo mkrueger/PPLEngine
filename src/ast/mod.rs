@@ -16,8 +16,8 @@ pub use self::block::*;
 pub mod program;
 pub use self::program::*;
 
-pub mod function_declaration;
-pub use self::function_declaration::*;
+pub mod function_implementation;
+pub use self::function_implementation::*;
 
 pub mod variable_type;
 pub use self::variable_type::*;

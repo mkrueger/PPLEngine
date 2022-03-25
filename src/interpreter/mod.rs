@@ -327,7 +327,6 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext, io: &mut dyn PCBoardI
 
 #[cfg(test)]
 mod tests {
-
     use crate::parser::parse_program;
 
     use super::*;

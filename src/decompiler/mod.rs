@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
-use crate::ast::{Block, Constant, Declaration, Expression, FunctionDeclaration, Program, Statement, VariableType, get_var_name};
+use crate::ast::{Block, Constant, Declaration, Expression, FunctionImplementation, Program, Statement, VariableType, get_var_name};
 use crate::executable::{Executable, read_file};
 use crate::tables::{BIN_EXPR, FUNCTION_DEFINITIONS, FuncOpCode, OpCode, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 
@@ -125,7 +125,7 @@ impl Decompiler {
     pub fn output_stmt(&mut self, prg: &mut Program, stmt: Statement)
     {
         if self.func_flag > 0 {
-            for decl in &mut prg.function_declarations {
+            for decl in &mut prg.function_implementations {
                 if decl.id == self.func_flag {
                     decl.block.statements.push(stmt);
                     return;
@@ -133,7 +133,7 @@ impl Decompiler {
             }
         }
         if self.proc_flag > 0 {
-            for decl in &mut prg.procedure_declarations {
+            for decl in &mut prg.procedure_implementations {
                 if decl.id == self.proc_flag {
                     decl.block.statements.push(stmt);
                     return;
@@ -397,7 +397,7 @@ impl Decompiler {
             j += 1;
         }
         let func_type = TYPE_NAMES[self.executable.variable_declarations.get(&j).unwrap().variable_type as usize];
-        prg.function_declarations.push(FunctionDeclaration {
+        prg.function_implementations.push(FunctionImplementation {
             id: func,
             declaration: Declaration::Function(func_name, func_parameters, func_type),
             block: Block::new(),
@@ -416,7 +416,7 @@ impl Decompiler {
             self.executable.variable_declarations.get_mut(&j).unwrap().function_id = proc;
             j += 1;
         }
-        prg.procedure_declarations.push(FunctionDeclaration {
+        prg.procedure_implementations.push(FunctionImplementation {
             id: proc,
             declaration: Declaration::Procedure(proc_name, proc_parameters),
             block: Block::new(),
@@ -448,13 +448,13 @@ impl Decompiler {
         }
     }
     
-    fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionDeclaration> {
-        for f in &mut prg.function_declarations {
+    fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionImplementation> {
+        for f in &mut prg.function_implementations {
             if f.id == func {
                 return Some(f);
             }
         }
-        for f in &mut prg.procedure_declarations {
+        for f in &mut prg.procedure_implementations {
             if f.id == func {
                 return Some(f);
             }

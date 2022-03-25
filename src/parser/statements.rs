@@ -1,21 +1,190 @@
 use crate::{
-    ast::{Expression, Statement},
+    ast::{Expression, Statement, ElseIfBlock},
     tables::STATEMENT_DEFINITIONS,
 };
 
 use super::tokens::{Token, Tokenizer};
 
 impl Tokenizer {
+    pub fn skip_eol(&mut self) {
+        while self.cur_token == Some(Token::Eol) {
+            self.next_token();
+        }
+    }
+
+    fn parse_while(&mut self) -> Statement {
+        if self.cur_token != Some(Token::LPar) {
+            panic!("'(' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+        let cond = self.parse_expression();
+
+        if self.cur_token != Some(Token::RPar) {
+            panic!("')' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+        
+        if self.cur_token  == Some(Token::Identifier("DO".to_string())) {
+            self.next_token();
+            let mut statements = Vec::new();
+            self.skip_eol();
+            while self.cur_token != Some(Token::Identifier("ENDWHILE".to_string())) {
+                statements.push(self.parse_statement());
+                self.skip_eol();
+            }
+            self.next_token(); // skip ENDWHILE
+            Statement::DoWhile(Box::new(cond), statements)
+        } else {
+            Statement::While(Box::new(cond), Box::new(self.parse_statement()))
+        }
+    }
+
+    fn parse_for(&mut self) -> Statement {
+
+        let var = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+            self.next_token();
+
+            Expression::Identifier(id)
+        } else {
+            panic!("identifier expected got: {:?}", self.cur_token)
+        };
+
+        if self.cur_token != Some(Token::Eq) {
+            panic!("'=' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+        let from = self.parse_expression();
+
+        if self.cur_token != Some(Token::Identifier("TO".to_string())) {
+            panic!("'TO' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+
+        let to = self.parse_expression();
+
+        let step =  if self.cur_token  == Some(Token::Identifier("STEP".to_string())) {
+            self.next_token();
+            Some(Box::new(self.parse_expression()))
+        } else { None };
+
+        let mut statements = Vec::new();
+        self.skip_eol();
+        while self.cur_token != Some(Token::Identifier("NEXT".to_string())) {
+            statements.push(self.parse_statement());
+            self.skip_eol();
+        }
+        self.next_token(); // skip NEXT
+        
+        Statement::For(
+            Box::new(var), 
+            Box::new(from), 
+            Box::new(to), 
+            step, 
+            statements)
+    }
+
+    fn parse_if(&mut self) -> Statement {
+        if self.cur_token != Some(Token::LPar) {
+            panic!("'(' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+        let cond = self.parse_expression();
+
+        if self.cur_token != Some(Token::RPar) {
+            panic!("')' expected got: {:?}", self.cur_token);
+        }
+        self.next_token();
+
+        if self.cur_token  != Some(Token::Identifier("THEN".to_string())) {
+            self.skip_eol();
+            return Statement::If(Box::new(cond), Box::new(self.parse_statement()));
+        }
+        self.next_token();
+        let mut statements = Vec::new();
+        self.skip_eol();
+        while self.cur_token != Some(Token::Identifier("ENDIF".to_string())) && 
+              self.cur_token != Some(Token::Identifier("ELSE".to_string())) && 
+              self.cur_token != Some(Token::Identifier("ELSEIF".to_string())) {
+
+            if self.cur_token.is_none() {
+                panic!("unexpected eol");
+            }
+            statements.push(self.parse_statement());
+            self.skip_eol();
+        }
+
+        let else_if_blocks = if self.cur_token == Some(Token::Identifier("ELSEIF".to_string()))  {
+            let mut blocks = Vec::new();
+
+            while self.cur_token == Some(Token::Identifier("ELSEIF".to_string()))  {
+                self.next_token();
+
+                if self.cur_token != Some(Token::LPar) {
+                    panic!("'(' expected got: {:?}", self.cur_token);
+                }
+                self.next_token();
+                let cond = self.parse_expression();
+        
+                if self.cur_token != Some(Token::RPar) {
+                    panic!("')' expected got: {:?}", self.cur_token);
+                }
+                self.next_token();
+    
+                let mut statements = Vec::new();
+                if self.cur_token  == Some(Token::Identifier("THEN".to_string())) {
+                    self.next_token();
+                    self.skip_eol();
+                    while self.cur_token != Some(Token::Identifier("ELSEIF".to_string())) && self.cur_token != Some(Token::Identifier("ELSE".to_string())) && self.cur_token != Some(Token::Identifier("ENDIF".to_string())) {
+                        statements.push(self.parse_statement());
+                        self.skip_eol();
+                    }
+                } else {
+                    statements.push(self.parse_statement());
+                    self.skip_eol();
+                }
+
+                blocks.push(ElseIfBlock {
+                    cond: Box::new(cond),
+                    block: statements,
+                });
+            }
+            Some(blocks)
+        } else {
+            None
+        };
+
+        let else_block = if self.cur_token == Some(Token::Identifier("ELSE".to_string()))  {
+            self.next_token();
+            let mut statements = Vec::new();
+            self.skip_eol();
+            while self.cur_token != Some(Token::Identifier("ENDIF".to_string())) {
+                statements.push(self.parse_statement());
+                self.skip_eol();
+            }
+            Some(statements)
+        } else {
+            None
+        };
+
+        self.next_token();
+
+        Statement::IfThen(
+            Box::new(cond),
+            statements,
+            else_if_blocks,
+            else_block
+        )
+    }
+
     pub fn parse_statement(&mut self) -> Statement {
         if let Some(Token::Identifier(id)) = self.cur_token.clone() {
             self.next_token();
 
             match id.as_str() {
                 "END" => return Statement::End,
-                "WHILE" => panic!("todo"),
-                "IF" => panic!("todo"),
-                "DO" => panic!("todo"),
-                "FOR" => panic!("todo"),
+                "WHILE" => return self.parse_while(),
+                "IF" => return self.parse_if(),
+                "FOR" => return self.parse_for(),
                 "LET" => {
                     let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                         self.next_token();
@@ -75,11 +244,11 @@ impl Tokenizer {
                         }
                         if self.cur_token == Some(Token::Comma) {
                             self.next_token();
-                        } else if self.cur_token != Some(Token::Eol) {
-                            panic!("error parsing parameter list : {:?}!", self.cur_token);
+                        } else {
+                            break;
                         }
                     }
-                    self.next_token();
+                    
                     if (params.len() as i8) < def.min_args {
                         panic!(
                             "{} has too few arguments {} [{}:{}]",
@@ -254,7 +423,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_incdec() {
         assert_eq!(
@@ -296,7 +464,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_procedure_calls() {
         assert_eq!(
@@ -316,24 +483,24 @@ mod tests {
     #[test]
     fn test_parse_if() {
         assert_eq!(
-            Statement::If(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End)),
+            Statement::If(Box::new(Expression::Const(Constant::Integer(PPL_FALSE))), Box::new(Statement::End)),
             parse_statement("IF (FALSE) END")
         );
-
         let print_hello = parse_statement("PRINT \"Hello Word\"");
         let print_5 = parse_statement("PRINT 5");
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Boolean(true))),
+                Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                 vec![print_hello.clone()], None, None),
             parse_statement("IF (TRUE) THEN PRINT \"Hello Word\" ENDIF")
         );
+
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Boolean(true))),
+                Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                 vec![print_hello.clone()],
                 Some(vec![ElseIfBlock { 
-                    cond: Box::new(Expression::Const(Constant::Boolean(true))),
+                    cond: Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                     block:vec![print_5]
                 }]), 
                 None
@@ -345,23 +512,22 @@ mod tests {
 
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Boolean(false))),
+                Box::new(Expression::Const(Constant::Integer(PPL_FALSE))),
                 Vec::new(),
                 None,
                 Some(vec![print_5])),
             parse_statement("IF (FALSE) THEN ELSE PRINT 5 ENDIF")
         );
     }  
-    
 
     #[test]
     fn test_parse_while() {
         assert_eq!(
-            Statement::While(Box::new(Expression::Const(Constant::Boolean(false))), Box::new(Statement::End)),
+            Statement::While(Box::new(Expression::Const(Constant::Integer(PPL_FALSE))), Box::new(Statement::End)),
             parse_statement("WHILE (FALSE) END")
         );
         assert_eq!(
-            Statement::DoWhile(Box::new(Expression::Const(Constant::Boolean(true))), Vec::new()),
+            Statement::DoWhile(Box::new(Expression::Const(Constant::Integer(PPL_TRUE))), Vec::new()),
             parse_statement("WHILE (TRUE) DO ENDWHILE")
         );
     }
@@ -369,12 +535,12 @@ mod tests {
     #[test]
     fn test_for_next() {
         assert_eq!(
-            Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), None, Vec::new()),
+            Statement::For(Box::new(Expression::Identifier("I".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), None, Vec::new()),
             parse_statement("FOR i = 1 TO 10 NEXT")
         );
         assert_eq!(
             Statement::For(
-            Box::new(Expression::Identifier("i".to_string())), 
+            Box::new(Expression::Identifier("I".to_string())), 
             Box::new(Expression::Const(Constant::Integer(1))), 
             Box::new(Expression::Const(Constant::Integer(10))), 
             Some(Box::new(Expression::Const(Constant::Integer(5)))),
@@ -382,7 +548,7 @@ mod tests {
             parse_statement("FOR i = 1 TO 10 STEP 5 NEXT")
         );
         assert_eq!(
-            Statement::For(Box::new(Expression::Identifier("i".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Minus(Box::new(Expression::Const(Constant::Integer(1)))))), Vec::new()),
+            Statement::For(Box::new(Expression::Identifier("I".to_string())), Box::new(Expression::Const(Constant::Integer(1))), Box::new(Expression::Const(Constant::Integer(10))), Some(Box::new(Expression::Minus(Box::new(Expression::Const(Constant::Integer(1)))))), Vec::new()),
             parse_statement("FOR i = 1 TO 10 STEP -1 NEXT")
         );
     }

@@ -5,7 +5,7 @@ use crate::{interpreter::ProgramContext, tables::OpCode};
 use super::{Declaration, Block, Statement, VariableType};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionDeclaration
+pub struct FunctionImplementation
 {
     pub id: i32,
     pub declaration: Declaration,
@@ -13,13 +13,13 @@ pub struct FunctionDeclaration
     pub block: Block,
 }
 
-impl fmt::Display for FunctionDeclaration {
+impl fmt::Display for FunctionImplementation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.declaration)
     }
 }
 
-impl FunctionDeclaration {
+impl FunctionImplementation {
     pub fn print_content(&self) -> String
     {
         let mut res = self.declaration.print_header();
@@ -83,7 +83,7 @@ fn match_var_name(decl : &Declaration, var_name : &str) -> Option<VariableType>
     None
 }
 
-impl ProgramContext for FunctionDeclaration
+impl ProgramContext for FunctionImplementation
 {
     fn get_var_type(&self, var_name: &str) -> VariableType
     {

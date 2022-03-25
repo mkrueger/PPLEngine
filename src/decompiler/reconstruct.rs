@@ -2,10 +2,10 @@ use super::{Block, Declaration, Expression, HashMap, HashSet, OpCode, Program, S
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.main_block);
-    for fd in &mut prg.function_declarations {
+    for fd in &mut prg.function_implementations {
         optimize_block(&mut fd.block);
     }
-    for pd in &mut prg.procedure_declarations {
+    for pd in &mut prg.procedure_implementations {
         optimize_block(&mut pd.block);
     }
 }
@@ -685,10 +685,10 @@ fn strip_unused_labels(block: &mut Block) {
 
 pub fn do_pass4(prg: &mut Program) {
     rename_variables(&mut prg.main_block, &mut prg.declarations);
-    for fd in &mut prg.function_declarations {
+    for fd in &mut prg.function_implementations {
         rename_variables(&mut fd.block, &mut fd.variable_declarations);
     }
-    for pd in &mut prg.procedure_declarations {
+    for pd in &mut prg.procedure_implementations {
         rename_variables(&mut pd.block, &mut pd.variable_declarations);
     }
 }

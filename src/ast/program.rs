@@ -2,15 +2,15 @@ use std::fmt;
 
 use crate::interpreter::ProgramContext;
 
-use super::{Declaration, Block, FunctionDeclaration, VariableType};
+use super::{Declaration, Block, FunctionImplementation, VariableType};
 
 
 #[derive(Debug, PartialEq)]
 pub struct Program
 {
     pub declarations: Vec<Declaration>,
-    pub function_declarations: Vec<FunctionDeclaration>,
-    pub procedure_declarations: Vec<FunctionDeclaration>,
+    pub function_implementations: Vec<FunctionImplementation>,
+    pub procedure_implementations: Vec<FunctionImplementation>,
     pub main_block: Block,
 }
 
@@ -21,14 +21,14 @@ impl fmt::Display for Program {
         res.push_str("; PCBoard programming language decompiler\n");
         res.push_str("; ---------------------------------------\n");
 
-        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
+        if !self.function_implementations.is_empty() || !self.procedure_implementations.is_empty() {
             res.push_str("; Function declarations\n");
         }
-        for v in &self.function_declarations {
+        for v in &self.function_implementations {
             res.push_str(&v.to_string());
             res.push('\n');
         }
-        for v in &self.procedure_declarations {
+        for v in &self.procedure_implementations {
             res.push_str(&v.to_string());
             res.push('\n');
         }
@@ -39,15 +39,15 @@ impl fmt::Display for Program {
 
         res.push_str(&self.main_block.to_string(self));
 
-        if !self.function_declarations.is_empty() || !self.procedure_declarations.is_empty() {
+        if !self.function_implementations.is_empty() || !self.procedure_implementations.is_empty() {
             res.push_str("; Function implementations\n");
         }
-        for v in &self.function_declarations {
+        for v in &self.function_implementations {
             res.push_str(v.print_content().as_str());
             res.push('\n');
         }
 
-        for v in &self.procedure_declarations {
+        for v in &self.procedure_implementations {
             res.push_str(v.print_content().as_str());
             res.push('\n');
         }
@@ -65,8 +65,8 @@ impl Program
             main_block: Block {
                 statements: vec![]
             },
-            function_declarations: vec![],
-            procedure_declarations: vec![],
+            function_implementations: vec![],
+            procedure_implementations: vec![],
         }
     }
 }

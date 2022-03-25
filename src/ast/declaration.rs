@@ -20,6 +20,15 @@ impl VarInfo {
             VarInfo::Var3(name, _, _, _) => name,
         }
     }
+
+    pub fn rename(&mut self, new_name: String) {
+        match self {
+            VarInfo::Var0(name) => *name = new_name,
+            VarInfo::Var1(name, _) => *name = new_name,
+            VarInfo::Var2(name, _, _) => *name = new_name,
+            VarInfo::Var3(name, _, _, _) => *name = new_name,
+        }
+    }
 }
 
 impl fmt::Display for VarInfo {

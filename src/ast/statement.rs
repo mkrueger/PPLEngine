@@ -118,15 +118,17 @@ impl Statement
 
         if let Some(else_if_blocks) = &else_if {
             for else_if_block in else_if_blocks {
-                res.push_str(&format!("{} ({}) {}\n", output_keyword_indented(indent - 1, "ElseIf"), Statement::out_bool_func(&else_if_block.cond), output_keyword("Then")));
+                res.push_str(&format!("{} ({}) {}", output_keyword_indented(indent - 1, "ElseIf"), Statement::out_bool_func(&else_if_block.cond), output_keyword("Then")));
                 res.push_str("\n");
                 res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
             }
         }
         if let Some(else_block) = else_block {
-            res.push_str(&output_keyword_indented(indent - 1, "Else"));
-            res.push_str("\n");
-            res.push_str(&Statement::output_stmts(prg, &else_block, indent));
+            if !else_block.is_empty() {
+                res.push_str(&output_keyword_indented(indent - 1, "Else"));
+                res.push_str("\n");
+                res.push_str(&Statement::output_stmts(prg, &else_block, indent));
+            }
         }
         res
     }

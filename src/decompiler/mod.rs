@@ -1253,8 +1253,6 @@ impl Decompiler {
 
         self.labelout(prg, self.src_ptr * 2);
     }
-
-
 }
 
 #[cfg(test)]
@@ -1317,7 +1315,14 @@ mod tests {
 
             let file_name = cur_entry.as_os_str();
             println!("File: {}...", cur_entry.file_name().unwrap().to_str().unwrap());
-/* 
+ /* 
+            if !cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
+            {
+                // println!("skip.");
+                //skipped += 1;
+                continue;
+            }
+
             if cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
             {
                 // println!("skip.");

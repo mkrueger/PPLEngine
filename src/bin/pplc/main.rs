@@ -1,7 +1,7 @@
 use std::{fs, path::Path, ffi::OsStr};
 
 use argh::FromArgs;
-use ppl_engine::parser::parse_program;
+use ppl_engine::{parser::parse_program, compiler::transform_ast};
 
 #[derive(FromArgs)]
 /// original by Clark Development Company, Inc. rewritten in rust https://github.com/mkrueger/PPLEngine 
@@ -25,10 +25,10 @@ fn main() {
     let read_result = fs::read_to_string(file_name);
     match read_result {
         Ok(content) => {
-            let prg = parse_program(&content);
+            let mut prg = parse_program(&content);
 
-            println!("parse result: {:?}", prg);
             println!("---- Output:");
+            transform_ast(&mut prg);
             println!("{}", prg);
         }
         Err(err) => {

@@ -105,13 +105,12 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             if label_idx.is_none() { break ;}
                             let mut label_idx = label_idx.unwrap();
 
-                            let r =  if let Statement::Goto(label2) = &else_block2[label_idx - 1] {
+                            if let Statement::Goto(label2) = &else_block2[label_idx - 1] {
                                 if *endif_label != *label2 {
                                     break;
                                 }
                                 label_idx -= 1;
-                                true
-                            } else { false };
+                            }
 
                             let cond = Box::new(Expression::Not(Box::new(*cond.clone())));
                             let mut block: Vec<Statement> = else_block2.drain(0..label_idx).collect();
@@ -406,7 +405,6 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
 
 
 fn scan_possible_breaks(block: &mut [Statement], break_label: &str) {
-    print!("break label: {}", break_label);
     for cur_stmt in block {
         match cur_stmt {
             Statement::If(cond, stmt) => {
@@ -561,7 +559,7 @@ fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
     }
 }
 
-fn strip_unused_labels(statements: &mut Vec<Statement>) {
+pub fn strip_unused_labels(statements: &mut Vec<Statement>) {
     let mut used_labels = HashSet::new();
     let mut i = 0;
     while i < statements.len() {

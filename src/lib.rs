@@ -16,6 +16,7 @@ pub mod executable;
 pub mod decompiler;
 pub mod parser;
 pub mod interpreter;
+pub mod compiler;
 
 #[derive(PartialEq, Debug)]
 pub enum OutputFunc {

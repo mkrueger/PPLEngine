@@ -1,4 +1,4 @@
-use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext};
+use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext, output_keyword_indented};
 
 use super::{Constant, Expression, VariableType};
 use crate::output_keyword;
@@ -13,6 +13,7 @@ pub struct ElseIfBlock {
 pub enum Statement {
     Comment(String),
     End,
+    Block(Vec<Statement>),
     While(Box<Expression>, Box<Statement>),
     If(Box<Expression>, Box<Statement>),
     IfThen(Box<Expression>, Vec<Statement>, Option<Vec<ElseIfBlock>>, Option<Vec<Statement>>),
@@ -117,15 +118,16 @@ impl Statement
 
         if let Some(else_if_blocks) = &else_if {
             for else_if_block in else_if_blocks {
-                res.push_str(&format!("{} ({}) {}\n", output_keyword("ElseIf"), Statement::out_bool_func(&else_if_block.cond), output_keyword("Then")));
+                res.push_str(&format!("{} ({}) {}\n", output_keyword_indented(indent - 1, "ElseIf"), Statement::out_bool_func(&else_if_block.cond), output_keyword("Then")));
+                res.push_str("\n");
                 res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
             }
         }
         if let Some(else_block) = else_block {
-            res.push_str(&output_keyword("Else"));
+            res.push_str(&output_keyword_indented(indent - 1, "Else"));
+            res.push_str("\n");
             res.push_str(&Statement::output_stmts(prg, &else_block, indent));
         }
-
         res
     }
 
@@ -147,10 +149,25 @@ impl Statement
     {
         match self {
             Statement::Comment(str) => (format!(";{}", str), indent, 0),
+            Statement::Block(stmts) => (
+                format!("{}\n{}{}", 
+                output_keyword("Begin"),
+                Statement::output_stmts(prg, stmts, indent + 1), 
+                output_keyword_indented(indent, "End")), 
+                indent, 0),
             Statement::While(cond, stmt) => (format!("{} ({}) {}", output_keyword("While"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
             Statement::If(cond, stmt) => (format!("{} ({}) {}", output_keyword("If"), Statement::out_bool_func(cond), stmt.to_string(prg, 0).0), indent, 0),
-            Statement::IfThen(cond, stmts, else_if_blocks, else_block) => (format!("{} ({}) {}\n{}\n{}{}", output_keyword("If"), Statement::out_bool_func(cond), output_keyword("Then"), Statement::output_if_stmts(prg, stmts, else_if_blocks, else_block, indent), Statement::get_indent(indent), output_keyword("EndIf")), indent + 1, 0),
-            Statement::DoWhile(cond,stmts) => (format!("{} ({}) {}\n{}\n{}{}", output_keyword("While"), Statement::out_bool_func(cond), output_keyword("Do"), Statement::output_stmts(prg, stmts, indent), Statement::get_indent(indent), output_keyword("EndWhile")), indent + 1, 0),
+            Statement::IfThen(cond, stmts, else_if_blocks, else_block) => 
+            (format!("{} ({}) {}\n{}{}",
+                output_keyword("If"), Statement::out_bool_func(cond), output_keyword("Then"), 
+                Statement::output_if_stmts(prg, stmts, else_if_blocks, else_block, indent + 1), 
+                output_keyword_indented(indent, "EndIf")), indent, 0),
+            Statement::DoWhile(cond,stmts) => (
+                format!("{} ({}) {}\n{}{}", 
+                output_keyword("While"), Statement::out_bool_func(cond), output_keyword("Do"), 
+                Statement::output_stmts(prg, stmts, indent + 1), 
+                output_keyword_indented(indent, "EndWhile")), 
+                indent, 0),
             Statement::Break => (output_keyword("Break"), indent, 0),
             Statement::Continue => (output_keyword("Continue"), indent, 0),
             Statement::End => (output_keyword("End"), indent, 0),
@@ -171,9 +188,15 @@ impl Statement
             Statement::For(var_name, from, to, step, stmts) => {
                 let var_name = &get_var_name(var_name);
                 if let Some(s) = step {
-                    (format!("{} {} = {} {} {} {} {}\n{}\n{}", output_keyword("For"), var_name, from, output_keyword("To"), to, output_keyword("Step"), s, Statement::output_stmts(prg, stmts, indent), output_keyword("Next")), indent + 1, 0)
+                    (format!("{} {} = {} {} {} {} {}\n{}{}", 
+                    output_keyword("For"), var_name, from, output_keyword("To"), to, output_keyword("Step"), s, 
+                    Statement::output_stmts(prg, stmts, indent + 1), 
+                    output_keyword_indented(indent, "Next")), indent, 0)
                 } else {
-                    (format!("{} {} = {} {} {}\n{}\n{}",  output_keyword("For"), var_name, from, output_keyword("To"), to, Statement::output_stmts(prg, stmts, indent), output_keyword("Next")), indent + 1, 0)
+                    (format!("{} {} = {} {} {}\n{}{}", 
+                    output_keyword("For"), var_name, from, output_keyword("To"), to, 
+                    Statement::output_stmts(prg, stmts, indent + 1), 
+                    output_keyword_indented(indent, "Next")), indent, 0)
                 }
             }
             Statement::Stop => (output_keyword("Stop"), indent, 0),

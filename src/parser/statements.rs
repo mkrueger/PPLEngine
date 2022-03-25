@@ -39,6 +39,17 @@ impl Tokenizer {
         }
     }
 
+    fn parse_block(&mut self) -> Statement {
+        self.skip_eol();
+        let mut statements = Vec::new();
+        while self.cur_token != Some(Token::Identifier("END".to_string())) {
+            statements.push(self.parse_statement());
+            self.skip_eol();
+        }
+        self.next_token();
+        Statement::Block(statements)
+    }
+
     fn parse_for(&mut self) -> Statement {
 
         let var = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
@@ -182,6 +193,7 @@ impl Tokenizer {
 
             match id.as_str() {
                 "END" => return Statement::End,
+                "BEGIN" => return self.parse_block(),
                 "WHILE" => return self.parse_while(),
                 "IF" => return self.parse_if(),
                 "FOR" => return self.parse_for(),
@@ -552,4 +564,13 @@ mod tests {
             parse_statement("FOR i = 1 TO 10 STEP -1 NEXT")
         );
     }
+
+    #[test]
+    fn test_parse_block() {
+        assert_eq!(
+            Statement::Block(Vec::new()),
+            parse_statement("BEGIN END")
+        );
+    }
+
 }

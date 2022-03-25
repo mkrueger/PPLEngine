@@ -36,21 +36,6 @@ impl FunctionImplementation {
         }
 
         for stmt in &self.block.statements {
-            if let Statement::Call(def, _params) = stmt {
-                if def.opcode == OpCode::FEND || def.opcode == OpCode::FPCLR {
-                    match &self.declaration {
-                        Declaration::Procedure(name, _param) => {
-                            res.push_str(format!("ENDPROC ;--{}", name).as_str());
-                            continue;
-                        }
-                        Declaration::Function(name, _param, _t) => {
-                            res.push_str(format!("ENDFUNC ;--{}", name).as_str());
-                            continue;
-                        }
-                        _ => {}
-                    }
-                }
-            }
             let out = stmt.to_string(self, indent);
             if indent > out.1 {
                 indent = out.1;
@@ -62,6 +47,14 @@ impl FunctionImplementation {
             indent = out.1;
             res.push('\n');
         }
+        if let Declaration::Function(name, _, _) = &self.declaration {
+            res.push_str(format!("ENDFUNC ;--{}", name).as_str());
+
+        } else if let Declaration::Procedure(name, _)= &self.declaration {
+            res.push_str(format!("ENDPROC ;--{}", name).as_str());
+        }
+
+
         res.push('\n');
 
         res

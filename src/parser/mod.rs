@@ -364,4 +364,4 @@ mod tests {
         let prg = parse_program("DECLARE FUNCTION FUNC001(INTEGER LOC001) INTEGER");
         assert_eq!(Declaration::Function("FUNC001".to_string(), vec![Declaration::create_variable(VariableType::Integer, "LOC001".to_string())], VariableType::Integer), prg.declarations[0]);
     }
-}      
+}

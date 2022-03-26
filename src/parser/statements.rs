@@ -327,10 +327,10 @@ impl Tokenizer {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{BinOp, Constant, Expression, Statement, ElseIfBlock},
+        ast::{Constant, Expression, Statement, ElseIfBlock},
         parser::tokens::Tokenizer,
         tables::{
-            get_function_definition, StatementDefinition, FUNCTION_DEFINITIONS, PPL_FALSE,
+            StatementDefinition, PPL_FALSE,
             STATEMENT_DEFINITIONS, PPL_TRUE,
         },
     };
@@ -572,5 +572,4 @@ mod tests {
             parse_statement("BEGIN END")
         );
     }
-
 }

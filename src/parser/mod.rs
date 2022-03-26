@@ -1,10 +1,4 @@
-use std::{str::FromStr, rc::Rc};
-use std::string::String;
-use crate::ast::declaration;
-use crate::executable::VarDecl;
-use crate::{ast::{BinOp, Block, Constant, Declaration, Expression, FunctionImplementation, Program, Statement, VariableType, ElseIfBlock, VarInfo}, tables::FUNCTION_DEFINITIONS};
-
-use crate::tables::{ STATEMENT_DEFINITIONS};
+use crate::{ast::{Block, Declaration, FunctionImplementation, Program, VariableType, VarInfo}};
 
 use self::tokens::{Tokenizer, Token};
 

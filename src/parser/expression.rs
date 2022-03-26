@@ -98,6 +98,10 @@ impl Tokenizer {
             self.next_token();
             return Expression::Minus(Box::new(self.parse_unary()));
         }
+        if self.cur_token == Some(Token::Not) {
+            self.next_token();
+            return Expression::Not(Box::new(self.parse_unary()));
+        }
         
         self.parse_primary()
     }

@@ -24,7 +24,7 @@ pub trait ProgramContext
 
 pub trait ExecutionContext
 {
-    fn print(&mut self, str: String);
+    fn print(&mut self, str: &str);
 }
 
 fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
@@ -338,9 +338,9 @@ mod tests {
 
     impl ExecutionContext for TestContext
     {
-        fn print(&mut self, str: String)
+        fn print(&mut self, str: &str)
         {
-            self.output.push_str(str.as_str());
+            self.output.push_str(str);
         }
     }
 
@@ -531,7 +531,7 @@ PRINT B
         assert_eq!("123Hello World\n".to_string(), ctx.output);
 
         ctx = TestContext { output: String::new() };
-        run(&parse_program("PRINT TRUE,  \",\", $41.43, \",\", 10h"), &mut ctx, &mut io);
+        run(&parse_program("PRINT TRUE, \",\", $41.43, \",\", 10h"), &mut ctx, &mut io);
         assert_eq!("1,$41.43,16".to_string(), ctx.output);
     }
 

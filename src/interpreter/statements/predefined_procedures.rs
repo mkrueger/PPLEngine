@@ -1,8 +1,9 @@
 use crate::interpreter::{Expression, Interpreter, ProgramContext, VariableValue, convert_to, evaluate_exp, get_int, get_var_name};
 
-pub fn cls(interpreter: &Interpreter, params: &[Expression]) {
-    panic!("TODO")
+pub fn cls(interpreter: &mut Interpreter, params: &[Expression]) {
+    interpreter.ctx.print("\x1B[2J");
 }
+
 pub fn clreol(interpreter: &Interpreter, params: &[Expression]) {
     panic!("TODO")
 }

@@ -186,6 +186,7 @@ impl Tokenizer {
                     if !ch.is_digit(10) && ch != '.' { break; }
                     identifier.push(ch);
                 }
+                self.put_back();
                 Some(Token::Const(Constant::Money(identifier.parse::<f64>().unwrap())))
             }
 
@@ -229,21 +230,7 @@ impl Tokenizer {
 
                     match identifier.as_str() {
                         "TRUE" => return Some(Token::Const(Constant::Integer(PPL_TRUE))),
-                        "FALSE" => return Some(Token::Const(Constant::Integer(PPL_FALSE))),/* 
-                        "ELSE" => return Some(Token::Else),
-                        "ELSEIF" => return Some(Token::ElseIf),
-                        "END" => return Some(Token::End),
-                        "ENDIF" => return Some(Token::EndIf),
-                        "ENDWHILE" => return Some(Token::EndWhile),
-                        "FOR" => return Some(Token::For),
-                        "GOSUB" => return Some(Token::GoSub),
-                        "GOTO" => return Some(Token::GoTo),
-                        "IF" => return Some(Token::If),
-                        "INC" => return Some(Token::Inc),
-                        "DEC" => return Some(Token::Dec),
-                        "RETURN" => return Some(Token::Return),
-                        "STOP" => return Some(Token::Stop),
-                        "WHILE" => return Some(Token::While),*/
+                        "FALSE" => return Some(Token::Const(Constant::Integer(PPL_FALSE))),
                         _ => {}
                     }
                     
@@ -282,7 +269,18 @@ impl Tokenizer {
                         identifier.pop();
                         return Some(Token::Const(Constant::Integer(i32::from_str_radix(&identifier, 2).unwrap())));
                     }
-                    return Some(Token::Const(Constant::Integer(identifier.parse::<i32>().unwrap())));
+                    let r = identifier.parse::<i64>();
+                    if let Ok(i) = r {
+                        if i <= i32::MAX as i64 && i >= i32::MIN as i64  {
+                            return Some(Token::Const(Constant::Integer(i as i32)));
+                        } else if i <= u32::MAX as i64 {
+                            return Some(Token::Const(Constant::Unsigned(i as u32)));
+                        }else {
+                            panic!("{i} overflow.");
+                        }
+                    } else {
+                        panic!("can't parse '{}' : {:?}", identifier, r);
+                    }
                 }
                 panic!("invalid char: {}", ch);
             }

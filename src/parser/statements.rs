@@ -251,6 +251,7 @@ impl Tokenizer {
                     let mut params = Vec::new();
                     while self.cur_token != Some(Token::Eol) && self.cur_token != None {
                         params.push(self.parse_expression());
+
                         if self.cur_token == None {
                             break;
                         }

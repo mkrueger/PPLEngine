@@ -28,15 +28,15 @@ pub fn call_predefined_procedure(
         OpCode::PRINT => {
             for expr in params {
                 let value = evaluate_exp(interpreter, expr);
-                interpreter.ctx.print(value.to_string());
+                interpreter.ctx.print(&value.to_string());
             }
         }
         OpCode::PRINTLN => {
             for expr in params {
                 let value = evaluate_exp(interpreter, expr);
-                interpreter.ctx.print(value.to_string());
+                interpreter.ctx.print(&value.to_string());
             }
-            interpreter.ctx.print("\n".to_string());
+            interpreter.ctx.print("\n");
         }
         OpCode::CONFFLAG => predefined_procedures::confflag(interpreter, params),
         OpCode::CONFUNFLAG => predefined_procedures::confunflag(interpreter, params),

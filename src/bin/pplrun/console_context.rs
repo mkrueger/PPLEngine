@@ -6,7 +6,7 @@ pub struct ConsoleContext
 
 impl ExecutionContext for ConsoleContext
 {
-    fn print(&mut self, str: String)
+    fn print(&mut self, str: &str)
     {
         print!("{}", str);
     }

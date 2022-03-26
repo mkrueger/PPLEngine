@@ -1,10 +1,11 @@
 pub use ast_transform::*;
-
-use crate::ast::{Program, Declaration};
 pub mod ast_transform;
 
-static PREAMBLE: &[u8] = b"PCBoard Programming Language Executable  3.30\x0D\x0A\x1A";
 /* 
+use crate::ast::{Program, Declaration};
+
+static PREAMBLE: &[u8] = b"PCBoard Programming Language Executable  3.30\x0D\x0A\x1A";
+
 fn create_var_info(id: usize, d: &Declaration)
 {
     let mut result = Vec::new();

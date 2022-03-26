@@ -1,6 +1,8 @@
-use super::{BinOp, CONSTANT_VALUES, Constant, Interpreter, PPL_FALSE, PPL_TRUE, VariableType, VariableValue, convert_to};
+use std::collections::HashMap;
+
+use super::{BinOp, CONSTANT_VALUES, Constant, Interpreter, PPL_FALSE, PPL_TRUE, VariableType, VariableValue, convert_to, StackFrame, execute_statement};
 use crate::{
-    ast::{expression::Expression},
+    ast::{expression::Expression, Declaration},
     tables::{FuncOpCode, FunctionDefinition},
 };
 
@@ -17,12 +19,12 @@ use crate::{
 ///
 /// Panics if .
 #[must_use] pub fn evaluate_exp(
-    interpreter: &Interpreter, 
+    interpreter: &mut Interpreter, 
     expr: &Expression,
 ) -> VariableValue {
     match expr {
         Expression::Identifier(str) => {
-            let res = interpreter.cur_frame.values.get(str).unwrap_or_else(|| panic!("variable {} not found", str)).clone();
+            let res = interpreter.cur_frame.last().unwrap().values.get(str).unwrap_or_else(|| panic!("variable {} not found", str)).clone();
             res
         }
         Expression::Const(constant) => match constant {
@@ -47,8 +49,42 @@ use crate::{
         Expression::PredefinedFunctionCall(func_def, params) => {
             call_function(interpreter, func_def, params)
         }
-        Expression::FunctionCall(func_name, _params) => {
-            panic!("not supported function call {}", func_name);
+        Expression::FunctionCall(name, parameters) => {
+            for f in &interpreter.prg.function_implementations {
+                if let Declaration::Function(pname, params, return_type) =  &f.declaration {
+                    if name != pname { continue; }
+                    let mut prg_frame = StackFrame { 
+                        values: HashMap::new(),
+                        cur_ptr:0,
+                        label_table:0 
+                    };
+
+                    for i in 0..parameters.len() {
+                        if let Declaration::Variable(var_type, infos) = &params[i] {
+                            let value = evaluate_exp(interpreter, &parameters[i]);
+                            prg_frame.values.insert(infos[0].get_name().clone(), convert_to(*var_type, &value));
+                        } else  {
+                            panic!("invalid parameter declaration {:?}", params[i]);
+                        }
+                    }
+
+                    interpreter.cur_frame.push(prg_frame);
+
+                    while interpreter.cur_frame.last().unwrap().cur_ptr < f.block.statements.len() {
+                        let stmt = &f.block.statements[interpreter.cur_frame.last().unwrap().cur_ptr as usize];
+                        execute_statement(interpreter, stmt);
+                        interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
+                    }
+                    let prg_frame = interpreter.cur_frame.pop().unwrap();
+
+                    if let Some(val) = prg_frame.values.get(name) {
+                        return val.clone();
+                    } else {
+                        panic!("function didn't return a value  {}", name);
+                    }
+                }
+            }
+            panic!("function not found {}", name);
         }
         Expression::Not(expr) => {
             let value = evaluate_exp(interpreter, expr);
@@ -156,7 +192,7 @@ use crate::{
 }
 
 fn call_function(
-    interpreter: &Interpreter,
+    interpreter: &mut Interpreter,
     func_def: &'static FunctionDefinition,
     params: &[Expression],
 ) -> VariableValue {
@@ -185,7 +221,8 @@ fn call_function(
             predefined_functions::space(evaluate_exp(interpreter, &params[0]))
         }
         FuncOpCode::FERR => {
-            predefined_functions::ferr(interpreter, evaluate_exp(interpreter, &params[0]))
+            let a = evaluate_exp(interpreter, &params[0]);
+            predefined_functions::ferr(interpreter, a)
         }
         FuncOpCode::CHR => predefined_functions::chr(evaluate_exp(interpreter, &params[0])),
         FuncOpCode::ASC => predefined_functions::asc(evaluate_exp(interpreter, &params[0])),
@@ -450,10 +487,10 @@ fn call_function(
             predefined_functions::cctype(evaluate_exp(interpreter, &params[0]))
         }
         FuncOpCode::GETX => {
-            predefined_functions::getx(evaluate_exp(interpreter, &params[0]))
+            predefined_functions::getx(interpreter)
         }
         FuncOpCode::GETY => {
-            predefined_functions::gety(evaluate_exp(interpreter, &params[0]))
+            predefined_functions::gety(interpreter)
         }
         FuncOpCode::BAND => {
             predefined_functions::band(evaluate_exp(interpreter, &params[0]))

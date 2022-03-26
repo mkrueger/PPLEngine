@@ -1,3 +1,4 @@
+use crate::ast::Declaration;
 use crate::ast::{BinOp, Block, Constant, Expression, Program, Statement, get_var_name};
 use std::string::String;
 use std::collections::HashMap;
@@ -25,6 +26,7 @@ pub trait ProgramContext
 pub trait ExecutionContext
 {
     fn print(&mut self, str: &str);
+    fn read(&mut self) -> String;
 }
 
 fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableValue
@@ -218,7 +220,7 @@ pub struct Interpreter<'a> {
     ctx: &'a mut dyn ExecutionContext,
     // lookup: HashMap<&'a Block, i32>,
     label_tables: Vec<HashMap<String, usize>>,
-    cur_frame: &'a mut StackFrame,
+    cur_frame: Vec<StackFrame>,
     io: &'a mut dyn PCBoardIO
    //  stack_frames: Vec<StackFrame>
 }
@@ -231,16 +233,51 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
             let var_name = get_var_name(variable);
             let var_type = interpreter.prg.get_var_type(&var_name);
 
-            interpreter.cur_frame.values.insert(var_name, convert_to(var_type, &value));
+            interpreter.cur_frame.last_mut().unwrap().values.insert(var_name, convert_to(var_type, &value));
         }
         Statement::Goto(label) => {
-            let table = &interpreter.label_tables[interpreter.cur_frame.label_table as usize];
-            interpreter.cur_frame.cur_ptr = *table.get(label).unwrap();
+            let table = &interpreter.label_tables[interpreter.cur_frame.last().unwrap().label_table as usize];
+            interpreter.cur_frame.last_mut().unwrap().cur_ptr = *table.get(label).unwrap();
         }
         Statement::Call(def, params) => {
             call_predefined_procedure(interpreter, def, params);
         }
-        Statement::ProcedureCall(_, _) => { panic!("procedures not yet supported."); },          
+        Statement::ProcedureCall(name, parameters) => {
+            let mut found = false; 
+            for f in &interpreter.prg.procedure_implementations {
+                if let Declaration::Procedure(pname, params) =  &f.declaration {
+                    if name != pname { continue; }
+                    let mut prg_frame = StackFrame { 
+                        values: HashMap::new(),
+                        cur_ptr:0,
+                        label_table:0 
+                    };
+
+                    for i in 0..parameters.len() {
+                        if let Declaration::Variable(var_type, infos) = &params[i] {
+                            let value = evaluate_exp(interpreter, &parameters[i]);
+                            prg_frame.values.insert(infos[0].get_name().clone(), convert_to(*var_type, &value));
+                        } else  {
+                            panic!("invalid parameter declaration {:?}", params[i]);
+                        }
+                    }
+
+                    interpreter.cur_frame.push(prg_frame);
+
+                    while interpreter.cur_frame.last().unwrap().cur_ptr < f.block.statements.len() {
+                        let stmt = &f.block.statements[interpreter.cur_frame.last().unwrap().cur_ptr as usize];
+                        execute_statement(interpreter, stmt);
+                        interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
+                    }
+                    interpreter.cur_frame.pop();
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                panic!("procedure not found {}", name);
+            }
+        },
 
         Statement::If(cond, statement) => {
             let value = evaluate_exp(interpreter, cond);
@@ -260,20 +297,21 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement)
 
         Statement::Inc(expr) => {
             let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone())) + VariableValue::Integer(1);
-            interpreter.cur_frame.values.insert(expr.to_string(), new_value);
+            interpreter.cur_frame.last_mut().unwrap().values.insert(expr.to_string(), new_value);
         }
 
         Statement::Dec(expr) => {
             let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone())) + VariableValue::Integer(-1);
-            interpreter.cur_frame.values.insert(expr.to_string(), new_value);
+            interpreter.cur_frame.last_mut().unwrap().values.insert(expr.to_string(), new_value);
         }
 
-        /* unsupported for now - the compiler does not generate them */
+        /* unsupported - the compiler does not generate them and ast transformation should remove them */
         Statement::Continue => { panic!("unsupported statement Continue")},
         Statement::Break => { panic!("unsupported statement Break")},
         Statement::For(_, _, _, _, _) => { panic!("unsupported statement For")},
         Statement::DoWhile(_, _) => { panic!("unsupported statement DoWhile")},
         Statement::IfThen(_, _, _, _) => { panic!("unsupported statement IfThen")},
+        Statement::Block(_) => { panic!("unsupported statement Begin…End block")},
 
         // nop statements
         Statement::Label(_) |
@@ -304,13 +342,12 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext, io: &mut dyn PCBoardI
         label_table:0
     };
 
-
     let mut interpreter =Interpreter {
         prg,
         ctx,
        // lookup: HashMap::new(),
         label_tables: Vec::new(),
-        cur_frame: &mut cur_frame,
+        cur_frame: vec![cur_frame],
         io
         //  stack_frames: vec![]
     };
@@ -318,10 +355,10 @@ pub fn run(prg : &Program, ctx: &mut dyn ExecutionContext, io: &mut dyn PCBoardI
     interpreter.label_tables.push(calc_table(&prg.main_block));
     //nterpreter.lookup.insert(&prg.main_block, 0);
 
-    while interpreter.cur_frame.cur_ptr < prg.main_block.statements.len() {
-        let stmt = &prg.main_block.statements[interpreter.cur_frame.cur_ptr as usize];
+    while interpreter.cur_frame.last().unwrap().cur_ptr < prg.main_block.statements.len() {
+        let stmt = &prg.main_block.statements[interpreter.cur_frame.last().unwrap().cur_ptr as usize];
         execute_statement(&mut interpreter, stmt);
-        interpreter.cur_frame.cur_ptr += 1;
+        interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
     }
 }
 
@@ -341,6 +378,10 @@ mod tests {
         fn print(&mut self, str: &str)
         {
             self.output.push_str(str);
+        }
+        fn read(&mut self) -> String
+        {
+            String::new()
         }
     }
 
@@ -694,5 +735,29 @@ FCLOSE 1
         check_output_withio(prg, &mut io, "Line  1: Hello\nLine  2: World\nLine  3: !\n");
     }
 
+    #[test]
+    fn test_procedure() {        
+        check_output(r#"
+DECLARE PROCEDURE Hello(STRING who)
 
+Hello("World")
+
+PROCEDURE Hello(STRING who)
+    PRINT "Hello ", who
+ENDPROC
+"#, "Hello World"); // This is no error. Bools were printed as numbers
+    }
+    
+    #[test]
+    fn test_function() {        
+        check_output(r#"
+DECLARE FUNCTION Hello(STRING who) STRING
+
+PRINT Hello("World")
+
+FUNCTION Hello(STRING who) STRING
+    Hello = "Hello " + who
+ENDFUNC
+"#, "Hello World"); // This is no error. Bools were printed as numbers
+    }
 }

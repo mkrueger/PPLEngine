@@ -1,5 +1,6 @@
 #![allow(clippy::needless_pass_by_value)]
 
+use regex::Regex;
 use substring::Substring;
 
 use crate::{interpreter::{ VariableValue, Interpreter}};
@@ -121,7 +122,7 @@ pub fn space(chars: VariableValue) -> VariableValue {
     VariableValue::String(res)
 }
 
-pub fn ferr(interpreter: &Interpreter, channel: VariableValue) -> VariableValue {
+pub fn ferr(interpreter: &mut Interpreter, channel: VariableValue) -> VariableValue {
     let channel = get_int(&channel);
     VariableValue::Boolean(interpreter.io.ferr(channel as usize))
 }
@@ -534,12 +535,24 @@ pub fn fmtcc(_x: VariableValue) -> VariableValue {
 pub fn cctype(_x: VariableValue) -> VariableValue {
     panic!("TODO")
 }
-pub fn getx(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+
+
+pub fn getx(interpreter: &mut Interpreter) -> VariableValue {
+    interpreter.ctx.print("\x1B[6n");
+    let str = interpreter.ctx.read(); 
+    let re = Regex::new(r"\x1B\[(\d+);(\d+)R").unwrap();
+    let xy = re.captures(&str).unwrap();
+    VariableValue::Integer(i32::from_str_radix(&xy[0], 10).unwrap())
 }
-pub fn gety(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+
+pub fn gety(interpreter: &mut Interpreter) -> VariableValue {
+    interpreter.ctx.print("\x1B[6n");
+    let str = interpreter.ctx.read(); 
+    let re = Regex::new(r"\x1B\[(\d+);(\d+)R").unwrap();
+    let xy = re.captures(&str).unwrap();
+    VariableValue::Integer(i32::from_str_radix(&xy[1], 10).unwrap())
 }
+
 pub fn band(_x: VariableValue) -> VariableValue {
     panic!("TODO")
 }

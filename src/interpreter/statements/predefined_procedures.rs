@@ -65,7 +65,7 @@ pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) {
     let value = VariableValue::String(interpreter.io.fget(channel));
     let var_name = get_var_name(&params[1]);
     let var_type = interpreter.prg.get_var_type(&var_name);
-    interpreter.cur_frame.values.insert(var_name, convert_to(var_type, &value));
+    interpreter.cur_frame.last_mut().unwrap().values.insert(var_name, convert_to(var_type, &value));
 }
 
 pub fn fput(interpreter: &mut Interpreter, params: &[Expression]) {

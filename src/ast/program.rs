@@ -87,8 +87,12 @@ impl ProgramContext for Program
                     for var_info in var_infos {
                         if *var_info.get_name() == *var_name { return *var_type; }
                     }
-                
                 },
+                Declaration::Function(name, _, return_type) => {
+                    if name == var_name {
+                        return *return_type;
+                    }
+                }
                 _ => {}
             }
         }

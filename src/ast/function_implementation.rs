@@ -1,8 +1,5 @@
 use std::fmt;
-
-use crate::{interpreter::ProgramContext};
-
-use super::{Declaration, Block, VariableType};
+use super::{Declaration, Block, VariableType, ProgramContext};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImplementation

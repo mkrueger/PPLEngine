@@ -1,6 +1,6 @@
-use crate::{tables::{StatementDefinition, PPL_TRUE}, interpreter::ProgramContext, output_keyword_indented};
+use crate::{tables::{StatementDefinition, PPL_TRUE}, output_keyword_indented};
 
-use super::{Constant, Expression, VariableType};
+use super::{Constant, Expression, VariableType, ProgramContext};
 use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]

@@ -10,12 +10,11 @@ extern crate core;
 extern crate lazy_static;
 
 mod crypt;
-mod ast;
+pub mod ast;
 pub mod tables;
 pub mod executable;
 pub mod decompiler;
 pub mod parser;
-pub mod interpreter;
 pub mod compiler;
 
 #[derive(PartialEq, Debug)]

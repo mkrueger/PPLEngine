@@ -21,3 +21,11 @@ pub use self::function_implementation::*;
 
 pub mod variable_type;
 pub use self::variable_type::*;
+
+pub mod variable_value;
+pub use self::variable_value::*;
+
+pub trait ProgramContext
+{
+    fn get_var_type(&self, var_name: &str) -> VariableType;
+}

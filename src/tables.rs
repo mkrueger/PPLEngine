@@ -1,4 +1,4 @@
-use crate::{interpreter::VariableValue, ast::{VariableType, Constant, BinOp}};
+use crate::{ ast::{VariableType, Constant, BinOp, variable_value::VariableValue}};
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp

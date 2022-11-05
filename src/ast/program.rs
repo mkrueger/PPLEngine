@@ -1,8 +1,5 @@
 use std::fmt;
-
-use crate::interpreter::ProgramContext;
-
-use super::{Declaration, Block, FunctionImplementation, VariableType};
+use super::{Declaration, Block, FunctionImplementation, VariableType, ProgramContext};
 
 
 #[derive(Debug, PartialEq)]
@@ -54,7 +51,6 @@ impl fmt::Display for Program {
         writeln!(f, "{}", res)
     }
 }
-
 
 impl Program
 {

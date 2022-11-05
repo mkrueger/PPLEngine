@@ -15,6 +15,7 @@ pub fn do_pass3(prg: &mut Program) {
 fn optimize_loops(statements: &mut Vec<Statement>) {
     scan_for_next(statements);
     scan_do_while(statements);
+
 }
 
 fn optimize_ifs(statements: &mut Vec<Statement>) {
@@ -174,6 +175,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 fn scan_if(statements: &mut Vec<Statement>) {
     let mut i = 0;
     while i < statements.len() {
+
         if let Statement::If(cond, stmt) = statements[i].clone() {
             if let Statement::Goto(endif_label) = &*stmt {
                 let endif_label_index = get_label_index(
@@ -452,7 +454,7 @@ fn scan_possible_continues(
 
 fn scan_do_while(statements: &mut Vec<Statement>) {
     let mut i = 0;
-    while i < statements.len() {
+    'main: while i < statements.len() {
         let cur = &statements[i];
         if let Statement::Label(label) = cur {
             i += 1;
@@ -468,7 +470,8 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                         if let Statement::Goto(next_label) = &statements[j] {
                             if next_label == label {
                                 if j + 1 >= statements.len() {
-                                    continue;
+                                    j += 1;
+                                    continue 'main;
                                 }
                                 if let Statement::Label(next_label) = &statements[j + 1] {
                                     if next_label == break_label {

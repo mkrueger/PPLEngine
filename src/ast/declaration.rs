@@ -1,23 +1,54 @@
 use std::fmt;
 
-use super::VariableType;
+use super::{VariableType, Expression, Constant, get_var_name};
 
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarInfo {
     Var0(String),
-    Var1(String, i32),          // vector
-    Var2(String, i32, i32),     // matrix
-    Var3(String, i32, i32, i32) // cube
+    Var1(String, Expression),          // vector
+    Var2(String, Expression, Expression),     // matrix
+    Var3(String, Expression, Expression, Expression) // cube
 }
 
 impl VarInfo {
+
+    pub fn as_expr(&self) -> Expression {
+        match &self {
+            VarInfo::Var0(name) => Expression::Identifier(name.clone()),
+            VarInfo::Var1(name, vec) => Expression::Dim1(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone())),
+            VarInfo::Var2(name, vec, mat) => Expression::Dim2(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone()), Box::new(mat.clone())),
+            VarInfo::Var3(name, vec, mat, cube) => Expression::Dim3(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone()), Box::new(mat.clone()), Box::new(cube.clone()))
+        }
+    }
+
+
+    pub fn from(expr: &Expression) -> Self {
+        match expr {
+            Expression::Const(Constant::String(name)) => VarInfo::Var0(name.clone()),
+            Expression::Identifier(name) => VarInfo::Var0(name.clone()),
+            Expression::Dim1(name, vec) => VarInfo::Var1(get_var_name(name), *vec.clone()),
+            Expression::Dim2(name, vec, mat) => VarInfo::Var2(get_var_name(name), *vec.clone(), *mat.clone()),
+            Expression::Dim3(name, vec, mat, cube) => VarInfo::Var3(get_var_name(name), *vec.clone(), *mat.clone(), *cube.clone()),
+            _ => panic!("unsupported expr {:?}", expr)
+        }
+    }
+
     pub fn get_name(&self) -> &String {
         match self {
-            VarInfo::Var0(name) => name,
-            VarInfo::Var1(name, _) => name,
-            VarInfo::Var2(name, _, _) => name,
+            VarInfo::Var0(name) |
+            VarInfo::Var1(name, _) |
+            VarInfo::Var2(name, _, _) |
             VarInfo::Var3(name, _, _, _) => name,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self {
+            VarInfo::Var0(_) => false,
+            VarInfo::Var1(_, _) |
+            VarInfo::Var2(_, _, _) |
+            VarInfo::Var3(_, _, _, _) => true,
         }
     }
 
@@ -94,17 +125,17 @@ impl Declaration {
 
     pub fn create_variable1(var_type: VariableType, name: String, vs: i32) -> Self
     {
-        Declaration::Variable(var_type, vec![VarInfo::Var1(name, vs)])
+        Declaration::Variable(var_type, vec![VarInfo::Var1(name, Expression::Const(Constant::Integer(vs)))])
     }
 
     pub fn create_variable2(var_type: VariableType, name: String, vs: i32, ms: i32) -> Self
     {
-        Declaration::Variable(var_type, vec![VarInfo::Var2(name, vs, ms)])
+        Declaration::Variable(var_type, vec![VarInfo::Var2(name, Expression::Const(Constant::Integer(vs)), Expression::Const(Constant::Integer(ms)))])
     }
 
     pub fn create_variable3(var_type: VariableType, name: String, vs: i32, ms: i32, cs: i32) -> Self
     {
-        Declaration::Variable(var_type, vec![VarInfo::Var3(name, vs, ms, cs)])
+        Declaration::Variable(var_type, vec![VarInfo::Var3(name, Expression::Const(Constant::Integer(vs)),Expression::Const(Constant::Integer(ms)),Expression::Const(Constant::Integer(cs)))])
     }
 
     pub fn print_header(&self) -> String

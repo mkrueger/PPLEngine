@@ -2,6 +2,8 @@ use std::{ops::{Add, Sub, Mul, Div}, cmp::Ordering, fmt};
 
 use crate::{ast::variable_type::VariableType, tables::{PPL_TRUE, PPL_FALSE}};
 
+use super::VarInfo;
+
 #[derive(Debug, Clone)]
 pub enum VariableValue
 {
@@ -27,8 +29,8 @@ pub enum VariableValue
     Dim3(VariableType, Vec<Vec<Vec<VariableValue>>>)
 }
 
-impl PartialEq for VariableValue {
 
+impl PartialEq for VariableValue {
     fn eq(&self, other: &Self) -> bool
     {
         match self {

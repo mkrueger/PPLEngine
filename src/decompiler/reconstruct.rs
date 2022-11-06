@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, ElseIfBlock};
+use crate::ast::{BinOp, ElseIfBlock, VarInfo};
 
 use super::{Block, Declaration, Expression, HashMap, HashSet, OpCode, Program, Statement, get_var_name};
 
@@ -388,10 +388,10 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 optimize_ifs( &mut statements2);
 
                 if step_expr.to_string() == "1" {
-                    statements[i] = Statement::For(var_name, from_expr, Box::new(to_expr), None, statements2);
+                    statements[i] = Statement::For(Box::new(var_name.as_expr()), from_expr, Box::new(to_expr), None, statements2);
                 } else {
                     statements[i] = Statement::For(
-                        var_name,
+                        Box::new(var_name.as_expr()),
                         from_expr,
                         Box::new(to_expr),
                         Some(Box::new(step_expr)), 
@@ -767,7 +767,7 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             }
         }
         Statement::Let(expr, rvalue) => {
-            replace_in_expression(expr, rename_map);
+            replace_in_varinfo(expr, rename_map);
             replace_in_expression(rvalue, rename_map);
         }
         Statement::ProcedureCall(_, parameters) |
@@ -777,6 +777,19 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             }
         }
         _ => {}
+    }
+}
+
+fn replace_in_varinfo(repl_expr: &mut VarInfo, rename_map: &HashMap<String, String>) {
+    match repl_expr {
+        VarInfo::Var0(name) |
+        VarInfo::Var1(name, _) |
+        VarInfo::Var2(name, _, _) |
+        VarInfo::Var3(name, _, _, _) => {
+            if rename_map.contains_key(name) {
+                *name = rename_map.get(name).unwrap().to_string();
+            }
+        }
     }
 }
 

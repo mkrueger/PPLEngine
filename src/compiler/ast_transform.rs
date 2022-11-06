@@ -1,4 +1,4 @@
-use crate::ast::{Program, Statement, Expression, BinOp, Constant};
+use crate::ast::{Program, Statement, Expression, BinOp, Constant, get_var_name, VarInfo};
 
 pub fn transform_ast(prg: &mut Program)
 {
@@ -62,7 +62,7 @@ fn transform_block(statements: &mut Vec<Statement>)  {
                 statements.insert(i, Statement::Label(break_label.clone()));
                 statements.insert(i, Statement::Goto(loop_label.clone()));
                 let step = *opt_step.clone().unwrap_or(Box::new(Expression::Const(Constant::Integer(1))));
-                statements.insert(i, Statement::Let(var_name.clone(), Box::new(Expression::BinaryExpression(BinOp::Add, var_name.clone(), Box::new(step.clone())))));
+                statements.insert(i, Statement::Let(Box::new(VarInfo::Var0(get_var_name(var_name))), Box::new(Expression::BinaryExpression(BinOp::Add, var_name.clone(), Box::new(step.clone())))));
                 statements.insert(i, Statement::Label(continue_label.clone()));
                 
                 scan_possible_breaks( stmts, &break_label);
@@ -102,7 +102,11 @@ fn transform_block(statements: &mut Vec<Statement>)  {
                 ));
 
                 statements.insert(i, Statement::Label(loop_label));
-                statements.insert(i, Statement::Let(var_name.clone(), from.clone()));
+                
+                statements.insert(i, Statement::Let(
+                    Box::new(VarInfo::Var0(get_var_name(var_name))), 
+                    from.clone()
+                ));
 
             }
             

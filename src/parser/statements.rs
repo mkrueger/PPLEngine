@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, Statement, ElseIfBlock},
+    ast::{Expression, Statement, ElseIfBlock, VarInfo},
     tables::STATEMENT_DEFINITIONS,
 };
 
@@ -207,7 +207,7 @@ impl Tokenizer {
                     if self.cur_token == Some(Token::Eq) {
                         self.next_token();
                         let right = self.parse_expression();
-                        return Statement::Let(Box::new(Expression::Identifier(id)), Box::new(right));
+                        return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
                     } 
                     panic!("error parsing let statement");
                 },
@@ -286,10 +286,10 @@ impl Tokenizer {
                 }
             }
 
-           if self.cur_token == Some(Token::Eq) {
+            if self.cur_token == Some(Token::Eq) {
                 self.next_token();
                 let right = self.parse_expression();
-                return Statement::Let(Box::new(Expression::Identifier(id)), Box::new(right));
+                return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
             } else if self.cur_token == Some(Token::LPar) {
                 self.next_token();
                 let mut params = Vec::new();
@@ -304,6 +304,21 @@ impl Tokenizer {
                     panic!("missing closing parens");
                 }
                 self.next_token();
+                if self.cur_token == Some(Token::Eq) {
+                    self.next_token();
+                    let right = self.parse_expression();
+                    if params.len() == 1 {
+                        return Statement::Let(Box::new(VarInfo::Var1(id, params[0].clone())), Box::new(right));
+                    }
+                    if params.len() == 2 {
+                        return Statement::Let(Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())), Box::new(right));
+                    }
+                    if params.len() == 3 {
+                        return Statement::Let(Box::new(VarInfo::Var3(id, params[0].clone(), params[1].clone(), params[2].clone())), Box::new(right));
+                    }
+                    panic!("too many dimensions: {}", params.len());
+                }
+
                 return Statement::ProcedureCall(id, params);
             }
         }
@@ -328,7 +343,7 @@ impl Tokenizer {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Constant, Expression, Statement, ElseIfBlock},
+        ast::{Constant, Expression, Statement, ElseIfBlock, VarInfo},
         parser::tokens::Tokenizer,
         tables::{
             StatementDefinition, PPL_FALSE,
@@ -354,7 +369,7 @@ mod tests {
     fn test_parse_statement() {
         assert_eq!(
             Statement::Let(
-                Box::new(Expression::Identifier("FOO_BAR".to_string())),
+                Box::new(VarInfo::Var0("FOO_BAR".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1)))
             ),
             parse_statement("foo_bar=1")
@@ -409,7 +424,7 @@ mod tests {
     #[test]
     fn test_let() {
         assert_eq!(
-            Statement::Let(Box::new(Expression::Identifier("FOO".to_string())), Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))),
+            Statement::Let(Box::new(VarInfo::Var0("FOO".to_string())), Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))),
             parse_statement("LET FOO = FALSE")
         );
     }

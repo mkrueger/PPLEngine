@@ -36,9 +36,36 @@ impl Tokenizer {
         let var_name;
         if let Some(Token::Identifier(id)) = self.cur_token.clone() {
             self.next_token();
-            var_name = id;
+            var_name = id.clone();
         } else {
             panic!("expected identifier, got: {:?}", self.cur_token);
+        }
+
+        if let Some(Token::LPar) = &self.cur_token { 
+            self.next_token();
+            let vec = self.parse_expression();
+            
+            let var = if let Some(Token::Comma) = &self.cur_token {
+                self.next_token();
+                let mat = self.parse_expression();
+
+                if let Some(Token::Comma) = &self.cur_token { 
+                    self.next_token();
+                    let cube = self.parse_expression();
+                    VarInfo::Var3(var_name, vec, mat, cube)
+                } else {
+                    VarInfo::Var2(var_name, vec, mat)
+                }
+            } else {
+                VarInfo::Var1(var_name, vec)
+            };
+
+            if let Some(Token::RPar) = &self.cur_token { 
+                self.next_token();
+                return var;
+            } else {
+                panic!("end bracket expected");
+            }
         }
 
         VarInfo::Var0(var_name)
@@ -348,6 +375,12 @@ mod tests {
         assert_eq!(Declaration::create_variable(VariableType::Word, "VAR001".to_string()), prg.declarations[0]);
         let prg = parse_program("SWORD VAR001");
         assert_eq!(Declaration::create_variable(VariableType::SWord, "VAR001".to_string()), prg.declarations[0]);
+        let prg = parse_program("INTEGER VAR001(5)");
+        assert_eq!(Declaration::create_variable1(VariableType::Integer, "VAR001".to_string(), 5), prg.declarations[0]);
+        let prg = parse_program("INTEGER VAR001(5, 10)");
+        assert_eq!(Declaration::create_variable2(VariableType::Integer, "VAR001".to_string(), 5, 10), prg.declarations[0]);
+        let prg = parse_program("INTEGER VAR001(5, 10, 42)");
+        assert_eq!(Declaration::create_variable3(VariableType::Integer, "VAR001".to_string(), 5, 10, 42), prg.declarations[0]);
     }
 
     #[test]

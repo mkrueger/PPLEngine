@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
-use crate::ast::{Block, Constant, Declaration, Expression, FunctionImplementation, Program, Statement, VariableType, get_var_name};
+use crate::ast::{Block, Constant, Declaration, Expression, FunctionImplementation, Program, Statement, VariableType, get_var_name, VarInfo};
 use crate::executable::{Executable, read_file};
 use crate::tables::{BIN_EXPR, FUNCTION_DEFINITIONS, FuncOpCode, OpCode, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 
@@ -1165,7 +1165,7 @@ impl Decompiler {
                 OpCode::LET => {
                     let value = self.pop_expr().unwrap();
                     let variable = self.pop_expr().unwrap();
-                    self.outputpass2(prg, &mut if_while_stack,  Statement::Let(Box::new(variable), Box::new(value)));
+                    self.outputpass2(prg, &mut if_while_stack,  Statement::Let(Box::new(VarInfo::from(&variable)), Box::new(value)));
                 }
                 OpCode::WHILE | OpCode::IF => {
                     if_ptr = self.src_ptr;

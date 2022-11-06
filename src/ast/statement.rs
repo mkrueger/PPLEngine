@@ -1,6 +1,6 @@
 use crate::{tables::{StatementDefinition, PPL_TRUE}, output_keyword_indented};
 
-use super::{Constant, Expression, VariableType, ProgramContext};
+use super::{Constant, Expression, VariableType, ProgramContext, VarInfo};
 use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,7 +24,7 @@ pub enum Statement {
     Gosub(String),
     Return,
     Stop,
-    Let(Box<Expression>, Box<Expression>),
+    Let(Box<VarInfo>, Box<Expression>),
     Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
@@ -176,7 +176,7 @@ impl Statement
             Statement::Gosub(label) => (format!("{} {}", output_keyword("GoSub"), label), indent, 0),
             Statement::Return => (output_keyword("Return"), indent, 0),
             Statement::Let(var, expr) => {
-                let expected_type = prg.get_var_type(&get_var_name(var));
+                let expected_type = prg.get_var_type(&var.get_name());
                 let expr2 = if expected_type == VariableType::Boolean {
                     Statement::try_boolean_conversion(&**expr)
                 } else {

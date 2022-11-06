@@ -28,4 +28,5 @@ pub use self::variable_value::*;
 pub trait ProgramContext
 {
     fn get_var_type(&self, var_name: &str) -> VariableType;
+    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo>;
 }

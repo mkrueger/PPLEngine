@@ -1,5 +1,5 @@
 use std::fmt;
-use super::{Declaration, Block, VariableType, ProgramContext};
+use super::{Declaration, Block, VariableType, ProgramContext, VarInfo};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImplementation
@@ -93,5 +93,19 @@ impl ProgramContext for FunctionImplementation
             }
         }
         VariableType::Unknown
+    }
+    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo>
+    {
+        for decl in &self.variable_declarations {
+            match decl {
+                Declaration::Variable(var_type, var_infos) => {
+                    for var_info in var_infos {
+                        if *var_info.get_name() == *var_name { return Some(var_info); }
+                    }
+                },
+                _ => {}
+            }
+        }
+        None
     }
 }

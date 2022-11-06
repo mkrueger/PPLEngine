@@ -470,7 +470,7 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                         if let Statement::Goto(next_label) = &statements[j] {
                             if next_label == label {
                                 if j + 1 >= statements.len() {
-                                    j += 1;
+                                    i += 1;
                                     continue 'main;
                                 }
                                 if let Statement::Label(next_label) = &statements[j + 1] {

@@ -21,6 +21,10 @@ pub enum VariableValue
     Date(u16),
     EDate(u16),
     Time(u32),
+
+    Dim1(VariableType, Vec<VariableValue>),
+    Dim2(VariableType, Vec<Vec<VariableValue>>),
+    Dim3(VariableType, Vec<Vec<Vec<VariableValue>>>)
 }
 
 impl PartialEq for VariableValue {
@@ -439,7 +443,10 @@ impl fmt::Display for VariableValue {
             VariableValue::SWord(i) => write!(f, "{}", i),
             VariableValue::String(str) => write!(f, "{}", str),
             VariableValue::Real(i) => write!(f, "{}", i),
-            VariableValue::Boolean(b) => if *b { write!(f, "1") } else { write!(f, "0") } 
+            VariableValue::Boolean(b) => if *b { write!(f, "1") } else { write!(f, "0") }
+            VariableValue::Dim1(var_type, data) => write!(f, "{}({})", var_type.to_string(), data.len()),
+            VariableValue::Dim2(var_type, data) => write!(f, "{}({}, {})", var_type.to_string(), data.len(), data[0].len()),
+            VariableValue::Dim3(var_type, data) => write!(f, "{}({}, {}, {})", var_type.to_string(), data.len(), data[0].len(), data[0][0].len()),
         }
     }
 }

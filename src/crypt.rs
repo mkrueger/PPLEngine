@@ -1,5 +1,3 @@
-use std::intrinsics::rotate_right;
-
 const CRYPT_DATA: [u8; 17] = [0x8C, 0x53, 0xB8, 0xA7, 0x9E, 0x0F, 0x0A, 0xCB, 0x28, 0x62, 0x2D, 0x50, 0x7E, 0x05, 0x3D, 0x4E, 0x35];
 
 fn crypt3(block: &mut [u8]) {
@@ -37,7 +35,7 @@ pub fn decrypt(block: &mut [u8], version: u16) {
             let cur_word = (block[i + 1] as u16) << 8 | block[i] as u16;
             let dl = dx as u8;
             rotate_count = ((xor_value & 0xFF) + (dl as u16)) & 0xFF;
-            let outx = rotate_right(cur_word, rotate_count) ^ xor_value;
+            let outx = u16::rotate_right(cur_word, rotate_count as u32) ^ xor_value;
             block[i] = (outx as u8) ^ dl;
             i += 1;
             block[i] = (outx >> 8) as u8 ^ dl;
@@ -47,7 +45,7 @@ pub fn decrypt(block: &mut [u8], version: u16) {
         }
 
         if size % 2 == 1 {
-            block[i] = rotate_right(block[i] ^ (xor_value as u8), rotate_count as u8);
+            block[i] = u8::rotate_right(block[i] ^ (xor_value as u8), (rotate_count & 0xFF) as u32);
             i += 1;
         }
         if size == 0x7ff && block[i - 1] == 0 {

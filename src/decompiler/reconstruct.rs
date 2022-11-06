@@ -882,20 +882,13 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
             replace_in_expression(l_value, rename_map);
             replace_in_expression(r_value, rename_map);
         }
-        Expression::Dim1(expr1, expr2) => {
-            replace_in_expression(expr1, rename_map);
-            replace_in_expression(expr2, rename_map);
-        }
-        Expression::Dim2(expr1, expr2, expr3) => {
-            replace_in_expression(expr1, rename_map);
-            replace_in_expression(expr2, rename_map);
-            replace_in_expression(expr3, rename_map);
-        }
-        Expression::Dim3(expr1, expr2, expr3, expr4) => {
-            replace_in_expression(expr1, rename_map);
-            replace_in_expression(expr2, rename_map);
-            replace_in_expression(expr3, rename_map);
-            replace_in_expression(expr4, rename_map);
+        Expression::FunctionCall(name, parameters) => {
+            if rename_map.contains_key(name) {
+                *name = rename_map.get(name).unwrap().to_string();
+            }
+            for p in parameters {
+                replace_in_expression(p, rename_map);
+            }
         }
         _ => {}
     }

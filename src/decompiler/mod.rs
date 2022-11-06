@@ -583,9 +583,6 @@ impl Decompiler {
                     _ => Expression::Const(c)
                 }
             }
-            Expression::Dim1(expr, dim1) => Expression::Dim1(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names))),
-            Expression::Dim2(expr, dim1, dim2) => Expression::Dim2(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names)), Box::new(self.repl_const(*dim2, vars, names))),
-            Expression::Dim3(expr, dim1, dim2, dim3) => Expression::Dim3(Box::new(self.repl_const(*expr, vars, names)), Box::new(self.repl_const(*dim1, vars, names)), Box::new(self.repl_const(*dim2, vars, names)), Box::new(self.repl_const(*dim3, vars, names))),
             Expression::Identifier(s) => Expression::Identifier(s),
             Expression::Parens(e) => Expression::Parens(Box::new(self.repl_const(*e, vars, names))),
             Expression::FunctionCall(n, p) => {
@@ -842,11 +839,15 @@ impl Decompiler {
                             let temp_str2 = self.pop_expr().unwrap();
                             let tmp = self.pop_expr();
                             if let Some(e) = tmp {
-                                match e {
-                                    Expression::Dim1(expr, vec_expr) => self.push_expr(Expression::Dim2(expr, vec_expr, Box::new(temp_str2))),
-                                    Expression::Dim2(expr, vec_expr, mat_expr) => self.push_expr(Expression::Dim3(expr, vec_expr, mat_expr, Box::new(temp_str2))),
-                                    _ => self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2))),
-                                }
+                                let new_expr = match e {
+                                    Expression::FunctionCall(expr, vec_expr) => {
+                                        let mut v  =vec_expr.clone();
+                                        v.push(temp_str2);
+                                        Expression::FunctionCall(expr, v)
+                                    }
+                                    _ => Expression::FunctionCall(e.to_string(), vec![temp_str2])
+                                };
+                                self.push_expr(new_expr);
                             } else {
                                 self.push_expr(temp_str2);
                             }
@@ -894,15 +895,18 @@ impl Decompiler {
                 let tmp = self.pop_expr();
                 if let Some(e) = tmp {
                     match e {
-                        Expression::Dim1(expr, vec_expr) => self.push_expr(Expression::Dim2(expr, vec_expr, Box::new(temp_str2))),
-                        Expression::Dim2(expr, vec_expr, mat_expr) => self.push_expr(Expression::Dim3(expr, vec_expr, mat_expr, Box::new(temp_str2))),
+                        Expression::FunctionCall(name, params) => {
+                            let mut v = params.clone();
+                            v.push(temp_str2);
+                            self.push_expr(Expression::FunctionCall(name.clone(), v));
+                        }
                         _ => {
                             if e.to_string() == "VAR001"  {
                                 println!("cur {} dims: {}", cur_dim, dims);
                                 //panic!();
                             }
 
-                            self.push_expr(Expression::Dim1(Box::new(e), Box::new(temp_str2)));
+                            self.push_expr(Expression::FunctionCall(e.to_string(), vec![temp_str2]));
                         }
                     }
                 } else {

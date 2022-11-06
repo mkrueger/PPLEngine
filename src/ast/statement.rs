@@ -35,10 +35,8 @@ pub enum Statement {
 
 
 pub fn get_var_name(expr : &Expression) -> String {
-    if let Expression::Dim1(expr, _) |
-            Expression::Dim2(expr, _, _) |
-            Expression::Dim3(expr, _, _, _) = expr {
-        get_var_name(expr)
+    if let Expression::FunctionCall(name, _)  = expr {
+        name.clone()
     } else {
         expr.to_string()
     }

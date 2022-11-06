@@ -55,10 +55,7 @@ pub enum Expression
     Not(Box<Expression>),
     Minus(Box<Expression>),
     Plus(Box<Expression>),
-    BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
-    Dim1(Box<Expression>, Box<Expression>),
-    Dim2(Box<Expression>, Box<Expression>, Box<Expression>),
-    Dim3(Box<Expression>, Box<Expression>, Box<Expression>, Box<Expression>),
+    BinaryExpression(BinOp, Box<Expression>, Box<Expression>)
 }
 
 impl fmt::Display for Expression {
@@ -72,10 +69,7 @@ impl fmt::Display for Expression {
             Expression::Plus(expr) => write!(f, "+{}", **expr),
             Expression::BinaryExpression(op, l_expr, r_expr) => write!(f, "{} {} {}", **l_expr, op, **r_expr),
             Expression::FunctionCall(name, params) => write!(f, "{}({})", name, Statement::param_list_to_string(params)),
-            Expression::PredefinedFunctionCall(name, params) => write!(f, "{}({})", output_keyword(name.name), Statement::param_list_to_string(params)),
-            Expression::Dim1(expr, vec) => write!(f, "{}({})", **expr, **vec),
-            Expression::Dim2(expr, vec, mat) => write!(f, "{}({}, {})", **expr, **vec, **mat),
-            Expression::Dim3(expr, vec, mat, cub) => write!(f, "{}({}, {}, {})", **expr, **vec, **mat, **cub),
+            Expression::PredefinedFunctionCall(name, params) => write!(f, "{}({})", output_keyword(name.name), Statement::param_list_to_string(params))
 
         }
     }

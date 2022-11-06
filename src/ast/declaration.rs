@@ -6,8 +6,8 @@ use super::{VariableType, Expression, Constant, get_var_name};
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarInfo {
     Var0(String),
-    Var1(String, Expression),          // vector
-    Var2(String, Expression, Expression),     // matrix
+    Var1(String, Expression),                        // vector
+    Var2(String, Expression, Expression),            // matrix
     Var3(String, Expression, Expression, Expression) // cube
 }
 
@@ -16,9 +16,9 @@ impl VarInfo {
     pub fn as_expr(&self) -> Expression {
         match &self {
             VarInfo::Var0(name) => Expression::Identifier(name.clone()),
-            VarInfo::Var1(name, vec) => Expression::Dim1(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone())),
-            VarInfo::Var2(name, vec, mat) => Expression::Dim2(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone()), Box::new(mat.clone())),
-            VarInfo::Var3(name, vec, mat, cube) => Expression::Dim3(Box::new(Expression::Identifier(name.clone())), Box::new(vec.clone()), Box::new(mat.clone()), Box::new(cube.clone()))
+            VarInfo::Var1(name, vec) => Expression::FunctionCall(name.clone(), vec![vec.clone()]),
+            VarInfo::Var2(name, vec, mat) => Expression::FunctionCall(name.clone(), vec![vec.clone(), mat.clone()]),
+            VarInfo::Var3(name, vec, mat, cube) => Expression::FunctionCall(name.clone(), vec![vec.clone(), mat.clone(), cube.clone()]),
         }
     }
 
@@ -27,9 +27,15 @@ impl VarInfo {
         match expr {
             Expression::Const(Constant::String(name)) => VarInfo::Var0(name.clone()),
             Expression::Identifier(name) => VarInfo::Var0(name.clone()),
-            Expression::Dim1(name, vec) => VarInfo::Var1(get_var_name(name), *vec.clone()),
-            Expression::Dim2(name, vec, mat) => VarInfo::Var2(get_var_name(name), *vec.clone(), *mat.clone()),
-            Expression::Dim3(name, vec, mat, cube) => VarInfo::Var3(get_var_name(name), *vec.clone(), *mat.clone(), *cube.clone()),
+            Expression::FunctionCall(name, vec) => 
+            {
+                match vec.len() {
+                    1 => VarInfo::Var1(name.clone(), vec[0].clone()),
+                    2 => VarInfo::Var2(name.clone(), vec[0].clone(), vec[1].clone()),
+                    3 => VarInfo::Var3(name.clone(), vec[0].clone(), vec[2].clone(), vec[3].clone()),
+                    _ => panic!("can't translate func call t var info {:?}", expr)
+                }
+            }
             _ => panic!("unsupported expr {:?}", expr)
         }
     }

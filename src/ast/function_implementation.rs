@@ -98,7 +98,7 @@ impl ProgramContext for FunctionImplementation
     {
         for decl in &self.variable_declarations {
             match decl {
-                Declaration::Variable(var_type, var_infos) => {
+                Declaration::Variable(_, var_infos) => {
                     for var_info in var_infos {
                         if *var_info.get_name() == *var_name { return Some(var_info); }
                     }

@@ -2,8 +2,6 @@ use std::{ops::{Add, Sub, Mul, Div}, cmp::Ordering, fmt};
 
 use crate::{ast::variable_type::VariableType, tables::{PPL_TRUE, PPL_FALSE}};
 
-use super::VarInfo;
-
 #[derive(Debug, Clone)]
 pub enum VariableValue
 {

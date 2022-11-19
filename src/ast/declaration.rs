@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{VariableType, Expression, Constant, get_var_name};
+use super::{VariableType, Expression, Constant };
 
 
 #[derive(Debug, Clone, PartialEq)]

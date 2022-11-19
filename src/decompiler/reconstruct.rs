@@ -83,17 +83,19 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                 }
 
                 let endif_label_index = endif_label_index.unwrap();
-
+                
                 let mut elseif_blocks = None;
                 let mut else_block = None;
                 let if_block;
 
                 if let Some(else_label_index) = else_label_index {
+
+                    let mut else_block2: Vec<Statement> = statements.drain(else_label_index..endif_label_index).collect();
+
                     if_block = statements.drain((i + 1)..(else_label_index - 1 )).collect();
 
                     let mut elseif_blocks2 = Vec::new();
 
-                    let mut else_block2: Vec<Statement> = statements.drain((else_label_index)..(endif_label_index)).collect();
 
                     while let Some(Statement::If(cond, stmt)) = get_first(&else_block2)  {
                         if let Statement::Goto(label) = &**stmt {
@@ -524,10 +526,9 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
 
 fn scan_do_while2(statements: &mut Vec<Statement>) {
     let mut i = 0;
-    'main: while i < statements.len() {
+    while i < statements.len() {
         let cur = &statements[i];
         if let Statement::Label(while_label) = cur {
-            println!("found stmt '{}'", while_label);
             i += 1;
             if i >= statements.len() {
                 break;
@@ -865,6 +866,7 @@ fn replace_in_varinfo(repl_expr: &mut VarInfo, rename_map: &HashMap<String, Stri
 
 fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String, String>) {
     match repl_expr {
+
         Expression::Identifier(id) => {
             if rename_map.contains_key(id) {
                 *id = rename_map.get(id).unwrap().to_string();
@@ -872,16 +874,13 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
         }
         Expression::Parens(expr) |
         Expression::Not(expr) |
-        Expression::Minus(expr) => replace_in_expression(expr, rename_map),        Expression::FunctionCall(_, parameters) => {
-            for p in parameters {
-                replace_in_expression(p, rename_map);
-            }
-        }
-
+        Expression::Minus(expr) => replace_in_expression(expr, rename_map),
+       
         Expression::BinaryExpression(_, l_value, r_value) => {
             replace_in_expression(l_value, rename_map);
             replace_in_expression(r_value, rename_map);
         }
+
         Expression::FunctionCall(name, parameters) => {
             if rename_map.contains_key(name) {
                 *name = rename_map.get(name).unwrap().to_string();
@@ -890,6 +889,7 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
                 replace_in_expression(p, rename_map);
             }
         }
+
         _ => {}
     }
 }

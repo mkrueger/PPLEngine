@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{ ast::{VariableType, Constant, BinOp, variable_value::VariableValue}};
 
 // Statement Variable-Types, 0 = none / aa = not defined
@@ -420,7 +422,11 @@ pub enum OpCode {
 }
 
 
-
+impl Display for OpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unsupported const {:?}", self)
+    }
+}
 pub static STATEMENT_DEFINITIONS: [StatementDefinition; 212] = [
     // StatementDefinition { name: "END", opcode: OpCode::END, min_args: 0, max_args: 0 },
     StatementDefinition { name: "Cls", opcode: OpCode::CLS, min_args: 0, max_args: 0 },

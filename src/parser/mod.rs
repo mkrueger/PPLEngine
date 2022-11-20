@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{ast::{Block, Declaration, FunctionImplementation, Program, VariableType, VarInfo}};
 
 use self::tokens::{Tokenizer, Token};
@@ -334,7 +336,8 @@ pub fn parse_program(input: &str) -> Program
         procedure_implementations, 
         main_block: Block {
             statements
-        }
+        },
+        file_name: PathBuf::from("/test/test.ppe")
     }
 }
 

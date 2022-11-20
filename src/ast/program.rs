@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::{Path, PathBuf}};
 use super::{Declaration, Block, FunctionImplementation, VariableType, ProgramContext, VarInfo};
 
 
@@ -9,6 +9,8 @@ pub struct Program
     pub function_implementations: Vec<FunctionImplementation>,
     pub procedure_implementations: Vec<FunctionImplementation>,
     pub main_block: Block,
+
+    pub file_name: PathBuf
 }
 
 impl fmt::Display for Program {
@@ -63,6 +65,7 @@ impl Program
             },
             function_implementations: vec![],
             procedure_implementations: vec![],
+            file_name: PathBuf::new()
         }
     }
 }

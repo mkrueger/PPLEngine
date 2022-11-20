@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
+use std::path::PathBuf;
 use crate::ast::{Block, Constant, Declaration, Expression, FunctionImplementation, Program, Statement, VariableType, get_var_name, VarInfo};
 use crate::executable::{Executable, read_file};
 use crate::tables::{BIN_EXPR, FUNCTION_DEFINITIONS, FuncOpCode, OpCode, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
@@ -63,6 +64,7 @@ struct FuncL
 
 #[must_use]pub fn load_file(file_name: &str) -> Program {
     let mut prg = Program::new();
+    prg.file_name =  PathBuf::from(file_name);
     let mut d = Decompiler::new(read_file(file_name));
     d.do_pass1();
     d.dump_vars(&mut prg);

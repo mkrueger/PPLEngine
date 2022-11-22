@@ -628,6 +628,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::Integer(*v as i32),
                 VariableValue::Real(v) => VariableValue::Integer(*v as i32),
                 VariableValue::Boolean(v) => VariableValue::Integer(if *v { PPL_TRUE as i32 } else { PPL_FALSE as i32}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = i32::from_str_radix(v, 10) {
+                        VariableValue::Integer(val)
+                    } else {
+                        VariableValue::Integer(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to i32", value)
             }
         }
@@ -641,6 +648,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::Unsigned(*v as u32),
                 VariableValue::Real(v) => VariableValue::Unsigned(*v as u32),
                 VariableValue::Boolean(v) => VariableValue::Unsigned(if *v { PPL_TRUE as u32 } else { PPL_FALSE as u32}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = u32::from_str_radix(v, 10) {
+                        VariableValue::Unsigned(val)
+                    } else {
+                        VariableValue::Unsigned(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to u32", value)
             }
         }
@@ -655,6 +669,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::Word(*v as u16),
                 VariableValue::Real(v) => VariableValue::Word(*v as u16),
                 VariableValue::Boolean(v) => VariableValue::Word(if *v { PPL_TRUE as u16 } else { PPL_FALSE as u16}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = u16::from_str_radix(v, 10) {
+                        VariableValue::Word(val)
+                    } else {
+                        VariableValue::Word(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to u16", value)
             }
         }
@@ -669,6 +690,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::SWord(*v),
                 VariableValue::Real(v) => VariableValue::SWord(*v as i16),
                 VariableValue::Boolean(v) => VariableValue::SWord(if *v { PPL_TRUE as i16 } else { PPL_FALSE as i16}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = i16::from_str_radix(v, 10) {
+                        VariableValue::SWord(val)
+                    } else {
+                        VariableValue::SWord(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to i16", value)
             }
         }
@@ -683,6 +711,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::Byte(*v as u8),
                 VariableValue::Real(v) => VariableValue::Byte(*v as u8),
                 VariableValue::Boolean(v) => VariableValue::Byte(if *v { PPL_TRUE as u8 } else { PPL_FALSE as u8}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = u8::from_str_radix(v, 10) {
+                        VariableValue::Byte(val)
+                    } else {
+                        VariableValue::Byte(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to u8", value)
             }
         }
@@ -697,6 +732,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::SWord(v) => VariableValue::SByte(*v as i8),
                 VariableValue::Real(v) => VariableValue::SByte(*v as i8),
                 VariableValue::Boolean(v) => VariableValue::SByte(if *v { PPL_TRUE as i8 } else { PPL_FALSE as i8}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = i8::from_str_radix(v, 10) {
+                        VariableValue::SByte(val)
+                    } else {
+                        VariableValue::SByte(0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to i8", value)
             }
         }
@@ -711,6 +753,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
                 VariableValue::Word(v) => VariableValue::Real(*v as f64),
                 VariableValue::SWord(v) => VariableValue::Real(*v as f64),
                 VariableValue::Boolean(v) => VariableValue::Real(if *v { PPL_TRUE as f64 } else { PPL_FALSE as f64}),
+                VariableValue::String(v) => {
+                    if let Ok(val) = v.parse::<f64>() {
+                        VariableValue::Real(val)
+                    } else {
+                        VariableValue::Real(0.0)
+                    }
+                },
                 _ => panic!("can't convert {:?} to f64", value)
             }
         }
@@ -730,6 +779,13 @@ pub fn convert_to(var_type: VariableType, value : &VariableValue) -> VariableVal
         VariableType::Boolean => {
             match value {
                 VariableValue::Boolean(v) => VariableValue::Boolean(*v),
+                VariableValue::String(v) => {
+                    if v.to_uppercase() == "TRUE" || v == "1" {
+                        VariableValue::Boolean(true)
+                    } else {
+                        VariableValue::Boolean(false)
+                    }
+                },
                 _ => {
                     match value.to_string().as_str() {
                         "1" => VariableValue::Boolean(true),

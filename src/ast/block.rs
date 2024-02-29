@@ -1,25 +1,18 @@
-use super::{Statement, Program};
-
+use super::{Program, Statement};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Block
-{
+pub struct Block {
     pub statements: Vec<Statement>,
 }
 
-impl Block
-{
-    pub fn new() -> Self
-    {
-        Block {
-            statements: vec![]
-        }
+impl Block {
+    pub fn new() -> Self {
+        Block { statements: vec![] }
     }
 
-    pub fn to_string(&self, prg: &Program) -> std::string::String
-    {
+    pub fn to_string(&self, prg: &Program) -> std::string::String {
         let mut result = std::string::String::new();
-        let mut indent= 0;
+        let mut indent = 0;
         for s in &self.statements {
             let out = s.to_string(prg, indent);
             if indent > out.1 {

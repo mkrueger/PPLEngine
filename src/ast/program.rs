@@ -1,16 +1,17 @@
-use std::{fmt, path::{Path, PathBuf}};
-use super::{Declaration, Block, FunctionImplementation, VariableType, ProgramContext, VarInfo};
-
+use super::{Block, Declaration, FunctionImplementation, ProgramContext, VarInfo, VariableType};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, PartialEq)]
-pub struct Program
-{
+pub struct Program {
     pub declarations: Vec<Declaration>,
     pub function_implementations: Vec<FunctionImplementation>,
     pub procedure_implementations: Vec<FunctionImplementation>,
     pub main_block: Block,
 
-    pub file_name: PathBuf
+    pub file_name: PathBuf,
 }
 
 impl fmt::Display for Program {
@@ -54,18 +55,14 @@ impl fmt::Display for Program {
     }
 }
 
-impl Program
-{
-    pub fn new() -> Self
-    {
+impl Program {
+    pub fn new() -> Self {
         Program {
             declarations: vec![],
-            main_block: Block {
-                statements: vec![]
-            },
+            main_block: Block { statements: vec![] },
             function_implementations: vec![],
             procedure_implementations: vec![],
-            file_name: PathBuf::new()
+            file_name: PathBuf::new(),
         }
     }
 }
@@ -76,17 +73,17 @@ impl Default for Program {
     }
 }
 
-impl ProgramContext for Program
-{
-    fn get_var_type(&self, var_name: &str) -> VariableType
-    {
+impl ProgramContext for Program {
+    fn get_var_type(&self, var_name: &str) -> VariableType {
         for decl in &self.declarations {
             match decl {
                 Declaration::Variable(var_type, var_infos) => {
                     for var_info in var_infos {
-                        if *var_info.get_name() == *var_name { return *var_type; }
+                        if *var_info.get_name() == *var_name {
+                            return *var_type;
+                        }
                     }
-                },
+                }
                 Declaration::Function(name, _, return_type) => {
                     if name == var_name {
                         return *return_type;
@@ -98,15 +95,16 @@ impl ProgramContext for Program
         VariableType::Unknown
     }
 
-    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo>
-    {
+    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo> {
         for decl in &self.declarations {
             match decl {
                 Declaration::Variable(_, var_infos) => {
                     for var_info in var_infos {
-                        if *var_info.get_name() == *var_name { return Some(var_info); }
+                        if *var_info.get_name() == *var_name {
+                            return Some(var_info);
+                        }
                     }
-                },
+                }
                 _ => {}
             }
         }

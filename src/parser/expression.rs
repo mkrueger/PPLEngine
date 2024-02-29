@@ -1,5 +1,8 @@
-use crate::{ast::{Expression, BinOp}, tables::FUNCTION_DEFINITIONS};
-use super::tokens::{Tokenizer, Token};
+use super::tokens::{Token, Tokenizer};
+use crate::{
+    ast::{BinOp, Expression},
+    tables::FUNCTION_DEFINITIONS,
+};
 
 impl Tokenizer {
     pub fn parse_expression(&mut self) -> Expression {
@@ -17,7 +20,7 @@ impl Tokenizer {
             let op = match self.cur_token {
                 Some(Token::Or) => BinOp::Or,
                 Some(Token::And) => BinOp::And,
-                _ => panic!()
+                _ => panic!(),
             };
             self.next_token();
             let right = self.parse_comparison();
@@ -28,7 +31,13 @@ impl Tokenizer {
 
     fn parse_comparison(&mut self) -> Expression {
         let mut expr = self.parse_term();
-        while self.cur_token == Some(Token::Greater) || self.cur_token == Some(Token::GreaterEq) || self.cur_token == Some(Token::Lower) || self.cur_token == Some(Token::LowerEq) || self.cur_token == Some(Token::Eq) || self.cur_token == Some(Token::NotEq) {
+        while self.cur_token == Some(Token::Greater)
+            || self.cur_token == Some(Token::GreaterEq)
+            || self.cur_token == Some(Token::Lower)
+            || self.cur_token == Some(Token::LowerEq)
+            || self.cur_token == Some(Token::Eq)
+            || self.cur_token == Some(Token::NotEq)
+        {
             let op = match self.cur_token {
                 Some(Token::Greater) => BinOp::Greater,
                 Some(Token::GreaterEq) => BinOp::GreaterEq,
@@ -36,7 +45,7 @@ impl Tokenizer {
                 Some(Token::LowerEq) => BinOp::LowerEq,
                 Some(Token::Eq) => BinOp::Eq,
                 Some(Token::NotEq) => BinOp::NotEq,
-                _ => panic!()
+                _ => panic!(),
             };
             self.next_token();
 
@@ -53,7 +62,7 @@ impl Tokenizer {
             let op = match self.cur_token {
                 Some(Token::Add) => BinOp::Add,
                 Some(Token::Sub) => BinOp::Sub,
-                _ => panic!()
+                _ => panic!(),
             };
             self.next_token();
             let right = self.parse_factor();
@@ -65,12 +74,15 @@ impl Tokenizer {
 
     fn parse_factor(&mut self) -> Expression {
         let mut expr = self.parse_pow();
-        while self.cur_token == Some(Token::Mul) || self.cur_token == Some(Token::Div) || self.cur_token == Some(Token::Mod) {
+        while self.cur_token == Some(Token::Mul)
+            || self.cur_token == Some(Token::Div)
+            || self.cur_token == Some(Token::Mod)
+        {
             let op = match self.cur_token {
                 Some(Token::Mul) => BinOp::Mul,
                 Some(Token::Div) => BinOp::Div,
                 Some(Token::Mod) => BinOp::Mod,
-                _ => panic!()
+                _ => panic!(),
             };
             self.next_token();
             let right = self.parse_pow();
@@ -102,17 +114,17 @@ impl Tokenizer {
             self.next_token();
             return Expression::Not(Box::new(self.parse_unary()));
         }
-        
+
         self.parse_primary()
     }
 
     fn parse_primary(&mut self) -> Expression {
         let t = self.cur_token.clone();
-        match t{
-            Some(Token::Const(c)) => { 
+        match t {
+            Some(Token::Const(c)) => {
                 self.next_token();
                 Expression::Const(c.clone())
-            },
+            }
             Some(Token::Identifier(id)) => {
                 self.next_token();
 
@@ -135,15 +147,18 @@ impl Tokenizer {
                     // TODO: Check parameter signature
 
                     if predef >= 0 {
-                        return Expression::PredefinedFunctionCall(&FUNCTION_DEFINITIONS[predef as usize], params);
+                        return Expression::PredefinedFunctionCall(
+                            &FUNCTION_DEFINITIONS[predef as usize],
+                            params,
+                        );
                     } else {
                         return Expression::FunctionCall(id, params);
                     }
                 }
 
                 Expression::Identifier(id)
-            },
-            Some(Token::LPar) => { 
+            }
+            Some(Token::LPar) => {
                 self.next_token();
                 let ret = Expression::Parens(Box::new(self.parse_expression()));
                 if self.cur_token != Some(Token::RPar) {
@@ -152,15 +167,20 @@ impl Tokenizer {
                 self.next_token();
                 ret
             }
-            _ => { panic!("invalid primary token {:?}", self.cur_token); }
+            _ => {
+                panic!("invalid primary token {:?}", self.cur_token);
+            }
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{parser::tokens::{Tokenizer}, ast::{Constant, Expression, BinOp}, tables::{PPL_FALSE, get_function_definition, FUNCTION_DEFINITIONS}};
+    use crate::{
+        ast::{BinOp, Constant, Expression},
+        parser::tokens::Tokenizer,
+        tables::{get_function_definition, FUNCTION_DEFINITIONS, PPL_FALSE},
+    };
     fn parse_expression(str: &str) -> Expression {
         let mut tokenizer = Tokenizer::new(str);
         tokenizer.next_token();
@@ -169,24 +189,143 @@ mod tests {
 
     #[test]
     fn test_parse_expression() {
-        assert_eq!(Expression::Const(Constant::Money(42.42)), parse_expression("$42.42"));
-        assert_eq!(Expression::Parens(Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("(5)"));
-        assert_eq!(Expression::Not(Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))), parse_expression("!FALSE"));
-        assert_eq!(Expression::PredefinedFunctionCall(&FUNCTION_DEFINITIONS[get_function_definition("ABORT") as usize], Vec::new()), parse_expression("ABORT()"));
-        assert_eq!(Expression::PredefinedFunctionCall(&FUNCTION_DEFINITIONS[get_function_definition("ABS") as usize], vec!(Expression::Const(Constant::Integer(5)))), parse_expression("ABS(5)"));
-        assert_eq!(Expression::BinaryExpression(BinOp::PoW, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2^5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Mul, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2*5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Div, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2/5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Mod, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2%5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Add, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2+5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Sub, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2-5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Eq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 = 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::NotEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 <> 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Lower, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 < 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::LowerEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 <= 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Greater, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 > 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::GreaterEq, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 >= 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::And, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 & 5"));
-        assert_eq!(Expression::BinaryExpression(BinOp::Or, Box::new(Expression::Const(Constant::Integer(2))), Box::new(Expression::Const(Constant::Integer(5)))), parse_expression("2 | 5"));
+        assert_eq!(
+            Expression::Const(Constant::Money(42.42)),
+            parse_expression("$42.42")
+        );
+        assert_eq!(
+            Expression::Parens(Box::new(Expression::Const(Constant::Integer(5)))),
+            parse_expression("(5)")
+        );
+        assert_eq!(
+            Expression::Not(Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))),
+            parse_expression("!FALSE")
+        );
+        assert_eq!(
+            Expression::PredefinedFunctionCall(
+                &FUNCTION_DEFINITIONS[get_function_definition("ABORT") as usize],
+                Vec::new()
+            ),
+            parse_expression("ABORT()")
+        );
+        assert_eq!(
+            Expression::PredefinedFunctionCall(
+                &FUNCTION_DEFINITIONS[get_function_definition("ABS") as usize],
+                vec!(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("ABS(5)")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::PoW,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2^5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Mul,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2*5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Div,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2/5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Mod,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2%5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Add,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2+5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Sub,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2-5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Eq,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 = 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::NotEq,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 <> 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Lower,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 < 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::LowerEq,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 <= 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Greater,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 > 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::GreaterEq,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 >= 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::And,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 & 5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::Or,
+                Box::new(Expression::Const(Constant::Integer(2))),
+                Box::new(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("2 | 5")
+        );
     }
 }

@@ -1,9 +1,8 @@
+use super::{Block, Declaration, ProgramContext, VarInfo, VariableType};
 use std::fmt;
-use super::{Declaration, Block, VariableType, ProgramContext, VarInfo};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionImplementation
-{
+pub struct FunctionImplementation {
     pub id: i32,
     pub declaration: Declaration,
     pub variable_declarations: Vec<Declaration>,
@@ -17,8 +16,7 @@ impl fmt::Display for FunctionImplementation {
 }
 
 impl FunctionImplementation {
-    pub fn print_content(&self) -> String
-    {
+    pub fn print_content(&self) -> String {
         let mut res = self.declaration.print_header();
         res.push('\n');
         let mut indent = 1;
@@ -46,11 +44,9 @@ impl FunctionImplementation {
         }
         if let Declaration::Function(name, _, _) = &self.declaration {
             res.push_str(format!("ENDFUNC ;--{}", name).as_str());
-
-        } else if let Declaration::Procedure(name, _)= &self.declaration {
+        } else if let Declaration::Procedure(name, _) = &self.declaration {
             res.push_str(format!("ENDPROC ;--{}", name).as_str());
         }
-
 
         res.push('\n');
 
@@ -58,25 +54,22 @@ impl FunctionImplementation {
     }
 }
 
-fn match_var_name(decl : &Declaration, var_name : &str) -> Option<VariableType>
-{
+fn match_var_name(decl: &Declaration, var_name: &str) -> Option<VariableType> {
     match decl {
         Declaration::Variable(var_type, name) => {
-            for info in name { 
-                if *info.get_name() == *var_name { 
-                    return Some(*var_type); 
-                } 
+            for info in name {
+                if *info.get_name() == *var_name {
+                    return Some(*var_type);
+                }
             }
         }
-        _ => {  }
+        _ => {}
     }
     None
 }
 
-impl ProgramContext for FunctionImplementation
-{
-    fn get_var_type(&self, var_name: &str) -> VariableType
-    {
+impl ProgramContext for FunctionImplementation {
+    fn get_var_type(&self, var_name: &str) -> VariableType {
         if let Declaration::Function(func_name, param, func_type) = &self.declaration {
             if var_name == func_name {
                 return *func_type;
@@ -94,15 +87,16 @@ impl ProgramContext for FunctionImplementation
         }
         VariableType::Unknown
     }
-    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo>
-    {
+    fn get_var_info(&self, var_name: &str) -> Option<&VarInfo> {
         for decl in &self.variable_declarations {
             match decl {
                 Declaration::Variable(_, var_infos) => {
                     for var_info in var_infos {
-                        if *var_info.get_name() == *var_name { return Some(var_info); }
+                        if *var_info.get_name() == *var_name {
+                            return Some(var_info);
+                        }
                     }
-                },
+                }
                 _ => {}
             }
         }

@@ -1,4 +1,7 @@
-const CRYPT_DATA: [u8; 17] = [0x8C, 0x53, 0xB8, 0xA7, 0x9E, 0x0F, 0x0A, 0xCB, 0x28, 0x62, 0x2D, 0x50, 0x7E, 0x05, 0x3D, 0x4E, 0x35];
+const CRYPT_DATA: [u8; 17] = [
+    0x8C, 0x53, 0xB8, 0xA7, 0x9E, 0x0F, 0x0A, 0xCB, 0x28, 0x62, 0x2D, 0x50, 0x7E, 0x05, 0x3D, 0x4E,
+    0x35,
+];
 
 fn crypt3(block: &mut [u8]) {
     let mut len = block.len();
@@ -14,8 +17,12 @@ fn crypt3(block: &mut [u8]) {
 
 #[allow(clippy::pedantic)]
 pub fn decrypt(block: &mut [u8], version: u16) {
-    if version < 300 { return; }
-    if version >= 330 { crypt3(block); }
+    if version < 300 {
+        return;
+    }
+    if version >= 330 {
+        crypt3(block);
+    }
 
     let mut full_size = block.len() as i32;
     let mut i = 0;
@@ -52,7 +59,9 @@ pub fn decrypt(block: &mut [u8], version: u16) {
             i += 1;
             full_size -= 1;
         }
-        if full_size <= 0 { break; }
+        if full_size <= 0 {
+            break;
+        }
     }
 }
 
@@ -100,8 +109,8 @@ pub fn decode_rle(src: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypt::{decode_rle, encode_rle};
     use super::*;
+    use crate::crypt::{decode_rle, encode_rle};
 
     #[test]
     #[allow(clippy::clone_on_copy)]

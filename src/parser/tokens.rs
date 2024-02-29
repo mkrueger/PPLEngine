@@ -1,4 +1,7 @@
-use crate::{ast::Constant, tables::{PPL_TRUE, PPL_FALSE}};
+use crate::{
+    ast::Constant,
+    tables::{PPL_FALSE, PPL_TRUE},
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -31,11 +34,10 @@ pub struct Tokenizer {
     pos: usize,
     text: Vec<char>,
     line: usize,
-    col: usize
+    col: usize,
 }
 
 impl Tokenizer {
-
     pub fn new(text: &str) -> Self {
         Tokenizer {
             cur_token: None,
@@ -48,7 +50,7 @@ impl Tokenizer {
 
     fn get_ch(&self) -> Option<char> {
         if self.text.len() <= self.pos {
-            None 
+            None
         } else {
             Some(self.text[self.pos])
         }
@@ -71,15 +73,15 @@ impl Tokenizer {
         self.pos -= 1;
     }
 
-    pub fn next_token(&mut self)-> Option<Token> {
+    pub fn next_token(&mut self) -> Option<Token> {
         self.cur_token = self.next_token2();
         self.cur_token.clone()
     }
 
     fn next_token2(&mut self) -> Option<Token> {
         let ch = self.next_ch();
-        if ch.is_none() { 
-            return None; 
+        if ch.is_none() {
+            return None;
         }
         let ch = ch.unwrap();
         match ch {
@@ -303,21 +305,37 @@ fn conv_hex(first: char) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::tokens::{Tokenizer, Token}, ast::Constant, tables::{PPL_FALSE, PPL_TRUE}};
-    
+    use crate::{
+        ast::Constant,
+        parser::tokens::{Token, Tokenizer},
+        tables::{PPL_FALSE, PPL_TRUE},
+    };
+
     #[test]
     fn test_comments() {
-        assert_eq!(Token::Eol, Tokenizer::new("; COMMENT").next_token().unwrap());
-        assert_eq!(Token::Eol, Tokenizer::new("' COMMENT").next_token().unwrap());
+        assert_eq!(
+            Token::Eol,
+            Tokenizer::new("; COMMENT").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Eol,
+            Tokenizer::new("' COMMENT").next_token().unwrap()
+        );
     }
 
     #[test]
     fn test_string() {
         let mut token = Tokenizer::new("\"Hello World\"\"foo\"");
-        assert_eq!(Token::Const(Constant::String("Hello World".to_string())), token.next_token().unwrap());
-        assert_eq!(Token::Const(Constant::String("foo".to_string())), token.next_token().unwrap());
+        assert_eq!(
+            Token::Const(Constant::String("Hello World".to_string())),
+            token.next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::String("foo".to_string())),
+            token.next_token().unwrap()
+        );
     }
-    
+
     #[test]
     fn test_op() {
         assert_eq!(Token::Eq, Tokenizer::new("==").next_token().unwrap());
@@ -344,23 +362,59 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        assert_eq!(Token::Identifier("PRINT".to_string()), Tokenizer::new("PRINT").next_token().unwrap());
+        assert_eq!(
+            Token::Identifier("PRINT".to_string()),
+            Tokenizer::new("PRINT").next_token().unwrap()
+        );
 
         let mut token = Tokenizer::new("Hello World");
-        assert_eq!(Token::Identifier("HELLO".to_string()), token.next_token().unwrap());
-        assert_eq!(Token::Identifier("WORLD".to_string()), token.next_token().unwrap());
+        assert_eq!(
+            Token::Identifier("HELLO".to_string()),
+            token.next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Identifier("WORLD".to_string()),
+            token.next_token().unwrap()
+        );
     }
 
     #[test]
     fn test_constants() {
-        assert_eq!(Token::Const(Constant::Integer(123)), Tokenizer::new("123").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Money(1.42)), Tokenizer::new("$1.42").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(255)), Tokenizer::new("0FFh").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(123)), Tokenizer::new("123d").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(88)), Tokenizer::new("130o").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(8)), Tokenizer::new("1000b").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(100)), Tokenizer::new("@X64").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(PPL_TRUE)), Tokenizer::new("TRUE").next_token().unwrap());
-        assert_eq!(Token::Const(Constant::Integer(PPL_FALSE)), Tokenizer::new("FALSE").next_token().unwrap());
+        assert_eq!(
+            Token::Const(Constant::Integer(123)),
+            Tokenizer::new("123").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Money(1.42)),
+            Tokenizer::new("$1.42").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(255)),
+            Tokenizer::new("0FFh").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(123)),
+            Tokenizer::new("123d").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(88)),
+            Tokenizer::new("130o").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(8)),
+            Tokenizer::new("1000b").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(100)),
+            Tokenizer::new("@X64").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(PPL_TRUE)),
+            Tokenizer::new("TRUE").next_token().unwrap()
+        );
+        assert_eq!(
+            Token::Const(Constant::Integer(PPL_FALSE)),
+            Tokenizer::new("FALSE").next_token().unwrap()
+        );
     }
 }

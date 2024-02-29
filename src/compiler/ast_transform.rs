@@ -1,7 +1,6 @@
-use crate::ast::{Program, Statement, Expression, BinOp, Constant, get_var_name, VarInfo};
+use crate::ast::{get_var_name, BinOp, Constant, Expression, Program, Statement, VarInfo};
 
-pub fn transform_ast(prg: &mut Program)
-{
+pub fn transform_ast(prg: &mut Program) {
     for f in &mut prg.function_implementations {
         transform_block(&mut f.block.statements);
     }
@@ -11,7 +10,7 @@ pub fn transform_ast(prg: &mut Program)
     transform_block(&mut prg.main_block.statements);
 }
 
-fn transform_block(statements: &mut Vec<Statement>)  {
+fn transform_block(statements: &mut Vec<Statement>) {
     let mut i = 0;
     let mut labels = 1;
 
@@ -34,16 +33,19 @@ fn transform_block(statements: &mut Vec<Statement>)  {
                 statements.insert(i, Statement::Label(break_label.clone()));
                 statements.insert(i, Statement::Goto(loop_label.clone()));
                 statements.insert(i, Statement::Label(continue_label.clone()));
-                
+
                 statements.splice(i..i, stmts.iter().cloned());
 
-                scan_possible_breaks( stmts, &break_label);
-                scan_possible_continues( stmts, &continue_label);
+                scan_possible_breaks(stmts, &break_label);
+                scan_possible_continues(stmts, &continue_label);
                 // block
-                statements.insert(i, Statement::If(
-                    Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
-                    Box::new(Statement::Goto(break_label.clone()))
-                ));
+                statements.insert(
+                    i,
+                    Statement::If(
+                        Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
+                        Box::new(Statement::Goto(break_label.clone())),
+                    ),
+                );
 
                 statements.insert(i, Statement::Label(loop_label));
                 continue;
@@ -61,55 +63,87 @@ fn transform_block(statements: &mut Vec<Statement>)  {
 
                 statements.insert(i, Statement::Label(break_label.clone()));
                 statements.insert(i, Statement::Goto(loop_label.clone()));
-                let step = *opt_step.clone().unwrap_or(Box::new(Expression::Const(Constant::Integer(1))));
-                statements.insert(i, Statement::Let(Box::new(VarInfo::Var0(get_var_name(var_name))), Box::new(Expression::BinaryExpression(BinOp::Add, var_name.clone(), Box::new(step.clone())))));
+                let step = *opt_step
+                    .clone()
+                    .unwrap_or(Box::new(Expression::Const(Constant::Integer(1))));
+                statements.insert(
+                    i,
+                    Statement::Let(
+                        Box::new(VarInfo::Var0(get_var_name(var_name))),
+                        Box::new(Expression::BinaryExpression(
+                            BinOp::Add,
+                            var_name.clone(),
+                            Box::new(step.clone()),
+                        )),
+                    ),
+                );
                 statements.insert(i, Statement::Label(continue_label.clone()));
-                
-                scan_possible_breaks( stmts, &break_label);
-                scan_possible_continues( stmts, &continue_label);
+
+                scan_possible_breaks(stmts, &break_label);
+                scan_possible_continues(stmts, &continue_label);
                 statements.splice(i..i, stmts.iter().cloned());
 
-                statements.insert(i, Statement::If(
-                    Box::new(Expression::Not(
-                        Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(
-                            BinOp::Or, 
-                            Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(
-                                BinOp::And, 
-                                Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(BinOp::Lower, 
-                                    Box::new(step.clone()), 
-                                    Box::new(Expression::Const(Constant::Integer(0)))
-                                )))),
-                                Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(BinOp::GreaterEq, 
-                                    var_name.clone(), 
-                                    to.clone()
-                                ))))
-                            )))),
-                            Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(
-                                BinOp::And, 
-                                Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(BinOp::GreaterEq, 
-                                    Box::new(step.clone()), 
-                                    Box::new(Expression::Const(Constant::Integer(0)))
-                                )))),
-                                Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(BinOp::LowerEq, 
-                                    var_name.clone(), 
-                                    to.clone()
-                                ))))
-                            ))))
-                        ))))
-                    )),
-
-                    Box::new(Statement::Goto(break_label.clone()))
-                ));
+                statements.insert(
+                    i,
+                    Statement::If(
+                        Box::new(Expression::Not(Box::new(Expression::Parens(Box::new(
+                            Expression::BinaryExpression(
+                                BinOp::Or,
+                                Box::new(Expression::Parens(Box::new(
+                                    Expression::BinaryExpression(
+                                        BinOp::And,
+                                        Box::new(Expression::Parens(Box::new(
+                                            Expression::BinaryExpression(
+                                                BinOp::Lower,
+                                                Box::new(step.clone()),
+                                                Box::new(Expression::Const(Constant::Integer(0))),
+                                            ),
+                                        ))),
+                                        Box::new(Expression::Parens(Box::new(
+                                            Expression::BinaryExpression(
+                                                BinOp::GreaterEq,
+                                                var_name.clone(),
+                                                to.clone(),
+                                            ),
+                                        ))),
+                                    ),
+                                ))),
+                                Box::new(Expression::Parens(Box::new(
+                                    Expression::BinaryExpression(
+                                        BinOp::And,
+                                        Box::new(Expression::Parens(Box::new(
+                                            Expression::BinaryExpression(
+                                                BinOp::GreaterEq,
+                                                Box::new(step.clone()),
+                                                Box::new(Expression::Const(Constant::Integer(0))),
+                                            ),
+                                        ))),
+                                        Box::new(Expression::Parens(Box::new(
+                                            Expression::BinaryExpression(
+                                                BinOp::LowerEq,
+                                                var_name.clone(),
+                                                to.clone(),
+                                            ),
+                                        ))),
+                                    ),
+                                ))),
+                            ),
+                        ))))),
+                        Box::new(Statement::Goto(break_label.clone())),
+                    ),
+                );
 
                 statements.insert(i, Statement::Label(loop_label));
-                
-                statements.insert(i, Statement::Let(
-                    Box::new(VarInfo::Var0(get_var_name(var_name))), 
-                    from.clone()
-                ));
 
+                statements.insert(
+                    i,
+                    Statement::Let(
+                        Box::new(VarInfo::Var0(get_var_name(var_name))),
+                        from.clone(),
+                    ),
+                );
             }
-            
+
             Statement::IfThen(cond, stmts, opt_else_if, opt_else) => {
                 statements.remove(i);
                 let mut if_exit_label = format!("label{}", labels);
@@ -125,17 +159,22 @@ fn transform_block(statements: &mut Vec<Statement>)  {
                 if let Some(else_if) = opt_else_if {
                     for n in 0..else_if.len() {
                         let ef = &else_if[n];
-                        if n != else_if.len() - 1 || opt_else.is_some()  {
+                        if n != else_if.len() - 1 || opt_else.is_some() {
                             statements.insert(i, Statement::Label(if_exit_label.clone()));
                             statements.insert(i, Statement::Goto(else_exit_label.clone()));
                         }
 
                         statements.splice(i..i, ef.block.iter().cloned());
 
-                        statements.insert(i, Statement::If(
-                            Box::new(Expression::Not(Box::new(Expression::Parens(ef.cond.clone())))),
-                            Box::new(Statement::Goto(if_exit_label.clone()))
-                        ));
+                        statements.insert(
+                            i,
+                            Statement::If(
+                                Box::new(Expression::Not(Box::new(Expression::Parens(
+                                    ef.cond.clone(),
+                                )))),
+                                Box::new(Statement::Goto(if_exit_label.clone())),
+                            ),
+                        );
 
                         if_exit_label = format!("label{}", labels);
                         labels += 1;
@@ -143,16 +182,18 @@ fn transform_block(statements: &mut Vec<Statement>)  {
                 }
 
                 statements.insert(i, Statement::Label(if_exit_label.clone()));
-                if opt_else.is_some()  || opt_else_if.is_some() {
+                if opt_else.is_some() || opt_else_if.is_some() {
                     statements.insert(i, Statement::Goto(else_exit_label.clone()));
                 }
                 statements.splice(i..i, stmts.iter().cloned());
 
-                statements.insert(i, Statement::If(
-                    Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
-                    Box::new(Statement::Goto(if_exit_label.clone()))
-                ));
-
+                statements.insert(
+                    i,
+                    Statement::If(
+                        Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
+                        Box::new(Statement::Goto(if_exit_label.clone())),
+                    ),
+                );
             }
             _ => {}
         }
@@ -161,7 +202,6 @@ fn transform_block(statements: &mut Vec<Statement>)  {
     }
 
     crate::decompiler::reconstruct::strip_unused_labels(statements);
-
 }
 
 fn scan_possible_breaks(block: &mut [Statement], break_label: &String) {

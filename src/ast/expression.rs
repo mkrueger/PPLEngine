@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{tables::FunctionDefinition, output_keyword};
+use crate::{output_keyword, tables::FunctionDefinition};
 
 use super::{Constant, Statement};
 
@@ -22,7 +22,6 @@ pub enum BinOp {
     Or,
 }
 
-
 impl fmt::Display for BinOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -39,14 +38,13 @@ impl fmt::Display for BinOp {
             BinOp::Greater => write!(f, ">"),
             BinOp::GreaterEq => write!(f, ">="),
             BinOp::And => write!(f, "&"),
-            BinOp::Or => write!(f, "|")
+            BinOp::Or => write!(f, "|"),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Expression
-{
+pub enum Expression {
     Identifier(String),
     Const(Constant),
     Parens(Box<Expression>),
@@ -55,7 +53,7 @@ pub enum Expression
     Not(Box<Expression>),
     Minus(Box<Expression>),
     Plus(Box<Expression>),
-    BinaryExpression(BinOp, Box<Expression>, Box<Expression>)
+    BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -67,10 +65,18 @@ impl fmt::Display for Expression {
             Expression::Not(expr) => write!(f, "!{}", **expr),
             Expression::Minus(expr) => write!(f, "-{}", **expr),
             Expression::Plus(expr) => write!(f, "+{}", **expr),
-            Expression::BinaryExpression(op, l_expr, r_expr) => write!(f, "{} {} {}", **l_expr, op, **r_expr),
-            Expression::FunctionCall(name, params) => write!(f, "{}({})", name, Statement::param_list_to_string(params)),
-            Expression::PredefinedFunctionCall(name, params) => write!(f, "{}({})", output_keyword(name.name), Statement::param_list_to_string(params))
-
+            Expression::BinaryExpression(op, l_expr, r_expr) => {
+                write!(f, "{} {} {}", **l_expr, op, **r_expr)
+            }
+            Expression::FunctionCall(name, params) => {
+                write!(f, "{}({})", name, Statement::param_list_to_string(params))
+            }
+            Expression::PredefinedFunctionCall(name, params) => write!(
+                f,
+                "{}({})",
+                output_keyword(name.name),
+                Statement::param_list_to_string(params)
+            ),
         }
     }
 }

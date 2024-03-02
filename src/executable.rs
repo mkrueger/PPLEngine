@@ -139,7 +139,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             first_var: 0,
             function_id: 0,
             variable_type,
-            var_name: "".to_string(),
+            var_name: String::new(),
             dim: cur_block[2],
             vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
             matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
@@ -161,8 +161,13 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
                 decrypt(&mut (buf[i..(i + string_length)]), version);
-                var_decl.string_value =
-                    String::from_utf8_lossy(&buf[i..(i + string_length - 1)]).to_string(); // C strings always end with \0
+
+                let mut str = String::new();
+                for c in &buf[i..(i + string_length - 1)] {
+                    str.push(*c as char);
+                }
+
+                var_decl.string_value = str; // C strings always end with \0
                 i += string_length;
             }
             VariableType::Function => {

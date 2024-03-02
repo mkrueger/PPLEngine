@@ -492,8 +492,7 @@ impl Decompiler {
                         }
                     }
                     VariableType::Procedure => {
-                        let mut cur_var =
-                            self.executable.variable_declarations.get_mut(&i).unwrap();
+                        let cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
                         if cur_var.flag == 1 {
                             c_proc += 1;
                             cur_var.number = c_proc;
@@ -1618,7 +1617,7 @@ impl Decompiler {
 
             let stack_begin = self.expr_stack.len();
             match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
-                0x00 | 
+                0x00 |
                 0xff |
                 0xf6  // procedure 
                 => {}

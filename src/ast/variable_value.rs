@@ -592,39 +592,11 @@ impl VariableValue {
         }
     }
 
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    #[must_use]
-    pub fn or(&self, other: VariableValue) -> VariableValue {
+    pub fn as_bool(&self) -> bool {
         if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, &self.clone()) {
-            if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, &other) {
-                VariableValue::Boolean(x | y)
-            } else {
-                panic!("can't or to rvalue");
-            }
+            x
         } else {
-            panic!("can't or to lvalue {:?}", &self);
-        }
-    }
-
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    #[must_use]
-    pub fn and(&self, other: VariableValue) -> VariableValue {
-        if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, &self.clone()) {
-            if let VariableValue::Boolean(y) = convert_to(VariableType::Boolean, &other) {
-                VariableValue::Boolean(x & y)
-            } else {
-                panic!("can't and to rvalue");
-            }
-        } else {
-            panic!("can't and to lvalue {:?}", &self);
+            panic!("no bool value");
         }
     }
 }

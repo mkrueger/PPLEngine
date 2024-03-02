@@ -98,7 +98,7 @@ impl Tokenizer {
             '"' => {
                 let mut str_literal = String::new();
                 loop {
-                    let ch = self.next_ch(); 
+                    let ch = self.next_ch();
                     if ch.is_none() {
                         panic!("Unexpected eof in string_literal at ({}, {}).", self.line, self.col);
                     }
@@ -122,7 +122,7 @@ impl Tokenizer {
                          Some(Token::Mul)
                      }
                  }
-             }, 
+             },
             '/' => Some(Token::Div),
             '%' => Some(Token::Mod),
             '+' => Some(Token::Add),
@@ -235,7 +235,6 @@ impl Tokenizer {
                         "FALSE" => return Some(Token::Const(Constant::Integer(PPL_FALSE))),
                         _ => {}
                     }
-                    
                     // Handle predefined constants
                     for cnst in &crate::tables::CONSTANT_VALUES {
                         if cnst.0 == identifier {
@@ -243,7 +242,6 @@ impl Tokenizer {
                         }
                     }
 
-        
                     return Some(Token::Identifier(identifier));
                 }
 

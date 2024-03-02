@@ -1,8 +1,5 @@
 use super::{Block, Declaration, FunctionImplementation, ProgramContext, VarInfo, VariableType};
-use std::{
-    fmt,
-    path::{Path, PathBuf},
-};
+use std::{fmt, path::PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub struct Program {

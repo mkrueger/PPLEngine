@@ -213,7 +213,6 @@ impl Decompiler {
                     self.src_ptr += 2;
                 }
                 self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
-
                 assert!(
                     self.cur_stmt < LAST_STMT
                         && (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len()
@@ -663,7 +662,7 @@ impl Decompiler {
             .args
         {
             let var_name = format!(
-                " LOC{0:>03}",
+                "LOC{0:>03}",
                 self.executable
                     .variable_declarations
                     .get(&j)

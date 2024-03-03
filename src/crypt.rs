@@ -15,15 +15,7 @@ fn crypt3(block: &mut [u8]) {
     }
 }
 
-#[allow(clippy::pedantic)]
-pub fn decrypt(block: &mut [u8], version: u16) {
-    if version < 300 {
-        return;
-    }
-    if version >= 330 {
-        crypt3(block);
-    }
-
+pub fn decrypt2(block: &mut [u8]) {
     let mut full_size = block.len() as i32;
     let mut i = 0;
     loop {
@@ -35,24 +27,24 @@ pub fn decrypt(block: &mut [u8], version: u16) {
             size = 0x7ff;
             full_size -= 0x7ff;
         }
-        let mut xor_value = 0xdb24;
+        let mut seed = 0xDB24;
         let mut rotate_count = 0;
         let mut dx = size >> 1;
         while dx > 0 {
             let cur_word = (block[i + 1] as u16) << 8 | block[i] as u16;
             let dl = dx as u8;
-            rotate_count = ((xor_value & 0xFF) + (dl as u16)) & 0xFF;
-            let outx = u16::rotate_right(cur_word, rotate_count as u32) ^ xor_value;
+            rotate_count = ((seed & 0xFF) + (dl as u16)) & 0xFF;
+            let outx = u16::rotate_right(cur_word, rotate_count as u32) ^ seed;
             block[i] = (outx as u8) ^ dl;
             i += 1;
             block[i] = (outx >> 8) as u8 ^ dl;
             i += 1;
-            xor_value = cur_word;
+            seed = cur_word;
             dx -= 1;
         }
 
         if size % 2 == 1 {
-            block[i] = u8::rotate_right(block[i] ^ (xor_value as u8), (rotate_count & 0xFF) as u32);
+            block[i] = u8::rotate_right(block[i] ^ (seed as u8), (rotate_count & 0xFF) as u32);
             i += 1;
         }
         if size == 0x7ff && block[i - 1] == 0 {
@@ -63,6 +55,18 @@ pub fn decrypt(block: &mut [u8], version: u16) {
             break;
         }
     }
+}
+
+#[allow(clippy::pedantic)]
+pub fn decrypt(block: &mut [u8], version: u16) {
+    if version < 300 {
+        return;
+    }
+    if version >= 330 {
+        crypt3(block);
+    }
+
+    decrypt2(block);
 }
 
 #[cfg(test)]

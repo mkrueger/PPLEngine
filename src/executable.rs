@@ -59,7 +59,7 @@ const HEADER_SIZE: usize = 48;
 #[must_use]
 pub fn read_file(file_name: &str) -> Executable {
     let mut f = File::open(file_name)
-        .unwrap_or_else(|_| panic!("Error: {} not found on disk, aborting...", file_name));
+        .unwrap_or_else(|_| panic!("Error: {file_name} not found on disk, aborting..."));
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer)
@@ -72,7 +72,7 @@ pub fn read_file(file_name: &str) -> Executable {
         + (buffer[43] as u16 & 15) * 10
         + (buffer[44] as u16 & 15);
 
-    assert!(version <= LAST_PPLC, "Invalid PPE file");
+    assert!(version <= LAST_PPLC, "Version number not supported.");
     let max_var = u16::from_le_bytes(
         (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
             .try_into()
@@ -83,17 +83,22 @@ pub fn read_file(file_name: &str) -> Executable {
     i += 2;
     let real_size = buffer.len() - i;
 
-    let data: Vec<u8> = if version >= 300 {
-        let data = &mut buffer[i..real_size + i];
-        decrypt(data, version);
-        if real_size == code_size {
-            data.to_vec()
+    let code_data: &mut [u8] = &mut buffer[i..];
+
+    let mut data: Vec<u8> = Vec::new();
+    for chunk in code_data.chunks_mut(2047) {
+        if version >= 300 {
+            decrypt(chunk, version);
+            if real_size == code_size || *chunk.last().unwrap() == 0 {
+                data.extend_from_slice(chunk);
+            } else {
+                let mut r = decode_rle(chunk);
+                data.append(&mut r);
+            }
         } else {
-            decode_rle(data)
-        }
-    } else {
-        buffer[i..real_size + i].to_vec()
-    };
+            data.extend_from_slice(chunk);
+        };
+    }
 
     let mut source_buffer = Vec::new();
     let mut i = 0;
@@ -111,7 +116,7 @@ pub fn read_file(file_name: &str) -> Executable {
         version,
         variable_declarations,
         source_buffer,
-        max_var: max_var as i32,
+        max_var,
         code_size: (code_size - 2) as i32, // forget the last END
     }
 }
@@ -160,6 +165,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 let string_length =
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
+
                 decrypt(&mut (buf[i..(i + string_length)]), version);
 
                 let mut str = String::new();

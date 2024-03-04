@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::output_keyword;
 
+use super::VariableValue;
+
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(dead_code)]
@@ -25,6 +27,32 @@ pub enum VariableType {
     Procedure = 16,
     DDate = 17,
     Unknown = 255,
+}
+
+impl VariableType {
+    pub fn create_empty_value(&self) -> VariableValue {
+        match self {
+            VariableType::Boolean => VariableValue::Boolean(false),
+            VariableType::Unsigned => VariableValue::Unsigned(0),
+            VariableType::Date => VariableValue::Date(0),
+            VariableType::EDate => VariableValue::EDate(0),
+            VariableType::Integer => VariableValue::Integer(0),
+            VariableType::Money => VariableValue::Money(0.0),
+            VariableType::Real => VariableValue::Real(0.0),
+            VariableType::String => VariableValue::String(String::new()),
+            VariableType::Time => VariableValue::Time(0),
+            VariableType::Byte => VariableValue::Byte(0),
+            VariableType::Word => VariableValue::Word(0),
+            VariableType::SByte => VariableValue::SByte(0),
+            VariableType::SWord => VariableValue::SWord(0),
+            VariableType::BigStr => VariableValue::String("".to_string()),
+            VariableType::Double => VariableValue::Real(0.0),
+            VariableType::Function => todo!(),
+            VariableType::Procedure => todo!(),
+            VariableType::DDate => VariableValue::Date(0),
+            VariableType::Unknown => todo!(),
+        }
+    }
 }
 
 impl fmt::Display for VariableType {

@@ -84,7 +84,7 @@ impl Statement {
                 Expression::Const(Constant::Boolean(true)) => {
                     &Expression::Const(Constant::Boolean(false))
                 }
-                Expression::Not(notexpr2) => Statement::try_boolean_conversion(&*notexpr2),
+                Expression::Not(notexpr2) => Statement::try_boolean_conversion(notexpr2),
                 _ => expr,
             },
             _ => expr,
@@ -103,9 +103,9 @@ impl Statement {
         let mut res = String::new();
         for stmt in stmts {
             let (str, ind, modifier) = stmt.to_string(prg, indent);
-            res.push_str(&Statement::get_indent(ind + modifier).as_str());
+            res.push_str(Statement::get_indent(ind + modifier).as_str());
             res.push_str(&str);
-            res.push_str("\n");
+            res.push('\n');
         }
 
         //   Statement::ElseIf(cond) => (format!("{} ({}) {}", output_keyword("ElseIf"), Statement::out_bool_func(cond), output_keyword("Then")), indent, -1),
@@ -132,15 +132,15 @@ impl Statement {
                     Statement::out_bool_func(&else_if_block.cond),
                     output_keyword("Then")
                 ));
-                res.push_str("\n");
+                res.push('\n');
                 res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
             }
         }
         if let Some(else_block) = else_block {
             if !else_block.is_empty() {
                 res.push_str(&output_keyword_indented(indent - 1, "Else"));
-                res.push_str("\n");
-                res.push_str(&Statement::output_stmts(prg, &else_block, indent));
+                res.push('\n');
+                res.push_str(&Statement::output_stmts(prg, else_block, indent));
             }
         }
         res
@@ -148,7 +148,7 @@ impl Statement {
 
     fn strip_outer_parens(exp: &Expression) -> &Expression {
         if let Expression::Parens(pexpr) = exp {
-            &**pexpr
+            pexpr
         } else {
             exp
         }
@@ -164,7 +164,7 @@ impl Statement {
     pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32, i32) // (str, indent, cur_line_inden_tmodifier)
     {
         match self {
-            Statement::Comment(str) => (format!(";{}", str), indent, 0),
+            Statement::Comment(str) => (format!(";{str}"), indent, 0),
             Statement::Block(stmts) => (
                 format!(
                     "{}\n{}{}",
@@ -227,13 +227,13 @@ impl Statement {
             }
             Statement::Return => (output_keyword("Return"), indent, 0),
             Statement::Let(var, expr) => {
-                let expected_type = prg.get_var_type(&var.get_name());
+                let expected_type = prg.get_var_type(var.get_name());
                 let expr2 = if expected_type == VariableType::Boolean {
-                    Statement::try_boolean_conversion(&**expr)
+                    Statement::try_boolean_conversion(expr)
                 } else {
                     &**expr
                 };
-                (format!("{} = {}", var, expr2), indent, 0)
+                (format!("{var} = {expr2}"), indent, 0)
             }
             Statement::Goto(label) => (format!("{} {}", output_keyword("GoTo"), label), indent, 0),
             Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr), indent, 0),

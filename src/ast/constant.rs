@@ -79,11 +79,11 @@ impl Constant {
 impl fmt::Display for Constant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Constant::Money(i) => write!(f, "${}", i),
-            Constant::Integer(i) => write!(f, "{}", i),
-            Constant::Unsigned(i) => write!(f, "{}", i),
-            Constant::String(str) => write!(f, "\"{}\"", str),
-            Constant::Real(i) => write!(f, "{}", i),
+            Constant::Money(i) => write!(f, "${i}"),
+            Constant::Integer(i) => write!(f, "{i}"),
+            Constant::Unsigned(i) => write!(f, "{i}"),
+            Constant::String(str) => write!(f, "\"{str}\""),
+            Constant::Real(i) => write!(f, "{i}"),
             Constant::Boolean(b) => write!(
                 f,
                 "{}",
@@ -93,7 +93,7 @@ impl fmt::Display for Constant {
                     output_keyword("False")
                 }
             ),
-            Constant::Builtin(s) => write!(f, "{}", s),
+            Constant::Builtin(s) => write!(f, "{s}"),
         }
     }
 }

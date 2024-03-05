@@ -80,9 +80,7 @@ impl Tokenizer {
 
     fn next_token2(&mut self) -> Option<Token> {
         let ch = self.next_ch();
-        if ch.is_none() {
-            return None;
-        }
+        ch?;
         let ch = ch.unwrap();
         match ch {
             '\n' => {
@@ -99,9 +97,7 @@ impl Tokenizer {
                 let mut str_literal = String::new();
                 loop {
                     let ch = self.next_ch();
-                    if ch.is_none() {
-                        panic!("Unexpected eof in string_literal at ({}, {}).", self.line, self.col);
-                    }
+                    assert!(ch.is_some(), "Unexpected eof in string_literal at ({}, {}).", self.line, self.col);
                     let ch = ch.unwrap();
                     if ch == '"'  { break; }
                     str_literal.push(ch);
@@ -115,13 +111,12 @@ impl Tokenizer {
             '^' => Some(Token::PoW),
             '*' => {
                 let next = self.next_ch();
-                 match next {
-                    Some('*') => Some(Token::PoW),
-                     _ => {
-                         self.put_back();
-                         Some(Token::Mul)
-                     }
-                 }
+                 if let Some('*') = next {
+                    Some(Token::PoW)
+                } else {
+                    self.put_back();
+                    Some(Token::Mul)
+                }
              },
             '/' => Some(Token::Div),
             '%' => Some(Token::Mod),
@@ -141,39 +136,34 @@ impl Tokenizer {
              },
             '&'  => {
                 let next = self.next_ch();
-                 match next {
-                    Some('&') => Some(Token::And),
-                     _ => {
-                         self.put_back();
-                         Some(Token::And)
-                     }
-                 }
+                 if let Some('&') = next {
+                    Some(Token::And)
+                } else {
+                                         self.put_back();
+                                         Some(Token::And)
+                                     }
              },
             '|' => {
                 let next = self.next_ch();
-                 match next {
-                    Some('|') => Some(Token::Or),
-                     _ => {
-                         self.put_back();
-                         Some(Token::Or)
-                     }
-                 }
+                 if let Some('|') = next {
+                    Some(Token::Or)
+                } else {
+                                         self.put_back();
+                                         Some(Token::Or)
+                                     }
              },
             '!' => {
                 let next = self.next_ch();
-                 match next {
-                    Some('=') => Some(Token::NotEq),
-                     _ => {
-                         self.put_back();
-                         Some(Token::Not)
-                     }
-                 }
+                 if let Some('=') = next {
+                    Some(Token::NotEq)
+                } else {
+                                         self.put_back();
+                                         Some(Token::Not)
+                                     }
              },
             '@' => {
                 let ch = self.next_ch();
-                if Some('X') != ch && Some('x') != ch {
-                    panic!("Error in hexadecimal constant should be");
-                }
+                assert!(!(Some('X') != ch && Some('x') != ch), "Error in hexadecimal constant should be");
                 let first = self.next_ch().unwrap();
                 let second = self.next_ch().unwrap();
 
@@ -185,7 +175,7 @@ impl Tokenizer {
                     let ch = self.next_ch();
                     if ch.is_none() { break; }
                     let ch = ch.unwrap();
-                    if !ch.is_digit(10) && ch != '.' { break; }
+                    if !ch.is_ascii_digit() && ch != '.' { break; }
                     identifier.push(ch);
                 }
                 self.put_back();
@@ -219,7 +209,7 @@ impl Tokenizer {
                     while self.get_ch().is_some() && ( self.get_ch() == Some(' ') ||  self.get_ch() == Some('\t') || self.get_ch() == Some('\r')) {
                         self.next_ch();
                     }
-                    if self.get_ch().is_none() { return None; }
+                    self.get_ch()?;
                     return self.next_token();
                 }
 
@@ -245,51 +235,50 @@ impl Tokenizer {
                     return Some(Token::Identifier(identifier));
                 }
 
-                if ch.is_digit(10) {
+                if ch.is_ascii_digit() {
                     let mut identifier = String::new();
                     identifier.push(ch);
                     while self.get_ch().is_some() && self.get_ch().unwrap().is_ascii_alphanumeric() {
                         identifier.push_str(&self.next_ch().unwrap().to_uppercase().to_string());
                     }
-                    if identifier.ends_with("D") {
+                    if identifier.ends_with('D') {
                         identifier.pop();
                         return Some(Token::Const(Constant::Integer(identifier.parse::<i32>().unwrap())));
                     }
 
-                    if identifier.ends_with("H") {
+                    if identifier.ends_with('H') {
                         identifier.pop();
                         return Some(Token::Const(Constant::Integer(i32::from_str_radix(&identifier, 16).unwrap())));
                     }
 
-                    if identifier.ends_with("O") {
+                    if identifier.ends_with('O') {
                         identifier.pop();
                         return Some(Token::Const(Constant::Integer(i32::from_str_radix(&identifier, 8).unwrap())));
                     }
-                    if identifier.ends_with("B") {
+                    if identifier.ends_with('B') {
                         identifier.pop();
                         return Some(Token::Const(Constant::Integer(i32::from_str_radix(&identifier, 2).unwrap())));
                     }
                     let r = identifier.parse::<i64>();
                     if let Ok(i) = r {
-                        if i <= i32::MAX as i64 && i >= i32::MIN as i64  {
+                        if i32::try_from(i).is_ok()  {
                             return Some(Token::Const(Constant::Integer(i as i32)));
-                        } else if i <= u32::MAX as i64 {
-                            return Some(Token::Const(Constant::Unsigned(i as u32)));
-                        }else {
-                            panic!("{i} overflow.");
                         }
-                    } else {
-                        panic!("can't parse '{}' : {:?}", identifier, r);
+                        if i <= u32::MAX as i64 {
+                            return Some(Token::Const(Constant::Unsigned(i as u32)));
+                        }
+                        panic!("{i} overflow.");
                     }
+                    panic!("can't parse '{identifier}' : {r:?}");
                 }
-                panic!("invalid char: {}", ch);
+                panic!("invalid char: {ch}");
             }
         }
     }
 }
 
 fn conv_hex(first: char) -> i32 {
-    if ('0'..='9').contains(&first) {
+    if first.is_ascii_digit() {
         return first as i32 - b'0' as i32;
     }
     if ('a'..='f').contains(&first) {
@@ -298,7 +287,7 @@ fn conv_hex(first: char) -> i32 {
     if ('A'..='F').contains(&first) {
         return first as i32 - b'A' as i32 + 10;
     }
-    panic!("Invalid hex char: {}", first);
+    panic!("Invalid hex char: {first}");
 }
 
 #[cfg(test)]

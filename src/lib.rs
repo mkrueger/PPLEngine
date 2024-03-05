@@ -1,5 +1,6 @@
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(
+    clippy::must_use_candidate,
     clippy::cast_sign_loss,
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,

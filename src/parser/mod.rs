@@ -23,8 +23,7 @@ impl Tokenizer {
                 "BYTE" => Some(VariableType::Byte),
                 "UNSIGNED" => Some(VariableType::Unsigned),
                 "SBYTE" => Some(VariableType::SByte),
-                "REAL" => Some(VariableType::Real),
-                "DREAL" => Some(VariableType::Real),
+                "REAL" | "DREAL" => Some(VariableType::Real),
                 _ => None,
             }
         } else {
@@ -63,9 +62,8 @@ impl Tokenizer {
             if let Some(Token::RPar) = &self.cur_token {
                 self.next_token();
                 return var;
-            } else {
-                panic!("end bracket expected");
             }
+            panic!("end bracket expected");
         }
 
         VarInfo::Var0(var_name)
@@ -92,9 +90,11 @@ impl Tokenizer {
                 panic!("IDENTIFIER expected. got {:?}", self.cur_token);
             };
 
-            if self.cur_token != Some(Token::LPar) {
-                panic!("'(' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::LPar)),
+                "'(' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
 
             let mut vars = Vec::new();
@@ -114,9 +114,11 @@ impl Tokenizer {
                 }
             }
 
-            if self.cur_token != Some(Token::RPar) {
-                panic!("')' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::RPar)),
+                "')' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
             if !is_function {
                 return Some(Declaration::Procedure(name, vars));
@@ -145,9 +147,11 @@ impl Tokenizer {
                 panic!("IDENTIFIER expected. got {:?}", self.cur_token);
             };
 
-            if self.cur_token != Some(Token::LPar) {
-                panic!("'(' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::LPar)),
+                "'(' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
 
             let mut vars = Vec::new();
@@ -167,9 +171,11 @@ impl Tokenizer {
                 }
             }
 
-            if self.cur_token != Some(Token::RPar) {
-                panic!("')' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::RPar)),
+                "')' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
             self.skip_eol();
 
@@ -216,9 +222,11 @@ impl Tokenizer {
                 panic!("IDENTIFIER expected. got {:?}", self.cur_token);
             };
 
-            if self.cur_token != Some(Token::LPar) {
-                panic!("'(' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::LPar)),
+                "'(' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
 
             let mut vars = Vec::new();
@@ -238,9 +246,11 @@ impl Tokenizer {
                 }
             }
 
-            if self.cur_token != Some(Token::RPar) {
-                panic!("')' expected. got {:?}", self.cur_token);
-            }
+            assert!(
+                !(self.cur_token != Some(Token::RPar)),
+                "')' expected. got {:?}",
+                self.cur_token
+            );
             self.next_token();
 
             let func_t = if let Some(var_type) = self.get_variable_type() {

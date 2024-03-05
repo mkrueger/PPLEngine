@@ -59,8 +59,8 @@ pub enum Expression {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(id) => write!(f, "{}", id),
-            Expression::Const(c) => write!(f, "{}", c),
+            Expression::Identifier(id) => write!(f, "{id}"),
+            Expression::Const(c) => write!(f, "{c}"),
             Expression::Parens(expr) => write!(f, "({})", **expr),
             Expression::Not(expr) => write!(f, "!{}", **expr),
             Expression::Minus(expr) => write!(f, "-{}", **expr),

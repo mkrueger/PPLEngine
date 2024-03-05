@@ -48,7 +48,7 @@ impl fmt::Display for Program {
             res.push_str(v.print_content().as_str());
             res.push('\n');
         }
-        writeln!(f, "{}", res)
+        writeln!(f, "{res}")
     }
 }
 
@@ -86,7 +86,7 @@ impl ProgramContext for Program {
                         return *return_type;
                     }
                 }
-                _ => {}
+                Declaration::Procedure(_, _) => {}
             }
         }
         VariableType::Unknown
@@ -94,15 +94,12 @@ impl ProgramContext for Program {
 
     fn get_var_info(&self, var_name: &str) -> Option<&VarInfo> {
         for decl in &self.declarations {
-            match decl {
-                Declaration::Variable(_, var_infos) => {
-                    for var_info in var_infos {
-                        if *var_info.get_name() == *var_name {
-                            return Some(var_info);
-                        }
+            if let Declaration::Variable(_, var_infos) = decl {
+                for var_info in var_infos {
+                    if *var_info.get_name() == *var_name {
+                        return Some(var_info);
                     }
                 }
-                _ => {}
             }
         }
         None

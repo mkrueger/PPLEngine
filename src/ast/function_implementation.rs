@@ -43,9 +43,9 @@ impl FunctionImplementation {
             res.push('\n');
         }
         if let Declaration::Function(name, _, _) = &self.declaration {
-            res.push_str(format!("ENDFUNC ;--{}", name).as_str());
+            res.push_str(format!("ENDFUNC ;--{name}").as_str());
         } else if let Declaration::Procedure(name, _) = &self.declaration {
-            res.push_str(format!("ENDPROC ;--{}", name).as_str());
+            res.push_str(format!("ENDPROC ;--{name}").as_str());
         }
 
         res.push('\n');
@@ -55,15 +55,12 @@ impl FunctionImplementation {
 }
 
 fn match_var_name(decl: &Declaration, var_name: &str) -> Option<VariableType> {
-    match decl {
-        Declaration::Variable(var_type, name) => {
-            for info in name {
-                if *info.get_name() == *var_name {
-                    return Some(*var_type);
-                }
+    if let Declaration::Variable(var_type, name) = decl {
+        for info in name {
+            if *info.get_name() == *var_name {
+                return Some(*var_type);
             }
         }
-        _ => {}
     }
     None
 }
@@ -89,15 +86,12 @@ impl ProgramContext for FunctionImplementation {
     }
     fn get_var_info(&self, var_name: &str) -> Option<&VarInfo> {
         for decl in &self.variable_declarations {
-            match decl {
-                Declaration::Variable(_, var_infos) => {
-                    for var_info in var_infos {
-                        if *var_info.get_name() == *var_name {
-                            return Some(var_info);
-                        }
+            if let Declaration::Variable(_, var_infos) = decl {
+                for var_info in var_infos {
+                    if *var_info.get_name() == *var_name {
+                        return Some(var_info);
                     }
                 }
-                _ => {}
             }
         }
         None

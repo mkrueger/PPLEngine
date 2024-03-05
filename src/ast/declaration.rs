@@ -24,23 +24,29 @@ impl VarInfo {
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn from(expr: &Expression) -> Self {
         match expr {
-            Expression::Const(Constant::String(name)) => VarInfo::Var0(name.clone()),
-            Expression::Identifier(name) => VarInfo::Var0(name.clone()),
+            Expression::Const(Constant::String(name)) | Expression::Identifier(name) => {
+                VarInfo::Var0(name.clone())
+            }
             Expression::FunctionCall(name, vec) => match vec.len() {
                 1 => VarInfo::Var1(name.clone(), vec[0].clone()),
                 2 => VarInfo::Var2(name.clone(), vec[0].clone(), vec[1].clone()),
                 3 => VarInfo::Var3(name.clone(), vec[0].clone(), vec[2].clone(), vec[3].clone()),
-                _ => panic!("can't translate func call t var info {:?}", expr),
+                _ => panic!("can't translate func call t var info {expr:?}"),
             },
-            Expression::Parens(expr) => Self::from(expr),
             Expression::BinaryExpression(_op, left, _right) => Self::from(left),
-            Expression::Minus(expr) => Self::from(expr),
-            Expression::Plus(expr) => Self::from(expr),
-            Expression::Not(expr) => Self::from(expr),
+            Expression::Parens(expr)
+            | Expression::Minus(expr)
+            | Expression::Plus(expr)
+            | Expression::Not(expr) => Self::from(expr),
 
-            _ => panic!("unsupported expr {:?}", expr),
+            _ => panic!("unsupported expr {expr:?}"),
         }
     }
 
@@ -62,10 +68,10 @@ impl VarInfo {
 
     pub fn rename(&mut self, new_name: String) {
         match self {
-            VarInfo::Var0(name) => *name = new_name,
-            VarInfo::Var1(name, _) => *name = new_name,
-            VarInfo::Var2(name, _, _) => *name = new_name,
-            VarInfo::Var3(name, _, _, _) => *name = new_name,
+            VarInfo::Var0(name)
+            | VarInfo::Var1(name, _)
+            | VarInfo::Var2(name, _, _)
+            | VarInfo::Var3(name, _, _, _) => *name = new_name,
         }
     }
 }
@@ -73,10 +79,10 @@ impl VarInfo {
 impl fmt::Display for VarInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            VarInfo::Var0(name) => write!(f, "{}", name),
-            VarInfo::Var1(name, vs) => write!(f, "{}({})", name, vs),
-            VarInfo::Var2(name, vs, ms) => write!(f, "{}({}, {})", name, vs, ms),
-            VarInfo::Var3(name, vs, ms, cs) => write!(f, "{}({}, {}, {})", name, vs, ms, cs),
+            VarInfo::Var0(name) => write!(f, "{name}"),
+            VarInfo::Var1(name, vs) => write!(f, "{name}({vs})"),
+            VarInfo::Var2(name, vs, ms) => write!(f, "{name}({vs}, {ms})"),
+            VarInfo::Var3(name, vs, ms, cs) => write!(f, "{name}({vs}, {ms}, {cs})"),
         }
     }
 }
@@ -192,7 +198,7 @@ impl Declaration {
                 Declaration::declr_vec_to_string(parameters),
                 return_type
             ),
-            _ => "ERR".to_string(),
+            Declaration::Variable(_, _) => "ERR".to_string(),
         }
     }
 }

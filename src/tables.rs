@@ -419,7 +419,7 @@ pub enum OpCode {
 
 impl Display for OpCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unsupported const {:?}", self)
+        write!(f, "unsupported const {self:?}")
     }
 }
 pub static STATEMENT_DEFINITIONS: [StatementDefinition; 212] = [
@@ -2082,12 +2082,10 @@ pub struct FunctionDefinition<'a> {
 }
 
 pub fn get_function_definition(str: &str) -> i32 {
-    let mut i = 0;
-    for item in &FUNCTION_DEFINITIONS {
+    for (i, item) in FUNCTION_DEFINITIONS.iter().enumerate() {
         if item.name.eq_ignore_ascii_case(str) {
-            return i;
+            return i as i32;
         }
-        i += 1;
     }
     -1
 }

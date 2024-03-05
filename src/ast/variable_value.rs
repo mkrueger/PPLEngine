@@ -100,7 +100,7 @@ impl PartialEq for VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for add {:?}", self),
+            _ => panic!("unsupported lvalue for add {self:?}"),
         }
     }
 }
@@ -171,9 +171,9 @@ impl Add<VariableValue> for VariableValue {
                     x.push_str(&y);
                     VariableValue::String(x)
                 }
-                _ => panic!("can't add string to rvalue {:?}", other),
+                _ => panic!("can't add string to rvalue {other:?}"),
             },
-            _ => panic!("unsupported lvalue for add {:?}", self),
+            _ => panic!("unsupported lvalue for add {self:?}"),
         }
     }
 }
@@ -233,7 +233,7 @@ impl Sub<VariableValue> for VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {:?}", self),
+            _ => panic!("unsupported lvalue for sub {self:?}"),
         }
     }
 }
@@ -293,7 +293,7 @@ impl Mul<VariableValue> for VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {:?}", self),
+            _ => panic!("unsupported lvalue for sub {self:?}"),
         }
     }
 }
@@ -353,7 +353,7 @@ impl Div<VariableValue> for VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {:?}", self),
+            _ => panic!("unsupported lvalue for sub {self:?}"),
         }
     }
 }
@@ -417,7 +417,7 @@ impl PartialOrd for VariableValue {
                     panic!("unsupported lvalue {:?}", &self);
                 }
             }
-            _ => panic!("unsupported lvalue {:?}", self),
+            _ => panic!("unsupported lvalue {self:?}"),
         }
     }
 }
@@ -425,17 +425,17 @@ impl PartialOrd for VariableValue {
 impl fmt::Display for VariableValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            VariableValue::Money(i) => write!(f, "${}", i),
-            VariableValue::Integer(i) => write!(f, "{}", i),
-            VariableValue::Unsigned(i) | VariableValue::Time(i) => write!(f, "{}", i),
-            VariableValue::Byte(i) => write!(f, "{}", i),
-            VariableValue::SByte(i) => write!(f, "{}", i),
+            VariableValue::Money(i) => write!(f, "${i}"),
+            VariableValue::Integer(i) => write!(f, "{i}"),
+            VariableValue::Unsigned(i) | VariableValue::Time(i) => write!(f, "{i}"),
+            VariableValue::Byte(i) => write!(f, "{i}"),
+            VariableValue::SByte(i) => write!(f, "{i}"),
             VariableValue::Date(i) | VariableValue::Word(i) | VariableValue::EDate(i) => {
-                write!(f, "{}", i)
+                write!(f, "{i}")
             }
-            VariableValue::SWord(i) => write!(f, "{}", i),
-            VariableValue::String(str) => write!(f, "{}", str),
-            VariableValue::Real(i) => write!(f, "{}", i),
+            VariableValue::SWord(i) => write!(f, "{i}"),
+            VariableValue::String(str) => write!(f, "{str}"),
+            VariableValue::Real(i) => write!(f, "{i}"),
             VariableValue::Boolean(b) => {
                 if *b {
                     write!(f, "1")
@@ -444,19 +444,15 @@ impl fmt::Display for VariableValue {
                 }
             }
             VariableValue::Dim1(var_type, data) => {
-                write!(f, "{}({})", var_type.to_string(), data.len())
+                write!(f, "{}({})", var_type, data.len())
             }
-            VariableValue::Dim2(var_type, data) => write!(
-                f,
-                "{}({}, {})",
-                var_type.to_string(),
-                data.len(),
-                data[0].len()
-            ),
+            VariableValue::Dim2(var_type, data) => {
+                write!(f, "{}({}, {})", var_type, data.len(), data[0].len())
+            }
             VariableValue::Dim3(var_type, data) => write!(
                 f,
                 "{}({}, {}, {})",
-                var_type.to_string(),
+                var_type,
                 data.len(),
                 data[0].len(),
                 data[0][0].len()
@@ -525,7 +521,7 @@ impl VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {:?}", self),
+            _ => panic!("unsupported lvalue for sub {self:?}"),
         }
     }
 
@@ -588,10 +584,15 @@ impl VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {:?}", self),
+            _ => panic!("unsupported lvalue for sub {self:?}"),
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn as_bool(&self) -> bool {
         if let VariableValue::Boolean(x) = convert_to(VariableType::Boolean, &self.clone()) {
             x
@@ -601,6 +602,11 @@ impl VariableValue {
     }
 }
 
+/// .
+///
+/// # Panics
+///
+/// Panics if .
 pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValue {
     match var_type {
         VariableType::Integer => match value {
@@ -611,19 +617,17 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
             VariableValue::Word(v) => VariableValue::Integer(*v as i32),
             VariableValue::SWord(v) => VariableValue::Integer(*v as i32),
             VariableValue::Real(v) => VariableValue::Integer(*v as i32),
-            VariableValue::Boolean(v) => VariableValue::Integer(if *v {
-                PPL_TRUE as i32
-            } else {
-                PPL_FALSE as i32
-            }),
+            VariableValue::Boolean(v) => {
+                VariableValue::Integer(if *v { PPL_TRUE } else { PPL_FALSE })
+            }
             VariableValue::String(v) => {
-                if let Ok(val) = i32::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<i32>() {
                     VariableValue::Integer(val)
                 } else {
                     VariableValue::Integer(0)
                 }
             }
-            _ => panic!("can't convert {:?} to i32", value),
+            _ => panic!("can't convert {value:?} to i32"),
         },
         VariableType::Unsigned => match value {
             VariableValue::Byte(v) => VariableValue::Unsigned(*v as u32),
@@ -639,13 +643,13 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                 PPL_FALSE as u32
             }),
             VariableValue::String(v) => {
-                if let Ok(val) = u32::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<u32>() {
                     VariableValue::Unsigned(val)
                 } else {
                     VariableValue::Unsigned(0)
                 }
             }
-            _ => panic!("can't convert {:?} to u32", value),
+            _ => panic!("can't convert {value:?} to u32"),
         },
 
         VariableType::Word => match value {
@@ -662,13 +666,13 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                 PPL_FALSE as u16
             }),
             VariableValue::String(v) => {
-                if let Ok(val) = u16::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<u16>() {
                     VariableValue::Word(val)
                 } else {
                     VariableValue::Word(0)
                 }
             }
-            _ => panic!("can't convert {:?} to u16", value),
+            _ => panic!("can't convert {value:?} to u16"),
         },
 
         VariableType::SWord => match value {
@@ -685,13 +689,13 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                 PPL_FALSE as i16
             }),
             VariableValue::String(v) => {
-                if let Ok(val) = i16::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<i16>() {
                     VariableValue::SWord(val)
                 } else {
                     VariableValue::SWord(0)
                 }
             }
-            _ => panic!("can't convert {:?} to i16", value),
+            _ => panic!("can't convert {value:?} to i16"),
         },
 
         VariableType::Byte => match value {
@@ -706,13 +710,13 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                 VariableValue::Byte(if *v { PPL_TRUE as u8 } else { PPL_FALSE as u8 })
             }
             VariableValue::String(v) => {
-                if let Ok(val) = u8::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<u8>() {
                     VariableValue::Byte(val)
                 } else {
                     VariableValue::Byte(0)
                 }
             }
-            _ => panic!("can't convert {:?} to u8", value),
+            _ => panic!("can't convert {value:?} to u8"),
         },
 
         VariableType::SByte => match value {
@@ -727,13 +731,13 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                 VariableValue::SByte(if *v { PPL_TRUE as i8 } else { PPL_FALSE as i8 })
             }
             VariableValue::String(v) => {
-                if let Ok(val) = i8::from_str_radix(v, 10) {
+                if let Ok(val) = v.parse::<i8>() {
                     VariableValue::SByte(val)
                 } else {
                     VariableValue::SByte(0)
                 }
             }
-            _ => panic!("can't convert {:?} to i8", value),
+            _ => panic!("can't convert {value:?} to i8"),
         },
 
         VariableType::Real => match value {
@@ -756,15 +760,10 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
                     VariableValue::Real(0.0)
                 }
             }
-            _ => panic!("can't convert {:?} to f64", value),
+            _ => panic!("can't convert {value:?} to f64"),
         },
 
-        VariableType::String => match value {
-            VariableValue::String(v) => VariableValue::String(v.clone()),
-            _ => VariableValue::String(value.to_string()),
-        },
-
-        VariableType::BigStr => match value {
+        VariableType::String | VariableType::BigStr => match value {
             VariableValue::String(v) => VariableValue::String(v.clone()),
             _ => VariableValue::String(value.to_string()),
         },
@@ -785,7 +784,7 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
             _ => match value.to_string().as_str() {
                 "1" => VariableValue::Boolean(true),
                 "0" => VariableValue::Boolean(false),
-                _ => panic!("no bool value {:?}", value),
+                _ => panic!("no bool value {value:?}"),
             },
         },
 
@@ -794,16 +793,17 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
             VariableValue::SByte(v) => VariableValue::Date(*v as u16),
             VariableValue::Integer(v) => VariableValue::Date(*v as u16),
             VariableValue::Unsigned(v) | VariableValue::Time(v) => VariableValue::Date(*v as u16),
-            VariableValue::Word(v) => VariableValue::Date(*v as u16),
             VariableValue::SWord(v) => VariableValue::Date(*v as u16),
             VariableValue::Real(v) => VariableValue::Date(*v as u16),
-            VariableValue::Date(v) | VariableValue::EDate(v) => VariableValue::Date(*v),
+            VariableValue::Word(v) | VariableValue::Date(v) | VariableValue::EDate(v) => {
+                VariableValue::Date(*v)
+            }
             VariableValue::Boolean(v) => VariableValue::Date(if *v {
                 PPL_TRUE as u16
             } else {
                 PPL_FALSE as u16
             }),
-            _ => panic!("can't convert {:?} to u16", value),
+            _ => panic!("can't convert {value:?} to u16"),
         },
 
         VariableType::EDate => match value {
@@ -821,30 +821,29 @@ pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValu
             } else {
                 PPL_FALSE as u16
             }),
-            _ => panic!("can't convert {:?} to u16", value),
+            _ => panic!("can't convert {value:?} to u16"),
         },
 
         VariableType::Time => match value {
             VariableValue::Byte(v) => VariableValue::Time(*v as u32),
             VariableValue::SByte(v) => VariableValue::Time(*v as u32),
             VariableValue::Integer(v) => VariableValue::Time(*v as u32),
-            VariableValue::Unsigned(v) => VariableValue::Time(*v as u32),
             VariableValue::SWord(v) => VariableValue::Time(*v as u32),
             VariableValue::Real(v) => VariableValue::Time(*v as u32),
             VariableValue::Word(v) | VariableValue::Date(v) | VariableValue::EDate(v) => {
                 VariableValue::Time(*v as u32)
             }
-            VariableValue::Time(v) => VariableValue::Time(*v),
+            VariableValue::Unsigned(v) | VariableValue::Time(v) => VariableValue::Time(*v),
             VariableValue::Boolean(v) => VariableValue::Time(if *v {
                 PPL_TRUE as u32
             } else {
                 PPL_FALSE as u32
             }),
-            _ => panic!("can't convert {:?} to u16", value),
+            _ => panic!("can't convert {value:?} to u16"),
         },
 
         _ => {
-            panic!("unsupported {:?}", var_type);
+            panic!("unsupported {var_type:?}");
         }
     }
 }

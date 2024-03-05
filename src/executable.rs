@@ -72,7 +72,10 @@ pub fn read_file(file_name: &str) -> Executable {
         + (buffer[43] as u16 & 15) * 10
         + (buffer[44] as u16 & 15);
 
-    assert!(version <= LAST_PPLC, "Version number not supported.");
+    assert!(
+        version <= LAST_PPLC,
+        "Version number {version} not supported. (Only up to {LAST_PPLC})"
+    );
     let max_var = u16::from_le_bytes(
         (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
             .try_into()

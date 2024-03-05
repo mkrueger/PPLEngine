@@ -138,9 +138,10 @@ impl Tokenizer {
                             self.next_token();
                         }
                     }
-                    if self.cur_token != Some(Token::RPar) {
-                        panic!("missing closing parens");
-                    }
+                    assert!(
+                        !(self.cur_token != Some(Token::RPar)),
+                        "missing closing parens"
+                    );
                     self.next_token();
 
                     let predef = crate::tables::get_function_definition(&id);
@@ -151,9 +152,8 @@ impl Tokenizer {
                             &FUNCTION_DEFINITIONS[predef as usize],
                             params,
                         );
-                    } else {
-                        return Expression::FunctionCall(id, params);
                     }
+                    return Expression::FunctionCall(id, params);
                 }
 
                 Expression::Identifier(id)
@@ -161,9 +161,7 @@ impl Tokenizer {
             Some(Token::LPar) => {
                 self.next_token();
                 let ret = Expression::Parens(Box::new(self.parse_expression()));
-                if self.cur_token != Some(Token::RPar) {
-                    panic!("unclosed parens.");
-                }
+                assert!(!(self.cur_token != Some(Token::RPar)), "unclosed parens.");
                 self.next_token();
                 ret
             }

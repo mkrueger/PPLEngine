@@ -13,15 +13,19 @@ impl Tokenizer {
     }
 
     fn parse_while(&mut self) -> Statement {
-        if self.cur_token != Some(Token::LPar) {
-            panic!("'(' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::LPar)),
+            "'(' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
         let cond = self.parse_expression();
 
-        if self.cur_token != Some(Token::RPar) {
-            panic!("')' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::RPar)),
+            "')' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
 
         if self.cur_token == Some(Token::Identifier("DO".to_string())) {
@@ -59,15 +63,19 @@ impl Tokenizer {
             panic!("identifier expected got: {:?}", self.cur_token)
         };
 
-        if self.cur_token != Some(Token::Eq) {
-            panic!("'=' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::Eq)),
+            "'=' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
         let from = self.parse_expression();
 
-        if self.cur_token != Some(Token::Identifier("TO".to_string())) {
-            panic!("'TO' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::Identifier("TO".to_string()))),
+            "'TO' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
 
         let to = self.parse_expression();
@@ -97,15 +105,19 @@ impl Tokenizer {
     }
 
     fn parse_if(&mut self) -> Statement {
-        if self.cur_token != Some(Token::LPar) {
-            panic!("'(' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::LPar)),
+            "'(' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
         let cond = self.parse_expression();
 
-        if self.cur_token != Some(Token::RPar) {
-            panic!("')' expected got: {:?}", self.cur_token);
-        }
+        assert!(
+            !(self.cur_token != Some(Token::RPar)),
+            "')' expected got: {:?}",
+            self.cur_token
+        );
         self.next_token();
 
         if self.cur_token != Some(Token::Identifier("THEN".to_string())) {
@@ -119,9 +131,7 @@ impl Tokenizer {
             && self.cur_token != Some(Token::Identifier("ELSE".to_string()))
             && self.cur_token != Some(Token::Identifier("ELSEIF".to_string()))
         {
-            if self.cur_token.is_none() {
-                panic!("unexpected eol");
-            }
+            assert!(self.cur_token.is_some(), "unexpected eol");
             statements.push(self.parse_statement());
             self.skip_eol();
         }
@@ -132,15 +142,19 @@ impl Tokenizer {
             while self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
                 self.next_token();
 
-                if self.cur_token != Some(Token::LPar) {
-                    panic!("'(' expected got: {:?}", self.cur_token);
-                }
+                assert!(
+                    !(self.cur_token != Some(Token::LPar)),
+                    "'(' expected got: {:?}",
+                    self.cur_token
+                );
                 self.next_token();
                 let cond = self.parse_expression();
 
-                if self.cur_token != Some(Token::RPar) {
-                    panic!("')' expected got: {:?}", self.cur_token);
-                }
+                assert!(
+                    !(self.cur_token != Some(Token::RPar)),
+                    "')' expected got: {:?}",
+                    self.cur_token
+                );
                 self.next_token();
 
                 let mut statements = Vec::new();
@@ -249,10 +263,10 @@ impl Tokenizer {
             for def in &STATEMENT_DEFINITIONS {
                 if def.name.to_uppercase() == id {
                     let mut params = Vec::new();
-                    while self.cur_token != Some(Token::Eol) && self.cur_token != None {
+                    while self.cur_token != Some(Token::Eol) && self.cur_token.is_some() {
                         params.push(self.parse_expression());
 
-                        if self.cur_token == None {
+                        if self.cur_token.is_none() {
                             break;
                         }
                         if self.cur_token == Some(Token::Comma) {
@@ -262,26 +276,22 @@ impl Tokenizer {
                         }
                     }
 
-                    if (params.len() as i8) < def.min_args {
-                        panic!(
-                            "{} has too few arguments {} [{}:{}]",
-                            def.name,
-                            params.len(),
-                            def.min_args,
-                            def.max_args
-                        );
-                        // return Err(format!("{} has too few arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
-                    }
-                    if (params.len() as i8) > def.max_args {
-                        panic!(
-                            "{} has too many arguments {} [{}:{}]",
-                            def.name,
-                            params.len(),
-                            def.min_args,
-                            def.max_args
-                        );
-                        // return Err(format!("{} has too many arguments {} [{}:{}]", def.name, z.1.len(), def.min_args, def.max_args));
-                    }
+                    assert!(
+                        (params.len() as i8) >= def.min_args,
+                        "{} has too few arguments {} [{}:{}]",
+                        def.name,
+                        params.len(),
+                        def.min_args,
+                        def.max_args
+                    );
+                    assert!(
+                        (params.len() as i8) <= def.max_args,
+                        "{} has too many arguments {} [{}:{}]",
+                        def.name,
+                        params.len(),
+                        def.min_args,
+                        def.max_args
+                    );
                     return Statement::Call(def, params);
                 }
             }
@@ -300,9 +310,10 @@ impl Tokenizer {
                         self.next_token();
                     }
                 }
-                if self.cur_token != Some(Token::RPar) {
-                    panic!("missing closing parens");
-                }
+                assert!(
+                    !(self.cur_token != Some(Token::RPar)),
+                    "missing closing parens"
+                );
                 self.next_token();
                 if self.cur_token == Some(Token::Eq) {
                     self.next_token();
@@ -367,12 +378,9 @@ mod tests {
     }
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition> {
         let name = name.to_uppercase();
-        for def in &STATEMENT_DEFINITIONS {
-            if def.name.to_uppercase() == name {
-                return Some(def);
-            }
-        }
-        None
+        STATEMENT_DEFINITIONS
+            .iter()
+            .find(|&def| def.name.to_uppercase() == name)
     }
 
     #[test]

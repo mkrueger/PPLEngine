@@ -26,7 +26,7 @@ struct Arguments {
 }
 
 fn main() {
-    println!("PPLD Version 4.00alpha - PCBoard Programming Language Decompiler");
+    println!("PPLD Version 4.00 - PCBoard Programming Language Decompiler");
     let mut arguments: Arguments = argh::from_env();
 
     unsafe {

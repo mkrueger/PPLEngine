@@ -64,8 +64,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         d.output_stmt(
             &mut prg,
             Statement::Comment(format!(
-                "!!! {} ERROR(S) CAUSED BY PPLC BUGS DETECTED",
-                trash_flag
+                "!!! {trash_flag} ERROR(S) CAUSED BY PPLC BUGS DETECTED"
             )),
         );
         d.output_stmt(
@@ -103,7 +102,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
             ),
         );
         if to_file {
-            println!("{} COMPILER ERROR(S) DETECTED", trash_flag);
+            println!("{trash_flag} COMPILER ERROR(S) DETECTED");
         }
     }
     prg
@@ -510,35 +509,35 @@ impl Decompiler {
                                 cur_var.var_name = match cur_var.variable_type {
                                     VariableType::String => {
                                         string_vars += 1;
-                                        format!("STR{0:>03}", string_vars)
+                                        format!("STR{string_vars:>03}")
                                     }
                                     VariableType::Integer => {
                                         int_vars += 1;
-                                        format!("INT{0:>03}", int_vars)
+                                        format!("INT{int_vars:>03}")
                                     }
                                     VariableType::Boolean => {
                                         bool_vars += 1;
-                                        format!("BOOL{0:>03}", bool_vars)
+                                        format!("BOOL{bool_vars:>03}")
                                     }
                                     VariableType::Byte => {
                                         byte_vars += 1;
-                                        format!("BYTE{0:>03}", byte_vars)
+                                        format!("BYTE{byte_vars:>03}")
                                     }
                                     VariableType::Money => {
                                         money_vars += 1;
-                                        format!("MONEY{0:>03}", money_vars)
+                                        format!("MONEY{money_vars:>03}")
                                     }
                                     VariableType::Time => {
                                         time_vars += 1;
-                                        format!("TIME{0:>03}", time_vars)
+                                        format!("TIME{time_vars:>03}")
                                     }
                                     VariableType::Date => {
                                         date_vars += 1;
-                                        format!("DATE{0:>03}", date_vars)
+                                        format!("DATE{date_vars:>03}")
                                     }
                                     _ => {
                                         generic_vars += 1;
-                                        format!("VAR{0:>03}", generic_vars)
+                                        format!("VAR{generic_vars:>03}")
                                     }
                                 };
                                 match cur_var.dim {
@@ -724,12 +723,9 @@ impl Decompiler {
                 return Some(f);
             }
         }
-        for f in &mut prg.procedure_implementations {
-            if f.id == func {
-                return Some(f);
-            }
-        }
-        None
+        prg.procedure_implementations
+            .iter_mut()
+            .find(|f| f.id == func)
     }
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
@@ -829,7 +825,7 @@ impl Decompiler {
 
     fn labelout(&mut self, prg: &mut Program, label: i32) {
         if let Some(x) = self.label_used.get(&label) {
-            let label_stmt = Statement::Label(format!("LABEL{0:>03}", x));
+            let label_stmt = Statement::Label(format!("LABEL{x:>03}"));
             self.output_stmt(prg, label_stmt);
         }
     }
@@ -878,7 +874,6 @@ impl Decompiler {
         expr.map(Decompiler::stripper)
     }
     fn repl_const(
-        &mut self,
         expr: Expression,
         vars: &'static [i32],
         names: &'static [Constant],
@@ -898,47 +893,44 @@ impl Decompiler {
                 _ => Expression::Const(c),
             },
             Expression::Identifier(s) => Expression::Identifier(s),
-            Expression::Parens(e) => Expression::Parens(Box::new(self.repl_const(*e, vars, names))),
+            Expression::Parens(e) => {
+                Expression::Parens(Box::new(Self::repl_const(*e, vars, names)))
+            }
             Expression::FunctionCall(n, p) => {
                 let mut p2 = vec![];
                 for e in p {
-                    p2.push(self.repl_const(e, vars, names));
+                    p2.push(Self::repl_const(e, vars, names));
                 }
                 Expression::FunctionCall(n, p2)
             }
             Expression::PredefinedFunctionCall(n, p) => {
                 let mut p2 = vec![];
                 for e in p {
-                    p2.push(self.repl_const(e, vars, names));
+                    p2.push(Self::repl_const(e, vars, names));
                 }
                 Expression::PredefinedFunctionCall(n, p2)
             }
-            Expression::Not(e) => Expression::Not(Box::new(self.repl_const(*e, vars, names))),
-            Expression::Minus(e) => Expression::Minus(Box::new(self.repl_const(*e, vars, names))),
-            Expression::Plus(e) => Expression::Plus(Box::new(self.repl_const(*e, vars, names))),
+            Expression::Not(e) => Expression::Not(Box::new(Self::repl_const(*e, vars, names))),
+            Expression::Minus(e) => Expression::Minus(Box::new(Self::repl_const(*e, vars, names))),
+            Expression::Plus(e) => Expression::Plus(Box::new(Self::repl_const(*e, vars, names))),
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(
                 op,
-                Box::new(self.repl_const(*l, vars, names)),
-                Box::new(self.repl_const(*r, vars, names)),
+                Box::new(Self::repl_const(*l, vars, names)),
+                Box::new(Self::repl_const(*r, vars, names)),
             ),
         }
     }
 
     fn const_name(&mut self, vars: &'static [i32], names: &'static [Constant]) -> Expression {
         let temp_exr = self.popstrip().unwrap();
-        self.repl_const(temp_exr, vars, names)
+        Self::repl_const(temp_exr, vars, names)
     }
 
     fn trans_exp(&mut self, cur_expr: i32) -> Expression {
         match self.cur_stmt {
             0x00c if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00c => self.const_name(
-                &crate::tables::CONSTANT_CONFERENCE_OFFSETS,
-                &crate::tables::CONSTANT_CONFERENCE_NAMES,
-            ),
-
             0x00d if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00d => self.const_name(
+            0x00c | 0x00d => self.const_name(
                 &crate::tables::CONSTANT_CONFERENCE_OFFSETS,
                 &crate::tables::CONSTANT_CONFERENCE_NAMES,
             ),
@@ -973,8 +965,7 @@ impl Decompiler {
                 &crate::tables::CONSTANT_OPENFLAGS_OFFSETS,
                 &crate::tables::CONSTANT_OPENFLAGS_NAMES,
             ),
-            0x011 => self.popstrip().unwrap(),
-
+            // 0x011 => self.popstrip().unwrap(),
             0x012 if cur_expr == 3 => self.const_name(
                 &crate::tables::CONSTANT_FACCESS_OFFSETS,
                 &crate::tables::CONSTANT_FACCESS_NAMES,
@@ -983,8 +974,7 @@ impl Decompiler {
                 &crate::tables::CONSTANT_OPENFLAGS_OFFSETS,
                 &crate::tables::CONSTANT_OPENFLAGS_NAMES,
             ),
-            0x012 => self.popstrip().unwrap(),
-
+            // 0x012 => self.popstrip().unwrap(),
             0x018 => self.const_name(
                 &crate::tables::CONSTANT_LINECOUNT_OFFSETS,
                 &crate::tables::CONSTANT_LINECOUNT_NAMES,
@@ -1155,7 +1145,7 @@ impl Decompiler {
                     FuncOpCode::NOT => self.push_expr(Expression::Not(Box::new(tmp))),
                     FuncOpCode::UMINUS => self.push_expr(Expression::Minus(Box::new(tmp))),
                     FuncOpCode::UPLUS => self.push_expr(Expression::Plus(Box::new(tmp))),
-                    _ => panic!("{}", format!("unknown unary function {}", func)),
+                    _ => panic!("{}", format!("unknown unary function {func}")),
                 }
                 return 0;
             }
@@ -1323,23 +1313,17 @@ impl Decompiler {
                 let temp_str2 = self.pop_expr().unwrap();
                 let tmp = self.pop_expr();
                 if let Some(e) = tmp {
-                    match e {
-                        Expression::FunctionCall(name, params) => {
-                            let mut v = params.clone();
-                            v.push(temp_str2);
-                            self.push_expr(Expression::FunctionCall(name.clone(), v));
+                    if let Expression::FunctionCall(name, params) = e {
+                        let mut v = params.clone();
+                        v.push(temp_str2);
+                        self.push_expr(Expression::FunctionCall(name.clone(), v));
+                    } else {
+                        if e.to_string() == "VAR001" {
+                            println!("cur {cur_dim} dims: {dims}");
+                            //panic!();
                         }
-                        _ => {
-                            if e.to_string() == "VAR001" {
-                                println!("cur {} dims: {}", cur_dim, dims);
-                                //panic!();
-                            }
 
-                            self.push_expr(Expression::FunctionCall(
-                                e.to_string(),
-                                vec![temp_str2],
-                            ));
-                        }
+                        self.push_expr(Expression::FunctionCall(e.to_string(), vec![temp_str2]));
                     }
                 } else {
                     self.push_expr(temp_str2);
@@ -1389,7 +1373,7 @@ impl Decompiler {
                                 let temp_str2 = self.pop_expr().unwrap();
                                 let tmp3 = self.pop_expr();
                                 if let Some(t) = tmp3 {
-                                    self.push_expr(t)
+                                    self.push_expr(t);
                                 }
                                 self.push_expr(temp_str2);
                             }
@@ -1454,7 +1438,7 @@ impl Decompiler {
                                     .varout(self.executable.source_buffer[self.src_ptr as usize]);
                                 let tmp3 = self.pop_expr();
                                 if let Some(t) = tmp3 {
-                                    self.push_expr(t)
+                                    self.push_expr(t);
                                 }
                                 self.push_expr(tmp2);
                                 stack_len = self.expr_stack.len();
@@ -1519,10 +1503,7 @@ impl Decompiler {
                     }
                 } else {
                     if self.pass == 1 {
-                        if self
-                            .fnktout((self.executable.source_buffer[self.src_ptr as usize]) as i32)
-                            != 0
-                        {
+                        if self.fnktout(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
                         } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
@@ -1538,7 +1519,7 @@ impl Decompiler {
                 let tmp2 = self.trans_exp(cur_expr);
                 let tmp3 = self.pop_expr();
                 if let Some(t) = tmp3 {
-                    self.push_expr(t)
+                    self.push_expr(t);
                 }
                 self.push_expr(tmp2);
             }
@@ -1572,7 +1553,7 @@ impl Decompiler {
             let expr = self.pop_expr().unwrap();
             match op {
                 OpCode::WHILE => {
-                    self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(stmt)))
+                    self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(stmt)));
                 }
                 OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(stmt))),
                 _ => {}
@@ -1668,7 +1649,7 @@ impl Decompiler {
                 0xfd => { // label (Goto)
                     self.src_ptr += 1;
                     let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr as usize]);
-                    self.push_expr(Expression::Identifier(format!("LABEL{0:>03}", tmp)));
+                    self.push_expr(Expression::Identifier(format!("LABEL{tmp:>03}")));
                     self.src_ptr += 1;
                 }
                 _ => {
@@ -1733,6 +1714,7 @@ impl Decompiler {
                         Statement::Dec(variable.to_string()),
                     );
                 }
+                /*
                 OpCode::FPCLR => {
                     // TODO?
                     //self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);
@@ -1742,7 +1724,11 @@ impl Decompiler {
                     // TODO?
                     //self.outputpass2(prg, &mut if_while_stack,  Statement::EndFunc);
                     self.src_ptr += 1;
+                }*/
+                OpCode::FPCLR | OpCode::FEND => {
+                    self.src_ptr += 1;
                 }
+
                 OpCode::PCALL => {
                     // PCALL
                     self.src_ptr += 2;
@@ -1914,12 +1900,11 @@ mod tests {
                 //success += 1;
             } else {
                 println!(
-                    "'{}' not matched…",
-                    cur_entry.file_name().unwrap().to_str().unwrap()
+                    "'{}' not matched…\n{}-----\n{}",
+                    cur_entry.file_name().unwrap().to_str().unwrap(),
+                    d,
+                    orig_text
                 );
-                print!("{}", d);
-                println!("-----");
-                print!("{}", orig_text);
             }
 
             assert!(are_equal);

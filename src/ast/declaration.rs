@@ -91,6 +91,27 @@ pub enum Declaration {
     Procedure(String, Vec<Declaration>),
 }
 
+impl Declaration {
+    pub fn get_name(&self) -> &String {
+        match self {
+            Declaration::Variable(_, _) => {
+                panic!("no name")
+            }
+            Declaration::Function(name, _, _) | Declaration::Procedure(name, _) => name,
+        }
+    }
+
+    pub fn get_return_vartype(&self) -> i32 {
+        match self {
+            Declaration::Variable(_, _) => {
+                panic!("no return type")
+            }
+            Declaration::Function(_, _, return_type) => *return_type as i32,
+            Declaration::Procedure(_, _) => 0,
+        }
+    }
+}
+
 fn var_infos_to_string(vars: &Vec<VarInfo>) -> String {
     let mut result = String::new();
 

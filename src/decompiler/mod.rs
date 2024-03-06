@@ -1735,23 +1735,6 @@ impl Decompiler {
                 }
 
                 /*
-                OpCode::INC => {
-                    let variable = self.pop_expr().unwrap();
-                    self.outputpass2(
-                        prg,
-                        &mut if_while_stack,
-                        Statement::Inc(variable.to_string()),
-                    );
-                }
-                OpCode::DEC => {
-                    let variable = self.pop_expr().unwrap();
-                    self.outputpass2(
-                        prg,
-                        &mut if_while_stack,
-                        Statement::Dec(variable.to_string()),
-                    );
-                }*/
-                /*
                 OpCode::FPCLR => {
                     // TODO?
                     //self.outputpass2(prg, &mut if_while_stack,  Statement::EndProc);

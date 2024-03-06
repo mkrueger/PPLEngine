@@ -4,7 +4,7 @@ use ppl_engine::{
     compiler::transform_ast,
     crypt::{encode_rle, encrypt},
     parser::parse_program,
-    tables::{FuncOpCode, OpCode},
+    tables::OpCode,
 };
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path};
 use thiserror::Error;
@@ -41,8 +41,26 @@ struct Variable {
     pub value: VariableValue,
 }
 
+#[derive(Debug)]
+struct Function {
+    pub index: usize,
+
+    pub args: i32,
+    pub total_var: i32,
+    pub start: i32,
+    pub first_var: i32,
+    pub return_var: i32,
+
+    pub usages: Vec<usize>,
+}
+impl Function {
+    fn add_usage(&mut self, len: usize) {
+        self.usages.push(len);
+    }
+}
+
 impl Variable {
-    fn create_var_header(&self, version: u16) -> Vec<u8> {
+    fn create_var_header(&self, exe: &Executable, version: u16) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.info.id as u16 + 1));
 
@@ -55,8 +73,23 @@ impl Variable {
         buffer.push(self.info.var_type as u8);
         buffer.push(self.info.flags);
         encrypt(&mut buffer, version);
+        if self.var_type == VariableType::Procedure || self.var_type == VariableType::Function {
+            let VariableValue::String(s) = &self.value else {
+                panic!("Invalid value type {:?}", self.value);
+            };
+            let proc = exe.procedure_declarations.get(s).unwrap();
 
-        if self.var_type == VariableType::String {
+            buffer.push(0);
+            buffer.push(0);
+            buffer.push(0);
+            buffer.push(0);
+
+            buffer.push(proc.args as u8);
+            buffer.push(proc.total_var as u8);
+            buffer.extend(u16::to_le_bytes(proc.start as u16));
+            buffer.extend(u16::to_le_bytes(proc.first_var as u16));
+            buffer.extend(u16::to_le_bytes(proc.return_var as u16));
+        } else if self.var_type == VariableType::String {
             let s = if self.info.dims == 0 {
                 let VariableValue::String(s) = &self.value else {
                     panic!("Invalid value type {:?}", self.value);
@@ -90,13 +123,17 @@ impl Variable {
 
 struct Executable {
     variable_declarations: HashMap<String, Variable>,
+    procedure_declarations: HashMap<String, Function>,
     script_buffer: Vec<u16>,
 }
+const ENDPROC: u16 = 0x00a9;
+const ENDFUNC: u16 = 0x00ab;
 
 impl Executable {
     pub fn new() -> Self {
         Self {
             variable_declarations: HashMap::new(),
+            procedure_declarations: HashMap::new(),
             script_buffer: Vec::new(),
         }
     }
@@ -173,15 +210,142 @@ impl Executable {
     pub fn compile(&mut self, prg: &Program) {
         self.initialize_variables();
 
+        for (index, d) in prg.declarations.iter().enumerate() {
+            match d {
+                ppl_engine::ast::Declaration::Function(name, params, retValue) => {
+                    self.procedure_declarations.insert(
+                        name.clone(),
+                        Function {
+                            index,
+                            args: params.len() as i32,
+                            total_var: 0,
+                            start: 0,
+                            first_var: 0,
+                            return_var: 0,
+                            usages: Vec::new(),
+                        },
+                    );
+                }
+                ppl_engine::ast::Declaration::Procedure(name, params) => {
+                    self.procedure_declarations.insert(
+                        name.clone(),
+                        Function {
+                            index,
+                            args: params.len() as i32,
+                            total_var: 0,
+                            start: 0,
+                            first_var: 0,
+                            return_var: 0,
+                            usages: Vec::new(),
+                        },
+                    );
+                }
+                ppl_engine::ast::Declaration::Variable(_, _) => {}
+            }
+        }
+
         prg.main_block.statements.iter().for_each(|s| {
             self.compile_statement(s);
             if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
                 self.script_buffer.push(OpCode::END as u16);
             }
         });
+
+        for p in &prg.procedure_implementations {
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.declaration.get_name())
+                    .unwrap();
+                decl.start = self.script_buffer.len() as i32 * 2;
+                decl.first_var = self.variable_declarations.len() as i32 + 1;
+                self.variable_declarations.insert(
+                    p.declaration.get_name().clone(),
+                    Variable {
+                        info: VarInfo {
+                            id: self.variable_declarations.len(),
+                            var_type: VariableType::Procedure,
+                            dims: 0,
+                            vector_size: 0,
+                            matrix_size: 0,
+                            cube_size: 0,
+                            flags: 0,
+                        },
+                        var_type: VariableType::Procedure,
+                        value: VariableValue::String(p.declaration.get_name().clone()),
+                    },
+                );
+            }
+
+            p.block.statements.iter().for_each(|s| {
+                self.compile_statement(s);
+                self.script_buffer.push(ENDPROC);
+            });
+
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.declaration.get_name())
+                    .unwrap();
+                decl.total_var = self.variable_declarations.len() as i32 - decl.first_var;
+
+                println!("{:?}", decl);
+            }
+        }
+
+        for p in &prg.function_implementations {
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.declaration.get_name())
+                    .unwrap();
+                decl.start = self.script_buffer.len() as i32 * 2;
+                decl.first_var = p.variable_declarations.len() as i32 + 1;
+                decl.return_var = p.declaration.get_return_vartype();
+
+                self.variable_declarations.insert(
+                    p.declaration.get_name().clone(),
+                    Variable {
+                        info: VarInfo {
+                            id: decl.first_var as usize,
+                            var_type: VariableType::Function,
+                            dims: 0,
+                            vector_size: 0,
+                            matrix_size: 0,
+                            cube_size: 0,
+                            flags: 0,
+                        },
+                        var_type: VariableType::Function,
+                        value: VariableValue::String(p.declaration.get_name().clone()),
+                    },
+                );
+            }
+
+            p.block.statements.iter().for_each(|s| {
+                self.compile_statement(s);
+                self.script_buffer.push(ENDFUNC);
+            });
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.declaration.get_name())
+                    .unwrap();
+                decl.total_var = self.variable_declarations.len() as i32 - decl.first_var;
+            }
+        }
+        if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
+            self.script_buffer.push(OpCode::END as u16);
+        }
+
+        for decl in &self.procedure_declarations {
+            for idx in &decl.1.usages {
+                self.script_buffer[*idx] = decl.1.first_var as u16;
+            }
+        }
     }
 
     fn compile_statement(&mut self, s: &Statement) {
+        println!("Compiling statement {:?}", s);
         match s {
             Statement::Call(smt, pars) => {
                 let op_code = smt.opcode as u8;
@@ -199,10 +363,13 @@ impl Executable {
             Statement::End => {
                 self.script_buffer.push(OpCode::END as u16);
             }
-            Statement::Comment(_) => todo!(),
-            Statement::Block(_) => todo!(),
+            Statement::Comment(_) => {
+                // ignore
+            }
+            Statement::Block(block) => {
+                block.iter().for_each(|s| self.compile_statement(s));
+            }
             Statement::If(_, _) => todo!(),
-            Statement::Break => todo!(),
             Statement::Continue => todo!(),
             Statement::Gosub(_) => todo!(),
             Statement::Return => todo!(),
@@ -210,11 +377,28 @@ impl Executable {
             Statement::Let(_, _) => todo!(),
             Statement::Goto(_) => todo!(),
             Statement::Label(_) => todo!(),
-            Statement::ProcedureCall(_, _) => todo!(),
+            Statement::ProcedureCall(name, parameters) => {
+                self.script_buffer.push(OpCode::PCALL as u16);
+
+                // will be filled later.
+                self.procedure_declarations
+                    .get_mut(name)
+                    .unwrap()
+                    .add_usage(self.script_buffer.len());
+                self.script_buffer.push(0);
+
+                for p in parameters {
+                    let expr_buffer = self.compile_expression(p);
+                    self.script_buffer.extend(expr_buffer);
+                }
+                self.script_buffer.push(0);
+            }
             Statement::While(_, _) => todo!(),
-            Statement::IfThen(_, _, _, _) => todo!(),
-            Statement::DoWhile(_, _) => todo!(),
-            Statement::For(_, _, _, _, _) => todo!(),
+
+            Statement::Break => panic!("Break not allowed in output AST."),
+            Statement::IfThen(_, _, _, _) => panic!("if then not allowed in output AST."),
+            Statement::DoWhile(_, _) => panic!("do while not allowed in output AST."),
+            Statement::For(_, _, _, _, _) => panic!("for not allowed in output AST."),
         }
     }
 
@@ -239,7 +423,7 @@ impl Executable {
         vars.sort_by(|a, b| b.info.id.cmp(&a.info.id));
 
         for d in &vars {
-            let var = d.create_var_header(version);
+            let var = d.create_var_header(self, version);
             buffer.extend(var);
         }
         let mut script_buffer = Vec::new();

@@ -122,8 +122,10 @@ impl Variable {
 }
 
 struct Executable {
-    variable_declarations: HashMap<String, Variable>,
     procedure_declarations: HashMap<String, Function>,
+    variable_declarations: HashMap<String, usize>,
+
+    variable_table: HashMap<String, Variable>,
     script_buffer: Vec<u16>,
 }
 const ENDPROC: u16 = 0x00a9;
@@ -132,15 +134,45 @@ const ENDFUNC: u16 = 0x00ab;
 impl Executable {
     pub fn new() -> Self {
         Self {
-            variable_declarations: HashMap::new(),
+            variable_table: HashMap::new(),
             procedure_declarations: HashMap::new(),
+            variable_declarations: HashMap::new(),
             script_buffer: Vec::new(),
         }
     }
 
-    fn add_variable(&mut self, name: &str, val: VariableValue) {
-        let id = self.variable_declarations.len();
-        self.variable_declarations.insert(
+    fn add_variable(
+        &mut self,
+        var_type: VariableType,
+        name: &str,
+        dims: u8,
+        vector_size: usize,
+        matrix_size: usize,
+        cube_size: usize,
+    ) {
+        let id = self.variable_table.len();
+        self.variable_declarations.insert(name.to_string(), id + 1);
+        self.variable_table.insert(
+            name.to_string(),
+            Variable {
+                info: VarInfo {
+                    id,
+                    var_type,
+                    dims,
+                    vector_size,
+                    matrix_size,
+                    cube_size,
+                    flags: 0,
+                },
+                var_type,
+                value: var_type.create_empty_value(),
+            },
+        );
+    }
+
+    fn add_predefined_variable(&mut self, name: &str, val: VariableValue) {
+        let id = self.variable_table.len();
+        self.variable_table.insert(
             name.to_string(),
             Variable {
                 info: VarInfo {
@@ -159,39 +191,39 @@ impl Executable {
     }
 
     fn initialize_variables(&mut self) {
-        self.add_variable("U_EXPERT", VariableValue::Boolean(false));
-        self.add_variable("U_FSE", VariableValue::Boolean(false));
-        self.add_variable("U_FSEP", VariableValue::Boolean(false));
-        self.add_variable("U_CLS", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_EXPERT", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_FSE", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_FSEP", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_CLS", VariableValue::Boolean(false));
 
-        self.add_variable("U_EXPDATE", VariableValue::Date(0));
+        self.add_predefined_variable("U_EXPDATE", VariableValue::Date(0));
 
-        self.add_variable("U_SEC", VariableValue::Integer(0));
-        self.add_variable("U_PAGELEN", VariableValue::Integer(0));
-        self.add_variable("U_EXPSEC", VariableValue::Integer(0));
+        self.add_predefined_variable("U_SEC", VariableValue::Integer(0));
+        self.add_predefined_variable("U_PAGELEN", VariableValue::Integer(0));
+        self.add_predefined_variable("U_EXPSEC", VariableValue::Integer(0));
 
-        self.add_variable("U_CITY", VariableValue::String(String::new()));
-        self.add_variable("U_BDPHONE", VariableValue::String(String::new()));
-        self.add_variable("U_HVPHONE", VariableValue::String(String::new()));
-        self.add_variable("U_TRANS", VariableValue::String(String::new()));
-        self.add_variable("U_CMNT1", VariableValue::String(String::new()));
-        self.add_variable("U_CMNT2", VariableValue::String(String::new()));
-        self.add_variable("U_PWD", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_CITY", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_BDPHONE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_HVPHONE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_TRANS", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_CMNT1", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_CMNT2", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_PWD", VariableValue::String(String::new()));
 
-        self.add_variable("U_SCROLL", VariableValue::Boolean(false));
-        self.add_variable("U_LONGHDR", VariableValue::Boolean(false));
-        self.add_variable("U_DEF79", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_SCROLL", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_LONGHDR", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_DEF79", VariableValue::Boolean(false));
 
-        self.add_variable("U_ALIAS", VariableValue::String(String::new()));
-        self.add_variable("U_VER", VariableValue::String(String::new()));
-        self.add_variable(
+        self.add_predefined_variable("U_ALIAS", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_VER", VariableValue::String(String::new()));
+        self.add_predefined_variable(
             "U_ADDR",
             VariableValue::Dim1(
                 VariableType::String,
                 vec![VariableValue::String(String::new()); 5],
             ),
         );
-        self.add_variable(
+        self.add_predefined_variable(
             "U_NOTES",
             VariableValue::Dim1(
                 VariableType::String,
@@ -199,9 +231,9 @@ impl Executable {
             ),
         );
 
-        self.add_variable("U_PWDEXP", VariableValue::Date(0));
+        self.add_predefined_variable("U_PWDEXP", VariableValue::Date(0));
 
-        self.add_variable(
+        self.add_predefined_variable(
             "U_ACCOUNT",
             VariableValue::Dim1(VariableType::Integer, vec![VariableValue::Integer(0); 16]),
         );
@@ -240,7 +272,11 @@ impl Executable {
                         },
                     );
                 }
-                ppl_engine::ast::Declaration::Variable(_, _) => {}
+                ppl_engine::ast::Declaration::Variable(var_type, vars) => {
+                    for v in vars {
+                        self.add_variable(*var_type, v.get_name(), v.get_dims(), 0, 0, 0);
+                    }
+                }
             }
         }
 
@@ -258,12 +294,12 @@ impl Executable {
                     .get_mut(p.declaration.get_name())
                     .unwrap();
                 decl.start = self.script_buffer.len() as i32 * 2;
-                decl.first_var = self.variable_declarations.len() as i32 + 1;
-                self.variable_declarations.insert(
+                decl.first_var = self.variable_table.len() as i32 + 1;
+                self.variable_table.insert(
                     p.declaration.get_name().clone(),
                     Variable {
                         info: VarInfo {
-                            id: self.variable_declarations.len(),
+                            id: self.variable_table.len(),
                             var_type: VariableType::Procedure,
                             dims: 0,
                             vector_size: 0,
@@ -287,7 +323,7 @@ impl Executable {
                     .procedure_declarations
                     .get_mut(p.declaration.get_name())
                     .unwrap();
-                decl.total_var = self.variable_declarations.len() as i32 - decl.first_var;
+                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
 
                 println!("{:?}", decl);
             }
@@ -303,7 +339,7 @@ impl Executable {
                 decl.first_var = p.variable_declarations.len() as i32 + 1;
                 decl.return_var = p.declaration.get_return_vartype();
 
-                self.variable_declarations.insert(
+                self.variable_table.insert(
                     p.declaration.get_name().clone(),
                     Variable {
                         info: VarInfo {
@@ -331,7 +367,7 @@ impl Executable {
                     .procedure_declarations
                     .get_mut(p.declaration.get_name())
                     .unwrap();
-                decl.total_var = self.variable_declarations.len() as i32 - decl.first_var;
+                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
             }
         }
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
@@ -372,12 +408,46 @@ impl Executable {
             Statement::Block(block) => {
                 block.iter().for_each(|s| self.compile_statement(s));
             }
-            Statement::If(_, _) => todo!(),
-            Statement::Continue => todo!(),
+            Statement::If(cond, stmt) => {
+                self.script_buffer.push(OpCode::IF as u16);
+
+                let cond_buffer = self.compile_expression(cond);
+                self.script_buffer.extend(cond_buffer);
+
+                // MAGIC?
+                self.script_buffer.push(26);
+
+                self.compile_statement(stmt);
+            }
+            Statement::While(cond, stmt) => {
+                self.script_buffer.push(OpCode::WHILE as u16);
+
+                let cond_buffer = self.compile_expression(cond);
+                self.script_buffer.extend(cond_buffer);
+
+                // MAGIC?
+                self.script_buffer.push(30);
+
+                self.compile_statement(stmt);
+            }
+
             Statement::Gosub(_) => todo!(),
-            Statement::Return => todo!(),
-            Statement::Stop => todo!(),
-            Statement::Let(_, _) => todo!(),
+            Statement::Return => {
+                self.script_buffer.push(OpCode::RETURN as u16);
+            }
+            Statement::Stop => {
+                self.script_buffer.push(OpCode::STOP as u16);
+            }
+            Statement::Let(var, expr) => {
+                self.script_buffer.push(OpCode::LET as u16);
+
+                let decl = self.variable_declarations.get(var.get_name()).unwrap();
+                self.script_buffer.push(*decl as u16);
+                self.script_buffer.push(0);
+
+                let expr_buffer = self.compile_expression(expr);
+                self.script_buffer.extend(expr_buffer);
+            }
             Statement::Goto(_) => todo!(),
             Statement::Label(_) => todo!(),
             Statement::ProcedureCall(name, parameters) => {
@@ -396,8 +466,8 @@ impl Executable {
                 }
                 self.script_buffer.push(0);
             }
-            Statement::While(_, _) => todo!(),
 
+            Statement::Continue => panic!("Continue not allowed in output AST."),
             Statement::Break => panic!("Break not allowed in output AST."),
             Statement::IfThen(_, _, _, _) => panic!("if then not allowed in output AST."),
             Statement::DoWhile(_, _) => panic!("do while not allowed in output AST."),
@@ -415,14 +485,14 @@ impl Executable {
         buffer.push(b'0' + (minor % 10) as u8);
         buffer.extend_from_slice(b"\x0D\x0A\x1A");
 
-        if self.variable_declarations.len() > 65535 {
+        if self.variable_table.len() > 65535 {
             return Err(CompilationError::TooManyDeclarations(
-                self.variable_declarations.len(),
+                self.variable_table.len(),
             ));
         }
-        buffer.extend_from_slice(&u16::to_le_bytes(self.variable_declarations.len() as u16));
+        buffer.extend_from_slice(&u16::to_le_bytes(self.variable_table.len() as u16));
 
-        let mut vars: Vec<&Variable> = self.variable_declarations.iter().map(|s| s.1).collect();
+        let mut vars: Vec<&Variable> = self.variable_table.iter().map(|s| s.1).collect();
         vars.sort_by(|a, b| b.info.id.cmp(&a.info.id));
 
         for d in &vars {
@@ -466,7 +536,11 @@ impl Executable {
 
     fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &ppl_engine::ast::Expression) {
         match expr {
-            ppl_engine::ast::Expression::Identifier(_) => todo!(),
+            ppl_engine::ast::Expression::Identifier(id) => {
+                let decl = self.variable_declarations.get(id).unwrap();
+                stack.push(*decl as u16);
+                stack.push(0);
+            }
             ppl_engine::ast::Expression::Const(constant) => {
                 stack.push(self.lookup_constant(constant));
                 stack.push(0);
@@ -492,9 +566,9 @@ impl Executable {
     }
 
     fn lookup_constant(&mut self, constant: &ppl_engine::ast::Constant) -> u16 {
-        let id = self.variable_declarations.len() as u16;
-        self.variable_declarations.insert(
-            self.variable_declarations.len().to_string(),
+        let id = self.variable_table.len() as u16;
+        self.variable_table.insert(
+            self.variable_table.len().to_string(),
             Variable {
                 info: VarInfo {
                     id: id as usize,

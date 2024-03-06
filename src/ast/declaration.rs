@@ -56,6 +56,15 @@ impl VarInfo {
         }
     }
 
+    pub fn get_dims(&self) -> u8 {
+        match self {
+            VarInfo::Var0(_) => 0,
+            VarInfo::Var1(_, _) => 1,
+            VarInfo::Var2(_, _, _) => 2,
+            VarInfo::Var3(_, _, _, _) => 3,
+        }
+    }
+
     pub fn is_array(&self) -> bool {
         match self {
             VarInfo::Var0(_) => false,

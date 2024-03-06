@@ -42,8 +42,6 @@ pub enum Statement {
     Goto(String),
     Label(String),
     ProcedureCall(String, Vec<Expression>),
-    Inc(String),
-    Dec(String),
     Call(&'static StatementDefinition<'static>, Vec<Expression>),
 }
 
@@ -238,8 +236,6 @@ impl Statement {
                 (format!("{var} = {expr2}"), indent, 0)
             }
             Statement::Goto(label) => (format!("{} {}", output_keyword("GoTo"), label), indent, 0),
-            Statement::Inc(expr) => (format!("{} {}", output_keyword("Inc"), expr), indent, 0),
-            Statement::Dec(expr) => (format!("{} {}", output_keyword("Dec"), expr), indent, 0),
             Statement::For(var_name, from, to, step, stmts) => {
                 let var_name = &get_var_name(var_name);
                 if let Some(s) = step {

@@ -113,8 +113,6 @@ pub fn read_file(file_name: &str) -> Executable {
         };
     }
 
-    println!("data:{:?}", data);
-
     let mut source_buffer = Vec::new();
     let mut i = 0;
     while i < data.len() {
@@ -125,6 +123,10 @@ pub fn read_file(file_name: &str) -> Executable {
         };
         source_buffer.push(k);
         i += 2;
+    }
+    println!("Source buffer:");
+    for (i, d) in source_buffer.iter().enumerate() {
+        println!("{}: {}", i, *d);
     }
 
     Executable {
@@ -203,7 +205,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 i += 12;
 
                 println!(
-                    "function {}, {}, {}, {}, {}",
+                    "function ags:{}, vars:{}, start:{}, first:{}, return:{}",
                     var_decl.args,
                     var_decl.total_var,
                     var_decl.start,
@@ -223,7 +225,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
                 println!(
-                    "proc {}, {}, {}, {}, {}",
+                    "proc ags:{}, vars:{}, start:{}, first:{}, return:{}",
                     var_decl.args,
                     var_decl.total_var,
                     var_decl.start,

@@ -199,7 +199,22 @@ impl Executable {
             Statement::End => {
                 self.script_buffer.push(OpCode::END as u16);
             }
-            _ => {}
+            Statement::Comment(_) => todo!(),
+            Statement::Block(_) => todo!(),
+            Statement::If(_, _) => todo!(),
+            Statement::Break => todo!(),
+            Statement::Continue => todo!(),
+            Statement::Gosub(_) => todo!(),
+            Statement::Return => todo!(),
+            Statement::Stop => todo!(),
+            Statement::Let(_, _) => todo!(),
+            Statement::Goto(_) => todo!(),
+            Statement::Label(_) => todo!(),
+            Statement::ProcedureCall(_, _) => todo!(),
+            Statement::While(_, _) => todo!(),
+            Statement::IfThen(_, _, _, _) => todo!(),
+            Statement::DoWhile(_, _) => todo!(),
+            Statement::For(_, _, _, _, _) => todo!(),
         }
     }
 
@@ -273,7 +288,9 @@ impl Executable {
                 self.comp_expr(stack, expr);
                 stack.push(0xFFFF);
             }
-            ppl_engine::ast::Expression::FunctionCall(_, _) => todo!(),
+            ppl_engine::ast::Expression::FunctionCall(_, _) => {
+                print!("Function call not implemented");
+            }
             ppl_engine::ast::Expression::PredefinedFunctionCall(_, _) => todo!(),
             ppl_engine::ast::Expression::UnaryExpression(op, expr) => {
                 self.comp_expr(stack, expr);

@@ -243,20 +243,6 @@ impl Tokenizer {
                     }
                     panic!("goto expected a label, got: {:?}", self.cur_token);
                 }
-                "INC" => {
-                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                        self.next_token();
-                        return Statement::Inc(id);
-                    }
-                    panic!("Inc expected a label, got: {:?}", self.cur_token);
-                }
-                "DEC" => {
-                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                        self.next_token();
-                        return Statement::Dec(id);
-                    }
-                    panic!("Inc expected a label, got: {:?}", self.cur_token);
-                }
                 _ => {}
             }
 
@@ -475,11 +461,17 @@ mod tests {
     #[test]
     fn test_incdec() {
         assert_eq!(
-            Statement::Inc("VAR1".to_string()),
+            Statement::Call(
+                get_statement_definition("INC").unwrap(),
+                vec![Expression::Identifier("VAR1".to_string()),]
+            ),
             parse_statement("INC VAR1")
         );
         assert_eq!(
-            Statement::Dec("VAR2".to_string()),
+            Statement::Call(
+                get_statement_definition("DEC").unwrap(),
+                vec![Expression::Identifier("VAR2".to_string()),]
+            ),
             parse_statement("DEC VAR2")
         );
     }

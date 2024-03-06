@@ -1733,6 +1733,8 @@ impl Decompiler {
                     self.src_ptr += 1;
                     if_while_stack.push(op);
                 }
+
+                /*
                 OpCode::INC => {
                     let variable = self.pop_expr().unwrap();
                     self.outputpass2(
@@ -1748,7 +1750,7 @@ impl Decompiler {
                         &mut if_while_stack,
                         Statement::Dec(variable.to_string()),
                     );
-                }
+                }*/
                 /*
                 OpCode::FPCLR => {
                     // TODO?

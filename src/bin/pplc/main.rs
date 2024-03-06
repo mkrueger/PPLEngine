@@ -121,13 +121,21 @@ impl Variable {
     }
 }
 
+struct LabelInfo {
+    pub address: usize,
+    pub usages: Vec<usize>,
+}
+
 struct Executable {
     procedure_declarations: HashMap<String, Function>,
     variable_declarations: HashMap<String, usize>,
 
     variable_table: HashMap<String, Variable>,
     script_buffer: Vec<u16>,
+
+    label_table: HashMap<String, LabelInfo>,
 }
+
 const ENDPROC: u16 = 0x00a9;
 const ENDFUNC: u16 = 0x00ab;
 
@@ -138,6 +146,7 @@ impl Executable {
             procedure_declarations: HashMap::new(),
             variable_declarations: HashMap::new(),
             script_buffer: Vec::new(),
+            label_table: HashMap::new(),
         }
     }
 
@@ -283,6 +292,8 @@ impl Executable {
         prg.main_block.statements.iter().for_each(|s| {
             self.compile_statement(s);
         });
+        self.fill_labels();
+
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
             self.script_buffer.push(OpCode::END as u16);
         }
@@ -316,6 +327,8 @@ impl Executable {
             p.block.statements.iter().for_each(|s| {
                 self.compile_statement(s);
             });
+            self.fill_labels();
+
             self.script_buffer.push(ENDPROC);
 
             {
@@ -360,6 +373,7 @@ impl Executable {
             p.block.statements.iter().for_each(|s| {
                 self.compile_statement(s);
             });
+            self.fill_labels();
             self.script_buffer.push(ENDFUNC);
 
             {
@@ -431,7 +445,6 @@ impl Executable {
                 self.compile_statement(stmt);
             }
 
-            Statement::Gosub(_) => todo!(),
             Statement::Return => {
                 self.script_buffer.push(OpCode::RETURN as u16);
             }
@@ -448,8 +461,20 @@ impl Executable {
                 let expr_buffer = self.compile_expression(expr);
                 self.script_buffer.extend(expr_buffer);
             }
-            Statement::Goto(_) => todo!(),
-            Statement::Label(_) => todo!(),
+            Statement::Gosub(label) => {
+                self.script_buffer.push(OpCode::GOSUB as u16);
+                self.add_label_usage(label, self.script_buffer.len() * 2);
+                self.script_buffer.push(0);
+            }
+            Statement::Goto(label) => {
+                self.script_buffer.push(OpCode::GOTO as u16);
+                self.add_label_usage(label, self.script_buffer.len() * 2);
+                self.script_buffer.push(0);
+            }
+            Statement::Label(label) => {
+                self.add_label_address(label, self.script_buffer.len() * 2);
+            }
+
             Statement::ProcedureCall(name, parameters) => {
                 self.script_buffer.push(OpCode::PCALL as u16);
 
@@ -584,6 +609,36 @@ impl Executable {
             },
         );
         id + 1
+    }
+
+    fn add_label_address(&mut self, label: &String, len: usize) {
+        self.get_label_info(label).address = len;
+    }
+
+    fn add_label_usage(&mut self, label: &String, len: usize) {
+        self.get_label_info(label).usages.push(len);
+    }
+
+    fn get_label_info(&mut self, label: &String) -> &mut LabelInfo {
+        if !self.label_table.contains_key(label) {
+            self.label_table.insert(
+                label.clone(),
+                LabelInfo {
+                    address: 0,
+                    usages: Vec::new(),
+                },
+            );
+        }
+        self.label_table.get_mut(label).unwrap()
+    }
+
+    fn fill_labels(&mut self) {
+        for info in self.label_table.values() {
+            for usage in &info.usages {
+                self.script_buffer[*usage / 2] = info.address as u16;
+            }
+        }
+        self.label_table.clear();
     }
 }
 

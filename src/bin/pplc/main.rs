@@ -246,10 +246,10 @@ impl Executable {
 
         prg.main_block.statements.iter().for_each(|s| {
             self.compile_statement(s);
-            if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
-                self.script_buffer.push(OpCode::END as u16);
-            }
         });
+        if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
+            self.script_buffer.push(OpCode::END as u16);
+        }
 
         for p in &prg.procedure_implementations {
             {
@@ -279,8 +279,8 @@ impl Executable {
 
             p.block.statements.iter().for_each(|s| {
                 self.compile_statement(s);
-                self.script_buffer.push(ENDPROC);
             });
+            self.script_buffer.push(ENDPROC);
 
             {
                 let decl = self
@@ -323,8 +323,9 @@ impl Executable {
 
             p.block.statements.iter().for_each(|s| {
                 self.compile_statement(s);
-                self.script_buffer.push(ENDFUNC);
             });
+            self.script_buffer.push(ENDFUNC);
+
             {
                 let decl = self
                     .procedure_declarations
@@ -353,7 +354,9 @@ impl Executable {
                 if (pars.len() as i8) < smt.min_args || (pars.len() as i8) > smt.max_args {
                     panic!("Invalid number of parameters for {}", smt.name);
                 }
-                self.script_buffer.push(pars.len() as u16);
+                if smt.min_args != smt.max_args {
+                    self.script_buffer.push(pars.len() as u16);
+                }
                 for expr in pars {
                     let expr_buffer = self.compile_expression(expr);
                     self.script_buffer.extend(expr_buffer);

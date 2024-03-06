@@ -12,7 +12,10 @@ impl Tokenizer {
         // it's correct on the upper level - it's very unusual
         if self.cur_token == Some(Token::Not) {
             self.next_token();
-            return Expression::Not(Box::new(self.parse_bool()));
+            return Expression::UnaryExpression(
+                crate::ast::UnaryOp::Not,
+                Box::new(self.parse_bool()),
+            );
         }
 
         let mut expr = self.parse_comparison();
@@ -104,15 +107,24 @@ impl Tokenizer {
     fn parse_unary(&mut self) -> Expression {
         if self.cur_token == Some(Token::Add) {
             self.next_token();
-            return Expression::Plus(Box::new(self.parse_unary()));
+            return Expression::UnaryExpression(
+                crate::ast::UnaryOp::Plus,
+                Box::new(self.parse_unary()),
+            );
         }
         if self.cur_token == Some(Token::Sub) {
             self.next_token();
-            return Expression::Minus(Box::new(self.parse_unary()));
+            return Expression::UnaryExpression(
+                crate::ast::UnaryOp::Minus,
+                Box::new(self.parse_unary()),
+            );
         }
         if self.cur_token == Some(Token::Not) {
             self.next_token();
-            return Expression::Not(Box::new(self.parse_unary()));
+            return Expression::UnaryExpression(
+                crate::ast::UnaryOp::Not,
+                Box::new(self.parse_unary()),
+            );
         }
 
         self.parse_primary()
@@ -196,7 +208,10 @@ mod tests {
             parse_expression("(5)")
         );
         assert_eq!(
-            Expression::Not(Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))),
+            Expression::UnaryExpression(
+                crate::ast::UnaryOp::Not,
+                Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))
+            ),
             parse_expression("!FALSE")
         );
         assert_eq!(

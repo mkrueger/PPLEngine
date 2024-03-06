@@ -614,9 +614,10 @@ mod tests {
                 Box::new(Expression::Identifier("I".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1))),
                 Box::new(Expression::Const(Constant::Integer(10))),
-                Some(Box::new(Expression::Minus(Box::new(Expression::Const(
-                    Constant::Integer(1)
-                ))))),
+                Some(Box::new(Expression::UnaryExpression(
+                    crate::ast::UnaryOp::Minus,
+                    Box::new(Expression::Const(Constant::Integer(1)))
+                ))),
                 Vec::new()
             ),
             parse_statement("FOR i = 1 TO 10 STEP -1 NEXT")

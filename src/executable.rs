@@ -89,7 +89,17 @@ pub fn read_file(file_name: &str) -> Executable {
     let code_data: &mut [u8] = &mut buffer[i..];
 
     let mut data: Vec<u8> = Vec::new();
-    for chunk in code_data.chunks_mut(2047) {
+
+    let mut offset = 0;
+    while offset < code_data.len() {
+        let mut chunk_size = 2027;
+        if offset + chunk_size < code_data.len() && code_data[offset + chunk_size] == 0 {
+            chunk_size += 1;
+        }
+        let end = (offset + chunk_size).min(code_data.len());
+        let chunk = &mut code_data[offset..end];
+        offset += chunk_size;
+
         if version >= 300 {
             decrypt(chunk, version);
             if real_size == code_size || *chunk.last().unwrap() == 0 {
@@ -102,6 +112,8 @@ pub fn read_file(file_name: &str) -> Executable {
             data.extend_from_slice(chunk);
         };
     }
+
+    println!("data:{:?}", data);
 
     let mut source_buffer = Vec::new();
     let mut i = 0;
@@ -160,7 +172,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             fflag: 0,
             return_var: 0,
         };
-        // println!("read var {} type {}", var_count, var_decl.variable_type as u8);
+        println!("read var {:?} type:{:?}", cur_block, var_decl.variable_type);
         i += 11;
 
         match var_decl.variable_type {
@@ -175,7 +187,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 for c in &buf[i..(i + string_length - 1)] {
                     str.push(*c as char);
                 }
-
                 var_decl.string_value = str; // C strings always end with \0
                 i += string_length;
             }
@@ -190,6 +201,15 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 var_decl.return_var =
                     u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
+
+                println!(
+                    "function {}, {}, {}, {}, {}",
+                    var_decl.args,
+                    var_decl.total_var,
+                    var_decl.start,
+                    var_decl.first_var,
+                    var_decl.return_var
+                );
             }
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
@@ -202,19 +222,30 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 var_decl.return_var =
                     u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
+                println!(
+                    "proc {}, {}, {}, {}, {}",
+                    var_decl.args,
+                    var_decl.total_var,
+                    var_decl.start,
+                    var_decl.first_var,
+                    var_decl.return_var
+                );
             }
             _ => {
                 if version <= 100 {
+                    println!("var1:{:?}", &buf[i..(i + 8)]);
                     i += 4; // what's stored here ?
                     var_decl.content =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                 } else if version < 300 {
+                    println!("var2:{:?}", &buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
                     var_decl.content = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
                     i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
+                    println!("var3:{:?}", &buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
                     var_decl.content =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
@@ -223,7 +254,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                 }
-            }
+            } // B9 4b
         }
         result.insert(var_count - 1, Box::new(var_decl.clone()));
     }

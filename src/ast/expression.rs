@@ -4,22 +4,23 @@ use crate::{output_keyword, tables::FunctionDefinition};
 
 use super::{Constant, Statement};
 
+#[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinOp {
-    PoW,
-    Mul,
-    Div,
-    Mod,
-    Add,
-    Sub,
-    Eq,
-    NotEq,
-    Lower,
-    LowerEq,
-    Greater,
-    GreaterEq,
-    And,
-    Or,
+    PoW = -4,
+    Mul = -5,
+    Div = -6,
+    Mod = -7,
+    Add = -8,
+    Sub = -9,
+    Eq = -10,
+    NotEq = -11,
+    Lower = -12,
+    LowerEq = -13,
+    Greater = -14,
+    GreaterEq = -15,
+    And = -17,
+    Or = -18,
 }
 
 impl fmt::Display for BinOp {
@@ -43,6 +44,23 @@ impl fmt::Display for BinOp {
     }
 }
 
+#[repr(i16)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum UnaryOp {
+    Plus = -2,
+    Minus = -3,
+    Not = -16,
+}
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnaryOp::Plus => write!(f, "+"),
+            UnaryOp::Minus => write!(f, "-"),
+            UnaryOp::Not => write!(f, "!"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Identifier(String),
@@ -50,9 +68,7 @@ pub enum Expression {
     Parens(Box<Expression>),
     FunctionCall(String, Vec<Expression>),
     PredefinedFunctionCall(&'static FunctionDefinition<'static>, Vec<Expression>),
-    Not(Box<Expression>),
-    Minus(Box<Expression>),
-    Plus(Box<Expression>),
+    UnaryExpression(UnaryOp, Box<Expression>),
     BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
 }
 
@@ -62,9 +78,9 @@ impl fmt::Display for Expression {
             Expression::Identifier(id) => write!(f, "{id}"),
             Expression::Const(c) => write!(f, "{c}"),
             Expression::Parens(expr) => write!(f, "({})", **expr),
-            Expression::Not(expr) => write!(f, "!{}", **expr),
-            Expression::Minus(expr) => write!(f, "-{}", **expr),
-            Expression::Plus(expr) => write!(f, "+{}", **expr),
+            Expression::UnaryExpression(op, expr) => {
+                write!(f, "{}{}", op, **expr)
+            }
             Expression::BinaryExpression(op, l_expr, r_expr) => {
                 write!(f, "{} {} {}", **l_expr, op, **r_expr)
             }

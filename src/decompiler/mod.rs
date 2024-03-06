@@ -1,6 +1,6 @@
 use crate::ast::{
     get_var_name, Block, Constant, Declaration, Expression, FunctionImplementation, Program,
-    Statement, VarInfo, VariableType,
+    Statement, UnaryOp, VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -225,6 +225,10 @@ impl Decompiler {
                     "opCode needs to be 0..226 at {} was {}",
                     self.src_ptr,
                     self.cur_stmt
+                );
+                println!(
+                    "OpCode: {} Sig{:X}",
+                    self.cur_stmt, STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize]
                 );
 
                 let mut trap = false;
@@ -843,7 +847,8 @@ impl Decompiler {
     }
 
     fn push_expr(&mut self, str: Expression) {
-        //  println!("push expression: '{:?}'", str);
+        //println!("push expression: '{:?}'", str);
+        //println!("{}", std::backtrace::Backtrace::force_capture());
         self.exp_count += 1;
         self.expr_stack.push(str);
     }
@@ -910,9 +915,9 @@ impl Decompiler {
                 }
                 Expression::PredefinedFunctionCall(n, p2)
             }
-            Expression::Not(e) => Expression::Not(Box::new(Self::repl_const(*e, vars, names))),
-            Expression::Minus(e) => Expression::Minus(Box::new(Self::repl_const(*e, vars, names))),
-            Expression::Plus(e) => Expression::Plus(Box::new(Self::repl_const(*e, vars, names))),
+            Expression::UnaryExpression(op, e) => {
+                Expression::UnaryExpression(op, Box::new(Self::repl_const(*e, vars, names)))
+            }
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(
                 op,
                 Box::new(Self::repl_const(*l, vars, names)),
@@ -1142,9 +1147,15 @@ impl Decompiler {
                 }
                 let tmp = self.pop_expr().unwrap();
                 match func_def.opcode {
-                    FuncOpCode::NOT => self.push_expr(Expression::Not(Box::new(tmp))),
-                    FuncOpCode::UMINUS => self.push_expr(Expression::Minus(Box::new(tmp))),
-                    FuncOpCode::UPLUS => self.push_expr(Expression::Plus(Box::new(tmp))),
+                    FuncOpCode::NOT => {
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Not, Box::new(tmp)))
+                    }
+                    FuncOpCode::UMINUS => {
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Minus, Box::new(tmp)))
+                    }
+                    FuncOpCode::UPLUS => {
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)))
+                    }
                     _ => panic!("{}", format!("unknown unary function {func}")),
                 }
                 return 0;
@@ -1338,6 +1349,7 @@ impl Decompiler {
     fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> bool {
         let mut cur_expr = 0;
         let temp_expr = self.exp_count;
+        println!("parse expr, max:{}", max_expr);
 
         self.src_ptr += 1;
         while (max_expr & 0x0ff) != cur_expr {
@@ -1347,11 +1359,15 @@ impl Decompiler {
             let mut tmp_func = 0;
 
             while self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                println!("src ptr : {}", self.src_ptr);
                 if self.executable.source_buffer[self.src_ptr as usize] >= 0
                     && self.executable.source_buffer[self.src_ptr as usize]
                         <= self.executable.max_var
                 {
+                    println!("1.1.1");
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
+                        println!("1.1.2");
+
                         self.executable
                             .variable_declarations
                             .get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
@@ -1379,6 +1395,7 @@ impl Decompiler {
                             }
                         }
                     } else {
+                        println!("1.1.3");
                         if self.cur_stmt == 0xa8
                             && ((self
                                 .executable
@@ -1390,6 +1407,7 @@ impl Decompiler {
                                 & 1)
                                 != 0
                         {
+                            println!("1.2.1");
                             self.executable
                                 .variable_declarations
                                 .get_mut(
@@ -1406,6 +1424,7 @@ impl Decompiler {
                             .variable_type
                             == VariableType::Function
                         {
+                            println!("1.2.2");
                             self.pushlabel(
                                 self.executable
                                     .variable_declarations
@@ -1456,9 +1475,11 @@ impl Decompiler {
                                     .args,
                                 1,
                             ) {
+                                println!("1.2.3");
                                 return false;
                             }
                             if self.pass == 1 {
+                                println!("1.2.4");
                                 let mut params = Vec::new();
                                 while stack_len < self.expr_stack.len() {
                                     params.push(self.pop_expr().unwrap());
@@ -1476,12 +1497,18 @@ impl Decompiler {
                                 }
                             }
                         } else {
+                            println!("A");
                             if self.pass == 1 {
+                                println!(
+                                    "varout 2 {}",
+                                    self.executable.source_buffer[self.src_ptr as usize]
+                                );
                                 let tmp = self
                                     .varout(self.executable.source_buffer[self.src_ptr as usize]);
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
+                            println!("A1 {}", self.src_ptr);
                             if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                                 self.executable
                                     .variable_declarations
@@ -1499,10 +1526,17 @@ impl Decompiler {
                                 }
                             }
                             self.src_ptr += 1;
+                            println!("A2 {}", self.src_ptr);
                         }
                     }
                 } else {
+                    println!("1.10");
                     if self.pass == 1 {
+                        println!(
+                            "1.10.1 fnc {}:{}",
+                            self.src_ptr,
+                            self.executable.source_buffer[self.src_ptr as usize] as u8
+                        );
                         if self.fnktout(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
@@ -1514,6 +1548,7 @@ impl Decompiler {
                 }
             }
 
+            println!("END {}", self.src_ptr);
             self.src_ptr += 1;
             if self.pass == 1 {
                 let tmp2 = self.trans_exp(cur_expr);

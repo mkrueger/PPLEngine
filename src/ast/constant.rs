@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::output_keyword;
 
+use super::VariableType;
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Constant {
@@ -74,6 +76,29 @@ impl Constant {
     pub const CRED_UPBYTES: Constant = Constant::Builtin("CRED_UPBYTES");
     pub const CRED_SPECIAL: Constant = Constant::Builtin("CRED_SPECIAL");
     pub const SEC_DROP: Constant = Constant::Builtin("SEC_DROP");
+
+    pub fn get_var_type(&self) -> VariableType {
+        match self {
+            Constant::Money(_) => VariableType::Money,
+            Constant::Unsigned(_) => VariableType::Unsigned,
+            Constant::String(_) => VariableType::String,
+            Constant::Real(_) => VariableType::Real,
+            Constant::Boolean(_) => VariableType::Boolean,
+            Constant::Integer(_) | Constant::Builtin(_) => VariableType::Integer,
+        }
+    }
+
+    pub fn get_value(&self) -> super::VariableValue {
+        match self {
+            Constant::Money(i) => super::VariableValue::Money(*i),
+            Constant::Integer(i) => super::VariableValue::Integer(*i),
+            Constant::Unsigned(i) => super::VariableValue::Unsigned(*i),
+            Constant::String(s) => super::VariableValue::String(s.clone()),
+            Constant::Real(i) => super::VariableValue::Real(*i),
+            Constant::Boolean(b) => super::VariableValue::Boolean(*b),
+            Constant::Builtin(s) => super::VariableValue::String(s.to_string()),
+        }
+    }
 }
 
 impl fmt::Display for Constant {

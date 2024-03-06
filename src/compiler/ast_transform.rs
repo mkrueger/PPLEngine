@@ -42,7 +42,10 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
+                        Box::new(Expression::UnaryExpression(
+                            crate::ast::UnaryOp::Not,
+                            Box::new(Expression::Parens(cond.clone())),
+                        )),
                         Box::new(Statement::Goto(break_label.clone())),
                     ),
                 );
@@ -86,8 +89,9 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Not(Box::new(Expression::Parens(Box::new(
-                            Expression::BinaryExpression(
+                        Box::new(Expression::UnaryExpression(
+                            crate::ast::UnaryOp::Not,
+                            Box::new(Expression::Parens(Box::new(Expression::BinaryExpression(
                                 BinOp::Or,
                                 Box::new(Expression::Parens(Box::new(
                                     Expression::BinaryExpression(
@@ -127,8 +131,8 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                         ))),
                                     ),
                                 ))),
-                            ),
-                        ))))),
+                            )))),
+                        )),
                         Box::new(Statement::Goto(break_label.clone())),
                     ),
                 );
@@ -169,9 +173,10 @@ fn transform_block(statements: &mut Vec<Statement>) {
                         statements.insert(
                             i,
                             Statement::If(
-                                Box::new(Expression::Not(Box::new(Expression::Parens(
-                                    ef.cond.clone(),
-                                )))),
+                                Box::new(Expression::UnaryExpression(
+                                    crate::ast::UnaryOp::Not,
+                                    Box::new(Expression::Parens(ef.cond.clone())),
+                                )),
                                 Box::new(Statement::Goto(if_exit_label.clone())),
                             ),
                         );
@@ -190,7 +195,10 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Not(Box::new(Expression::Parens(cond.clone())))),
+                        Box::new(Expression::UnaryExpression(
+                            crate::ast::UnaryOp::Not,
+                            Box::new(Expression::Parens(cond.clone())),
+                        )),
                         Box::new(Statement::Goto(if_exit_label.clone())),
                     ),
                 );

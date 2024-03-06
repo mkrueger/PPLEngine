@@ -16,7 +16,7 @@ extern crate lazy_static;
 
 pub mod ast;
 pub mod compiler;
-mod crypt;
+pub mod crypt;
 pub mod decompiler;
 pub mod executable;
 pub mod parser;

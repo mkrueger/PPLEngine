@@ -33,6 +33,82 @@ pub enum VariableValue {
     Dim3(VariableType, Vec<Vec<Vec<VariableValue>>>),
 }
 
+impl VariableValue {
+    pub fn get_type(&self) -> VariableType {
+        match self {
+            VariableValue::Boolean(_) => VariableType::Boolean,
+            VariableValue::Integer(_) => VariableType::Integer,
+            VariableValue::Unsigned(_) => VariableType::Unsigned,
+            VariableValue::Word(_) => VariableType::Word,
+            VariableValue::SWord(_) => VariableType::SWord,
+            VariableValue::Byte(_) => VariableType::Byte,
+            VariableValue::SByte(_) => VariableType::SByte,
+            VariableValue::Money(_) => VariableType::Money,
+            VariableValue::Real(_) => VariableType::Real,
+            VariableValue::String(_) => VariableType::String,
+            VariableValue::Date(_) => VariableType::Date,
+            VariableValue::EDate(_) => VariableType::EDate,
+            VariableValue::Time(_) => VariableType::Time,
+            VariableValue::Dim1(var_type, _)
+            | VariableValue::Dim2(var_type, _)
+            | VariableValue::Dim3(var_type, _) => *var_type,
+        }
+    }
+
+    pub fn get_dimensions(&self) -> u8 {
+        match self {
+            VariableValue::Dim1(_, _) => 1,
+            VariableValue::Dim2(_, _) => 2,
+            VariableValue::Dim3(_, _) => 3,
+            _ => 0,
+        }
+    }
+
+    pub fn get_vector_size(&self) -> usize {
+        match self {
+            VariableValue::Dim1(_, data) => data.len(),
+            VariableValue::Dim2(_, data) => data.len(),
+            VariableValue::Dim3(_, data) => data.len(),
+            _ => 0,
+        }
+    }
+
+    pub fn get_matrix_size(&self) -> usize {
+        match self {
+            VariableValue::Dim2(_, data) => data[0].len(),
+            VariableValue::Dim3(_, data) => data[0].len(),
+            _ => 0,
+        }
+    }
+
+    pub fn get_cube_size(&self) -> usize {
+        match self {
+            VariableValue::Dim3(_, data) => data[0][0].len(),
+            _ => 0,
+        }
+    }
+
+    pub fn get_u64_value(&self) -> u64 {
+        match self {
+            VariableValue::Boolean(v) => *v as u64,
+            VariableValue::Integer(v) => *v as u64,
+            VariableValue::SWord(v) => *v as u64,
+            VariableValue::Byte(v) => *v as u64,
+            VariableValue::SByte(v) => *v as u64,
+            VariableValue::Money(v) | VariableValue::Real(v) => *v as u64,
+
+            VariableValue::Word(v) | VariableValue::Date(v) | VariableValue::EDate(v) => *v as u64,
+
+            VariableValue::Unsigned(v) | VariableValue::Time(v) => *v as u64,
+
+            VariableValue::String(_)
+            | VariableValue::Dim1(_, _)
+            | VariableValue::Dim2(_, _)
+            | VariableValue::Dim3(_, _) => 0,
+        }
+    }
+}
+
 impl PartialEq for VariableValue {
     fn eq(&self, other: &Self) -> bool {
         match self {

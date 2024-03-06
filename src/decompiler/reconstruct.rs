@@ -132,7 +132,10 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                                 }
                                 label_idx
                             };
-                            let cond = Box::new(Expression::Not(Box::new(*cond.clone())));
+                            let cond = Box::new(Expression::UnaryExpression(
+                                crate::ast::UnaryOp::Not,
+                                Box::new(*cond.clone()),
+                            ));
                             let mut block: Vec<Statement> =
                                 else_block2.drain(0..label_idx).collect();
 
@@ -178,7 +181,10 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                 }
 
                 statements[i] = Statement::IfThen(
-                    Box::new(Expression::Not(Box::new((*cond).clone()))),
+                    Box::new(Expression::UnaryExpression(
+                        crate::ast::UnaryOp::Not,
+                        Box::new((*cond).clone()),
+                    )),
                     if_block,
                     elseif_blocks,
                     else_block,
@@ -215,8 +221,12 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_loops(&mut statements2);
                 optimize_ifs(&mut statements2);
 
-                statements[i] =
-                    Statement::IfThen(Box::new(Expression::Not(cond)), statements2, None, None);
+                statements[i] = Statement::IfThen(
+                    Box::new(Expression::UnaryExpression(crate::ast::UnaryOp::Not, cond)),
+                    statements2,
+                    None,
+                    None,
+                );
                 // replace if with if…then
                 // do not remove labels they may be needed to analyze other constructs
             }
@@ -246,7 +256,7 @@ fn mach_for_construct(
                 _ => return None,
             }
 
-            if let Expression::Not(not_expr) = &**expr {
+            if let Expression::UnaryExpression(crate::ast::UnaryOp::Not, not_expr) = &**expr {
                 if let Expression::Parens(p_expr) = &**not_expr {
                     if let Expression::BinaryExpression(_op, lvalue, rvalue) = &**p_expr {
                         // TODO: Check _op
@@ -532,8 +542,13 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                     }
                     optimize_ifs(&mut statements2);
 
-                    statements[i] =
-                        Statement::DoWhile(Box::new(Expression::Not(exp.clone())), statements2);
+                    statements[i] = Statement::DoWhile(
+                        Box::new(Expression::UnaryExpression(
+                            crate::ast::UnaryOp::Not,
+                            exp.clone(),
+                        )),
+                        statements2,
+                    );
                     statements.remove(i + 1);
                     statements.remove(i - 1);
 
@@ -601,8 +616,13 @@ fn scan_do_while2(statements: &mut Vec<Statement>) {
                             scan_possible_continues(&mut block, continue_label.as_str());
                         }
                         optimize_ifs(&mut block);
-                        statements[i] =
-                            Statement::DoWhile(Box::new(Expression::Not(exp.clone())), block);
+                        statements[i] = Statement::DoWhile(
+                            Box::new(Expression::UnaryExpression(
+                                crate::ast::UnaryOp::Not,
+                                exp.clone(),
+                            )),
+                            block,
+                        );
                         i = 0;
                         continue;
                     }
@@ -881,7 +901,7 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
                 *id = rename_map.get(id).unwrap().to_string();
             }
         }
-        Expression::Parens(expr) | Expression::Not(expr) | Expression::Minus(expr) => {
+        Expression::Parens(expr) | Expression::UnaryExpression(_, expr) => {
             replace_in_expression(expr, rename_map);
         }
 

@@ -6,7 +6,6 @@ use crate::ast::{
 
 use self::tokens::{Token, Tokenizer};
 use chumsky::prelude::*;
-use std::{collections::HashMap, env, fmt, fs};
 
 mod expression;
 mod statements;

@@ -7,8 +7,6 @@ use crate::{
     tables::FUNCTION_DEFINITIONS,
 };
 use chumsky::prelude::*;
-use chumsky::prelude::*;
-use std::{collections::HashMap, env, fmt, fs};
 
 impl Tokenizer {
     pub fn parse_expression(&mut self) -> Expression {
@@ -190,7 +188,7 @@ impl Tokenizer {
     }
 }
 
-fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens>,
     Spanned<Expression>,

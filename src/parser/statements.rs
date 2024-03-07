@@ -2,8 +2,13 @@ use crate::{
     ast::{ElseIfBlock, Expression, Statement, VarInfo},
     tables::STATEMENT_DEFINITIONS,
 };
+use chumsky::prelude::*;
 
-use super::tokens::{Token, Tokenizer};
+use super::{
+    expression::expression_parser,
+    tokens::{Token, Tokenizer},
+    ParserInput, Span, Spanned,
+};
 
 impl Tokenizer {
     pub fn skip_eol(&mut self) {}
@@ -345,18 +350,166 @@ impl Tokenizer {
     }
 }
 
+fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens>,
+    Spanned<Statement>,
+    extra::Err<Rich<'tokens, Token, Span>>,
+> + Clone {
+    let stmt = recursive(|stmt| {
+        let expr = expression_parser();
+
+        let ident = select! { Token::Identifier(ident) => ident };
+
+        let let_stmt = just(Token::Let)
+            .or_not()
+            .then(ident)
+            .map(|(_let, id)| id)
+            .then_ignore(just(Token::Eq))
+            .then(expr.clone())
+            .map(|(lhs, rhs)| Statement::Let(Box::new(VarInfo::Var0(lhs)), Box::new(rhs.0)));
+
+        let goto_stmt = just(Token::Goto)
+            .then(ident)
+            .map(|(_, rhs)| Statement::Goto(rhs));
+        let gosub_stmt = just(Token::Gosub)
+            .then(ident)
+            .map(|(_, rhs)| Statement::Gosub(rhs));
+
+        let label_stmt = select! { Token::Label(ident) => ident }.map(Statement::Label);
+
+        let proc_call = select! {
+            Token::Identifier(c) => Expression::Identifier(c),
+        }
+        .then(
+            expr.clone()
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>()
+                .delimited_by(just(Token::LPar), just(Token::RPar)),
+        )
+        .map(|(f, params)| {
+            let id = f.to_string();
+            Statement::ProcedureCall(id, params.into_iter().map(|(e, _)| e).collect())
+        });
+
+        let call = select! { Token::Identifier(ident) => ident }
+            .then(
+                expr.clone()
+                    .separated_by(just(Token::Comma))
+                    .collect::<Vec<_>>()
+                    .or_not(),
+            )
+            .map(|(def, args)| {
+                let name = def.to_uppercase();
+                let def = STATEMENT_DEFINITIONS
+                    .iter()
+                    .find(|&def| def.name.to_uppercase() == name)
+                    .unwrap();
+                let mut params = Vec::new();
+                if let Some(args) = args {
+                    assert!(
+                        (args.len() as i8) >= def.min_args,
+                        "{} has too few arguments {} [{}:{}]",
+                        def.name,
+                        args.len(),
+                        def.min_args,
+                        def.max_args
+                    );
+                    assert!(
+                        (args.len() as i8) <= def.max_args,
+                        "{} has too many arguments {} [{}:{}]",
+                        def.name,
+                        args.len(),
+                        def.min_args,
+                        def.max_args
+                    );
+                    for arg in args {
+                        params.push(arg.0);
+                    }
+                }
+                Statement::Call(def, params)
+            });
+
+        let if_stmt =
+            just(Token::If)
+                .then(
+                    expr.clone()
+                        .delimited_by(just(Token::LPar), just(Token::RPar)),
+                ) /*
+                .then(choice((
+                    just(Token::Then)
+                    .then(stmt.clone().map(|(_, stmt)| stmt).repeated().collect::<Vec<_>>().then(just(Token::EndIf)))
+                    .map(|(cond, (then_stmt, epxr))| Statement::IfThen(Box::new(Expression::Const(crate::ast::Constant::Integer(0))), then_stmt, None, None))
+                    ,
+                )))*/
+                .then(stmt.clone())
+                .map(
+                    |((t, (cond, ss)), then_stmt)| {
+                        Statement::If(Box::new(cond), Box::new(then_stmt))
+                    }, /*match stmt {
+                           Statement::If(_, then_stmt) => Statement::If(Box::new(cond.0), then_stmt),
+                           Statement::IfThen(_, then_stmt, else_if, else_stmt) => Statement::IfThen(Box::new(cond.0), then_stmt, else_if, else_stmt),
+                           stmt => stmt
+                       }}*/
+                );
+
+        let_stmt
+            .or(goto_stmt)
+            .or(gosub_stmt)
+            .or(label_stmt)
+            .or(just(Token::End).to(Statement::End))
+            .or(just(Token::Return).to(Statement::Return))
+            .or(just(Token::Break).to(Statement::Break))
+            .or(just(Token::Continue).to(Statement::Continue))
+            .or(proc_call)
+            .or(call)
+            .or(if_stmt)
+    });
+
+    stmt.map_with(|tok, e| (tok, e.span()))
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
+}
+
 #[cfg(test)]
 mod tests {
+    use chumsky::{input::Input, Parser};
+
     use crate::{
         ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
-        parser::tokens::Tokenizer,
+        parser::{statements::statement_parser, tokens::lexer},
         tables::{StatementDefinition, PPL_FALSE, PPL_TRUE, STATEMENT_DEFINITIONS},
     };
-    fn parse_statement(str: &str) -> Statement {
-        let mut tokenizer = Tokenizer::new(str);
-        tokenizer.next_token();
-        tokenizer.parse_statement()
+
+    fn parse_statement(src: &str) -> Statement {
+        println!("Parsing statement: {src}");
+        let res = lexer().parse(src);
+        if res.errors().len() > 0 {
+            println!("{} lexer errors", res.errors().len());
+        }
+        for e in res.errors() {
+            println!("Error: {e:?}");
+        }
+        for t in res.output().unwrap() {
+            println!("Token: {t:?}");
+        }
+        assert_eq!(0, res.errors().len());
+
+        let (tokens, mut errs) = res.into_output_errors();
+        let tokens = tokens.unwrap();
+        let stmt =
+            statement_parser().parse(tokens.as_slice().spanned((src.len()..src.len()).into()));
+
+        if stmt.errors().len() > 0 {
+            println!("{} lexer errors", stmt.errors().len());
+        }
+        for e in stmt.errors() {
+            println!("Error: {e:?}");
+        }
+
+        let (expr, _span) = stmt.output().unwrap();
+        expr.clone()
     }
+
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition> {
         let name = name.to_uppercase();
         STATEMENT_DEFINITIONS
@@ -365,14 +518,26 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_statement() {
+    fn test_let() {
         assert_eq!(
             Statement::Let(
-                Box::new(VarInfo::Var0("FOO_BAR".to_string())),
+                Box::new(VarInfo::Var0("foo_bar".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1)))
             ),
             parse_statement("foo_bar=1")
         );
+
+        assert_eq!(
+            Statement::Let(
+                Box::new(VarInfo::Var0("FOO".to_string())),
+                Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))
+            ),
+            parse_statement("LET FOO = FALSE")
+        );
+    }
+
+    #[test]
+    fn test_parse_statement() {
         assert_eq!(
             Statement::Call(
                 get_statement_definition("ADJTIME").unwrap(),
@@ -417,17 +582,6 @@ mod tests {
                 ))]
             ),
             parse_statement("PRINTLN \"Hello World\"")
-        );
-    }
-
-    #[test]
-    fn test_let() {
-        assert_eq!(
-            Statement::Let(
-                Box::new(VarInfo::Var0("FOO".to_string())),
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))
-            ),
-            parse_statement("LET FOO = FALSE")
         );
     }
 

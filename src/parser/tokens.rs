@@ -31,7 +31,48 @@ pub enum Token {
     And,
     Or,
     Not,
+
+    Let,
+    End,
+    Begin,
+    While,
+    If,
+    Then,
+    Else,
+    ElseIf,
+    EndIf,
+
+    For,
+    Break,
+    Continue,
+    Return,
+    Gosub,
+    Goto,
+    Label(String),
 }
+
+/*
+                "BREAK" => return Statement::Break,
+                "CONTINUE" => return Statement::Continue,
+                "RETURN" => return Statement::Return,
+                "GOSUB" => {
+                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+                        self.next_token();
+                        return Statement::Gosub(id);
+                    }
+                    panic!("gosub expected a label, got: {:?}", self.cur_token);
+                }
+                "GOTO" => {
+                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+                        self.next_token();
+                        return Statement::Goto(id);
+                    }
+                    panic!("goto expected a label, got: {:?}", self.cur_token);
+                }
+
+
+
+*/
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -57,6 +98,25 @@ impl fmt::Display for Token {
             Token::And => write!(f, "&"),
             Token::Or => write!(f, "|"),
             Token::Not => write!(f, "!"),
+
+            Token::Label(s) => write!(f, ":{}", s),
+
+            Token::Let => write!(f, "LET"),
+            Token::End => write!(f, "END"),
+            Token::Begin => write!(f, "BEGIN"),
+            Token::While => write!(f, "WHILE"),
+            Token::If => write!(f, "IF"),
+            Token::Then => write!(f, "THEN"),
+            Token::Else => write!(f, "ELSE"),
+            Token::ElseIf => write!(f, "ELSEIF"),
+            Token::EndIf => write!(f, "ENDIF"),
+
+            Token::For => write!(f, "FOR"),
+            Token::Break => write!(f, "BREAK"),
+            Token::Continue => write!(f, "CONTINUE"),
+            Token::Return => write!(f, "RETURN"),
+            Token::Gosub => write!(f, "GOSUB"),
+            Token::Goto => write!(f, "GOTO"),
         }
     }
 }
@@ -109,6 +169,11 @@ pub fn lexer<'src>(
             }
             panic!("{i} overflow.");
         });
+
+    let label = just(':')
+        .ignore_then(text::ascii::ident())
+        .map(|identifier: &str| Token::Label(identifier[1..].to_string()));
+
     // A parser for @X color codes
     let color_code =
         just("@X")
@@ -227,8 +292,23 @@ pub fn lexer<'src>(
         });
 
     let ident = text::ascii::ident().map(|ident: &str| match ident.to_uppercase().as_str() {
+        "LET" => Token::Let,
         "TRUE" => Token::Const(Constant::Integer(PPL_TRUE)),
         "FALSE" => Token::Const(Constant::Integer(PPL_FALSE)),
+        "END" => Token::End,
+        "BEGIN" => Token::Begin,
+        "WHILE" => Token::While,
+        "IF" => Token::If,
+        "THEN" => Token::Then,
+        "ELSE" => Token::Else,
+        "ELSEIF" => Token::ElseIf,
+        "ENDIF" => Token::EndIf,
+        "FOR" => Token::For,
+        "BREAK" => Token::Break,
+        "CONTINUE" => Token::Continue,
+        "RETURN" => Token::Return,
+        "GOSUB" => Token::Gosub,
+        "GOTO" => Token::Goto,
         _ => Token::Identifier(ident.to_string()),
     });
 
@@ -251,6 +331,7 @@ pub fn lexer<'src>(
         .or(op_or)
         .or(op)
         .or(ident)
+        .or(label)
         .or(color_code)
         .or(money);
 
@@ -528,7 +609,7 @@ mod tests {
 
     use crate::{
         ast::Constant,
-        parser::tokens::{lexer, Token, Tokenizer},
+        parser::tokens::{lexer, Token},
         tables::{PPL_FALSE, PPL_TRUE},
     };
     /*
@@ -572,7 +653,6 @@ mod tests {
     fn test_op() {
         assert_eq!(Token::Eq, get_token("=="));
         assert_eq!(Token::Eq, get_token("="));
-
         assert_eq!(Token::And, get_token("&&"));
         assert_eq!(Token::And, get_token("&"));
         assert_eq!(Token::Or, get_token("||"));

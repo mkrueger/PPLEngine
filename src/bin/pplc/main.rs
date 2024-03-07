@@ -43,8 +43,6 @@ struct Variable {
 
 #[derive(Debug)]
 struct Function {
-    pub index: usize,
-
     pub args: i32,
     pub total_var: i32,
     pub start: i32,
@@ -250,18 +248,17 @@ impl Executable {
     pub fn compile(&mut self, prg: &Program) {
         self.initialize_variables();
 
-        for (index, d) in prg.declarations.iter().enumerate() {
+        for d in prg.declarations.iter() {
             match d {
-                ppl_engine::ast::Declaration::Function(name, params, retValue) => {
+                ppl_engine::ast::Declaration::Function(name, params, ret_value) => {
                     self.procedure_declarations.insert(
                         name.clone(),
                         Function {
-                            index,
                             args: params.len() as i32,
                             total_var: 0,
                             start: 0,
                             first_var: 0,
-                            return_var: 0,
+                            return_var: *ret_value as i32,
                             usages: Vec::new(),
                         },
                     );
@@ -270,7 +267,6 @@ impl Executable {
                     self.procedure_declarations.insert(
                         name.clone(),
                         Function {
-                            index,
                             args: params.len() as i32,
                             total_var: 0,
                             start: 0,

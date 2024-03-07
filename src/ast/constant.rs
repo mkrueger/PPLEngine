@@ -96,7 +96,7 @@ impl Constant {
             Constant::String(s) => super::VariableValue::String(s.clone()),
             Constant::Real(i) => super::VariableValue::Real(*i),
             Constant::Boolean(b) => super::VariableValue::Boolean(*b),
-            Constant::Builtin(s) => super::VariableValue::String(s.to_string()),
+            Constant::Builtin(s) => super::VariableValue::String((*s).to_string()),
         }
     }
 }

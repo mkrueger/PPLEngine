@@ -1,5 +1,3 @@
-use std::os::linux::raw::stat;
-
 use crate::ast::{get_var_name, BinOp, Constant, Expression, Program, Statement, VarInfo};
 
 pub fn transform_ast(prg: &mut Program) {

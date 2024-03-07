@@ -101,6 +101,11 @@ pub enum Declaration {
 }
 
 impl Declaration {
+    /// Returns a reference to the get name of this [`Declaration`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_name(&self) -> &String {
         match self {
             Declaration::Variable(_, _) => {
@@ -110,6 +115,11 @@ impl Declaration {
         }
     }
 
+    /// Returns the get return vartype of this [`Declaration`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_return_vartype(&self) -> i32 {
         match self {
             Declaration::Variable(_, _) => {

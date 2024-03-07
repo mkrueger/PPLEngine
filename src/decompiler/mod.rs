@@ -1148,13 +1148,13 @@ impl Decompiler {
                 let tmp = self.pop_expr().unwrap();
                 match func_def.opcode {
                     FuncOpCode::NOT => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Not, Box::new(tmp)))
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Not, Box::new(tmp)));
                     }
                     FuncOpCode::UMINUS => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Minus, Box::new(tmp)))
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Minus, Box::new(tmp)));
                     }
                     FuncOpCode::UPLUS => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)))
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)));
                     }
                     _ => panic!("{}", format!("unknown unary function {func}")),
                 }

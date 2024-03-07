@@ -1349,7 +1349,6 @@ impl Decompiler {
     fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> bool {
         let mut cur_expr = 0;
         let temp_expr = self.exp_count;
-        println!("parse expr, max:{}", max_expr);
 
         self.src_ptr += 1;
         while (max_expr & 0x0ff) != cur_expr {
@@ -1359,15 +1358,11 @@ impl Decompiler {
             let mut tmp_func = 0;
 
             while self.executable.source_buffer[self.src_ptr as usize] != 0 {
-                println!("src ptr : {}", self.src_ptr);
                 if self.executable.source_buffer[self.src_ptr as usize] >= 0
                     && self.executable.source_buffer[self.src_ptr as usize]
                         <= self.executable.max_var
                 {
-                    println!("1.1.1");
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
-                        println!("1.1.2");
-
                         self.executable
                             .variable_declarations
                             .get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
@@ -1395,7 +1390,6 @@ impl Decompiler {
                             }
                         }
                     } else {
-                        println!("1.1.3");
                         if self.cur_stmt == 0xa8
                             && ((self
                                 .executable
@@ -1407,7 +1401,6 @@ impl Decompiler {
                                 & 1)
                                 != 0
                         {
-                            println!("1.2.1");
                             self.executable
                                 .variable_declarations
                                 .get_mut(
@@ -1424,7 +1417,6 @@ impl Decompiler {
                             .variable_type
                             == VariableType::Function
                         {
-                            println!("1.2.2");
                             self.pushlabel(
                                 self.executable
                                     .variable_declarations
@@ -1475,11 +1467,9 @@ impl Decompiler {
                                     .args,
                                 1,
                             ) {
-                                println!("1.2.3");
                                 return false;
                             }
                             if self.pass == 1 {
-                                println!("1.2.4");
                                 let mut params = Vec::new();
                                 while stack_len < self.expr_stack.len() {
                                     params.push(self.pop_expr().unwrap());
@@ -1497,18 +1487,12 @@ impl Decompiler {
                                 }
                             }
                         } else {
-                            println!("A");
                             if self.pass == 1 {
-                                println!(
-                                    "varout 2 {}",
-                                    self.executable.source_buffer[self.src_ptr as usize]
-                                );
                                 let tmp = self
                                     .varout(self.executable.source_buffer[self.src_ptr as usize]);
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
-                            println!("A1 {}", self.src_ptr);
                             if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                                 self.executable
                                     .variable_declarations
@@ -1526,17 +1510,10 @@ impl Decompiler {
                                 }
                             }
                             self.src_ptr += 1;
-                            println!("A2 {}", self.src_ptr);
                         }
                     }
                 } else {
-                    println!("1.10");
                     if self.pass == 1 {
-                        println!(
-                            "1.10.1 fnc {}:{}",
-                            self.src_ptr,
-                            self.executable.source_buffer[self.src_ptr as usize] as u8
-                        );
                         if self.fnktout(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
                             self.trash_flag = 1;
@@ -1548,7 +1525,6 @@ impl Decompiler {
                 }
             }
 
-            println!("END {}", self.src_ptr);
             self.src_ptr += 1;
             if self.pass == 1 {
                 let tmp2 = self.trans_exp(cur_expr);

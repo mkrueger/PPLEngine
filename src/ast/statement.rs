@@ -75,14 +75,14 @@ impl Statement {
                 }
             }
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr),
-            Expression::UnaryExpression(op, notexpr) => match &**notexpr {
+            Expression::UnaryExpression(_op, notexpr) => match &**notexpr {
                 Expression::Const(Constant::Boolean(false)) => {
                     &Expression::Const(Constant::Boolean(true))
                 }
                 Expression::Const(Constant::Boolean(true)) => {
                     &Expression::Const(Constant::Boolean(false))
                 }
-                Expression::UnaryExpression(op, notexpr2) => {
+                Expression::UnaryExpression(_op, notexpr2) => {
                     Statement::try_boolean_conversion(notexpr2)
                 }
                 _ => expr,

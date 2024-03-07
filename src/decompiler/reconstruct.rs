@@ -159,7 +159,6 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             break;
                         }
                     }
-                    println!("EMPTY:{}", elseif_blocks2.is_empty());
                     if !elseif_blocks2.is_empty() {
                         elseif_blocks = Some(elseif_blocks2);
                     }

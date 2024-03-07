@@ -120,7 +120,6 @@ impl Variable {
         buffer
     }
 }
-
 struct LabelInfo {
     pub address: usize,
     pub usages: Vec<usize>,
@@ -337,8 +336,6 @@ impl Executable {
                     .get_mut(p.declaration.get_name())
                     .unwrap();
                 decl.total_var = self.variable_table.len() as i32 - decl.first_var;
-
-                println!("{:?}", decl);
             }
         }
 
@@ -396,7 +393,6 @@ impl Executable {
     }
 
     fn compile_statement(&mut self, s: &Statement) {
-        println!("Compiling statement {:?}", s);
         match s {
             Statement::Call(smt, pars) => {
                 let op_code = smt.opcode as u8;
@@ -572,7 +568,6 @@ impl Executable {
             }
             ppl_engine::ast::Expression::Parens(expr) => {
                 self.comp_expr(stack, expr);
-                stack.push(0xFFFF);
             }
             ppl_engine::ast::Expression::FunctionCall(_, _) => {
                 print!("Function call not implemented");

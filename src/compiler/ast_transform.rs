@@ -1,3 +1,5 @@
+use std::os::linux::raw::stat;
+
 use crate::ast::{get_var_name, BinOp, Constant, Expression, Program, Statement, VarInfo};
 
 pub fn transform_ast(prg: &mut Program) {
@@ -34,10 +36,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(i, Statement::Goto(loop_label.clone()));
                 statements.insert(i, Statement::Label(continue_label.clone()));
 
-                statements.splice(i..i, stmts.iter().cloned());
-
                 scan_possible_breaks(stmts, &break_label);
                 scan_possible_continues(stmts, &continue_label);
+
+                statements.splice(i..i, stmts.iter().cloned());
+
                 // block
                 statements.insert(
                     i,
@@ -154,6 +157,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 labels += 1;
                 let else_exit_label = format!("label{labels}");
                 labels += 1;
+
                 statements.insert(i, Statement::Label(else_exit_label.clone()));
 
                 if let Some(else_stmts) = opt_else {
@@ -161,7 +165,10 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 }
 
                 if let Some(else_if) = opt_else_if {
-                    for n in 0..else_if.len() {
+                    if else_if.len() == 1 {
+                        if_exit_label = else_exit_label.clone();
+                    }
+                    for n in (0..else_if.len()).rev() {
                         let ef = &else_if[n];
                         if n != else_if.len() - 1 || opt_else.is_some() {
                             statements.insert(i, Statement::Label(if_exit_label.clone()));

@@ -124,10 +124,6 @@ pub fn read_file(file_name: &str) -> Executable {
         source_buffer.push(k);
         i += 2;
     }
-    println!("Source buffer:");
-    for (i, d) in source_buffer.iter().enumerate() {
-        println!("{}: {}", i, *d);
-    }
 
     Executable {
         version,

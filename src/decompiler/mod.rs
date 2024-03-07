@@ -1678,11 +1678,15 @@ impl Decompiler {
                 OpCode::RETURN => {
                     self.outputpass2(prg, &mut if_while_stack, Statement::Return);
                     self.src_ptr += 1;
-                }
+                } /*
                 OpCode::STOP => {
-                    self.outputpass2(prg, &mut if_while_stack, Statement::Stop);
-                    self.src_ptr += 1;
-                }
+                self.outputpass2(
+                prg,
+                &mut if_while_stack,
+                Statement::Call(STATEMENT_DEFINITIONS::STOP, Vec::new()),
+                );
+                self.src_ptr += 1;
+                }   */
                 OpCode::GOTO => {
                     let label = self.pop_expr().unwrap().to_string();
                     self.outputpass2(prg, &mut if_while_stack, Statement::Goto(label));

@@ -1,8 +1,14 @@
-use super::tokens::{Token, Tokenizer};
+use super::{
+    tokens::{Token, Tokenizer},
+    ParserInput, Span, Spanned,
+};
 use crate::{
     ast::{BinOp, Expression},
     tables::FUNCTION_DEFINITIONS,
 };
+use chumsky::prelude::*;
+use chumsky::prelude::*;
+use std::{collections::HashMap, env, fmt, fs};
 
 impl Tokenizer {
     pub fn parse_expression(&mut self) -> Expression {
@@ -184,29 +190,156 @@ impl Tokenizer {
     }
 }
 
+fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens>,
+    Spanned<Expression>,
+    extra::Err<Rich<'tokens, Token, Span>>,
+> + Clone {
+    let expr = recursive(|expr| {
+        let func = select! {
+            Token::Identifier(c) => Expression::Identifier(c),
+        }
+        .then(
+            expr.clone()
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>()
+                .delimited_by(just(Token::LPar), just(Token::RPar)),
+        )
+        .map(|(f, params)| {
+            let id = f.to_string();
+            let predef = crate::tables::get_function_definition(&id);
+            // TODO: Check parameter signature
+
+            if predef >= 0 {
+                return Expression::PredefinedFunctionCall(
+                    &FUNCTION_DEFINITIONS[predef as usize],
+                    params,
+                );
+            }
+            return Expression::FunctionCall(id, params);
+        });
+
+        let atom = func
+            .or(select! {
+                Token::Const(c) => Expression::Const(c),
+            })
+            .or(expr
+                .delimited_by(just(Token::LPar), just(Token::RPar))
+                .map(|a| Expression::Parens(Box::new(a))));
+
+        let unary = just(Token::Not)
+            .map(|_| crate::ast::UnaryOp::Not)
+            .or(just(Token::Add).map(|_| crate::ast::UnaryOp::Plus))
+            .or(just(Token::Sub).map(|_| crate::ast::UnaryOp::Minus))
+            .repeated()
+            .foldr(atom, |op, e| Expression::UnaryExpression(op, Box::new(e)));
+
+        let pow = unary.clone().foldl(
+            just(Token::PoW)
+                .map(|_| crate::ast::BinOp::PoW)
+                .then(unary)
+                .repeated(),
+            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
+        );
+
+        let factor = pow.clone().foldl(
+            choice((
+                just(Token::Mul).map(|_| crate::ast::BinOp::Mul),
+                just(Token::Div).map(|_| crate::ast::BinOp::Div),
+                just(Token::Mod).map(|_| crate::ast::BinOp::Mod),
+            ))
+            .then(pow)
+            .repeated(),
+            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
+        );
+
+        let term = factor.clone().foldl(
+            choice((
+                just(Token::Add).map(|_| crate::ast::BinOp::Add),
+                just(Token::Sub).map(|_| crate::ast::BinOp::Sub),
+            ))
+            .then(factor)
+            .repeated(),
+            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
+        );
+
+        let comparison = term.clone().foldl(
+            choice((
+                just(Token::Greater).map(|_| crate::ast::BinOp::Greater),
+                just(Token::GreaterEq).map(|_| crate::ast::BinOp::GreaterEq),
+                just(Token::Lower).map(|_| crate::ast::BinOp::Lower),
+                just(Token::LowerEq).map(|_| crate::ast::BinOp::LowerEq),
+                just(Token::Eq).map(|_| crate::ast::BinOp::Eq),
+                just(Token::NotEq).map(|_| crate::ast::BinOp::NotEq),
+            ))
+            .then(term)
+            .repeated(),
+            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
+        );
+
+        let bool_expr = comparison.clone().foldl(
+            choice((
+                just(Token::And).map(|_| crate::ast::BinOp::And),
+                just(Token::Or).map(|_| crate::ast::BinOp::Or),
+            ))
+            .then(comparison)
+            .repeated(),
+            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
+        );
+
+        let not_expr = just(Token::Not)
+            .map(|_| crate::ast::UnaryOp::Not)
+            .repeated()
+            .foldr(bool_expr, |op, e| {
+                Expression::UnaryExpression(op, Box::new(e))
+            });
+
+        not_expr
+    });
+
+    expr.map_with(|tok, e| (tok, e.span()))
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
+}
+
 #[cfg(test)]
 mod tests {
+    use chumsky::{input::Input, Parser};
+
     use crate::{
         ast::{BinOp, Constant, Expression},
-        parser::tokens::Tokenizer,
+        parser::{expression::expression_parser, tokens::lexer},
         tables::{get_function_definition, FUNCTION_DEFINITIONS, PPL_FALSE},
     };
-    fn parse_expression(str: &str) -> Expression {
-        let mut tokenizer = Tokenizer::new(str);
-        tokenizer.next_token();
-        tokenizer.parse_expression()
+    fn parse_expression(src: &str) -> Expression {
+        println!("Parsing expression: {src}");
+        let res = lexer().parse(src);
+        if res.errors().len() > 0 {
+            println!("{} lexer errors", res.errors().len());
+        }
+        for e in res.errors() {
+            println!("Error: {e:?}");
+        }
+        assert_eq!(0, res.errors().len());
+
+        let (tokens, mut errs) = res.into_output_errors();
+        let tokens = tokens.unwrap();
+        let expr =
+            expression_parser().parse(tokens.as_slice().spanned((src.len()..src.len()).into()));
+        let (expr, _span) = expr.output().unwrap();
+        expr.clone()
     }
 
     #[test]
-    fn test_parse_expression() {
-        assert_eq!(
-            Expression::Const(Constant::Money(42.42)),
-            parse_expression("$42.42")
-        );
+    fn test_parse_parens() {
         assert_eq!(
             Expression::Parens(Box::new(Expression::Const(Constant::Integer(5)))),
             parse_expression("(5)")
         );
+    }
+
+    #[test]
+    fn test_unary_expressions() {
         assert_eq!(
             Expression::UnaryExpression(
                 crate::ast::UnaryOp::Not,
@@ -214,20 +347,26 @@ mod tests {
             ),
             parse_expression("!FALSE")
         );
+
         assert_eq!(
-            Expression::PredefinedFunctionCall(
-                &FUNCTION_DEFINITIONS[get_function_definition("ABORT") as usize],
-                Vec::new()
+            Expression::UnaryExpression(
+                crate::ast::UnaryOp::Minus,
+                Box::new(Expression::Const(Constant::Integer(5)))
             ),
-            parse_expression("ABORT()")
+            parse_expression("-5")
         );
+
         assert_eq!(
-            Expression::PredefinedFunctionCall(
-                &FUNCTION_DEFINITIONS[get_function_definition("ABS") as usize],
-                vec!(Expression::Const(Constant::Integer(5)))
+            Expression::UnaryExpression(
+                crate::ast::UnaryOp::Plus,
+                Box::new(Expression::Const(Constant::Integer(5)))
             ),
-            parse_expression("ABS(5)")
+            parse_expression("+5")
         );
+    }
+
+    #[test]
+    fn test_binary_expressions() {
         assert_eq!(
             Expression::BinaryExpression(
                 BinOp::PoW,
@@ -235,6 +374,14 @@ mod tests {
                 Box::new(Expression::Const(Constant::Integer(5)))
             ),
             parse_expression("2^5")
+        );
+        assert_eq!(
+            Expression::BinaryExpression(
+                BinOp::PoW,
+                Box::new(Expression::Const(Constant::Integer(1))),
+                Box::new(Expression::Const(Constant::Integer(3)))
+            ),
+            parse_expression("1**3")
         );
         assert_eq!(
             Expression::BinaryExpression(
@@ -339,6 +486,29 @@ mod tests {
                 Box::new(Expression::Const(Constant::Integer(5)))
             ),
             parse_expression("2 | 5")
+        );
+    }
+
+    #[test]
+    fn test_parse_expression() {
+        assert_eq!(
+            Expression::Const(Constant::Money(42.42)),
+            parse_expression("$42.42")
+        );
+
+        assert_eq!(
+            Expression::PredefinedFunctionCall(
+                &FUNCTION_DEFINITIONS[get_function_definition("ABORT") as usize],
+                Vec::new()
+            ),
+            parse_expression("ABORT()")
+        );
+        assert_eq!(
+            Expression::PredefinedFunctionCall(
+                &FUNCTION_DEFINITIONS[get_function_definition("ABS") as usize],
+                vec!(Expression::Const(Constant::Integer(5)))
+            ),
+            parse_expression("ABS(5)")
         );
     }
 }

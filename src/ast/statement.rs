@@ -37,7 +37,6 @@ pub enum Statement {
     Continue,
     Gosub(String),
     Return,
-    Stop,
     Let(Box<VarInfo>, Box<Expression>),
     Goto(String),
     Label(String),
@@ -272,7 +271,6 @@ impl Statement {
                     )
                 }
             }
-            Statement::Stop => (output_keyword("Stop"), indent, 0),
             Statement::Label(str) => (
                 format!("\n{}:{}", Statement::get_indent(indent - 1), str),
                 indent,

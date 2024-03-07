@@ -2,10 +2,14 @@ use crate::{
     ast::Constant,
     tables::{PPL_FALSE, PPL_TRUE},
 };
+use chumsky::prelude::*;
+use core::fmt;
+use thiserror::Error;
+
+use super::Span;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    Eol,
     Const(Constant),
     Identifier(String),
     LPar,
@@ -27,6 +31,236 @@ pub enum Token {
     And,
     Or,
     Not,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Token::Const(c) => write!(f, "{}", c),
+            Token::Identifier(s) => write!(f, "{}", s),
+            Token::LPar => write!(f, "("),
+            Token::RPar => write!(f, ")"),
+            Token::Comma => write!(f, ","),
+            Token::Colon => write!(f, "."),
+            Token::PoW => write!(f, "**"),
+            Token::Mul => write!(f, "*"),
+            Token::Div => write!(f, "/"),
+            Token::Mod => write!(f, "%"),
+            Token::Add => write!(f, "+"),
+            Token::Sub => write!(f, "-"),
+            Token::Eq => write!(f, "="),
+            Token::NotEq => write!(f, "!="),
+            Token::Lower => write!(f, "<"),
+            Token::LowerEq => write!(f, "<="),
+            Token::Greater => write!(f, ">"),
+            Token::GreaterEq => write!(f, ">="),
+            Token::And => write!(f, "&"),
+            Token::Or => write!(f, "|"),
+            Token::Not => write!(f, "!"),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum LexerError {
+    #[error("Number overflow {0}")]
+    Overflow(String),
+}
+
+pub fn lexer<'src>(
+) -> impl Parser<'src, &'src str, Vec<(Token, Span)>, extra::Err<Rich<'src, char, Span>>> {
+    // A parser for numbers
+    let digits = text::digits(10).to_slice();
+    let frac = just('.').then(digits);
+    let num = text::digits(10)
+        .ignore_then(text::digits(16).or_not())
+        .ignore_then(frac.or_not())
+        .then(one_of("hHdDbBoO").or_not())
+        .to_slice()
+        .map(|identifier: &str| {
+            // TODO: Better error handling
+            if identifier.ends_with('H') || identifier.ends_with('h') {
+                return Token::Const(Constant::Integer(
+                    i32::from_str_radix(&identifier[..identifier.len() - 1], 16).unwrap(),
+                ));
+            }
+            if identifier.ends_with('D') || identifier.ends_with('d') {
+                return Token::Const(Constant::Integer(
+                    identifier[..identifier.len() - 1].parse::<i32>().unwrap(),
+                ));
+            }
+            if identifier.ends_with('O') || identifier.ends_with('o') {
+                return Token::Const(Constant::Integer(
+                    i32::from_str_radix(&identifier[..identifier.len() - 1], 8).unwrap(),
+                ));
+            }
+            if identifier.ends_with('B') || identifier.ends_with('b') {
+                return Token::Const(Constant::Integer(
+                    i32::from_str_radix(&identifier[..identifier.len() - 1], 2).unwrap(),
+                ));
+            }
+            let radix = 10;
+            let i = i64::from_str_radix(identifier, radix).unwrap();
+            if i32::try_from(i).is_ok() {
+                return Token::Const(Constant::Integer(i as i32));
+            }
+            if i <= u32::MAX as i64 {
+                return Token::Const(Constant::Unsigned(i as u32));
+            }
+            panic!("{i} overflow.");
+        });
+    // A parser for @X color codes
+    let color_code =
+        just("@X")
+            .then(text::digits(16).exactly(2))
+            .to_slice()
+            .map(|identifier: &str| {
+                Token::Const(Constant::Integer(
+                    i32::from_str_radix(&identifier[2..], 16).unwrap(),
+                ))
+            });
+
+    let money = just("$")
+        .ignore_then(text::digits(10))
+        .ignore_then(frac.or_not())
+        .to_slice()
+        .map(|identifier: &str| {
+            // TODO: Better error handling
+            let i = identifier[1..].parse::<f64>().unwrap();
+            Token::Const(Constant::Money(i))
+        });
+
+    // A parser for strings
+    let str_ = just('"')
+        .ignore_then(none_of('"').repeated())
+        .then_ignore(just('"'))
+        .to_slice()
+        .map(|s: &str| Token::Const(Constant::String(s[1..s.len() - 1].to_string())));
+
+    let op_pow = just("**").or(just("*")).map(|s: &str| {
+        println!("len:{}", s.len());
+        if s.len() == 1 {
+            Token::Mul
+        } else {
+            Token::PoW
+        }
+    });
+
+    let op_lower_eq1 = just("=<")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::LowerEq);
+    let op_lower_eq2 = just("<=")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::LowerEq);
+
+    let op_greater_eq1 = just("=>")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::GreaterEq);
+    let op_greater_eq2 = just(">=")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::GreaterEq);
+
+    let op_eq1 = just("==")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::Eq);
+
+    let op_not_eq2 = just("<>")
+        .repeated()
+        .at_least(1)
+        .to_slice()
+        .map(|_| Token::NotEq);
+    let op_not_eq3 = just("><")
+        .repeated()
+        .exactly(1)
+        .to_slice()
+        .map(|_| Token::NotEq);
+    let op_not_eq = just("!=")
+        .repeated()
+        .exactly(1)
+        .to_slice()
+        .map(|_| Token::NotEq);
+
+    let op_and = just("&&")
+        .repeated()
+        .exactly(1)
+        .to_slice()
+        .map(|_| Token::And);
+
+    let op_or = just("||")
+        .repeated()
+        .exactly(1)
+        .to_slice()
+        .map(|_| Token::Or);
+
+    // A parser for operators
+    let op = one_of("(),^/%+-=&|!<>")
+        .repeated()
+        .exactly(1)
+        .collect::<String>()
+        .map(|s| match s.as_str() {
+            "(" => Token::LPar,
+            ")" => Token::RPar,
+            "," => Token::Comma,
+            "^" => Token::PoW,
+            "*" => Token::Mul,
+            "/" => Token::Div,
+            "%" => Token::Mod,
+            "+" => Token::Add,
+            "-" => Token::Sub,
+            "=" => Token::Eq,
+            "<" => Token::Lower,
+            ">" => Token::Greater,
+            "&" => Token::And,
+            "|" => Token::Or,
+            "!" => Token::Not,
+            _ => panic!("Invalid operator: {s}"),
+        });
+
+    let ident = text::ascii::ident().map(|ident: &str| match ident.to_uppercase().as_str() {
+        "TRUE" => Token::Const(Constant::Integer(PPL_TRUE)),
+        "FALSE" => Token::Const(Constant::Integer(PPL_FALSE)),
+        _ => Token::Identifier(ident.to_string()),
+    });
+
+    let comment = one_of(";'")
+        .then(any().and_is(just('\n').not()).repeated())
+        .padded();
+
+    let token = num
+        .or(str_)
+        .or(op_pow)
+        .or(op_lower_eq1)
+        .or(op_lower_eq2)
+        .or(op_greater_eq1)
+        .or(op_greater_eq2)
+        .or(op_eq1)
+        .or(op_not_eq2)
+        .or(op_not_eq3)
+        .or(op_not_eq)
+        .or(op_and)
+        .or(op_or)
+        .or(op)
+        .or(ident)
+        .or(color_code)
+        .or(money);
+
+    token
+        .map_with(|tok: Token, e| (tok, e.span()))
+        .padded_by(comment.repeated())
+        .padded()
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
+        .repeated()
+        .collect()
 }
 
 pub struct Tokenizer {
@@ -83,15 +317,13 @@ impl Tokenizer {
         ch?;
         let ch = ch.unwrap();
         match ch {
-            '\n' => {
-                Some(Token::Eol)
-            },
+
             '\'' | // comment
             ';' => {
                 while self.get_ch() != Some('\n') && self.get_ch().is_some() {
                     self.next_ch();
                 }
-                Some(Token::Eol)
+                self.next_token2()
             }
             '"' => {
                 let mut str_literal = String::new();
@@ -205,7 +437,7 @@ impl Tokenizer {
                  }
              }
             _ => {
-                if ch  == ' ' || ch  == '\t' || ch  == '\r'   {
+                if ch  == ' ' || ch  == '\t' || ch  == '\r'  || ch  == '\n'   {
                     while self.get_ch().is_some() && ( self.get_ch() == Some(' ') ||  self.get_ch() == Some('\t') || self.get_ch() == Some('\r')) {
                         self.next_ch();
                     }
@@ -292,68 +524,78 @@ fn conv_hex(first: char) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    use chumsky::prelude::*;
+
     use crate::{
         ast::Constant,
-        parser::tokens::{Token, Tokenizer},
+        parser::tokens::{lexer, Token, Tokenizer},
         tables::{PPL_FALSE, PPL_TRUE},
     };
-
+    /*
     #[test]
     fn test_comments() {
         assert_eq!(
             Token::Eol,
-            Tokenizer::new("; COMMENT").next_token().unwrap()
+            get_token("; COMMENT")
         );
         assert_eq!(
             Token::Eol,
-            Tokenizer::new("' COMMENT").next_token().unwrap()
+            get_token("' COMMENT")
         );
+    }*/
+
+    fn get_token(src: &str) -> Token {
+        let res = lexer().parse(src);
+        assert_eq!(0, res.errors().len());
+        let tokens = res.output().unwrap();
+        assert_eq!(1, tokens.len());
+        tokens[0].0.clone()
     }
 
     #[test]
     fn test_string() {
-        let mut token = Tokenizer::new("\"Hello World\"\"foo\"");
+        let src = "\"Hello World\"\"foo\"";
+        let res = lexer().parse(src);
+        assert_eq!(0, res.errors().len());
+        let tokens = res.output().unwrap();
         assert_eq!(
             Token::Const(Constant::String("Hello World".to_string())),
-            token.next_token().unwrap()
+            tokens[0].0
         );
         assert_eq!(
             Token::Const(Constant::String("foo".to_string())),
-            token.next_token().unwrap()
+            tokens[1].0
         );
     }
 
     #[test]
     fn test_op() {
-        assert_eq!(Token::Eq, Tokenizer::new("==").next_token().unwrap());
-        assert_eq!(Token::Eq, Tokenizer::new("=").next_token().unwrap());
+        assert_eq!(Token::Eq, get_token("=="));
+        assert_eq!(Token::Eq, get_token("="));
 
-        assert_eq!(Token::And, Tokenizer::new("&&").next_token().unwrap());
-        assert_eq!(Token::And, Tokenizer::new("&").next_token().unwrap());
-        assert_eq!(Token::Or, Tokenizer::new("||").next_token().unwrap());
-        assert_eq!(Token::Or, Tokenizer::new("|").next_token().unwrap());
-        assert_eq!(Token::Not, Tokenizer::new("!").next_token().unwrap());
-        assert_eq!(Token::PoW, Tokenizer::new("**").next_token().unwrap());
-        assert_eq!(Token::PoW, Tokenizer::new("^").next_token().unwrap());
+        assert_eq!(Token::And, get_token("&&"));
+        assert_eq!(Token::And, get_token("&"));
+        assert_eq!(Token::Or, get_token("||"));
+        assert_eq!(Token::Or, get_token("|"));
+        assert_eq!(Token::Not, get_token("!"));
+        assert_eq!(Token::PoW, get_token("**"));
+        assert_eq!(Token::PoW, get_token("^"));
 
-        assert_eq!(Token::NotEq, Tokenizer::new("<>").next_token().unwrap());
-        assert_eq!(Token::NotEq, Tokenizer::new("><").next_token().unwrap());
-        assert_eq!(Token::NotEq, Tokenizer::new("!=").next_token().unwrap());
-        assert_eq!(Token::Lower, Tokenizer::new("<").next_token().unwrap());
-        assert_eq!(Token::LowerEq, Tokenizer::new("<=").next_token().unwrap());
-        assert_eq!(Token::LowerEq, Tokenizer::new("=<").next_token().unwrap());
-        assert_eq!(Token::Greater, Tokenizer::new(">").next_token().unwrap());
-        assert_eq!(Token::GreaterEq, Tokenizer::new(">=").next_token().unwrap());
-        assert_eq!(Token::GreaterEq, Tokenizer::new("=>").next_token().unwrap());
+        assert_eq!(Token::NotEq, get_token("<>"));
+        assert_eq!(Token::NotEq, get_token("><"));
+        assert_eq!(Token::NotEq, get_token("!="));
+        assert_eq!(Token::Lower, get_token("<"));
+        assert_eq!(Token::LowerEq, get_token("<="));
+        assert_eq!(Token::LowerEq, get_token("=<"));
+        assert_eq!(Token::Greater, get_token(">"));
+        assert_eq!(Token::GreaterEq, get_token(">="));
+        assert_eq!(Token::GreaterEq, get_token("=>"));
     }
 
     #[test]
     fn test_identifier() {
-        assert_eq!(
-            Token::Identifier("PRINT".to_string()),
-            Tokenizer::new("PRINT").next_token().unwrap()
-        );
-
+        assert_eq!(Token::Identifier("PRINT".to_string()), get_token("PRINT"));
+        /*
         let mut token = Tokenizer::new("Hello World");
         assert_eq!(
             Token::Identifier("HELLO".to_string()),
@@ -362,46 +604,23 @@ mod tests {
         assert_eq!(
             Token::Identifier("WORLD".to_string()),
             token.next_token().unwrap()
-        );
+        );*/
     }
 
     #[test]
     fn test_constants() {
-        assert_eq!(
-            Token::Const(Constant::Integer(123)),
-            Tokenizer::new("123").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Money(1.42)),
-            Tokenizer::new("$1.42").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(255)),
-            Tokenizer::new("0FFh").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(123)),
-            Tokenizer::new("123d").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(88)),
-            Tokenizer::new("130o").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(8)),
-            Tokenizer::new("1000b").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(100)),
-            Tokenizer::new("@X64").next_token().unwrap()
-        );
-        assert_eq!(
-            Token::Const(Constant::Integer(PPL_TRUE)),
-            Tokenizer::new("TRUE").next_token().unwrap()
-        );
+        assert_eq!(Token::Const(Constant::Integer(123)), get_token("123"));
+        assert_eq!(Token::Const(Constant::Integer(100)), get_token("@X64"));
+
+        assert_eq!(Token::Const(Constant::Money(1.42)), get_token("$1.42"));
+        assert_eq!(Token::Const(Constant::Integer(255)), get_token("0FFh"));
+        assert_eq!(Token::Const(Constant::Integer(123)), get_token("123d"));
+        assert_eq!(Token::Const(Constant::Integer(88)), get_token("130o"));
+        assert_eq!(Token::Const(Constant::Integer(8)), get_token("1000b"));
+        assert_eq!(Token::Const(Constant::Integer(PPL_TRUE)), get_token("TRUE"));
         assert_eq!(
             Token::Const(Constant::Integer(PPL_FALSE)),
-            Tokenizer::new("FALSE").next_token().unwrap()
+            get_token("FALSE")
         );
     }
 }

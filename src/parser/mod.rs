@@ -1,12 +1,26 @@
 use std::path::PathBuf;
 
-use crate::ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType};
+use crate::ast::{
+    Block, Declaration, Expression, FunctionImplementation, Program, VarInfo, VariableType,
+};
 
 use self::tokens::{Token, Tokenizer};
+use chumsky::prelude::*;
+use std::{collections::HashMap, env, fmt, fs};
 
 mod expression;
 mod statements;
-mod tokens;
+pub mod tokens;
+
+pub type Span = SimpleSpan<usize>;
+pub type Spanned<T> = (T, Span);
+
+#[derive(Debug)]
+struct Func<'src> {
+    args: Vec<&'src str>,
+    span: Span,
+    body: Spanned<Expression>,
+}
 
 impl Tokenizer {
     pub fn get_variable_type(&self) -> Option<VariableType> {
@@ -337,6 +351,8 @@ pub fn parse_program(input: &str) -> Program {
         file_name: PathBuf::from("/test/test.ppe"),
     }
 }
+
+type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
 
 #[cfg(test)]
 mod tests {

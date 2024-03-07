@@ -6,11 +6,7 @@ use crate::{
 use super::tokens::{Token, Tokenizer};
 
 impl Tokenizer {
-    pub fn skip_eol(&mut self) {
-        while self.cur_token == Some(Token::Eol) {
-            self.next_token();
-        }
-    }
+    pub fn skip_eol(&mut self) {}
 
     fn parse_while(&mut self) -> Statement {
         assert!(
@@ -228,7 +224,6 @@ impl Tokenizer {
                 "BREAK" => return Statement::Break,
                 "CONTINUE" => return Statement::Continue,
                 "RETURN" => return Statement::Return,
-                "STOP" => return Statement::Stop,
                 "GOSUB" => {
                     if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                         self.next_token();
@@ -249,7 +244,7 @@ impl Tokenizer {
             for def in &STATEMENT_DEFINITIONS {
                 if def.name.to_uppercase() == id {
                     let mut params = Vec::new();
-                    while self.cur_token != Some(Token::Eol) && self.cur_token.is_some() {
+                    while self.cur_token.is_some() {
                         params.push(self.parse_expression());
 
                         if self.cur_token.is_none() {
@@ -485,8 +480,6 @@ mod tests {
         assert_eq!(Statement::Continue, parse_statement("CONTINUE"));
 
         assert_eq!(Statement::Return, parse_statement("RETURN"));
-
-        assert_eq!(Statement::Stop, parse_statement("STOP"));
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use ppl_engine::*;
+use semver::Version;
 use std::ffi::OsStr;
 use std::fs::*;
 use std::io::*;
@@ -25,8 +26,15 @@ struct Arguments {
     dstname: Option<String>,
 }
 
+lazy_static::lazy_static! {
+    static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+}
+
 fn main() {
-    println!("PPLD Version 4.00 - PCBoard Programming Language Decompiler");
+    println!(
+        "PPLD Rust Version {} - PCBoard Programming Language Decompiler",
+        *crate::VERSION
+    );
     let mut arguments: Arguments = argh::from_env();
 
     unsafe {

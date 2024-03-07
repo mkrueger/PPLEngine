@@ -422,7 +422,7 @@ impl Display for OpCode {
         write!(f, "unsupported const {self:?}")
     }
 }
-pub static STATEMENT_DEFINITIONS: [StatementDefinition; 214] = [
+pub static STATEMENT_DEFINITIONS: [StatementDefinition; 215] = [
     // StatementDefinition { name: "END", opcode: OpCode::END, min_args: 0, max_args: 0 },
     StatementDefinition {
         name: "Cls",
@@ -735,7 +735,12 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 214] = [
         min_args: 2,
         max_args: 2,
     },
-    // StatementDefinition { name: "STOP", opcode: OpCode::STOP, min_args: 0, max_args: 0 },
+    StatementDefinition {
+        name: "STOP",
+        opcode: OpCode::STOP,
+        min_args: 0,
+        max_args: 0,
+    },
     StatementDefinition {
         name: "InputText",
         opcode: OpCode::INPUTTEXT,

@@ -1,11 +1,12 @@
 use argh::FromArgs;
+use chumsky::Parser;
 use ppl_engine::{
     ast::{Program, Statement, VariableType, VariableValue},
-    compiler::transform_ast,
     crypt::{encode_rle, encrypt},
-    parser::parse_program,
+    parser::tokens::lexer,
     tables::OpCode,
 };
+use semver::Version;
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path};
 use thiserror::Error;
 
@@ -436,12 +437,8 @@ impl Executable {
 
                 self.compile_statement(stmt);
             }
-
             Statement::Return => {
                 self.script_buffer.push(OpCode::RETURN as u16);
-            }
-            Statement::Stop => {
-                self.script_buffer.push(OpCode::STOP as u16);
             }
             Statement::Let(var, expr) => {
                 self.script_buffer.push(OpCode::LET as u16);
@@ -633,18 +630,82 @@ impl Executable {
     }
 }
 
+lazy_static::lazy_static! {
+    static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+}
 fn main() {
-    println!("PPLC Version 0.01 - PCBoard Programming Language Compiler reborn");
+    println!(
+        "PPLC Version {} - PCBoard Programming Language Compiler",
+        *crate::VERSION
+    );
     let arguments: Arguments = argh::from_env();
-
     let mut file_name = arguments.file_name;
-
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".pps");
     }
 
-    let read_result = fs::read_to_string(file_name);
+    let src = fs::read_to_string(file_name).expect("Failed to read file");
+    let (tokens, mut errs) = lexer().parse(src.as_str()).into_output_errors();
+    /*
+    let parse_errs = if let Some(tokens) = &tokens {
+        let (ast, parse_errs) = funcs_parser()
+            .map_with(|ast, e| (ast, e.span()))
+            .parse(tokens.as_slice().spanned((src.len()..src.len()).into()))
+            .into_output_errors();
+
+        if let Some((funcs, file_span)) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
+            if let Some(main) = funcs.get("main") {
+                if !main.args.is_empty() {
+                    errs.push(Rich::custom(
+                        main.span,
+                        "The main function cannot have arguments".to_string(),
+                    ))
+                } else {
+                    match eval_expr(&main.body, &funcs, &mut Vec::new()) {
+                        Ok(val) => println!("Return value: {}", val),
+                        Err(e) => errs.push(Rich::custom(e.span, e.msg)),
+                    }
+                }
+            } else {
+                errs.push(Rich::custom(
+                    file_span,
+                    "Programs need a main function but none was found".to_string(),
+                ));
+            }
+        }
+
+        parse_errs
+    } else {
+        Vec::new()
+    };
+
+    errs.into_iter()
+        .map(|e| e.map_token(|c| c.to_string()))
+        .chain(
+            parse_errs
+                .into_iter()
+                .map(|e| e.map_token(|tok| tok.to_string())),
+        )
+        .for_each(|e| {
+            Report::build(ReportKind::Error, file_name.clone(), e.span().start)
+                .with_message(e.to_string())
+                .with_label(
+                    Label::new((file_name.clone(), e.span().into_range()))
+                        .with_message(e.reason().to_string())
+                        .with_color(Color::Red),
+                )
+                .with_labels(e.contexts().map(|(label, span)| {
+                    Label::new((file_name.clone(), span.into_range()))
+                        .with_message(format!("while parsing this {}", label))
+                        .with_color(Color::Yellow)
+                }))
+                .finish()
+                .print(sources([(file_name.clone(), src.clone())]))
+                .unwrap()
+        });*/
+
+    /*
     match read_result {
         Ok(content) => {
             let mut prg = parse_program(&content);
@@ -665,5 +726,5 @@ fn main() {
         Err(err) => {
             println!("Error while reading file {}", err);
         }
-    }
+    }*/
 }

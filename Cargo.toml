@@ -11,3 +11,6 @@ argh = "0.1.7"
 regex = "1.5.5"
 substring = "1.4.5"
 thiserror = "1.0.57"
+chumsky = { git = "https://github.com/zesterer/chumsky.git"}
+ariadne = { version = "0.4.0", features = ["auto-color"] }
+semver = "1.0.20"

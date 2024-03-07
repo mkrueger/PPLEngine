@@ -57,6 +57,24 @@ impl Constant {
     pub const WORDWRAP: Constant = Constant::Builtin("WORDWRAP");
     pub const YESNO: Constant = Constant::Builtin("YESNO");
 
+    /* Undocumented 15.4 constants:
+
+        HDR_STATUS = 1
+        HDR_MSGNUM = 2
+        HDR_MSGREF = 3
+        HDR_BLOCKS = 4
+        HDR_DATE = 5
+        HDR_TIME = 6
+        HDR_TO = 7
+        HDR_RPLYDATE = 8
+        HDR_RPLYTIME = 9
+        HDR_REPLY = 10
+        HDR_FROM = 11
+        HDR_SUBJ = 12
+        HDR_PWD = 13
+        HDR_ACTIVE = 14
+        HDR_ECHO = 15
+    */
     // Debug
     pub const START_BAL: Constant = Constant::Builtin("START_BAL");
     pub const START_SESSION: Constant = Constant::Builtin("START_SESSION");

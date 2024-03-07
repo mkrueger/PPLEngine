@@ -2,8 +2,9 @@ use argh::FromArgs;
 use chumsky::Parser;
 use ppl_engine::{
     ast::{Program, Statement, VariableType, VariableValue},
+    compiler::transform_ast,
     crypt::{encode_rle, encrypt},
-    parser::tokens::lexer,
+    parser::{parse_program, tokens::lexer},
     tables::OpCode,
 };
 use semver::Version;
@@ -179,6 +180,7 @@ impl Executable {
 
     fn add_predefined_variable(&mut self, name: &str, val: VariableValue) {
         let id = self.variable_table.len();
+        self.variable_declarations.insert(name.to_string(), id + 1);
         self.variable_table.insert(
             name.to_string(),
             Variable {
@@ -244,6 +246,13 @@ impl Executable {
             "U_ACCOUNT",
             VariableValue::Dim1(VariableType::Integer, vec![VariableValue::Integer(0); 16]),
         );
+
+        // 3.40 variables
+        self.add_predefined_variable("U_SHORTDESC", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_GENDER", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_BIRTHDATE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_EMAIL", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_WEB", VariableValue::String(String::new()));
     }
 
     pub fn compile(&mut self, prg: &Program) {
@@ -565,7 +574,14 @@ impl Executable {
             ppl_engine::ast::Expression::FunctionCall(_, _) => {
                 print!("Function call not implemented");
             }
-            ppl_engine::ast::Expression::PredefinedFunctionCall(_, _) => todo!(),
+            ppl_engine::ast::Expression::PredefinedFunctionCall(func, parameters) => {
+                for p in parameters {
+                    let mut stack = Vec::new();
+                    self.comp_expr(&mut stack, p);
+                    self.script_buffer.extend(stack);
+                }
+                self.script_buffer.push(func.opcode as u16);
+            }
             ppl_engine::ast::Expression::UnaryExpression(op, expr) => {
                 self.comp_expr(stack, expr);
                 stack.push(*op as u16);
@@ -705,26 +721,18 @@ fn main() {
                 .unwrap()
         });*/
 
-    /*
-    match read_result {
-        Ok(content) => {
-            let mut prg = parse_program(&content);
-            println!("---- Output:");
-            transform_ast(&mut prg);
-            println!("{}", prg);
-            let mut exec = Executable::new();
-            exec.compile(&prg);
-            match exec.create_binary(200) {
-                Ok(bin) => {
-                    fs::write("out.ppe", bin).expect("Unable to write file");
-                }
-                Err(err) => {
-                    println!("Error while creating binary {}", err);
-                }
-            }
+    let mut prg = parse_program(&src);
+    println!("---- Output:");
+    transform_ast(&mut prg);
+    println!("{}", prg);
+    let mut exec = Executable::new();
+    exec.compile(&prg);
+    match exec.create_binary(200) {
+        Ok(bin) => {
+            fs::write("out.ppe", bin).expect("Unable to write file");
         }
         Err(err) => {
-            println!("Error while reading file {}", err);
+            println!("Error while creating binary {}", err);
         }
-    }*/
+    }
 }

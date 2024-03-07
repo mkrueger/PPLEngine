@@ -250,6 +250,9 @@ impl Tokenizer {
                 if def.name.to_uppercase() == id {
                     let mut params = Vec::new();
                     while self.cur_token.is_some() {
+                        if params.len() as i8 >= def.max_args {
+                            break;
+                        }
                         params.push(self.parse_expression());
 
                         if self.cur_token.is_none() {

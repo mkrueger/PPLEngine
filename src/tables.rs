@@ -415,6 +415,9 @@ pub enum OpCode {
     FDOQADD = 224,
     FDOQDEL = 225,
     SOUNDDELAY = 226,
+    ShortDesc = 227,
+    MoveMsg = 228,
+    SetBankBal = 229,
 }
 
 impl Display for OpCode {
@@ -422,7 +425,7 @@ impl Display for OpCode {
         write!(f, "unsupported const {self:?}")
     }
 }
-pub static STATEMENT_DEFINITIONS: [StatementDefinition; 215] = [
+pub static STATEMENT_DEFINITIONS: [StatementDefinition; 218] = [
     // StatementDefinition { name: "END", opcode: OpCode::END, min_args: 0, max_args: 0 },
     StatementDefinition {
         name: "Cls",
@@ -1725,12 +1728,30 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 215] = [
         min_args: 2,
         max_args: 2,
     },
+    StatementDefinition {
+        name: "ShortDesc",
+        opcode: OpCode::ShortDesc,
+        min_args: 1,
+        max_args: 1,
+    },
+    StatementDefinition {
+        name: "MoveMsg",
+        opcode: OpCode::MoveMsg,
+        min_args: 3,
+        max_args: 3,
+    },
+    StatementDefinition {
+        name: "SetBankBal",
+        opcode: OpCode::SetBankBal,
+        min_args: 2,
+        max_args: 2,
+    },
 ];
 
 pub const PPL_TRUE: i32 = 1;
 pub const PPL_FALSE: i32 = 0;
 
-pub static CONSTANT_VALUES: [(&str, VariableValue); 57] = [
+pub static CONSTANT_VALUES: [(&str, VariableValue); 72] = [
     ("AUTO", VariableValue::Integer(0x02000)),
     ("BELL", VariableValue::Integer(0x00800)),
     ("DEFS", VariableValue::Integer(0x00)),
@@ -1789,6 +1810,22 @@ pub static CONSTANT_VALUES: [(&str, VariableValue); 57] = [
     ("CRED_UPBYTES", VariableValue::Integer(0x0F)),
     ("CRED_SPECIAL", VariableValue::Integer(0x10)),
     ("SEC_DROP", VariableValue::Integer(0x11)),
+    // Undocumented 15.4 constants
+    ("HDR_STATUS", VariableValue::Integer(1)),
+    ("HDR_MSGNUM", VariableValue::Integer(2)),
+    ("HDR_MSGREF", VariableValue::Integer(3)),
+    ("HDR_BLOCKS", VariableValue::Integer(4)),
+    ("HDR_DATE", VariableValue::Integer(5)),
+    ("HDR_TIME", VariableValue::Integer(6)),
+    ("HDR_TO", VariableValue::Integer(7)),
+    ("HDR_RPLYDATE", VariableValue::Integer(8)),
+    ("HDR_RPLYTIME", VariableValue::Integer(9)),
+    ("HDR_REPLY", VariableValue::Integer(10)),
+    ("HDR_FROM", VariableValue::Integer(11)),
+    ("HDR_SUBJ", VariableValue::Integer(12)),
+    ("HDR_PWD", VariableValue::Integer(13)),
+    ("HDR_ACTIVE", VariableValue::Integer(14)),
+    ("HDR_ECHO", VariableValue::Integer(15)),
 ];
 
 #[repr(i16)]
@@ -2087,7 +2124,12 @@ pub enum FuncOpCode {
     I2BD = -284,
     FTELL = -285,
     OS = -286,
+    SHORT_DESC = -287,
+    GetBankBal = -288,
+    GetMsgHdr = -289,
+    SetMsgHdr = -290,
 }
+pub const LAST_FUNC: i32 = -290;
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition<'a> {
@@ -2105,7 +2147,7 @@ pub fn get_function_definition(str: &str) -> i32 {
     -1
 }
 
-pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 287] = [
+pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 291] = [
     FunctionDefinition {
         name: "END",
         opcode: FuncOpCode::END,
@@ -3541,5 +3583,25 @@ pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 287] = [
         name: "OS",
         opcode: FuncOpCode::OS,
         args: 0x00,
+    },
+    FunctionDefinition {
+        name: "ShortDesc",
+        opcode: FuncOpCode::SHORT_DESC,
+        args: 0x00,
+    },
+    FunctionDefinition {
+        name: "GetBankBal",
+        opcode: FuncOpCode::GetBankBal,
+        args: 0x02,
+    },
+    FunctionDefinition {
+        name: "GetMsgHdr",
+        opcode: FuncOpCode::GetMsgHdr,
+        args: 0x03,
+    },
+    FunctionDefinition {
+        name: "SetMsgHdr",
+        opcode: FuncOpCode::SetMsgHdr,
+        args: 0x04,
     },
 ];

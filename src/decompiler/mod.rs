@@ -13,7 +13,6 @@ use std::path::PathBuf;
 
 pub mod reconstruct;
 
-const LAST_FUNC: i32 = -286;
 const LAST_STMT: i32 = 0x00e2;
 
 struct FuncL {
@@ -1058,6 +1057,14 @@ impl Decompiler {
                 21 => return Expression::Identifier("U_NOTES".to_string()),
                 22 => return Expression::Identifier("U_PWDEXP".to_string()),
                 23 => return Expression::Identifier("U_ACCOUNT".to_string()),
+
+                // Added in 3.40
+                24 => return Expression::Identifier("U_SHORTDESC".to_string()),
+                25 => return Expression::Identifier("U_GENDER".to_string()),
+                26 => return Expression::Identifier("U_BIRTHDATE".to_string()),
+                27 => return Expression::Identifier("U_EMAIL".to_string()),
+                28 => return Expression::Identifier("U_WEB".to_string()),
+
                 _ => return Expression::FunctionCall("????".to_string(), vec![]),
             }
         }
@@ -1301,7 +1308,9 @@ impl Decompiler {
                 } else {
                     let x = self.executable.source_buffer[self.src_ptr as usize];
 
-                    if self.executable.source_buffer[self.src_ptr as usize] < LAST_FUNC {
+                    if self.executable.source_buffer[self.src_ptr as usize]
+                        < crate::tables::LAST_FUNC
+                    {
                         println!(
                             "Error: Unknown function {} at {} avoiding...",
                             self.executable.source_buffer[self.src_ptr as usize], self.src_ptr

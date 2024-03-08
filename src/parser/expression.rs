@@ -3,7 +3,6 @@ use crate::{
     ast::{BinOp, Expression},
     tables::FUNCTION_DEFINITIONS,
 };
-use chumsky::{input::ValueInput, prelude::*};
 
 impl<'a> Tokenizer<'a> {
     pub fn parse_expression(&mut self) -> Expression {
@@ -184,147 +183,18 @@ impl<'a> Tokenizer<'a> {
         }
     }
 }
-
-pub fn _expr_parser<'a, I>() -> impl Parser<'a, I, Expression, extra::Err<Rich<'a, Token>>> + Clone
-where
-    I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
-{
-    let expr = recursive(|expr| {
-        let func = select! {
-            Token::Identifier(c) => Expression::Identifier(c),
-        }
-        .then(
-            expr.clone()
-                .separated_by(just(Token::Comma))
-                .collect::<Vec<_>>()
-                .delimited_by(just(Token::LPar), just(Token::RPar)),
-        )
-        .map(|(f, params)| {
-            let id = f.to_string();
-            let predef = crate::tables::get_function_definition(&id);
-            // TODO: Check parameter signature
-
-            if predef >= 0 {
-                return Expression::PredefinedFunctionCall(
-                    &FUNCTION_DEFINITIONS[predef as usize],
-                    params,
-                );
-            }
-            Expression::FunctionCall(id, params)
-        });
-
-        let atom = func
-            .or(select! {
-                Token::Const(c) => Expression::Const(c),
-            })
-            .or(expr
-                .delimited_by(just(Token::LPar), just(Token::RPar))
-                .map(|a| Expression::Parens(Box::new(a))));
-
-        let unary = just(Token::Not)
-            .map(|_| crate::ast::UnaryOp::Not)
-            .or(just(Token::Add).map(|_| crate::ast::UnaryOp::Plus))
-            .or(just(Token::Sub).map(|_| crate::ast::UnaryOp::Minus))
-            .repeated()
-            .foldr(atom, |op, e| Expression::UnaryExpression(op, Box::new(e)));
-
-        let pow = unary.clone().foldl(
-            just(Token::PoW)
-                .map(|_| crate::ast::BinOp::PoW)
-                .then(unary)
-                .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
-        );
-
-        let factor = pow.clone().foldl(
-            choice((
-                just(Token::Mul).map(|_| crate::ast::BinOp::Mul),
-                just(Token::Div).map(|_| crate::ast::BinOp::Div),
-                just(Token::Mod).map(|_| crate::ast::BinOp::Mod),
-            ))
-            .then(pow)
-            .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
-        );
-
-        let term = factor.clone().foldl(
-            choice((
-                just(Token::Add).map(|_| crate::ast::BinOp::Add),
-                just(Token::Sub).map(|_| crate::ast::BinOp::Sub),
-            ))
-            .then(factor)
-            .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
-        );
-
-        let comparison = term.clone().foldl(
-            choice((
-                just(Token::Greater).map(|_| crate::ast::BinOp::Greater),
-                just(Token::GreaterEq).map(|_| crate::ast::BinOp::GreaterEq),
-                just(Token::Lower).map(|_| crate::ast::BinOp::Lower),
-                just(Token::LowerEq).map(|_| crate::ast::BinOp::LowerEq),
-                just(Token::Eq).map(|_| crate::ast::BinOp::Eq),
-                just(Token::NotEq).map(|_| crate::ast::BinOp::NotEq),
-            ))
-            .then(term)
-            .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
-        );
-
-        let bool_expr = comparison.clone().foldl(
-            choice((
-                just(Token::And).map(|_| crate::ast::BinOp::And),
-                just(Token::Or).map(|_| crate::ast::BinOp::Or),
-            ))
-            .then(comparison)
-            .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
-        );
-
-        just(Token::Not)
-            .map(|_| crate::ast::UnaryOp::Not)
-            .repeated()
-            .foldr(bool_expr, |op, e| {
-                Expression::UnaryExpression(op, Box::new(e))
-            })
-    });
-
-    expr
-}
-
 #[cfg(test)]
 mod tests {
-    use chumsky::{
-        input::{Input, Stream},
-        Parser,
-    };
-    use logos::Logos;
 
     use crate::{
         ast::{BinOp, Constant, Expression},
-        parser::{expression::_expr_parser, tokens::Token},
+        parser::Tokenizer,
         tables::{get_function_definition, FUNCTION_DEFINITIONS},
     };
     fn parse_expression(src: &str) -> Expression {
-        println!("Parsing expression: {src}");
-        let token_iter = Token::lexer(src)
-            .spanned()
-            // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
-            // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
-            .map(|(tok, span)| match tok {
-                // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
-                // to work with
-                Ok(tok) => (tok, span.into()),
-                Err(_op) => (Token::Comment, span.into()),
-            });
-        let token_stream = Stream::from_iter(token_iter)
-            // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
-            // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
-            .spanned((src.len()..src.len()).into());
-
-        let expr = _expr_parser().parse(token_stream);
-        let expr = expr.output().unwrap();
-        expr.clone()
+        let mut tokenizer = Tokenizer::new(src);
+        tokenizer.next_token();
+        tokenizer.parse_expression()
     }
 
     #[test]

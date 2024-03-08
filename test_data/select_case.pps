@@ -8,5 +8,5 @@ Select Case (INT001)
     PRINT "2"
   Case Else
     PRINT "ELSE"
-End Select
+EndSelect
 

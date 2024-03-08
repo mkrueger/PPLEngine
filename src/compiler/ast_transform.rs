@@ -1,4 +1,6 @@
-use crate::ast::{get_var_name, BinOp, Constant, Expression, Program, Statement, VarInfo};
+use crate::ast::{
+    get_var_name, BinOp, Constant, ElseIfBlock, Expression, Program, Statement, VarInfo,
+};
 
 pub fn transform_ast(prg: &mut Program) {
     for f in &mut prg.function_implementations {
@@ -11,6 +13,8 @@ pub fn transform_ast(prg: &mut Program) {
 }
 
 fn transform_block(statements: &mut Vec<Statement>) {
+    translate_select_case(statements);
+
     let mut i = 0;
     let mut labels = 1;
 
@@ -156,6 +160,8 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 let else_exit_label = format!("label{labels}");
                 labels += 1;
 
+                println!("exit label: {}", else_exit_label);
+
                 statements.insert(i, Statement::Label(else_exit_label.clone()));
 
                 if let Some(else_stmts) = opt_else {
@@ -163,10 +169,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 }
 
                 if !else_if.is_empty() {
-                    if else_if.len() == 1 {
-                        if_exit_label = else_exit_label.clone();
-                    }
                     for n in (0..else_if.len()).rev() {
+                        if n == else_if.len() - 1 && opt_else.is_none() {
+                            if_exit_label = else_exit_label.clone();
+                        }
+
                         let ef = &else_if[n];
                         if n != else_if.len() - 1 || opt_else.is_some() {
                             statements.insert(i, Statement::Label(if_exit_label.clone()));
@@ -196,7 +203,6 @@ fn transform_block(statements: &mut Vec<Statement>) {
                     statements.insert(i, Statement::Goto(else_exit_label.clone()));
                 }
                 statements.splice(i..i, stmts.iter().cloned());
-
                 statements.insert(
                     i,
                     Statement::If(
@@ -215,6 +221,36 @@ fn transform_block(statements: &mut Vec<Statement>) {
     }
 
     crate::decompiler::reconstruct::strip_unused_labels(statements);
+}
+
+fn translate_select_case(statements: &mut [Statement]) {
+    let mut i = 0;
+
+    while i < statements.len() {
+        if let Statement::Select(case_expr, case_blocks, case_else) = &statements[i] {
+            statements[i] = Statement::IfThen(
+                Box::new(Expression::BinaryExpression(
+                    BinOp::Eq,
+                    case_expr.clone(),
+                    case_blocks[0].cond.clone(),
+                )),
+                case_blocks[0].block.clone(),
+                case_blocks[1..]
+                    .iter()
+                    .map(|block| ElseIfBlock {
+                        cond: Box::new(Expression::BinaryExpression(
+                            BinOp::Eq,
+                            case_expr.clone(),
+                            block.cond.clone(),
+                        )),
+                        block: block.block.clone(),
+                    })
+                    .collect(),
+                case_else.clone(),
+            );
+        }
+        i += 1;
+    }
 }
 
 fn scan_possible_breaks(block: &mut [Statement], break_label: impl Into<String>) {

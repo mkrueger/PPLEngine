@@ -21,6 +21,12 @@ pub enum Token {
     #[token("\n")]
     Eol,
 
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
+    Identifier(String),
+
+    #[regex(r"[';][^[\r\n]]*")]
+    Comment,
+
     #[token(",")]
     Comma,
 
@@ -80,11 +86,11 @@ pub enum Token {
     #[token("!")]
     Not,
 
+    #[token("if", ignore(case))]
+    If,
+
     #[token("let", ignore(case))]
     Let,
-
-    #[token("end", ignore(case))]
-    End,
 
     #[token("begin", ignore(case))]
     Begin,
@@ -93,11 +99,7 @@ pub enum Token {
     While,
 
     #[token("EndWhile", ignore(case))]
-    #[token("End While", ignore(case))]
     EndWhile,
-
-    #[token("if", ignore(case))]
-    If,
 
     #[token("then", ignore(case))]
     Then,
@@ -106,11 +108,9 @@ pub enum Token {
     Else,
 
     #[token("elseif", ignore(case))]
-    #[token("else if", ignore(case))]
     ElseIf,
 
     #[token("endif", ignore(case))]
-    #[token("end if", ignore(case))]
     EndIf,
 
     #[token("for", ignore(case))]
@@ -132,14 +132,10 @@ pub enum Token {
     Case,
 
     #[token("endselect", ignore(case))]
-    #[token("end select", ignore(case))]
     EndSelect,
 
     #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
     Label(String),
-
-    #[regex(r"[';][^\n]*")]
-    Comment,
 
     /*
     // Types
@@ -168,12 +164,13 @@ pub enum Token {
     Procedure,
 
     #[token("EndProc", ignore(case))]
-    #[token("End Proc", ignore(case))]
     EndProc,
 
     #[token("EndFunc", ignore(case))]
-    #[token("End Func", ignore(case))]
     EndFunc,
+
+    #[token("end", ignore(case))]
+    End,
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
@@ -339,9 +336,6 @@ pub enum Token {
     #[token("WORDWRAP", |_| Constant::Builtin(&BuiltinConst::WORDWRAP), ignore(case))]
     #[token("YESNO", |_| Constant::Builtin(&BuiltinConst::YESNO), ignore(case))]
     Const(Constant),
-
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string(), priority = 5)]
-    Identifier(String),
 }
 
 impl fmt::Display for Token {
@@ -416,6 +410,7 @@ mod tests {
     fn test_comments() {
         assert_eq!(Token::Comment, get_token("; COMMENT"));
         assert_eq!(Token::Comment, get_token("' COMMENT"));
+        assert_eq!(Token::End, get_token("End ; COMMENT"));
     }
 
     fn get_token(src: &str) -> Token {
@@ -531,17 +526,22 @@ mod tests {
 
     #[test]
     fn test_end_constructs() {
-        assert_eq!(Token::ElseIf, get_token("ElseIf"));
-        assert_eq!(Token::ElseIf, get_token("Else If"));
-        assert_eq!(Token::EndIf, get_token("EndIf"));
-        assert_eq!(Token::EndIf, get_token("End If"));
         assert_eq!(Token::EndSelect, get_token("EndSelect"));
-        assert_eq!(Token::EndSelect, get_token("End Select"));
-        assert_eq!(Token::EndWhile, get_token("ENDWHILE"));
-        assert_eq!(Token::EndWhile, get_token("end while"));
         assert_eq!(Token::EndFunc, get_token("ENDFUNC"));
-        assert_eq!(Token::EndFunc, get_token("end FUNC"));
         assert_eq!(Token::EndProc, get_token("ENDPROC"));
-        assert_eq!(Token::EndProc, get_token("end proc"));
+    }
+
+    #[test]
+    fn test_while() {
+        assert_eq!(Token::While, get_token("WHILE"));
+        assert_eq!(Token::EndWhile, get_token("ENDWHILE"));
+    }
+    #[test]
+    fn test_if_then() {
+        assert_eq!(Token::If, get_token("IF"));
+        assert_eq!(Token::Then, get_token("THEN"));
+        assert_eq!(Token::Else, get_token("ELSE"));
+        assert_eq!(Token::ElseIf, get_token("ElseIf"));
+        assert_eq!(Token::EndIf, get_token("EndIf"));
     }
 }

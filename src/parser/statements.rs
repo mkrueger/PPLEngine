@@ -2,18 +2,18 @@ use crate::{
     ast::{ElseIfBlock, Expression, Statement, VarInfo},
     tables::STATEMENT_DEFINITIONS,
 };
-use chumsky::{input::ValueInput, prelude::*};
 
-use super::{expression::_expr_parser, tokens::Token, Tokenizer};
+use super::{tokens::Token, Tokenizer};
 
 impl<'a> Tokenizer<'a> {
     pub fn skip_eol(&mut self) {
-        while self.cur_token == Some(Token::Eol) {
+        while self.cur_token == Some(Token::Eol) || self.cur_token == Some(Token::Comment) {
             self.next_token();
         }
     }
 
     fn parse_while(&mut self) -> Statement {
+        self.next_token();
         assert!(
             !(self.cur_token != Some(Token::LPar)),
             "'(' expected got: {:?}",
@@ -33,7 +33,7 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let mut statements = Vec::new();
             self.skip_eol();
-            while self.cur_token != Some(Token::Identifier("ENDWHILE".to_string())) {
+            while self.cur_token != Some(Token::EndWhile) {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
@@ -47,7 +47,7 @@ impl<'a> Tokenizer<'a> {
     fn parse_block(&mut self) -> Statement {
         self.skip_eol();
         let mut statements = Vec::new();
-        while self.cur_token != Some(Token::Identifier("END".to_string())) {
+        while self.cur_token != Some(Token::End) {
             statements.push(self.parse_statement());
             self.skip_eol();
         }
@@ -56,6 +56,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_for(&mut self) -> Statement {
+        self.next_token();
         let var = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
             self.next_token();
 
@@ -106,6 +107,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_if(&mut self) -> Statement {
+        self.next_token();
+
         assert!(
             !(self.cur_token != Some(Token::LPar)),
             "'(' expected got: {:?}",
@@ -121,24 +124,24 @@ impl<'a> Tokenizer<'a> {
         );
         self.next_token();
 
-        if self.cur_token != Some(Token::Identifier("THEN".to_string())) {
+        if self.cur_token != Some(Token::Then) {
             self.skip_eol();
             return Statement::If(Box::new(cond), Box::new(self.parse_statement()));
         }
         self.next_token();
         let mut statements = Vec::new();
         self.skip_eol();
-        while self.cur_token != Some(Token::Identifier("ENDIF".to_string()))
-            && self.cur_token != Some(Token::Identifier("ELSE".to_string()))
-            && self.cur_token != Some(Token::Identifier("ELSEIF".to_string()))
+        while self.cur_token != Some(Token::EndIf)
+            && self.cur_token != Some(Token::Else)
+            && self.cur_token != Some(Token::ElseIf)
         {
             assert!(self.cur_token.is_some(), "unexpected eol");
             statements.push(self.parse_statement());
             self.skip_eol();
         }
         let mut else_if_blocks = Vec::new();
-        if self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
-            while self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
+        if self.cur_token == Some(Token::ElseIf) {
+            while self.cur_token == Some(Token::ElseIf) {
                 self.next_token();
 
                 assert!(
@@ -157,12 +160,12 @@ impl<'a> Tokenizer<'a> {
                 self.next_token();
 
                 let mut statements = Vec::new();
-                if self.cur_token == Some(Token::Identifier("THEN".to_string())) {
+                if self.cur_token == Some(Token::Then) {
                     self.next_token();
                     self.skip_eol();
-                    while self.cur_token != Some(Token::Identifier("ELSEIF".to_string()))
-                        && self.cur_token != Some(Token::Identifier("ELSE".to_string()))
-                        && self.cur_token != Some(Token::Identifier("ENDIF".to_string()))
+                    while self.cur_token != Some(Token::ElseIf)
+                        && self.cur_token != Some(Token::Else)
+                        && self.cur_token != Some(Token::EndIf)
                     {
                         statements.push(self.parse_statement());
                         self.skip_eol();
@@ -179,11 +182,11 @@ impl<'a> Tokenizer<'a> {
             }
         };
 
-        let else_block = if self.cur_token == Some(Token::Identifier("ELSE".to_string())) {
+        let else_block = if self.cur_token == Some(Token::Else) {
             self.next_token();
             let mut statements = Vec::new();
             self.skip_eol();
-            while self.cur_token != Some(Token::Identifier("ENDIF".to_string())) {
+            while self.cur_token != Some(Token::EndIf) {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
@@ -197,19 +200,79 @@ impl<'a> Tokenizer<'a> {
         Statement::IfThen(Box::new(cond), statements, else_if_blocks, else_block)
     }
 
+    fn parse_select(&mut self) -> Statement {
+        self.next_token();
+
+        assert!(
+            !(self.cur_token != Some(Token::Case)),
+            "'CASE' expected got: {:?}",
+            self.cur_token
+        );
+        self.next_token();
+        let case_expr = self.parse_expression();
+        self.next_token();
+        self.skip_eol();
+
+        let mut case_blocks = Vec::new();
+        let mut else_block = None;
+
+        while self.cur_token == Some(Token::Case) {
+            self.next_token();
+            if self.cur_token == Some(Token::Else) {
+                self.next_token();
+                let mut statements = Vec::new();
+                self.skip_eol();
+                while self.cur_token != Some(Token::EndSelect) {
+                    statements.push(self.parse_statement());
+                    self.skip_eol();
+                }
+                else_block = Some(statements);
+                break;
+            };
+
+            let expr = self.parse_expression();
+            self.next_token();
+            self.skip_eol();
+
+            let mut statements = Vec::new();
+            while self.cur_token != Some(Token::Case) && self.cur_token != Some(Token::EndSelect) {
+                statements.push(self.parse_statement());
+                self.skip_eol();
+            }
+            case_blocks.push(ElseIfBlock {
+                cond: Box::new(expr),
+                block: statements,
+            });
+        }
+
+        self.next_token();
+        self.skip_eol();
+
+        Statement::Select(Box::new(case_expr), case_blocks, else_block)
+    }
+
     /// Returns the parse statement of this [`Tokenizer`].
     ///
     /// # Panics
     ///
     /// Panics if .
     pub fn parse_statement(&mut self) -> Statement {
+        println!("parse_statement: {:?}", self.cur_token);
         match self.cur_token.clone() {
-            Some(Token::End) => Statement::End,
-            Some(Token::Begin) => self.parse_block(),
+            Some(Token::End) => {
+                self.next_token();
+                Statement::End
+            }
+            Some(Token::Begin) => {
+                self.next_token();
+                self.parse_block()
+            }
             Some(Token::While) => self.parse_while(),
+            Some(Token::Select) => self.parse_select(),
             Some(Token::If) => self.parse_if(),
             Some(Token::For) => self.parse_for(),
             Some(Token::Let) => {
+                self.next_token();
                 let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
                     id
@@ -227,6 +290,7 @@ impl<'a> Tokenizer<'a> {
             Some(Token::Continue) => Statement::Continue,
             Some(Token::Return) => Statement::Return,
             Some(Token::Gosub) => {
+                self.next_token();
                 if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
                     return Statement::Gosub(id);
@@ -234,6 +298,7 @@ impl<'a> Tokenizer<'a> {
                 panic!("gosub expected a label, got: {:?}", self.cur_token);
             }
             Some(Token::Goto) => {
+                self.next_token();
                 if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
                     return Statement::Goto(id);
@@ -350,160 +415,18 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-pub fn _statement_parser<'a, I>(
-) -> impl Parser<'a, I, Statement, extra::Err<Rich<'a, Token>>> + Clone
-where
-    I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
-{
-    let stmt = recursive(|stmt| {
-        let expr = _expr_parser();
-
-        let ident = select! { Token::Identifier(ident) => ident };
-
-        let let_stmt = just(Token::Let)
-            .or_not()
-            .then(ident)
-            .map(|(_let, id)| id)
-            .then_ignore(just(Token::Eq))
-            .then(expr)
-            .map(|(lhs, rhs)| Statement::Let(Box::new(VarInfo::Var0(lhs)), Box::new(rhs)));
-
-        let goto_stmt = just(Token::Goto)
-            .then(ident)
-            .map(|(_, rhs)| Statement::Goto(rhs));
-        let gosub_stmt = just(Token::Gosub)
-            .then(ident)
-            .map(|(_, rhs)| Statement::Gosub(rhs));
-
-        let label_stmt = select! { Token::Label(ident) => ident }.map(Statement::Label);
-
-        let arguments = _expr_parser()
-            .separated_by(just(Token::Comma))
-            .collect::<Vec<_>>()
-            .or_not();
-
-        let call = select! { Token::Identifier(c) => Expression::Identifier(c) }
-            .then(arguments.clone())
-            .or(just(Token::LPar)
-                .then(arguments)
-                .then(just(Token::RPar))
-                .map(|((_, args), _)| args))
-            .map(|(f, params)| {
-                let id = f.to_string();
-                Statement::ProcedureCall(id, params)
-            });
-
-        /*
-        .map(|((def, args), _)| {
-                 let name = def.to_uppercase();
-                 let def = STATEMENT_DEFINITIONS
-                     .iter()
-                     .find(|&def| def.name.to_uppercase() == name)
-                     .unwrap();
-                 let mut params = Vec::new();
-                 if let Some(args) = args {
-                     assert!(
-                         (args.len() as i8) >= def.min_args,
-                         "{} has too few arguments {} [{}:{}]",
-                         def.name,
-                         args.len(),
-                         def.min_args,
-                         def.max_args
-                     );
-                     assert!(
-                         (args.len() as i8) <= def.max_args,
-                         "{} has too many arguments {} [{}:{}]",
-                         def.name,
-                         args.len(),
-                         def.min_args,
-                         def.max_args
-                     );
-                     for arg in args {
-                         params.push(arg);
-                     }
-                 }
-                 Statement::Call(def, params)
-             })
-         */
-
-        let if_stmt = just(Token::If)
-            .then(_expr_parser().delimited_by(just(Token::LPar), just(Token::RPar))) /*
-            .then(choice((
-                just(Token::Then)
-                .then(stmt.clone().map(|(_, stmt)| stmt).repeated().collect::<Vec<_>>().then(just(Token::EndIf)))
-                .map(|(cond, (then_stmt, epxr))| Statement::IfThen(Box::new(Expression::Const(crate::ast::Constant::Integer(0))), then_stmt, None, None))
-                ,
-            )))*/
-            .then(stmt.clone())
-            .map(
-                |((_, cond), then_stmt)| Statement::If(Box::new(cond), Box::new(then_stmt)), /*match stmt {
-                                                                                                 Statement::If(_, then_stmt) => Statement::If(Box::new(cond.0), then_stmt),
-                                                                                                 Statement::IfThen(_, then_stmt, else_if, else_stmt) => Statement::IfThen(Box::new(cond.0), then_stmt, else_if, else_stmt),
-                                                                                                 stmt => stmt
-                                                                                             }}*/
-            );
-
-        let_stmt
-            .or(goto_stmt)
-            .or(gosub_stmt)
-            .or(label_stmt)
-            .or(just(Token::End).to(Statement::End))
-            .or(just(Token::Return).to(Statement::Return))
-            .or(just(Token::Break).to(Statement::Break))
-            .or(just(Token::Continue).to(Statement::Continue))
-            .or(call)
-            .or(call)
-            .or(if_stmt)
-    });
-    /*
-    stmt.map_with(|tok, e| (tok, e.span()))
-        .recover_with(skip_then_retry_until(any().ignored(), end()))
-        */
-
-    stmt
-}
-
 #[cfg(test)]
 mod tests {
-    use chumsky::{
-        input::{Input, Stream},
-        Parser,
-    };
-    use logos::Logos;
-
     use crate::{
-        ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
-        parser::{statements::_statement_parser, tokens::Token},
-        tables::{StatementDefinition, PPL_FALSE, PPL_TRUE, STATEMENT_DEFINITIONS},
+        ast::{constant::BuiltinConst, Constant, ElseIfBlock, Expression, Statement, VarInfo},
+        parser::Tokenizer,
+        tables::{StatementDefinition, STATEMENT_DEFINITIONS},
     };
 
     fn parse_statement(src: &str) -> Statement {
-        println!("Parsing statement: {src}");
-        let token_iter = Token::lexer(src)
-            .spanned()
-            // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
-            // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
-            .map(|(tok, span)| match tok {
-                // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
-                // to work with
-                Ok(tok) => (tok, span.into()),
-                Err(_) => (Token::Comment, span.into()),
-            });
-        let token_stream = Stream::from_iter(token_iter)
-            // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
-            // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
-            .spanned((src.len()..src.len()).into());
-
-        let stmt = _statement_parser().parse(token_stream);
-
-        if stmt.errors().len() > 0 {
-            println!("{} lexer errors", stmt.errors().len());
-        }
-        for e in stmt.errors() {
-            println!("Error: {e:?}");
-        }
-
-        stmt.output().unwrap().clone()
+        let mut tokenizer = Tokenizer::new(src);
+        tokenizer.next_token();
+        tokenizer.parse_statement()
     }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition> {
@@ -526,7 +449,7 @@ mod tests {
         assert_eq!(
             Statement::Let(
                 Box::new(VarInfo::Var0("FOO".to_string())),
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::FALSE)))
             ),
             parse_statement("LET FOO = FALSE")
         );
@@ -641,7 +564,7 @@ mod tests {
         assert_eq!(
             Statement::ProcedureCall(
                 "PROC".to_string(),
-                vec![Expression::Const(Constant::Integer(PPL_TRUE))]
+                vec![Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))]
             ),
             parse_statement("PROC(TRUE)")
         );
@@ -661,29 +584,29 @@ mod tests {
     fn test_parse_if() {
         assert_eq!(
             Statement::If(
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::FALSE))),
                 Box::new(Statement::End)
             ),
-            parse_statement("IF (FALSE) END")
+            parse_statement(" IF (FALSE) END")
         );
         let print_hello = parse_statement("PRINT \"Hello Word\"");
         let print_5 = parse_statement("PRINT 5");
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))),
                 vec![print_hello.clone()],
                 Vec::new(),
                 None
             ),
-            parse_statement("IF (TRUE) THEN PRINT \"Hello Word\" ENDIF")
+            parse_statement(" IF (TRUE) THEN PRINT \"Hello Word\" ENDIF")
         );
 
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))),
                 vec![print_hello.clone()],
                 vec![ElseIfBlock {
-                    cond: Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
+                    cond: Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))),
                     block: vec![print_5]
                 }],
                 None
@@ -695,12 +618,12 @@ mod tests {
 
         assert_eq!(
             Statement::IfThen(
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::FALSE))),
                 Vec::new(),
                 Vec::new(),
                 Some(vec![print_5])
             ),
-            parse_statement("IF (FALSE) THEN ELSE PRINT 5 ENDIF")
+            parse_statement("IF (FALSE) THEN ELSE\nPRINT 5 ENDIF")
         );
     }
 
@@ -708,14 +631,14 @@ mod tests {
     fn test_parse_while() {
         assert_eq!(
             Statement::While(
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::FALSE))),
                 Box::new(Statement::End)
             ),
             parse_statement("WHILE (FALSE) END")
         );
         assert_eq!(
             Statement::DoWhile(
-                Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))),
                 Vec::new()
             ),
             parse_statement("WHILE (TRUE) DO ENDWHILE")
@@ -726,7 +649,7 @@ mod tests {
     fn test_for_next() {
         assert_eq!(
             Statement::For(
-                Box::new(Expression::Identifier("I".to_string())),
+                Box::new(Expression::Identifier("i".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1))),
                 Box::new(Expression::Const(Constant::Integer(10))),
                 None,
@@ -736,7 +659,7 @@ mod tests {
         );
         assert_eq!(
             Statement::For(
-                Box::new(Expression::Identifier("I".to_string())),
+                Box::new(Expression::Identifier("i".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1))),
                 Box::new(Expression::Const(Constant::Integer(10))),
                 Some(Box::new(Expression::Const(Constant::Integer(5)))),
@@ -746,7 +669,7 @@ mod tests {
         );
         assert_eq!(
             Statement::For(
-                Box::new(Expression::Identifier("I".to_string())),
+                Box::new(Expression::Identifier("i".to_string())),
                 Box::new(Expression::Const(Constant::Integer(1))),
                 Box::new(Expression::Const(Constant::Integer(10))),
                 Some(Box::new(Expression::UnaryExpression(
@@ -762,5 +685,44 @@ mod tests {
     #[test]
     fn test_parse_block() {
         assert_eq!(Statement::Block(Vec::new()), parse_statement("BEGIN END"));
+    }
+
+    #[test]
+    fn test_select_case() {
+        assert_eq!(
+            Statement::Select(
+                Box::new(Expression::Identifier("I".to_string())),
+                vec![
+                    ElseIfBlock {
+                        cond: Box::new(Expression::Const(Constant::Integer(1))),
+                        block: vec![Statement::Call(
+                            get_statement_definition("PRINT").unwrap(),
+                            vec![Expression::Const(Constant::Integer(1))]
+                        )]
+                    },
+                    ElseIfBlock {
+                        cond: Box::new(Expression::Const(Constant::Integer(2))),
+                        block: vec![Statement::Call(
+                            get_statement_definition("PRINT").unwrap(),
+                            vec![Expression::Const(Constant::Integer(2))]
+                        )]
+                    }
+                ],
+                Some(vec![Statement::Call(
+                    get_statement_definition("PRINT").unwrap(),
+                    vec![Expression::Const(Constant::Integer(3))]
+                )])
+            ),
+            parse_statement(
+                "SELECT CASE I\nCASE 1\n PRINT 1\nCASE 2\n  PRINT 2\nCASE ELSE\nPRINT 3 ENDSELECT"
+            )
+        );
+        assert_eq!(
+            Statement::DoWhile(
+                Box::new(Expression::Const(Constant::Builtin(&BuiltinConst::TRUE))),
+                Vec::new()
+            ),
+            parse_statement("WHILE (TRUE) DO ENDWHILE")
+        );
     }
 }

@@ -3,15 +3,11 @@ use std::path::PathBuf;
 use crate::ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType};
 
 use self::tokens::Token;
-use chumsky::prelude::*;
 use logos::Logos;
 
 mod expression;
 mod statements;
 pub mod tokens;
-
-pub type Span = SimpleSpan<usize>;
-pub type Spanned<T> = (T, Span);
 
 pub struct Tokenizer<'a> {
     pub cur_token: Option<Token>,
@@ -114,13 +110,12 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_function_declaration(&mut self) -> Option<Declaration> {
-        if Some(Token::Identifier("DECLARE".to_string())) == self.cur_token {
+        if Some(Token::Declare) == self.cur_token {
             self.next_token();
 
-            let is_function = if Some(Token::Identifier("PROCEDURE".to_string())) == self.cur_token
-            {
+            let is_function = if Some(Token::Procedure) == self.cur_token {
                 false
-            } else if Some(Token::Identifier("FUNCTION".to_string())) == self.cur_token {
+            } else if Some(Token::Function) == self.cur_token {
                 true
             } else {
                 panic!("FUNCTION or PROCEDURE expected. got {:?}", self.cur_token);
@@ -186,7 +181,7 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_procedure(&mut self) -> Option<FunctionImplementation> {
-        if Some(Token::Identifier("PROCEDURE".to_string())) == self.cur_token {
+        if Some(Token::Procedure) == self.cur_token {
             self.next_token();
 
             let name = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
@@ -231,7 +226,7 @@ impl<'a> Tokenizer<'a> {
             let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
-            while self.cur_token != Some(Token::Identifier("ENDPROC".to_string())) {
+            while self.cur_token != Some(Token::EndProc) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
@@ -266,7 +261,7 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_function(&mut self) -> Option<FunctionImplementation> {
-        if Some(Token::Identifier("FUNCTION".to_string())) == self.cur_token {
+        if Some(Token::Function) == self.cur_token {
             self.next_token();
 
             let name = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
@@ -318,7 +313,7 @@ impl<'a> Tokenizer<'a> {
             let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
-            while self.cur_token != Some(Token::Identifier("ENDFUNC".to_string())) {
+            while self.cur_token != Some(Token::EndFunc) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 

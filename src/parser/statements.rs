@@ -136,10 +136,8 @@ impl<'a> Tokenizer<'a> {
             statements.push(self.parse_statement());
             self.skip_eol();
         }
-
-        let else_if_blocks = if self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
-            let mut blocks = Vec::new();
-
+        let mut else_if_blocks = Vec::new();
+        if self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
             while self.cur_token == Some(Token::Identifier("ELSEIF".to_string())) {
                 self.next_token();
 
@@ -174,14 +172,11 @@ impl<'a> Tokenizer<'a> {
                     self.skip_eol();
                 }
 
-                blocks.push(ElseIfBlock {
+                else_if_blocks.push(ElseIfBlock {
                     cond: Box::new(cond),
                     block: statements,
                 });
             }
-            Some(blocks)
-        } else {
-            None
         };
 
         let else_block = if self.cur_token == Some(Token::Identifier("ELSE".to_string())) {
@@ -680,7 +675,7 @@ mod tests {
             Statement::IfThen(
                 Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                 vec![print_hello.clone()],
-                None,
+                Vec::new(),
                 None
             ),
             parse_statement("IF (TRUE) THEN PRINT \"Hello Word\" ENDIF")
@@ -690,10 +685,10 @@ mod tests {
             Statement::IfThen(
                 Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                 vec![print_hello.clone()],
-                Some(vec![ElseIfBlock {
+                vec![ElseIfBlock {
                     cond: Box::new(Expression::Const(Constant::Integer(PPL_TRUE))),
                     block: vec![print_5]
-                }]),
+                }],
                 None
             ),
             parse_statement("IF (TRUE) THEN PRINT \"Hello Word\" ELSEIF (TRUE) THEN PRINT 5 ENDIF")
@@ -705,7 +700,7 @@ mod tests {
             Statement::IfThen(
                 Box::new(Expression::Const(Constant::Integer(PPL_FALSE))),
                 Vec::new(),
-                None,
+                Vec::new(),
                 Some(vec![print_5])
             ),
             parse_statement("IF (FALSE) THEN ELSE PRINT 5 ENDIF")

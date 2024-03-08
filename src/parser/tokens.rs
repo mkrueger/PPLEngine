@@ -117,12 +117,42 @@ pub enum Token {
     Gosub,
     #[token("goto", ignore(case))]
     Goto,
+    #[token("select", ignore(case))]
+    Select,
+    #[token("case", ignore(case))]
+    Case,
 
     #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
     Label(String),
 
     #[regex(r"[';][^\n]*")]
     Comment,
+
+    /*
+    // Types
+    #[token("BOOLEAN", |_| VariableType::Boolean, ignore(case))]
+    #[token("UNSIGNED", |_| VariableType::Unsigned, ignore(case))]
+    #[token("DATE", |_| VariableType::Date, ignore(case))]
+    #[token("EDATE", |_| VariableType::EDate, ignore(case))]
+    #[token("INTEGER", |_| VariableType::Integer, ignore(case))]
+    #[token("MONEY", |_| VariableType::Money, ignore(case))]
+    #[token("REAL", |_| VariableType::Real, ignore(case))]
+    #[token("STRING", |_| VariableType::String, ignore(case))]
+    #[token("TIME", |_| VariableType::Time, ignore(case))]
+    #[token("BYTE", |_| VariableType::Byte, ignore(case))]
+    #[token("WORD", |_| VariableType::Word, ignore(case))]
+    #[token("SHORT", |_| VariableType::SWord, ignore(case))]
+    #[token("INT", |_| VariableType::Integer, ignore(case))]
+    #[token("BIGSTR", |_| VariableType::String, ignore(case))]
+    #[token("DREAL", |_| VariableType::Real, ignore(case))]
+    #[token("DDATE", |_| VariableType::DDate, ignore(case))]
+    VarType(VariableType),*/
+    #[token("declare", ignore(case))]
+    Declare,
+    #[token("function", ignore(case))]
+    Function,
+    #[token("procedure", ignore(case))]
+    Procedure,
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
@@ -335,8 +365,18 @@ impl fmt::Display for Token {
             Token::Return => write!(f, "RETURN"),
             Token::Gosub => write!(f, "GOSUB"),
             Token::Goto => write!(f, "GOTO"),
+
+            Token::Select => write!(f, "SELECT"),
+            Token::Case => write!(f, "CASE"),
+
             Token::Comment => write!(f, ""),
+
             Token::Eol => writeln!(f),
+
+            // Token::VarType(t) => write!(f, "{:?}", t),
+            Token::Declare => write!(f, "DECLARE"),
+            Token::Function => write!(f, "FUNCTION"),
+            Token::Procedure => write!(f, "PROCEDURE"),
         }
     }
 }

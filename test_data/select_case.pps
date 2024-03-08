@@ -1,0 +1,12 @@
+INTEGER INT001
+INT001=1
+
+Select Case (INT001)
+  Case 1
+    PRINT "1"
+  Case 2
+    PRINT "2"
+  Case Else
+    PRINT "ELSE"
+End Select
+

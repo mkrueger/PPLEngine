@@ -3,7 +3,7 @@ use crate::{
     tables::{StatementDefinition, PPL_TRUE},
 };
 
-use super::{Constant, Expression, ProgramContext, VarInfo, VariableType};
+use super::{Constant, Expression, ProgramContext, UnaryOp, VarInfo, VariableType};
 use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,11 +18,12 @@ pub enum Statement {
     End,
     Block(Vec<Statement>),
     While(Box<Expression>, Box<Statement>),
+    Select(Box<Expression>, Vec<ElseIfBlock>, Option<Vec<Statement>>),
     If(Box<Expression>, Box<Statement>),
     IfThen(
         Box<Expression>,
         Vec<Statement>,
-        Option<Vec<ElseIfBlock>>,
+        Vec<ElseIfBlock>,
         Option<Vec<Statement>>,
     ),
     DoWhile(Box<Expression>, Vec<Statement>),
@@ -64,8 +65,8 @@ impl Statement {
         res
     }
 
-    fn try_boolean_conversion(expr: &Expression) -> &Expression {
-        match Statement::strip_outer_parens(expr) {
+    pub fn try_boolean_conversion(expr: &Expression) -> &Expression {
+        match expr {
             Expression::Const(Constant::Integer(i)) => {
                 if *i == PPL_TRUE {
                     &Expression::Const(Constant::Boolean(true))
@@ -74,18 +75,27 @@ impl Statement {
                 }
             }
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr),
-            Expression::UnaryExpression(_op, notexpr) => match &**notexpr {
-                Expression::Const(Constant::Boolean(false)) => {
-                    &Expression::Const(Constant::Boolean(true))
+            Expression::UnaryExpression(op, notexpr) => {
+                if !matches!(op, UnaryOp::Not) {
+                    return expr;
                 }
-                Expression::Const(Constant::Boolean(true)) => {
-                    &Expression::Const(Constant::Boolean(false))
+
+                match &**notexpr {
+                    Expression::Const(Constant::Boolean(false)) => {
+                        &Expression::Const(Constant::Boolean(true))
+                    }
+                    Expression::Const(Constant::Boolean(true)) => {
+                        &Expression::Const(Constant::Boolean(false))
+                    }
+                    Expression::UnaryExpression(op, notexpr) => {
+                        if matches!(op, UnaryOp::Not) {
+                            return Statement::try_boolean_conversion(notexpr);
+                        }
+                        expr
+                    }
+                    _ => expr,
                 }
-                Expression::UnaryExpression(_op, notexpr2) => {
-                    Statement::try_boolean_conversion(notexpr2)
-                }
-                _ => expr,
-            },
+            }
             _ => expr,
         }
     }
@@ -115,7 +125,7 @@ impl Statement {
     fn output_if_stmts(
         prg: &dyn ProgramContext,
         stmts: &Vec<Statement>,
-        else_if: &Option<Vec<ElseIfBlock>>,
+        else_if_blocks: &Vec<ElseIfBlock>,
         else_block: &Option<Vec<Statement>>,
         indent: i32,
     ) -> String {
@@ -123,17 +133,15 @@ impl Statement {
 
         res.push_str(&Statement::output_stmts(prg, stmts, indent));
 
-        if let Some(else_if_blocks) = &else_if {
-            for else_if_block in else_if_blocks {
-                res.push_str(&format!(
-                    "{} ({}) {}",
-                    output_keyword_indented(indent - 1, "ElseIf"),
-                    Statement::out_bool_func(&else_if_block.cond),
-                    output_keyword("Then")
-                ));
-                res.push('\n');
-                res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
-            }
+        for else_if_block in else_if_blocks {
+            res.push_str(&format!(
+                "{} ({}) {}",
+                output_keyword_indented(indent - 1, "ElseIf"),
+                Statement::out_bool_func(&else_if_block.cond),
+                output_keyword("Then")
+            ));
+            res.push('\n');
+            res.push_str(&Statement::output_stmts(prg, &else_if_block.block, indent));
         }
         if let Some(else_block) = else_block {
             if !else_block.is_empty() {
@@ -145,7 +153,35 @@ impl Statement {
         res
     }
 
-    fn strip_outer_parens(exp: &Expression) -> &Expression {
+    fn output_case_blocks(
+        prg: &dyn ProgramContext,
+        case_blocks: &Vec<ElseIfBlock>,
+        else_block: &Option<Vec<Statement>>,
+        indent: i32,
+    ) -> String {
+        let mut res = String::new();
+
+        for case_block in case_blocks {
+            res.push_str(&format!(
+                "{} {}",
+                output_keyword_indented(indent - 1, "Case"),
+                &case_block.cond
+            ));
+            res.push('\n');
+            res.push_str(&Statement::output_stmts(prg, &case_block.block, indent));
+        }
+
+        if let Some(else_block) = else_block {
+            if !else_block.is_empty() {
+                res.push_str(&output_keyword_indented(indent - 1, "Case Else"));
+                res.push('\n');
+                res.push_str(&Statement::output_stmts(prg, else_block, indent));
+            }
+        }
+        res
+    }
+
+    pub fn strip_outer_parens(exp: &Expression) -> &Expression {
         if let Expression::Parens(pexpr) = exp {
             pexpr
         } else {
@@ -202,6 +238,18 @@ impl Statement {
                     output_keyword("Then"),
                     Statement::output_if_stmts(prg, stmts, else_if_blocks, else_block, indent + 1),
                     output_keyword_indented(indent, "EndIf")
+                ),
+                indent,
+                0,
+            ),
+
+            Statement::Select(cond, case_blocks, else_block) => (
+                format!(
+                    "{} ({})\n{}{}",
+                    output_keyword("Select Case"),
+                    cond,
+                    Statement::output_case_blocks(prg, case_blocks, else_block, indent + 1),
+                    output_keyword_indented(indent, "EndSelect")
                 ),
                 indent,
                 0,

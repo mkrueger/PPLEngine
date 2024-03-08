@@ -27,6 +27,8 @@ fn optimize_ifs(statements: &mut Vec<Statement>) {
 fn optimize_block(statements: &mut Vec<Statement>) {
     optimize_loops(statements);
     optimize_ifs(statements);
+    scan_select_statements(statements);
+
     strip_unused_labels(statements);
 }
 
@@ -53,6 +55,62 @@ fn get_first(s: &[Statement]) -> Option<&Statement> {
     }
 
     Some(&s[1])
+}
+
+fn scan_select_statements(statements: &mut [Statement]) {
+    let mut i = 0;
+    while i < statements.len() {
+        if let Statement::IfThen(cond, stmt, if_else_blocks, else_block) = statements[i].clone() {
+            if if_else_blocks.is_empty() {
+                i += 1;
+                continue;
+            }
+            let Expression::BinaryExpression(BinOp::Eq, lhs, rhs) =
+                Statement::try_boolean_conversion(&cond)
+            else {
+                i += 1;
+                continue;
+            };
+            for if_else_block in &if_else_blocks {
+                let Expression::BinaryExpression(BinOp::Eq, lhs2, _) =
+                    Statement::try_boolean_conversion(&if_else_block.cond)
+                else {
+                    i += 1;
+                    continue;
+                };
+                if lhs != lhs2 {
+                    i += 1;
+                    continue;
+                }
+            }
+
+            let mut case_blocks = Vec::new();
+
+            if !stmt.is_empty() {
+                case_blocks.push(ElseIfBlock {
+                    cond: rhs.clone(),
+                    block: stmt.clone(),
+                });
+            }
+
+            for if_else_block in &if_else_blocks {
+                let Expression::BinaryExpression(BinOp::Eq, _, rhs2) =
+                    Statement::try_boolean_conversion(&if_else_block.cond)
+                else {
+                    i += 1;
+                    continue;
+                };
+
+                case_blocks.push(ElseIfBlock {
+                    cond: rhs2.clone(),
+                    block: if_else_block.block.clone(),
+                });
+            }
+
+            statements[i] = Statement::Select(lhs.clone(), case_blocks, else_block);
+        }
+        i += 1;
+    }
 }
 
 fn scan_if_else(statements: &mut Vec<Statement>) {
@@ -94,7 +152,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 
                 let endif_label_index = endif_label_index.unwrap();
 
-                let mut elseif_blocks = None;
+                let mut elseif_blocks = Vec::new();
                 let mut else_block = None;
                 let if_block;
 
@@ -104,8 +162,6 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                         .collect();
 
                     if_block = statements.drain((i + 1)..(else_label_index - 1)).collect();
-
-                    let mut elseif_blocks2 = Vec::new();
 
                     while let Some(Statement::If(cond, stmt)) = get_first(&else_block2) {
                         if let Statement::Goto(label) = &**stmt {
@@ -146,7 +202,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             };
                             block.remove(a);
 
-                            elseif_blocks2.push(ElseIfBlock { cond, block });
+                            elseif_blocks.push(ElseIfBlock { cond, block });
 
                             if !else_block2.is_empty() {
                                 if let Statement::Goto(label2) = &else_block2[0] {
@@ -159,9 +215,6 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             break;
                         }
                     }
-                    if !elseif_blocks2.is_empty() {
-                        elseif_blocks = Some(elseif_blocks2);
-                    }
 
                     if !else_block2.is_empty() {
                         optimize_loops(&mut else_block2);
@@ -172,11 +225,9 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                     if_block = statements.drain((i + 1)..(endif_label_index - 1)).collect();
                 }
 
-                if let Some(else_block) = &mut elseif_blocks {
-                    for block in else_block {
-                        optimize_loops(&mut block.block);
-                        optimize_ifs(&mut block.block);
-                    }
+                for block in &mut elseif_blocks {
+                    optimize_loops(&mut block.block);
+                    optimize_ifs(&mut block.block);
                 }
 
                 statements[i] = Statement::IfThen(
@@ -223,7 +274,7 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 statements[i] = Statement::IfThen(
                     Box::new(Expression::UnaryExpression(crate::ast::UnaryOp::Not, cond)),
                     statements2,
-                    None,
+                    Vec::new(),
                     None,
                 );
                 // replace if with if…then
@@ -641,14 +692,24 @@ fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
             for stmt in stmts {
                 gather_labels(stmt, used_labels);
             }
-            if let Some(blocks) = else_ifs {
-                for block in blocks {
-                    for stmt in &block.block {
-                        gather_labels(stmt, used_labels);
-                    }
+            for block in else_ifs {
+                for stmt in &block.block {
+                    gather_labels(stmt, used_labels);
                 }
             }
             if let Some(stmts) = else_stmts {
+                for stmt in stmts {
+                    gather_labels(stmt, used_labels);
+                }
+            }
+        }
+        Statement::Select(_, case_blocks, case_else) => {
+            for block in case_blocks {
+                for stmt in &block.block {
+                    gather_labels(stmt, used_labels);
+                }
+            }
+            if let Some(stmts) = case_else {
                 for stmt in stmts {
                     gather_labels(stmt, used_labels);
                 }
@@ -691,12 +752,18 @@ fn strip_unused_labels2(statements: &mut Vec<Statement>, used_labels: &HashSet<S
         match &mut statements[i] {
             Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
                 strip_unused_labels2(stmts, used_labels);
-                if let Some(blocks) = else_ifs {
-                    for block in blocks {
-                        strip_unused_labels2(&mut block.block, used_labels);
-                    }
+                for block in else_ifs {
+                    strip_unused_labels2(&mut block.block, used_labels);
                 }
                 if let Some(stmts) = else_stmts {
+                    strip_unused_labels2(stmts, used_labels);
+                }
+            }
+            Statement::Select(_, case_blocks, case_else) => {
+                for block in case_blocks {
+                    strip_unused_labels2(&mut block.block, used_labels);
+                }
+                if let Some(stmts) = case_else {
                     strip_unused_labels2(stmts, used_labels);
                 }
             }
@@ -751,11 +818,9 @@ fn scan_replace_vars(
             for s in stmts {
                 scan_replace_vars(s, rename_map, index, file_names);
             }
-            if let Some(blocks) = else_ifs {
-                for block in blocks {
-                    for s in &block.block {
-                        scan_replace_vars(s, rename_map, index, file_names);
-                    }
+            for block in else_ifs {
+                for s in &block.block {
+                    scan_replace_vars(s, rename_map, index, file_names);
                 }
             }
             if let Some(stmts) = else_stmts {
@@ -844,11 +909,9 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             for s in stmts {
                 replace_in_statement(s, rename_map);
             }
-            if let Some(blocks) = else_ifs {
-                for block in blocks {
-                    for s in &mut block.block {
-                        replace_in_statement(s, rename_map);
-                    }
+            for block in else_ifs {
+                for s in &mut block.block {
+                    replace_in_statement(s, rename_map);
                 }
             }
             if let Some(stmts) = else_stmts {

@@ -149,7 +149,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 );
             }
 
-            Statement::IfThen(cond, stmts, opt_else_if, opt_else) => {
+            Statement::IfThen(cond, stmts, else_if, opt_else) => {
                 statements.remove(i);
                 let mut if_exit_label = format!("label{labels}");
                 labels += 1;
@@ -162,7 +162,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                     statements.splice(i..i, else_stmts.iter().cloned());
                 }
 
-                if let Some(else_if) = opt_else_if {
+                if !else_if.is_empty() {
                     if else_if.len() == 1 {
                         if_exit_label = else_exit_label.clone();
                     }
@@ -192,7 +192,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 }
 
                 statements.insert(i, Statement::Label(if_exit_label.clone()));
-                if opt_else.is_some() || opt_else_if.is_some() {
+                if opt_else.is_some() || !else_if.is_empty() {
                     statements.insert(i, Statement::Goto(else_exit_label.clone()));
                 }
                 statements.splice(i..i, stmts.iter().cloned());

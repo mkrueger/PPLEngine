@@ -494,6 +494,7 @@ impl Executable {
             Statement::IfThen(_, _, _, _) => panic!("if then not allowed in output AST."),
             Statement::DoWhile(_, _) => panic!("do while not allowed in output AST."),
             Statement::For(_, _, _, _, _) => panic!("for not allowed in output AST."),
+            Statement::Select(_, _, _) => panic!("select not allowed in output AST."),
         }
     }
 

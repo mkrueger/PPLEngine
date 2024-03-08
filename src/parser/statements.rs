@@ -377,57 +377,54 @@ where
 
         let label_stmt = select! { Token::Label(ident) => ident }.map(Statement::Label);
 
-        let proc_call = select! {
-            Token::Identifier(c) => Expression::Identifier(c),
-        }
-        .then(
-            _expr_parser()
-                .separated_by(just(Token::Comma))
-                .collect::<Vec<_>>()
-                .delimited_by(just(Token::LPar), just(Token::RPar)),
-        )
-        .map(|(f, params)| {
-            let id = f.to_string();
-            Statement::ProcedureCall(id, params)
-        });
+        let arguments = _expr_parser()
+            .separated_by(just(Token::Comma))
+            .collect::<Vec<_>>()
+            .or_not();
 
-        let call = select! { Token::Identifier(ident) => ident }
-            .then(
-                _expr_parser()
-                    .separated_by(just(Token::Comma))
-                    .collect::<Vec<_>>()
-                    .or_not(),
-            )
-            .map(|(def, args)| {
-                let name = def.to_uppercase();
-                let def = STATEMENT_DEFINITIONS
-                    .iter()
-                    .find(|&def| def.name.to_uppercase() == name)
-                    .unwrap();
-                let mut params = Vec::new();
-                if let Some(args) = args {
-                    assert!(
-                        (args.len() as i8) >= def.min_args,
-                        "{} has too few arguments {} [{}:{}]",
-                        def.name,
-                        args.len(),
-                        def.min_args,
-                        def.max_args
-                    );
-                    assert!(
-                        (args.len() as i8) <= def.max_args,
-                        "{} has too many arguments {} [{}:{}]",
-                        def.name,
-                        args.len(),
-                        def.min_args,
-                        def.max_args
-                    );
-                    for arg in args {
-                        params.push(arg);
-                    }
-                }
-                Statement::Call(def, params)
+        let call = select! { Token::Identifier(c) => Expression::Identifier(c) }
+            .then(arguments.clone())
+            .or(just(Token::LPar)
+                .then(arguments)
+                .then(just(Token::RPar))
+                .map(|((_, args), _)| args))
+            .map(|(f, params)| {
+                let id = f.to_string();
+                Statement::ProcedureCall(id, params)
             });
+
+        /*
+        .map(|((def, args), _)| {
+                 let name = def.to_uppercase();
+                 let def = STATEMENT_DEFINITIONS
+                     .iter()
+                     .find(|&def| def.name.to_uppercase() == name)
+                     .unwrap();
+                 let mut params = Vec::new();
+                 if let Some(args) = args {
+                     assert!(
+                         (args.len() as i8) >= def.min_args,
+                         "{} has too few arguments {} [{}:{}]",
+                         def.name,
+                         args.len(),
+                         def.min_args,
+                         def.max_args
+                     );
+                     assert!(
+                         (args.len() as i8) <= def.max_args,
+                         "{} has too many arguments {} [{}:{}]",
+                         def.name,
+                         args.len(),
+                         def.min_args,
+                         def.max_args
+                     );
+                     for arg in args {
+                         params.push(arg);
+                     }
+                 }
+                 Statement::Call(def, params)
+             })
+         */
 
         let if_stmt = just(Token::If)
             .then(_expr_parser().delimited_by(just(Token::LPar), just(Token::RPar))) /*
@@ -454,7 +451,7 @@ where
             .or(just(Token::Return).to(Statement::Return))
             .or(just(Token::Break).to(Statement::Break))
             .or(just(Token::Continue).to(Statement::Continue))
-            .or(proc_call)
+            .or(call)
             .or(call)
             .or(if_stmt)
     });
@@ -613,14 +610,14 @@ mod tests {
                 get_statement_definition("INC").unwrap(),
                 vec![Expression::Identifier("VAR1".to_string()),]
             ),
-            parse_statement("INC VAR1")
+            parse_statement("INC VAR1\n")
         );
         assert_eq!(
             Statement::Call(
                 get_statement_definition("DEC").unwrap(),
                 vec![Expression::Identifier("VAR2".to_string()),]
             ),
-            parse_statement("DEC VAR2")
+            parse_statement("DEC VAR2\n")
         );
     }
 

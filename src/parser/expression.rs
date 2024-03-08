@@ -303,7 +303,7 @@ mod tests {
     use crate::{
         ast::{BinOp, Constant, Expression},
         parser::{expression::_expr_parser, tokens::Token},
-        tables::{get_function_definition, FUNCTION_DEFINITIONS, PPL_FALSE},
+        tables::{get_function_definition, FUNCTION_DEFINITIONS},
     };
     fn parse_expression(src: &str) -> Expression {
         println!("Parsing expression: {src}");
@@ -340,7 +340,9 @@ mod tests {
         assert_eq!(
             Expression::UnaryExpression(
                 crate::ast::UnaryOp::Not,
-                Box::new(Expression::Const(Constant::Integer(PPL_FALSE)))
+                Box::new(Expression::Const(Constant::Builtin(
+                    &crate::ast::constant::BuiltinConst::FALSE
+                )))
             ),
             parse_expression("!FALSE")
         );

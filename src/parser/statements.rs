@@ -2,15 +2,11 @@ use crate::{
     ast::{ElseIfBlock, Expression, Statement, VarInfo},
     tables::STATEMENT_DEFINITIONS,
 };
-use chumsky::prelude::*;
+use chumsky::{input::ValueInput, prelude::*};
 
-use super::{
-    expression::expression_parser,
-    tokens::{Token, Tokenizer},
-    ParserInput, Span, Spanned,
-};
+use super::{expression::expression_parser, tokens::Token, Tokenizer};
 
-impl Tokenizer {
+impl<'a> Tokenizer<'a> {
     pub fn skip_eol(&mut self) {}
 
     fn parse_while(&mut self) -> Statement {
@@ -203,162 +199,158 @@ impl Tokenizer {
     }
 
     pub fn parse_statement(&mut self) -> Statement {
-        if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-            self.next_token();
-
-            match id.as_str() {
-                "END" => return Statement::End,
-                "BEGIN" => return self.parse_block(),
-                "WHILE" => return self.parse_while(),
-                "IF" => return self.parse_if(),
-                "FOR" => return self.parse_for(),
-                "LET" => {
-                    let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                        self.next_token();
-                        id
-                    } else {
-                        panic!("no id found");
-                    };
-                    if self.cur_token == Some(Token::Eq) {
-                        self.next_token();
-                        let right = self.parse_expression();
-                        return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
-                    }
-                    panic!("error parsing let statement");
-                }
-                "BREAK" => return Statement::Break,
-                "CONTINUE" => return Statement::Continue,
-                "RETURN" => return Statement::Return,
-                "GOSUB" => {
-                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                        self.next_token();
-                        return Statement::Gosub(id);
-                    }
-                    panic!("gosub expected a label, got: {:?}", self.cur_token);
-                }
-                "GOTO" => {
-                    if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                        self.next_token();
-                        return Statement::Goto(id);
-                    }
-                    panic!("goto expected a label, got: {:?}", self.cur_token);
-                }
-                _ => {}
-            }
-
-            for def in &STATEMENT_DEFINITIONS {
-                if def.name.to_uppercase() == id {
-                    let mut params = Vec::new();
-                    while self.cur_token.is_some() {
-                        if params.len() as i8 >= def.max_args {
-                            break;
-                        }
-                        params.push(self.parse_expression());
-
-                        if self.cur_token.is_none() {
-                            break;
-                        }
-                        if self.cur_token == Some(Token::Comma) {
-                            self.next_token();
-                        } else {
-                            break;
-                        }
-                    }
-
-                    assert!(
-                        (params.len() as i8) >= def.min_args,
-                        "{} has too few arguments {} [{}:{}]",
-                        def.name,
-                        params.len(),
-                        def.min_args,
-                        def.max_args
-                    );
-                    assert!(
-                        (params.len() as i8) <= def.max_args,
-                        "{} has too many arguments {} [{}:{}]",
-                        def.name,
-                        params.len(),
-                        def.min_args,
-                        def.max_args
-                    );
-                    return Statement::Call(def, params);
-                }
-            }
-
-            if self.cur_token == Some(Token::Eq) {
-                self.next_token();
-                let right = self.parse_expression();
-                return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
-            } else if self.cur_token == Some(Token::LPar) {
-                self.next_token();
-                let mut params = Vec::new();
-
-                while self.cur_token != Some(Token::RPar) {
-                    params.push(self.parse_expression());
-                    if self.cur_token == Some(Token::Comma) {
-                        self.next_token();
-                    }
-                }
-                assert!(
-                    !(self.cur_token != Some(Token::RPar)),
-                    "missing closing parens"
-                );
-                self.next_token();
+        match self.cur_token.clone() {
+            Some(Token::End) => return Statement::End,
+            Some(Token::Begin) => return self.parse_block(),
+            Some(Token::While) => return self.parse_while(),
+            Some(Token::If) => return self.parse_if(),
+            Some(Token::For) => return self.parse_for(),
+            Some(Token::Let) => {
+                let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+                    self.next_token();
+                    id
+                } else {
+                    panic!("no id found");
+                };
                 if self.cur_token == Some(Token::Eq) {
                     self.next_token();
                     let right = self.parse_expression();
-                    if params.len() == 1 {
-                        return Statement::Let(
-                            Box::new(VarInfo::Var1(id, params[0].clone())),
-                            Box::new(right),
+                    return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
+                }
+                panic!("error parsing let statement");
+            }
+            Some(Token::Break) => return Statement::Break,
+            Some(Token::Continue) => return Statement::Continue,
+            Some(Token::Return) => return Statement::Return,
+            Some(Token::Gosub) => {
+                if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+                    self.next_token();
+                    return Statement::Gosub(id);
+                }
+                panic!("gosub expected a label, got: {:?}", self.cur_token);
+            }
+            Some(Token::Goto) => {
+                if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+                    self.next_token();
+                    return Statement::Goto(id);
+                }
+                panic!("goto expected a label, got: {:?}", self.cur_token);
+            }
+
+            Some(Token::Identifier(id)) => {
+                self.next_token();
+                for def in &STATEMENT_DEFINITIONS {
+                    if def.name.to_uppercase() == id {
+                        let mut params = Vec::new();
+                        while self.cur_token.is_some() {
+                            if params.len() as i8 >= def.max_args {
+                                break;
+                            }
+                            params.push(self.parse_expression());
+
+                            if self.cur_token.is_none() {
+                                break;
+                            }
+                            if self.cur_token == Some(Token::Comma) {
+                                self.next_token();
+                            } else {
+                                break;
+                            }
+                        }
+
+                        assert!(
+                            (params.len() as i8) >= def.min_args,
+                            "{} has too few arguments {} [{}:{}]",
+                            def.name,
+                            params.len(),
+                            def.min_args,
+                            def.max_args
                         );
-                    }
-                    if params.len() == 2 {
-                        return Statement::Let(
-                            Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())),
-                            Box::new(right),
+                        assert!(
+                            (params.len() as i8) <= def.max_args,
+                            "{} has too many arguments {} [{}:{}]",
+                            def.name,
+                            params.len(),
+                            def.min_args,
+                            def.max_args
                         );
+                        return Statement::Call(def, params);
                     }
-                    if params.len() == 3 {
-                        return Statement::Let(
-                            Box::new(VarInfo::Var3(
-                                id,
-                                params[0].clone(),
-                                params[1].clone(),
-                                params[2].clone(),
-                            )),
-                            Box::new(right),
-                        );
-                    }
-                    panic!("too many dimensions: {}", params.len());
                 }
 
-                return Statement::ProcedureCall(id, params);
+                if self.cur_token == Some(Token::Eq) {
+                    self.next_token();
+                    let right = self.parse_expression();
+                    return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
+                }
+
+                if self.cur_token == Some(Token::LPar) {
+                    self.next_token();
+                    let mut params = Vec::new();
+
+                    while self.cur_token != Some(Token::RPar) {
+                        params.push(self.parse_expression());
+                        if self.cur_token == Some(Token::Comma) {
+                            self.next_token();
+                        }
+                    }
+                    assert!(
+                        !(self.cur_token != Some(Token::RPar)),
+                        "missing closing parens"
+                    );
+                    self.next_token();
+                    if self.cur_token == Some(Token::Eq) {
+                        self.next_token();
+                        let right = self.parse_expression();
+                        if params.len() == 1 {
+                            return Statement::Let(
+                                Box::new(VarInfo::Var1(id, params[0].clone())),
+                                Box::new(right),
+                            );
+                        }
+                        if params.len() == 2 {
+                            return Statement::Let(
+                                Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())),
+                                Box::new(right),
+                            );
+                        }
+                        if params.len() == 3 {
+                            return Statement::Let(
+                                Box::new(VarInfo::Var3(
+                                    id,
+                                    params[0].clone(),
+                                    params[1].clone(),
+                                    params[2].clone(),
+                                )),
+                                Box::new(right),
+                            );
+                        }
+                        panic!("too many dimensions: {}", params.len());
+                    }
+
+                    return Statement::ProcedureCall(id, params);
+                }
+
+                panic!("invalid identifier {:?}", self.cur_token);
+            }
+
+            Some(Token::Label(id)) => {
+                self.next_token();
+                return Statement::Label(id);
+            }
+
+            _ => {
+                panic!("error unexpected token {:?}", self.cur_token);
             }
         }
-
-        if self.cur_token == Some(Token::Colon) {
-            self.next_token();
-            let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
-                self.next_token();
-                id
-            } else {
-                panic!("error parsing label - no id found");
-            };
-
-            return Statement::Label(id);
-        }
-
-        panic!("error unexpected token {:?}", self.cur_token);
     }
 }
 
-fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
-    'tokens,
-    ParserInput<'tokens>,
-    Spanned<Statement>,
-    extra::Err<Rich<'tokens, Token, Span>>,
-> + Clone {
+pub fn statement_parser<'a, I>(
+) -> impl Parser<'a, I, Statement, extra::Err<Rich<'a, Token>>> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
+{
     let stmt = recursive(|stmt| {
         let expr = expression_parser();
 
@@ -369,8 +361,8 @@ fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .then(ident)
             .map(|(_let, id)| id)
             .then_ignore(just(Token::Eq))
-            .then(expr.clone())
-            .map(|(lhs, rhs)| Statement::Let(Box::new(VarInfo::Var0(lhs)), Box::new(rhs.0)));
+            .then(expr)
+            .map(|(lhs, rhs)| Statement::Let(Box::new(VarInfo::Var0(lhs)), Box::new(rhs)));
 
         let goto_stmt = just(Token::Goto)
             .then(ident)
@@ -385,19 +377,19 @@ fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             Token::Identifier(c) => Expression::Identifier(c),
         }
         .then(
-            expr.clone()
+            expression_parser()
                 .separated_by(just(Token::Comma))
                 .collect::<Vec<_>>()
                 .delimited_by(just(Token::LPar), just(Token::RPar)),
         )
         .map(|(f, params)| {
             let id = f.to_string();
-            Statement::ProcedureCall(id, params.into_iter().map(|(e, _)| e).collect())
+            Statement::ProcedureCall(id, params)
         });
 
         let call = select! { Token::Identifier(ident) => ident }
             .then(
-                expr.clone()
+                expression_parser()
                     .separated_by(just(Token::Comma))
                     .collect::<Vec<_>>()
                     .or_not(),
@@ -427,34 +419,28 @@ fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
                         def.max_args
                     );
                     for arg in args {
-                        params.push(arg.0);
+                        params.push(arg);
                     }
                 }
                 Statement::Call(def, params)
             });
 
-        let if_stmt =
-            just(Token::If)
-                .then(
-                    expr.clone()
-                        .delimited_by(just(Token::LPar), just(Token::RPar)),
-                ) /*
-                .then(choice((
-                    just(Token::Then)
-                    .then(stmt.clone().map(|(_, stmt)| stmt).repeated().collect::<Vec<_>>().then(just(Token::EndIf)))
-                    .map(|(cond, (then_stmt, epxr))| Statement::IfThen(Box::new(Expression::Const(crate::ast::Constant::Integer(0))), then_stmt, None, None))
-                    ,
-                )))*/
-                .then(stmt.clone())
-                .map(
-                    |((t, (cond, ss)), then_stmt)| {
-                        Statement::If(Box::new(cond), Box::new(then_stmt))
-                    }, /*match stmt {
-                           Statement::If(_, then_stmt) => Statement::If(Box::new(cond.0), then_stmt),
-                           Statement::IfThen(_, then_stmt, else_if, else_stmt) => Statement::IfThen(Box::new(cond.0), then_stmt, else_if, else_stmt),
-                           stmt => stmt
-                       }}*/
-                );
+        let if_stmt = just(Token::If)
+            .then(expression_parser().delimited_by(just(Token::LPar), just(Token::RPar))) /*
+            .then(choice((
+                just(Token::Then)
+                .then(stmt.clone().map(|(_, stmt)| stmt).repeated().collect::<Vec<_>>().then(just(Token::EndIf)))
+                .map(|(cond, (then_stmt, epxr))| Statement::IfThen(Box::new(Expression::Const(crate::ast::Constant::Integer(0))), then_stmt, None, None))
+                ,
+            )))*/
+            .then(stmt.clone())
+            .map(
+                |((_, cond), then_stmt)| Statement::If(Box::new(cond), Box::new(then_stmt)), /*match stmt {
+                                                                                                 Statement::If(_, then_stmt) => Statement::If(Box::new(cond.0), then_stmt),
+                                                                                                 Statement::IfThen(_, then_stmt, else_if, else_stmt) => Statement::IfThen(Box::new(cond.0), then_stmt, else_if, else_stmt),
+                                                                                                 stmt => stmt
+                                                                                             }}*/
+            );
 
         let_stmt
             .or(goto_stmt)
@@ -468,39 +454,46 @@ fn statement_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .or(call)
             .or(if_stmt)
     });
-
+    /*
     stmt.map_with(|tok, e| (tok, e.span()))
         .recover_with(skip_then_retry_until(any().ignored(), end()))
+        */
+
+    stmt
 }
 
 #[cfg(test)]
 mod tests {
-    use chumsky::{input::Input, Parser};
+    use chumsky::{
+        input::{Input, Stream},
+        Parser,
+    };
+    use logos::Logos;
 
     use crate::{
         ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
-        parser::{statements::statement_parser, tokens::lexer},
+        parser::{statements::statement_parser, tokens::Token},
         tables::{StatementDefinition, PPL_FALSE, PPL_TRUE, STATEMENT_DEFINITIONS},
     };
 
     fn parse_statement(src: &str) -> Statement {
         println!("Parsing statement: {src}");
-        let res = lexer().parse(src);
-        if res.errors().len() > 0 {
-            println!("{} lexer errors", res.errors().len());
-        }
-        for e in res.errors() {
-            println!("Error: {e:?}");
-        }
-        for t in res.output().unwrap() {
-            println!("Token: {t:?}");
-        }
-        assert_eq!(0, res.errors().len());
+        let token_iter = Token::lexer(src)
+            .spanned()
+            // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
+            // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
+            .map(|(tok, span)| match tok {
+                // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
+                // to work with
+                Ok(tok) => (tok, span.into()),
+                Err(()) => (Token::Comment, span.into()),
+            });
+        let token_stream = Stream::from_iter(token_iter)
+            // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
+            // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
+            .spanned((src.len()..src.len()).into());
 
-        let (tokens, mut errs) = res.into_output_errors();
-        let tokens = tokens.unwrap();
-        let stmt =
-            statement_parser().parse(tokens.as_slice().spanned((src.len()..src.len()).into()));
+        let stmt = statement_parser().parse(token_stream);
 
         if stmt.errors().len() > 0 {
             println!("{} lexer errors", stmt.errors().len());
@@ -509,8 +502,7 @@ mod tests {
             println!("Error: {e:?}");
         }
 
-        let (expr, _span) = stmt.output().unwrap();
-        expr.clone()
+        stmt.output().unwrap().clone()
     }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition> {

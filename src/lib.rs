@@ -8,7 +8,6 @@
     clippy::cast_lossless,
     clippy::cast_precision_loss
 )]
-
 use ast::Statement;
 
 extern crate core;

@@ -1,14 +1,11 @@
-use super::{
-    tokens::{Token, Tokenizer},
-    ParserInput, Span, Spanned,
-};
+use super::{tokens::Token, Tokenizer};
 use crate::{
     ast::{BinOp, Expression},
     tables::FUNCTION_DEFINITIONS,
 };
-use chumsky::prelude::*;
+use chumsky::{input::ValueInput, prelude::*};
 
-impl Tokenizer {
+impl<'a> Tokenizer<'a> {
     pub fn parse_expression(&mut self) -> Expression {
         self.parse_bool()
     }
@@ -188,12 +185,11 @@ impl Tokenizer {
     }
 }
 
-pub fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
-    'tokens,
-    ParserInput<'tokens>,
-    Spanned<Expression>,
-    extra::Err<Rich<'tokens, Token, Span>>,
-> + Clone {
+pub fn expression_parser<'a, I>(
+) -> impl Parser<'a, I, Expression, extra::Err<Rich<'a, Token>>> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
+{
     let expr = recursive(|expr| {
         let func = select! {
             Token::Identifier(c) => Expression::Identifier(c),
@@ -215,7 +211,7 @@ pub fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
                     params,
                 );
             }
-            return Expression::FunctionCall(id, params);
+            Expression::FunctionCall(id, params)
         });
 
         let atom = func
@@ -286,45 +282,49 @@ pub fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             |lhs, (op, rhs)| Expression::BinaryExpression(op, Box::new(lhs), Box::new(rhs)),
         );
 
-        let not_expr = just(Token::Not)
+        just(Token::Not)
             .map(|_| crate::ast::UnaryOp::Not)
             .repeated()
             .foldr(bool_expr, |op, e| {
                 Expression::UnaryExpression(op, Box::new(e))
-            });
-
-        not_expr
+            })
     });
 
-    expr.map_with(|tok, e| (tok, e.span()))
-        .recover_with(skip_then_retry_until(any().ignored(), end()))
+    expr
 }
 
 #[cfg(test)]
 mod tests {
-    use chumsky::{input::Input, Parser};
+    use chumsky::{
+        input::{Input, Stream},
+        Parser,
+    };
+    use logos::Logos;
 
     use crate::{
         ast::{BinOp, Constant, Expression},
-        parser::{expression::expression_parser, tokens::lexer},
+        parser::{expression::expression_parser, tokens::Token},
         tables::{get_function_definition, FUNCTION_DEFINITIONS, PPL_FALSE},
     };
     fn parse_expression(src: &str) -> Expression {
         println!("Parsing expression: {src}");
-        let res = lexer().parse(src);
-        if res.errors().len() > 0 {
-            println!("{} lexer errors", res.errors().len());
-        }
-        for e in res.errors() {
-            println!("Error: {e:?}");
-        }
-        assert_eq!(0, res.errors().len());
+        let token_iter = Token::lexer(src)
+            .spanned()
+            // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
+            // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
+            .map(|(tok, span)| match tok {
+                // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
+                // to work with
+                Ok(tok) => (tok, span.into()),
+                Err(()) => (Token::Comment, span.into()),
+            });
+        let token_stream = Stream::from_iter(token_iter)
+            // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
+            // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
+            .spanned((src.len()..src.len()).into());
 
-        let (tokens, mut errs) = res.into_output_errors();
-        let tokens = tokens.unwrap();
-        let expr =
-            expression_parser().parse(tokens.as_slice().spanned((src.len()..src.len()).into()));
-        let (expr, _span) = expr.output().unwrap();
+        let expr = expression_parser().parse(token_stream);
+        let expr = expr.output().unwrap();
         expr.clone()
     }
 

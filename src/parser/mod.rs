@@ -4,8 +4,9 @@ use crate::ast::{
     Block, Declaration, Expression, FunctionImplementation, Program, VarInfo, VariableType,
 };
 
-use self::tokens::{Token, Tokenizer};
+use self::tokens::Token;
 use chumsky::prelude::*;
+use logos::Logos;
 
 mod expression;
 mod statements;
@@ -21,7 +22,31 @@ struct Func<'src> {
     body: Spanned<Expression>,
 }
 
-impl Tokenizer {
+pub struct Tokenizer<'a> {
+    pub cur_token: Option<Token>,
+    lex: logos::Lexer<'a, Token>,
+}
+
+impl<'a> Tokenizer<'a> {
+    pub fn new(text: &'a str) -> Self {
+        let lex = crate::parser::tokens::Token::lexer(text);
+        Tokenizer {
+            cur_token: None,
+            lex,
+        }
+    }
+
+    pub fn next_token(&mut self) -> Option<Token> {
+        if let Some(token) = self.lex.next() {
+            self.cur_token = Some(token.unwrap());
+        } else {
+            self.cur_token = None;
+        }
+        self.cur_token.clone()
+    }
+}
+
+impl<'a> Tokenizer<'a> {
     pub fn get_variable_type(&self) -> Option<VariableType> {
         if let Some(Token::Identifier(id)) = &self.cur_token {
             match id.as_str() {

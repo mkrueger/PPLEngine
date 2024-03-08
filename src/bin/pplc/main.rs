@@ -1,10 +1,9 @@
 use argh::FromArgs;
-use chumsky::Parser;
 use ppl_engine::{
     ast::{Program, Statement, VariableType, VariableValue},
     compiler::transform_ast,
     crypt::{encode_rle, encrypt},
-    parser::{parse_program, tokens::lexer},
+    parser::parse_program,
     tables::OpCode,
 };
 use semver::Version;
@@ -662,8 +661,8 @@ fn main() {
     }
 
     let src = fs::read_to_string(file_name).expect("Failed to read file");
-    let (tokens, mut errs) = lexer().parse(src.as_str()).into_output_errors();
-    /*
+    /*    let (tokens, mut errs) = lexer().parse(src.as_str()).into_output_errors();
+
     let parse_errs = if let Some(tokens) = &tokens {
         let (ast, parse_errs) = funcs_parser()
             .map_with(|ast, e| (ast, e.span()))

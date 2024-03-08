@@ -4,7 +4,7 @@ use crate::{
 };
 use chumsky::{input::ValueInput, prelude::*};
 
-use super::{expression::expression_parser, tokens::Token, Tokenizer};
+use super::{expression::_expr_parser, tokens::Token, Tokenizer};
 
 impl<'a> Tokenizer<'a> {
     pub fn skip_eol(&mut self) {}
@@ -198,13 +198,18 @@ impl<'a> Tokenizer<'a> {
         Statement::IfThen(Box::new(cond), statements, else_if_blocks, else_block)
     }
 
+    /// Returns the parse statement of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn parse_statement(&mut self) -> Statement {
         match self.cur_token.clone() {
-            Some(Token::End) => return Statement::End,
-            Some(Token::Begin) => return self.parse_block(),
-            Some(Token::While) => return self.parse_while(),
-            Some(Token::If) => return self.parse_if(),
-            Some(Token::For) => return self.parse_for(),
+            Some(Token::End) => Statement::End,
+            Some(Token::Begin) => self.parse_block(),
+            Some(Token::While) => self.parse_while(),
+            Some(Token::If) => self.parse_if(),
+            Some(Token::For) => self.parse_for(),
             Some(Token::Let) => {
                 let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
@@ -219,9 +224,9 @@ impl<'a> Tokenizer<'a> {
                 }
                 panic!("error parsing let statement");
             }
-            Some(Token::Break) => return Statement::Break,
-            Some(Token::Continue) => return Statement::Continue,
-            Some(Token::Return) => return Statement::Return,
+            Some(Token::Break) => Statement::Break,
+            Some(Token::Continue) => Statement::Continue,
+            Some(Token::Return) => Statement::Return,
             Some(Token::Gosub) => {
                 if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
@@ -336,7 +341,7 @@ impl<'a> Tokenizer<'a> {
 
             Some(Token::Label(id)) => {
                 self.next_token();
-                return Statement::Label(id);
+                Statement::Label(id)
             }
 
             _ => {
@@ -346,13 +351,13 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-pub fn statement_parser<'a, I>(
+pub fn _statement_parser<'a, I>(
 ) -> impl Parser<'a, I, Statement, extra::Err<Rich<'a, Token>>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
 {
     let stmt = recursive(|stmt| {
-        let expr = expression_parser();
+        let expr = _expr_parser();
 
         let ident = select! { Token::Identifier(ident) => ident };
 
@@ -377,7 +382,7 @@ where
             Token::Identifier(c) => Expression::Identifier(c),
         }
         .then(
-            expression_parser()
+            _expr_parser()
                 .separated_by(just(Token::Comma))
                 .collect::<Vec<_>>()
                 .delimited_by(just(Token::LPar), just(Token::RPar)),
@@ -389,7 +394,7 @@ where
 
         let call = select! { Token::Identifier(ident) => ident }
             .then(
-                expression_parser()
+                _expr_parser()
                     .separated_by(just(Token::Comma))
                     .collect::<Vec<_>>()
                     .or_not(),
@@ -426,7 +431,7 @@ where
             });
 
         let if_stmt = just(Token::If)
-            .then(expression_parser().delimited_by(just(Token::LPar), just(Token::RPar))) /*
+            .then(_expr_parser().delimited_by(just(Token::LPar), just(Token::RPar))) /*
             .then(choice((
                 just(Token::Then)
                 .then(stmt.clone().map(|(_, stmt)| stmt).repeated().collect::<Vec<_>>().then(just(Token::EndIf)))
@@ -472,7 +477,7 @@ mod tests {
 
     use crate::{
         ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
-        parser::{statements::statement_parser, tokens::Token},
+        parser::{statements::_statement_parser, tokens::Token},
         tables::{StatementDefinition, PPL_FALSE, PPL_TRUE, STATEMENT_DEFINITIONS},
     };
 
@@ -493,7 +498,7 @@ mod tests {
             // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
             .spanned((src.len()..src.len()).into());
 
-        let stmt = statement_parser().parse(token_stream);
+        let stmt = _statement_parser().parse(token_stream);
 
         if stmt.errors().len() > 0 {
             println!("{} lexer errors", stmt.errors().len());

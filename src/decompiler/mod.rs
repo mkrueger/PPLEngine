@@ -1,3 +1,4 @@
+use crate::ast::constant::BuiltinConst;
 use crate::ast::{
     get_var_name, Block, Constant, Declaration, Expression, FunctionImplementation, Program,
     Statement, UnaryOp, VarInfo, VariableType,
@@ -877,150 +878,102 @@ impl Decompiler {
         let expr = self.pop_expr();
         expr.map(Decompiler::stripper)
     }
-    fn repl_const(
-        expr: Expression,
-        vars: &'static [i32],
-        names: &'static [Constant],
-    ) -> Expression {
+    fn repl_const(expr: Expression, names: &'static [BuiltinConst]) -> Expression {
         match expr {
             Expression::Const(c) => match c {
                 Constant::Integer(parse_result) => {
                     let mut i = 0;
-                    while vars[i] != -1 && vars[i] != parse_result {
+                    while i < names.len() && names[i].value != parse_result {
                         i += 1;
                     }
-                    if vars[i] != -1 {
-                        return Expression::Const(names[i].clone());
+                    if i < names.len() {
+                        return Expression::Const(Constant::Builtin(&names[i]));
                     }
                     Expression::Const(Constant::Integer(parse_result))
                 }
                 _ => Expression::Const(c),
             },
             Expression::Identifier(s) => Expression::Identifier(s),
-            Expression::Parens(e) => {
-                Expression::Parens(Box::new(Self::repl_const(*e, vars, names)))
-            }
+            Expression::Parens(e) => Expression::Parens(Box::new(Self::repl_const(*e, names))),
             Expression::FunctionCall(n, p) => {
                 let mut p2 = vec![];
                 for e in p {
-                    p2.push(Self::repl_const(e, vars, names));
+                    p2.push(Self::repl_const(e, names));
                 }
                 Expression::FunctionCall(n, p2)
             }
             Expression::PredefinedFunctionCall(n, p) => {
                 let mut p2 = vec![];
                 for e in p {
-                    p2.push(Self::repl_const(e, vars, names));
+                    p2.push(Self::repl_const(e, names));
                 }
                 Expression::PredefinedFunctionCall(n, p2)
             }
             Expression::UnaryExpression(op, e) => {
-                Expression::UnaryExpression(op, Box::new(Self::repl_const(*e, vars, names)))
+                Expression::UnaryExpression(op, Box::new(Self::repl_const(*e, names)))
             }
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(
                 op,
-                Box::new(Self::repl_const(*l, vars, names)),
-                Box::new(Self::repl_const(*r, vars, names)),
+                Box::new(Self::repl_const(*l, names)),
+                Box::new(Self::repl_const(*r, names)),
             ),
         }
     }
 
-    fn const_name(&mut self, vars: &'static [i32], names: &'static [Constant]) -> Expression {
+    fn const_name(&mut self, names: &'static [BuiltinConst]) -> Expression {
         let temp_exr = self.popstrip().unwrap();
-        Self::repl_const(temp_exr, vars, names)
+        Self::repl_const(temp_exr, names)
     }
 
     fn trans_exp(&mut self, cur_expr: i32) -> Expression {
         match self.cur_stmt {
             0x00c if cur_expr != 2 => self.popstrip().unwrap(),
             0x00d if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00c | 0x00d => self.const_name(
-                &crate::tables::CONSTANT_CONFERENCE_OFFSETS,
-                &crate::tables::CONSTANT_CONFERENCE_NAMES,
-            ),
+            0x00c | 0x00d => self.const_name(&crate::tables::CONSTANT_CONFERENCE_NAMES),
 
             0x00e if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00e => self.const_name(
-                &crate::tables::CONSTANT_NAMES_OFFSETS,
-                &crate::tables::CONSTANT_NAMES_DISPLAY,
-            ),
+            0x00e => self.const_name(&crate::tables::CONSTANT_NAMES_DISPLAY),
 
             0x010 => {
                 if cur_expr == 3 {
-                    self.const_name(
-                        &crate::tables::CONSTANT_FACCESS_OFFSETS,
-                        &crate::tables::CONSTANT_FACCESS_NAMES,
-                    )
+                    self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES)
                 } else if cur_expr == 4 {
-                    self.const_name(
-                        &crate::tables::CONSTANT_OPENFLAGS_OFFSETS,
-                        &crate::tables::CONSTANT_OPENFLAGS_NAMES,
-                    )
+                    self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES)
                 } else {
                     self.popstrip().unwrap()
                 }
             }
 
-            0x011 if cur_expr == 3 => self.const_name(
-                &crate::tables::CONSTANT_FACCESS_OFFSETS,
-                &crate::tables::CONSTANT_FACCESS_NAMES,
-            ),
-            0x011 if cur_expr == 4 => self.const_name(
-                &crate::tables::CONSTANT_OPENFLAGS_OFFSETS,
-                &crate::tables::CONSTANT_OPENFLAGS_NAMES,
-            ),
+            0x011 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES),
+            0x011 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES),
             // 0x011 => self.popstrip().unwrap(),
-            0x012 if cur_expr == 3 => self.const_name(
-                &crate::tables::CONSTANT_FACCESS_OFFSETS,
-                &crate::tables::CONSTANT_FACCESS_NAMES,
-            ),
-            0x012 if cur_expr == 4 => self.const_name(
-                &crate::tables::CONSTANT_OPENFLAGS_OFFSETS,
-                &crate::tables::CONSTANT_OPENFLAGS_NAMES,
-            ),
+            0x012 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES),
+            0x012 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES),
             // 0x012 => self.popstrip().unwrap(),
-            0x018 => self.const_name(
-                &crate::tables::CONSTANT_LINECOUNT_OFFSETS,
-                &crate::tables::CONSTANT_LINECOUNT_NAMES,
-            ),
+            0x018 => self.const_name(&crate::tables::CONSTANT_LINECOUNT_NAMES),
             0x022 => {
                 if cur_expr == 6 {
-                    self.const_name(
-                        &crate::tables::CONSTANT_1_OFFSETS,
-                        &crate::tables::CONSTANT_1_NAMES,
-                    )
+                    self.const_name(&crate::tables::CONSTANT_1_NAMES)
                 } else {
                     self.popstrip().unwrap()
                 }
             }
             0x02b => {
                 if cur_expr == 5 {
-                    self.const_name(
-                        &crate::tables::CONSTANT_1_OFFSETS,
-                        &crate::tables::CONSTANT_1_NAMES,
-                    )
+                    self.const_name(&crate::tables::CONSTANT_1_NAMES)
                 } else {
                     self.popstrip().unwrap()
                 }
             }
 
             0x039 if cur_expr != 2 => self.popstrip().unwrap(),
-            0x039 => self.const_name(
-                &crate::tables::CONSTANT_1_OFFSETS,
-                &crate::tables::CONSTANT_1_NAMES,
-            ),
+            0x039 => self.const_name(&crate::tables::CONSTANT_1_NAMES),
 
             0x070 if cur_expr != 3 => self.popstrip().unwrap(),
-            0x070 => self.const_name(
-                &crate::tables::CONSTANT_SEEK_OFFSETS,
-                &crate::tables::CONSTANT_SEEK_NAMES,
-            ),
+            0x070 => self.const_name(&crate::tables::CONSTANT_SEEK_NAMES),
 
             0x0cd | 0x0ce if cur_expr != 1 => self.popstrip().unwrap(),
-            0x0cd | 0x0ce => self.const_name(
-                &crate::tables::CONSTANT_2_OFFSETS,
-                &crate::tables::CONSTANT_2_NAMES,
-            ),
+            0x0cd | 0x0ce => self.const_name(&crate::tables::CONSTANT_2_NAMES),
 
             _ => self.popstrip().unwrap(),
         }

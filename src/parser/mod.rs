@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use crate::ast::{
-    Block, Declaration, Expression, FunctionImplementation, Program, VarInfo, VariableType,
-};
+use crate::ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType};
 
 use self::tokens::Token;
 use chumsky::prelude::*;
@@ -14,13 +12,6 @@ pub mod tokens;
 
 pub type Span = SimpleSpan<usize>;
 pub type Spanned<T> = (T, Span);
-
-#[derive(Debug)]
-struct Func<'src> {
-    args: Vec<&'src str>,
-    span: Span,
-    body: Spanned<Expression>,
-}
 
 pub struct Tokenizer<'a> {
     pub cur_token: Option<Token>,
@@ -36,6 +27,11 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// Returns the next token of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn next_token(&mut self) -> Option<Token> {
         if let Some(token) = self.lex.next() {
             self.cur_token = Some(token.unwrap());
@@ -69,6 +65,11 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// Returns the parse var info of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn parse_var_info(&mut self) -> VarInfo {
         let var_name;
         if let Some(Token::Identifier(id)) = self.cur_token.clone() {
@@ -107,6 +108,11 @@ impl<'a> Tokenizer<'a> {
         VarInfo::Var0(var_name)
     }
 
+    /// Returns the parse function declaration of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn parse_function_declaration(&mut self) -> Option<Declaration> {
         if Some(Token::Identifier("DECLARE".to_string())) == self.cur_token {
             self.next_token();
@@ -174,6 +180,11 @@ impl<'a> Tokenizer<'a> {
         None
     }
 
+    /// Returns the parse procedure of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn parse_procedure(&mut self) -> Option<FunctionImplementation> {
         if Some(Token::Identifier("PROCEDURE".to_string())) == self.cur_token {
             self.next_token();
@@ -249,6 +260,11 @@ impl<'a> Tokenizer<'a> {
         None
     }
 
+    /// Returns the parse function of this [`Tokenizer`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn parse_function(&mut self) -> Option<FunctionImplementation> {
         if Some(Token::Identifier("FUNCTION".to_string())) == self.cur_token {
             self.next_token();
@@ -376,7 +392,7 @@ pub fn parse_program(input: &str) -> Program {
     }
 }
 
-type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
+// type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::ast::{variable_value::VariableValue, BinOp, Constant, VariableType};
+use crate::ast::{constant::BuiltinConst, variable_value::VariableValue, BinOp, VariableType};
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp
@@ -67,91 +67,81 @@ pub const TYPE_NAMES: [VariableType; 18] = [
     VariableType::DDate,
 ];
 
-pub const CONSTANT_2_OFFSETS: [i32; 18] = [
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10, 0x11,
+pub const CONSTANT_2_NAMES: [BuiltinConst; 18] = [
+    BuiltinConst::START_BAL,
+    BuiltinConst::START_SESSION,
+    BuiltinConst::DEB_CALL,
+    BuiltinConst::DEB_TIME,
+    BuiltinConst::DEB_MSGREAD,
+    BuiltinConst::DEB_MSGCAP,
+    BuiltinConst::DEB_MSGWRITE,
+    BuiltinConst::DEB_MSGECHOED,
+    BuiltinConst::DEB_MSGPRIVATE,
+    BuiltinConst::DEB_DOWNFILE,
+    BuiltinConst::DEB_DOWNBYTES,
+    BuiltinConst::DEB_CHAT,
+    BuiltinConst::DEB_TPU,
+    BuiltinConst::DEB_SPECIAL,
+    BuiltinConst::CRED_UPFILE,
+    BuiltinConst::CRED_UPBYTES,
+    BuiltinConst::CRED_SPECIAL,
+    BuiltinConst::SEC_DROP,
 ];
 
-pub const CONSTANT_2_NAMES: [Constant; 18] = [
-    Constant::START_BAL,
-    Constant::START_SESSION,
-    Constant::DEB_CALL,
-    Constant::DEB_TIME,
-    Constant::DEB_MSGREAD,
-    Constant::DEB_MSGCAP,
-    Constant::DEB_MSGWRITE,
-    Constant::DEB_MSGECHOED,
-    Constant::DEB_MSGPRIVATE,
-    Constant::DEB_DOWNFILE,
-    Constant::DEB_DOWNBYTES,
-    Constant::DEB_CHAT,
-    Constant::DEB_TPU,
-    Constant::DEB_SPECIAL,
-    Constant::CRED_UPFILE,
-    Constant::CRED_UPBYTES,
-    Constant::CRED_SPECIAL,
-    Constant::SEC_DROP,
+pub const CONSTANT_CONFERENCE_NAMES: [BuiltinConst; 5] = [
+    BuiltinConst::F_EXP,
+    BuiltinConst::F_MW,
+    BuiltinConst::F_REG,
+    BuiltinConst::F_SEL,
+    BuiltinConst::F_SYS,
 ];
 
-pub const CONSTANT_CONFERENCE_OFFSETS: [i32; 6] = [0x02, 0x10, 0x01, 0x04, 0x08, -1];
-pub const CONSTANT_CONFERENCE_NAMES: [Constant; 5] = [
-    Constant::F_EXP,
-    Constant::F_MW,
-    Constant::F_REG,
-    Constant::F_SEL,
-    Constant::F_SYS,
+pub const CONSTANT_NAMES_DISPLAY: [BuiltinConst; 4] = [
+    BuiltinConst::DEFS,
+    BuiltinConst::GRAPH,
+    BuiltinConst::LANG,
+    BuiltinConst::SEC,
 ];
 
-pub const CONSTANT_NAMES_OFFSETS: [i32; 5] = [0, 1, 4, 2, -1];
-pub const CONSTANT_NAMES_DISPLAY: [Constant; 4] = [
-    Constant::DEFS,
-    Constant::GRAPH,
-    Constant::LANG,
-    Constant::SEC,
+pub const CONSTANT_FACCESS_NAMES: [BuiltinConst; 3] =
+    [BuiltinConst::O_RD, BuiltinConst::O_RW, BuiltinConst::O_WR];
+
+pub const CONSTANT_SEEK_NAMES: [BuiltinConst; 3] = [
+    BuiltinConst::SEEK_CUR,
+    BuiltinConst::SEEK_END,
+    BuiltinConst::SEEK_SET,
 ];
 
-pub const CONSTANT_FACCESS_OFFSETS: [i32; 4] = [0, 2, 1, -1];
-pub const CONSTANT_FACCESS_NAMES: [Constant; 3] = [Constant::O_RD, Constant::O_RW, Constant::O_WR];
-
-pub const CONSTANT_SEEK_OFFSETS: [i32; 4] = [1, 2, 0, -1];
-pub const CONSTANT_SEEK_NAMES: [Constant; 3] =
-    [Constant::SEEK_CUR, Constant::SEEK_END, Constant::SEEK_SET];
-
-pub const CONSTANT_OPENFLAGS_OFFSETS: [i32; 5] = [3, 0, 1, 2, -1];
-pub const CONSTANT_OPENFLAGS_NAMES: [Constant; 4] = [
-    Constant::S_DB,
-    Constant::S_DN,
-    Constant::S_DR,
-    Constant::S_DW,
+pub const CONSTANT_OPENFLAGS_NAMES: [BuiltinConst; 4] = [
+    BuiltinConst::S_DB,
+    BuiltinConst::S_DN,
+    BuiltinConst::S_DR,
+    BuiltinConst::S_DW,
 ];
 
-pub const CONSTANT_1_OFFSETS: [i32; 19] = [
-    0x2000, 0x0800, 0x0000, 0x0001, 0x0020, 0x0002, 0x0004, 0x1000, 0x0100, 0x0080, 0x8000,
-    0x10000, 0x0040, 0x0400, 0x0010, 0x0008, 0x0200, 0x4000, -1,
-];
-pub const CONSTANT_1_NAMES: [Constant; 18] = [
-    Constant::AUTO,
-    Constant::BELL,
-    Constant::DEFS,
-    Constant::ECHODOTS,
-    Constant::ERASELINE,
-    Constant::FIELDLEN,
-    Constant::GUIDE,
-    Constant::HIGHASCII,
-    Constant::LFAFTER,
-    Constant::LFBEFORE,
-    Constant::LOGIT,
-    Constant::LOGITLEFT,
-    Constant::NEWLINE,
-    Constant::NOCLEAR,
-    Constant::STACKED,
-    Constant::UPCASE,
-    Constant::WORDWRAP,
-    Constant::YESNO,
+pub const CONSTANT_1_NAMES: [BuiltinConst; 18] = [
+    BuiltinConst::AUTO,
+    BuiltinConst::BELL,
+    BuiltinConst::DEFS,
+    BuiltinConst::ECHODOTS,
+    BuiltinConst::ERASELINE,
+    BuiltinConst::FIELDLEN,
+    BuiltinConst::GUIDE,
+    BuiltinConst::HIGHASCII,
+    BuiltinConst::LFAFTER,
+    BuiltinConst::LFBEFORE,
+    BuiltinConst::LOGIT,
+    BuiltinConst::LOGITLEFT,
+    BuiltinConst::NEWLINE,
+    BuiltinConst::NOCLEAR,
+    BuiltinConst::STACKED,
+    BuiltinConst::UPCASE,
+    BuiltinConst::WORDWRAP,
+    BuiltinConst::YESNO,
 ];
 
-pub const CONSTANT_LINECOUNT_OFFSETS: [i32; 4] = [2, 1, 0, -1];
-pub const CONSTANT_LINECOUNT_NAMES: [Constant; 3] = [Constant::FCL, Constant::FNS, Constant::NC];
+pub const CONSTANT_LINECOUNT_NAMES: [BuiltinConst; 3] =
+    [BuiltinConst::FCL, BuiltinConst::FNS, BuiltinConst::NC];
 
 pub const BIN_EXPR: [BinOp; 19] = [
     BinOp::Add, // END

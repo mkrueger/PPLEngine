@@ -185,8 +185,7 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-pub fn expression_parser<'a, I>(
-) -> impl Parser<'a, I, Expression, extra::Err<Rich<'a, Token>>> + Clone
+pub fn _expr_parser<'a, I>() -> impl Parser<'a, I, Expression, extra::Err<Rich<'a, Token>>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = SimpleSpan>,
 {
@@ -303,7 +302,7 @@ mod tests {
 
     use crate::{
         ast::{BinOp, Constant, Expression},
-        parser::{expression::expression_parser, tokens::Token},
+        parser::{expression::_expr_parser, tokens::Token},
         tables::{get_function_definition, FUNCTION_DEFINITIONS, PPL_FALSE},
     };
     fn parse_expression(src: &str) -> Expression {
@@ -323,7 +322,7 @@ mod tests {
             // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
             .spanned((src.len()..src.len()).into());
 
-        let expr = expression_parser().parse(token_stream);
+        let expr = _expr_parser().parse(token_stream);
         let expr = expr.output().unwrap();
         expr.clone()
     }

@@ -1,10 +1,27 @@
 use crate::ast::{constant::BuiltinConst, Constant};
 use core::fmt;
-use logos::Logos;
+use logos::{Logos, Span};
+use std::num::ParseIntError;
+use thiserror::Error;
+
+#[derive(Error, Default, Debug, Clone, PartialEq)]
+pub enum LexingError {
+    #[default]
+    #[error("Invalid character")]
+    InvalidChar,
+
+    #[error("Error parsing number: '{0}' from {1}")]
+    InvalidInteger(String, String),
+}
 
 #[derive(Logos, Clone, Debug, PartialEq)]
-#[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
+#[logos(error = LexingError)]
+#[logos(skip r"[ \t\f]+")] // Ignore this regex pattern between tokens
 pub enum Token {
+    #[token("\r\n")]
+    #[token("\n")]
+    Eol,
+
     #[token(",")]
     Comma,
 
@@ -109,27 +126,64 @@ pub enum Token {
     Comment,
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
-    #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| Constant::Integer(i32::from_str_radix(&lex.slice()[2..], 16).unwrap()))]
+    #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
+        let slice = lex.slice();
+        let num = i32::from_str_radix(&lex.slice()[2..], 16);
+        match num {
+            Ok(num) => Ok(Constant::Integer(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
+    })]
     #[regex(r"[0-9][0-9a-fA-F]*[hH]", |lex| {
         let slice = lex.slice();
-        Constant::Integer(i32::from_str_radix(&slice[..slice.len() - 1], 16).unwrap())
+        let num = i32::from_str_radix(&slice[..slice.len() - 1], 16);
+        match num {
+            Ok(num) => Ok(Constant::Integer(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
     })]
     #[regex(r"[0-7]+[oO]", |lex| {
         let slice = lex.slice();
-        Constant::Integer(i32::from_str_radix(&slice[..slice.len() - 1], 8).unwrap())
+        let num = i32::from_str_radix(&slice[..slice.len() - 1], 8);
+        match num {
+            Ok(num) => Ok(Constant::Integer(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
     })]
     #[regex(r"[01]+[bB]", |lex| {
         let slice = lex.slice();
-        Constant::Integer(i32::from_str_radix(&slice[..slice.len() - 1], 2).unwrap())
+        let num = i32::from_str_radix(&slice[..slice.len() - 1], 2);
+        match num {
+            Ok(num) => Ok(Constant::Integer(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
     })]
     #[regex(r"\d+[dD]?", |lex| {
         let slice = lex.slice();
         let len = if slice.ends_with('d') || slice.ends_with('D') { slice.len() - 1 } else {  slice.len() };
-        Constant::Integer(slice[..len].parse::<i32>().unwrap())
+        let num = slice[..len].parse::<i32>();
+        match num {
+            Ok(num) => Ok(Constant::Integer(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
     })]
-    #[regex(r"\$\d+(\.\d+)?", |lex| Constant::Money(lex.slice()[1..].parse::<f64>().unwrap()))]
-    #[regex(r"(?:0|[1-9]\d*)(?:(?:[eE][+-]?\d+)|\.\d+(?:[eE][+-]?\d+)?)", |lex| Constant::Real(lex.slice().parse::<f64>().unwrap()))]
-    // AUTO GENERATED
+    #[regex(r"\$\d+(\.\d+)?", |lex| {
+        let slice = lex.slice();
+        let num = lex.slice()[1..].parse::<f64>();
+        match num {
+            Ok(num) => Ok(Constant::Money(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
+    })]
+    #[regex(r"(?:0|[1-9]\d*)(?:(?:[eE][+-]?\d+)|\.\d+(?:[eE][+-]?\d+)?)",  |lex| {
+        let slice = lex.slice();
+        let num = lex.slice().parse::<f64>();
+        match num {
+            Ok(num) => Ok(Constant::Real(num)),
+            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+        }
+    })]
+    // AUTO GENERATED CONSTANTS
     #[token("ACC_CUR_BAL", |_| Constant::Builtin(&BuiltinConst::ACC_CUR_BAL), ignore(case))]
     #[token("ACC_MSGREAD", |_| Constant::Builtin(&BuiltinConst::ACC_MSGREAD), ignore(case))]
     #[token("ACC_MSGWRITE", |_| Constant::Builtin(&BuiltinConst::ACC_MSGWRITE), ignore(case))]
@@ -376,5 +430,15 @@ mod tests {
             )),
             get_token("FALSE")
         );
+    }
+
+    #[test]
+    fn test_errors() {
+        let src = "34877539875349573940";
+        let mut lex: logos::Lexer<'_, Token> = crate::parser::tokens::Token::lexer(src);
+
+        let res = lex.next().unwrap();
+        assert!(res.is_err());
+        println!("got expected error: {:?}", res);
     }
 }

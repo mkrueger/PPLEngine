@@ -92,6 +92,10 @@ pub enum Token {
     #[token("while", ignore(case))]
     While,
 
+    #[token("EndWhile", ignore(case))]
+    #[token("End While", ignore(case))]
+    EndWhile,
+
     #[token("if", ignore(case))]
     If,
 
@@ -100,9 +104,13 @@ pub enum Token {
 
     #[token("else", ignore(case))]
     Else,
+
     #[token("elseif", ignore(case))]
+    #[token("else if", ignore(case))]
     ElseIf,
+
     #[token("endif", ignore(case))]
+    #[token("end if", ignore(case))]
     EndIf,
 
     #[token("for", ignore(case))]
@@ -117,10 +125,15 @@ pub enum Token {
     Gosub,
     #[token("goto", ignore(case))]
     Goto,
+
     #[token("select", ignore(case))]
     Select,
     #[token("case", ignore(case))]
     Case,
+
+    #[token("endselect", ignore(case))]
+    #[token("end select", ignore(case))]
+    EndSelect,
 
     #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
     Label(String),
@@ -153,6 +166,14 @@ pub enum Token {
     Function,
     #[token("procedure", ignore(case))]
     Procedure,
+
+    #[token("EndProc", ignore(case))]
+    #[token("End Proc", ignore(case))]
+    EndProc,
+
+    #[token("EndFunc", ignore(case))]
+    #[token("End Func", ignore(case))]
+    EndFunc,
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
@@ -353,6 +374,7 @@ impl fmt::Display for Token {
             Token::End => write!(f, "END"),
             Token::Begin => write!(f, "BEGIN"),
             Token::While => write!(f, "WHILE"),
+            Token::EndWhile => write!(f, "ENDWHILE"),
             Token::If => write!(f, "IF"),
             Token::Then => write!(f, "THEN"),
             Token::Else => write!(f, "ELSE"),
@@ -368,6 +390,7 @@ impl fmt::Display for Token {
 
             Token::Select => write!(f, "SELECT"),
             Token::Case => write!(f, "CASE"),
+            Token::EndSelect => write!(f, "ENDSELECT"),
 
             Token::Comment => write!(f, ""),
 
@@ -377,6 +400,8 @@ impl fmt::Display for Token {
             Token::Declare => write!(f, "DECLARE"),
             Token::Function => write!(f, "FUNCTION"),
             Token::Procedure => write!(f, "PROCEDURE"),
+            Token::EndProc => write!(f, "ENDPROC"),
+            Token::EndFunc => write!(f, "ENDFUNC"),
         }
     }
 }
@@ -502,5 +527,21 @@ mod tests {
             Token::Identifier("C".to_string()),
             lex.next().unwrap().unwrap()
         );
+    }
+
+    #[test]
+    fn test_end_constructs() {
+        assert_eq!(Token::ElseIf, get_token("ElseIf"));
+        assert_eq!(Token::ElseIf, get_token("Else If"));
+        assert_eq!(Token::EndIf, get_token("EndIf"));
+        assert_eq!(Token::EndIf, get_token("End If"));
+        assert_eq!(Token::EndSelect, get_token("EndSelect"));
+        assert_eq!(Token::EndSelect, get_token("End Select"));
+        assert_eq!(Token::EndWhile, get_token("ENDWHILE"));
+        assert_eq!(Token::EndWhile, get_token("end while"));
+        assert_eq!(Token::EndFunc, get_token("ENDFUNC"));
+        assert_eq!(Token::EndFunc, get_token("end FUNC"));
+        assert_eq!(Token::EndProc, get_token("ENDPROC"));
+        assert_eq!(Token::EndProc, get_token("end proc"));
     }
 }

@@ -337,6 +337,7 @@ impl fmt::Display for Token {
             Token::Gosub => write!(f, "GOSUB"),
             Token::Goto => write!(f, "GOTO"),
             Token::Comment => write!(f, ""),
+            Token::Eol => write!(f, "\n"),
         }
     }
 }

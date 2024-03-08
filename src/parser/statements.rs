@@ -7,7 +7,11 @@ use chumsky::{input::ValueInput, prelude::*};
 use super::{expression::_expr_parser, tokens::Token, Tokenizer};
 
 impl<'a> Tokenizer<'a> {
-    pub fn skip_eol(&mut self) {}
+    pub fn skip_eol(&mut self) {
+        while self.cur_token == Some(Token::Eol) {
+            self.next_token();
+        }
+    }
 
     fn parse_while(&mut self) -> Statement {
         assert!(
@@ -247,7 +251,7 @@ impl<'a> Tokenizer<'a> {
                 for def in &STATEMENT_DEFINITIONS {
                     if def.name.to_uppercase() == id {
                         let mut params = Vec::new();
-                        while self.cur_token.is_some() {
+                        while self.cur_token != Some(Token::Eol) && self.cur_token.is_some() {
                             if params.len() as i8 >= def.max_args {
                                 break;
                             }

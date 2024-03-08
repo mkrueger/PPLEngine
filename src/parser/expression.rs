@@ -315,7 +315,7 @@ mod tests {
                 // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
                 // to work with
                 Ok(tok) => (tok, span.into()),
-                Err(err) => (Token::Comment, span.into()),
+                Err(_op) => (Token::Comment, span.into()),
             });
         let token_stream = Stream::from_iter(token_iter)
             // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us

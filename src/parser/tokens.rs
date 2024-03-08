@@ -1,7 +1,6 @@
 use crate::ast::{constant::BuiltinConst, Constant};
 use core::fmt;
-use logos::{Logos, Span};
-use std::num::ParseIntError;
+use logos::Logos;
 use thiserror::Error;
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]
@@ -290,7 +289,7 @@ pub enum Token {
     #[token("YESNO", |_| Constant::Builtin(&BuiltinConst::YESNO), ignore(case))]
     Const(Constant),
 
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]+", |lex| lex.slice().to_string(), priority = 5)]
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string(), priority = 5)]
     Identifier(String),
 }
 
@@ -337,7 +336,7 @@ impl fmt::Display for Token {
             Token::Gosub => write!(f, "GOSUB"),
             Token::Goto => write!(f, "GOTO"),
             Token::Comment => write!(f, ""),
-            Token::Eol => write!(f, "\n"),
+            Token::Eol => writeln!(f),
         }
     }
 }
@@ -399,16 +398,18 @@ mod tests {
     #[test]
     fn test_identifier() {
         assert_eq!(Token::Identifier("PRINT".to_string()), get_token("PRINT"));
-        /*
-        let mut token = Tokenizer::new("Hello World");
+
+        let src = "Hello World";
+        let mut lex = crate::parser::tokens::Token::lexer(src);
+
         assert_eq!(
-            Token::Identifier("HELLO".to_string()),
-            token.next_token().unwrap()
+            Token::Identifier("Hello".to_string()),
+            lex.next().unwrap().unwrap()
         );
         assert_eq!(
-            Token::Identifier("WORLD".to_string()),
-            token.next_token().unwrap()
-        );*/
+            Token::Identifier("World".to_string()),
+            lex.next().unwrap().unwrap()
+        );
     }
 
     #[test]
@@ -436,10 +437,30 @@ mod tests {
     #[test]
     fn test_errors() {
         let src = "34877539875349573940";
-        let mut lex: logos::Lexer<'_, Token> = crate::parser::tokens::Token::lexer(src);
-
+        let mut lex = crate::parser::tokens::Token::lexer(src);
         let res = lex.next().unwrap();
         assert!(res.is_err());
-        println!("got expected error: {:?}", res);
+        println!("got expected error: {res:?}");
+    }
+
+    #[test]
+    fn test_eol() {
+        let src = "A\nB\r\nC";
+        let mut lex = crate::parser::tokens::Token::lexer(src);
+
+        assert_eq!(
+            Token::Identifier("A".to_string()),
+            lex.next().unwrap().unwrap()
+        );
+        assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
+        assert_eq!(
+            Token::Identifier("B".to_string()),
+            lex.next().unwrap().unwrap()
+        );
+        assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
+        assert_eq!(
+            Token::Identifier("C".to_string()),
+            lex.next().unwrap().unwrap()
+        );
     }
 }

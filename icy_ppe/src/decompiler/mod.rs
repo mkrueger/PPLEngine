@@ -226,10 +226,6 @@ impl Decompiler {
                     self.src_ptr,
                     self.cur_stmt
                 );
-                println!(
-                    "OpCode: {} Sig{:X}",
-                    self.cur_stmt, STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize]
-                );
 
                 let mut trap = false;
                 match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {

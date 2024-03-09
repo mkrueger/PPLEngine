@@ -1,10 +1,20 @@
 use argh::FromArgs;
-use ppl_engine::*;
+use icy_ppe::icy_board::data::IcyBoardData;
+use icy_ppe::icy_board::data::Node;
+use icy_ppe::icy_board::data::PcbDataType;
+use icy_ppe::icy_board::data::UserRecord;
+use icy_ppe::interpreter::run;
+use icy_ppe::interpreter::DiskIO;
+use icy_ppe::*;
 use semver::Version;
+use std::default;
 use std::ffi::OsStr;
 use std::fs::*;
 use std::io::*;
 use std::path::Path;
+
+use crate::output::Output;
+mod output;
 
 #[derive(FromArgs)]
 /// original by chicken/tools4fools https://github.com/astuder/ppld rust port https://github.com/mkrueger/PPLEngine
@@ -32,7 +42,7 @@ lazy_static::lazy_static! {
 
 fn main() {
     println!(
-        "PPLD Rust Version {} - PCBoard Programming Language Decompiler",
+        "PPLX Version {} - PCBoard Programming Language Runtime",
         *crate::VERSION
     );
     let mut arguments: Arguments = argh::from_env();
@@ -53,22 +63,36 @@ fn main() {
     if extension.is_none() {
         file_name.push_str(".ppe");
     }
+    let users = vec![
+        UserRecord {
+            name: "sysop".to_string(),
+            password: "sysop".to_string(),
+            security_level: 110,
+            ..Default::default()
+        },
+        UserRecord {
+            name: "guest".to_string(),
+            password: "guest".to_string(),
+            security_level: 10,
+            ..Default::default()
+        },
+    ];
+    
+    let mut pcb_data = PcbDataType::default();
+    let mut icy_board_data = IcyBoardData {
+        users,
+        nodes: vec![Node::default()],
+        pcb_data,
+        pcb_text: Vec::new(),
+        yes_char: 'Y',
+        no_char: 'N',
+    };
+    icy_board_data.load_data();
 
-    if let Some(out_file_name) = &mut arguments.dstname {
-        let extension = Path::new(&out_file_name)
-            .extension()
-            .and_then(OsStr::to_str);
-        if extension.is_none() {
-            out_file_name.push_str(".ppd");
-        }
-        let d = ppl_engine::decompiler::decompile(file_name, true, arguments.raw);
-        let cpy_file = out_file_name.as_str();
-        println!("output written to {}", out_file_name);
-        let mut output = File::create(cpy_file).unwrap();
-        write!(output, "{}", d)
-            .unwrap_or_else(|_| panic!("Error: Can't create {} on disk, aborting...", cpy_file));
-    } else {
-        let d = ppl_engine::decompiler::decompile(file_name, false, arguments.raw);
-        println!("{}", d);
-    }
+    let prg = icy_ppe::decompiler::load_file(file_name);
+    let mut io = DiskIO::new("/home/mkrueger/work/pcx_board");
+    let mut connection = Output::default();
+    run(&prg, &mut connection, &mut io, icy_board_data).unwrap();
+
+
 }

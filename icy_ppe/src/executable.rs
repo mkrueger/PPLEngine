@@ -49,7 +49,7 @@ const HEADER_SIZE: usize = 48;
 /// # Examples
 ///
 /// ```
-/// use ppl_engine::executable::read_file;
+/// use icy_ppe::executable::read_file;
 ///
 /// ```
 ///
@@ -87,30 +87,41 @@ pub fn read_file(file_name: &str) -> Executable {
     let real_size = buffer.len() - i;
 
     let code_data: &mut [u8] = &mut buffer[i..];
+    let mut data = code_data.to_vec();
 
     let mut data: Vec<u8> = Vec::new();
-
     let mut offset = 0;
-    while offset < code_data.len() {
-        let mut chunk_size = 2027;
-        if offset + chunk_size < code_data.len() && code_data[offset + chunk_size] == 0 {
-            chunk_size += 1;
-        }
-        let end = (offset + chunk_size).min(code_data.len());
-        let chunk = &mut code_data[offset..end];
-        offset += chunk_size;
+    if version > 300 {
+        let use_rle = real_size != code_size;
+        println!("use RLE! {use_rle} {}/{}", real_size, code_size);
+        while offset < code_data.len() {
+            let mut chunk_size = 2027;
+            if use_rle
+                && offset + chunk_size < code_data.len()
+                && code_data[offset + chunk_size] == 0
+            {
+                chunk_size += 1;
+            }
+            let end = (offset + chunk_size).min(code_data.len());
+            let chunk = &mut code_data[offset..end];
+            offset += chunk_size;
+            println!(
+                "chunk size:{} last{} end:{}",
+                chunk_size,
+                end,
+                chunk.last().unwrap()
+            );
 
-        if version >= 300 {
             decrypt(chunk, version);
-            if real_size == code_size || *chunk.last().unwrap() == 0 {
-                data.extend_from_slice(chunk);
-            } else {
+            if use_rle {
                 let mut r = decode_rle(chunk);
                 data.append(&mut r);
+            } else {
+                data.extend_from_slice(chunk);
             }
-        } else {
-            data.extend_from_slice(chunk);
-        };
+        }
+    } else {
+        data = code_data.to_vec();
     }
 
     let mut source_buffer = Vec::new();
@@ -121,7 +132,7 @@ pub fn read_file(file_name: &str) -> Executable {
         } else {
             i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
         };
-        println!("{i}:{k}");
+        // println!("{i}:{k}");
         source_buffer.push(k);
         i += 2;
     }
@@ -171,7 +182,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             fflag: 0,
             return_var: 0,
         };
-        println!("read var {:?} type:{:?}", cur_block, var_decl.variable_type);
+        // println!("read var {:?} type:{:?}", cur_block, var_decl.variable_type);
         i += 11;
 
         match var_decl.variable_type {
@@ -179,9 +190,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 let string_length =
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
-
                 decrypt(&mut (buf[i..(i + string_length)]), version);
-
                 let mut str = String::new();
                 for c in &buf[i..(i + string_length - 1)] {
                     str.push(*c as char);
@@ -200,15 +209,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 var_decl.return_var =
                     u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
-
-                println!(
-                    "function ags:{}, vars:{}, start:{}, first:{}, return:{}",
-                    var_decl.args,
-                    var_decl.total_var,
-                    var_decl.start,
-                    var_decl.first_var,
-                    var_decl.return_var
-                );
             }
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
@@ -221,30 +221,19 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 var_decl.return_var =
                     u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
                 i += 12;
-                println!(
-                    "proc ags:{}, vars:{}, start:{}, first:{}, return:{}",
-                    var_decl.args,
-                    var_decl.total_var,
-                    var_decl.start,
-                    var_decl.first_var,
-                    var_decl.return_var
-                );
             }
             _ => {
                 if version <= 100 {
-                    println!("var1:{:?}", &buf[i..(i + 8)]);
                     i += 4; // what's stored here ?
                     var_decl.content =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                 } else if version < 300 {
-                    println!("var2:{:?}", &buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
                     var_decl.content = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
                     i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
-                    println!("var3:{:?}", &buf[i..(i + 12)]);
                     i += 4; // what's stored here ?
                     var_decl.content =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
@@ -261,7 +250,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
     let mut k = (result.len() - 1) as i32;
     while k >= 0 {
         let cur = result.get(&k).unwrap().clone();
-
         match cur.variable_type {
             VariableType::Function => {
                 let mut j = 0;

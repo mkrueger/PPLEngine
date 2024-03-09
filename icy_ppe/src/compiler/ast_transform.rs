@@ -160,8 +160,6 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 let else_exit_label = format!("label{labels}");
                 labels += 1;
 
-                println!("exit label: {}", else_exit_label);
-
                 statements.insert(i, Statement::Label(else_exit_label.clone()));
 
                 if let Some(else_stmts) = opt_else {

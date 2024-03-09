@@ -1,0 +1,753 @@
+1IcyBoard text file v1.0
+7,Leave a comment for the sysop (Enter)=no
+3,~Brand of CPU you are using
+1,Access Denied - Upcoming Event Pending ...
+1,Time Limit Exceeded.
+1,Access Denied - Unauthorized name match on @USER@!
+1,Access Denied - You are Locked Out of this System!
+1,Access Denied - Excessive Password Failures!
+1,Access Denied - Refused to Complete Registration!
+1,Access Denied - Remote DOS Password Failure!
+1,Access Denied - @USER@ is in use on another Node!
+1,Sorry, @FIRST@, this is a `Closed' Board ...
+1,Security Violation(s) - Disconnecting ...
+1,There is presently no room for your text, @FIRST@ ...
+1,A message to `ALL' cannot be protected, @FIRST@ ...
+1,Callers must know p/w to read message!  Continue (Enter)=no
+1,Protocol Unavailable - Modem Type Wrong!
+6,Local Download Path
+7,Password to Read Message (ENTER alone aborts)
+6,Local Upload Path or Filename
+1,Printer Off-Line ...
+3,Enter the Security password desired
+2,Reply to Msgs: (#), (#), (Enter)=abort
+1,Path error in system configuration!
+1,Selection not available in local mode.
+1,Temporary Sysop privileges removed ...
+1,Temporary Sysop privileges granted this call only!
+0,Graphics mode is not available, @FIRST@ ...
+1,Automatic Lockout completed ...
+1,!|*|Y01000400|c0A|@0005RIPscrip |Y01000200|c0B|@3W0Fmode on|g0006
+1,Text Entry is Full ...
+1,ASCII transfer is not available on a binary file!
+1,NOTE: Transfer must end with a (Ctrl-Z)!
+0,None
+0,NO CONNECT / @OPTEXT@
+0,FULL COUNTDOWN
+0,NO CARRIER
+1,Disk Full - System presently unavailable!
+0,ALL NODES ARE BUSY AT THIS TIME PLEASE TRY LATER
+0,ALL
+7,Uploading text file directly into the message editor...
+0,~(Echo)
+0,~(A)
+0,~(R/O)
+1,Error reading Script Questionnaire
+1,Error reading Message base in use!
+1,Unable to exit to DOS - no REMOTE.SYS file found!
+1,No record available to update!
+6,Messages Successfully Packed & Purified!
+1,Enter `handle' to be used for Node Chat
+1,File Attachment: @OPTEXT@
+1,Enter a longer description of the file please!
+1,No Script Questionnaires are available, @FIRST@ ...
+3,(R) to re-enter your name or (C) to continue logon as a new user
+2,Would you like to register with us, @FIRST@? (Enter)=yes
+1,Keyboard Time Expired!
+1,Invalid Entry!  Please try again, @FIRST@ ...
+1,Sorry, @FIRST@, uploads are Private ...
+2,Online Registration being performed - please wait, @FIRST@ ...
+1,Automatic Disconnect Completed!
+3,Full USER Name to Find (Enter)=none
+3,Enter the filename to Download (Enter)=none
+3,Enter the filename to View (Enter)=none
+3,Menu Letter/Command you need Help with (Enter)=none
+3,Conference # to join (Enter)=none
+3,Node # to Auto-Logoff (Enter)=none
+3,Node # to View, (A)ll or (Enter)=none
+3,Questionnaire # to Answer (Enter)=none
+3,Enter the Filename to Upload (Enter)=none
+3,Enter the DOOR # to Open (Enter)=none
+3,Enter the Text to Scan for (Enter)=none
+3,Search Filename (wildcards are OK) (Enter)=none
+2,Date as (mmddyy) to search from (Enter)=
+0,Private Discussion
+1,Sorry, @FIRST@, you are not registered in Conference @OPTEXT@
+0,Open Discussion
+1,CAUTION: Auto-Disconnect in (@OPTEXT@) min.!
+2,Message # to Activate (Enter)=none
+1,Sorry, @FIRST@, no mail found to read ...
+2,Pack the message base (Enter)=no
+1,Delete the caller log (Enter)=no
+2,Purge older than (Enter)=010180
+2,Renumber during repack (Enter)=no
+1,NEW low starting Message # (Enter)=abort
+2,Complete the Questionnaire (Enter)=no
+1,Do you want to delete this line (Enter)=no
+2,Pack the user file (Enter)=no
+1,(@OPTEXT@) already exists.  Remove it (Y=Yes, N=No, C=Continue)
+2,View other Conference members (Enter)=no
+2,Purge RECEIVED+PRIVATE Msgs (Enter)=no
+2,Exit to DOS (Enter)=no
+2,Reference Message number purification proceeding ...
+1,Wrong password entered, @FIRST@ ...
+1,There is no such line, @FIRST@ ...
+1,Sorry, @FIRST@, there is no Message #
+1,Sorry, @FIRST@, you cannot kill Message #
+1,Invalid Selection, @FIRST@!  Please try again ...
+6,Page ends in 30 seconds.  (Ctrl-K) Aborts .
+2,Channel @OPTEXT@:~
+1,~~@FIRST@, press (Enter) for `no change' to any item ...
+7,SHELL completed on (@OPTEXT@).
+2,Page Length now set to @OPTEXT@.
+1,That user is not registered in this Conference ...
+7,@INCONF@Questionnaire (@OPTEXT@) info saved.
+1,Automatic Logoff Completed ...
+2,Keep `LOCKED OUT' users (Enter)=yes
+2,Purge older than (Enter)=010180
+2,Keep whose security => (Enter)=100
+7,User file successfully packed.
+7,Joining channel #@OPTEXT@.
+1,Sorry, @FIRST@, the two passwords do not match!
+3,Re-enter password to verify
+3,Enter user's Security Level
+3,Business or data phone # is
+3,~~~Home or voice phone # is
+3,~~Registered in Conferences
+1,@FIRST@, your time has been adjusted for our event.
+1,Response to the Question is Required!
+1,Sorry, @FIRST@, only real names are allowed ...
+1,Insufficient security for Viewing (@OPTEXT@)
+1,Sorry, @FIRST@, DOOR selected is not available.
+1,Sorry, @FIRST@, no Network is active.
+6,Enter (U) for status while awaiting other caller ...
+7,Thanks, @FIRST@, your registration information is saved.
+1,Sorry, @FIRST@, PACK not available from remote ...
+1,Error saving message ...
+1,Error in user file ...
+1,CHANNEL BUSY!  Please wait a moment before typing...
+1,Sorry, the Sysop is not currently available for CHAT!
+0,Sysop - Busy
+0,User - Busy
+0,DOS - Busy
+0,DOS - Not Busy
+0,Printer is Off
+0,Alarm is Off
+0,Page Bell is Off
+0,@OPTEXT@ has changed to a new handle:~
+1,Bulletins have been updated since last time on, @FIRST@.
+1,Insufficient time remaining to download (@OPTEXT@)
+1,Insufficient disk space for complete upload!
+1,Sorry, @FIRST@, uploads are currently disabled!
+1,7-E-1 Operation in Effect.
+3,DOS function to execute (Enter)=none
+3,Enter your logon password below to continue ...
+1,Excessive Main Command Line Errors!
+1,(Ctrl-K) or (Ctrl-X) Aborts, (Ctrl-S) Suspends.
+3,Enter new length (0)=continuous, (Enter)=no change
+1,Message Base Error!  Attempting to continue ...
+7,Password (Dots will echo)
+0,Do you want graphics (Enter)=no
+3,(R)e-enter user's name or (C)ontinue
+2,Checking user file - please wait ...
+3,~Password (one word please)
+7,Checking file transfer request.  Please wait, @FIRST@ ...
+1,(@OPTEXT@) already exists on the system.
+2,Msg Scan: (A)ll, (C)urrent, (S)ince, (Q)uick, (L)ong, (Enter)=abort
+3,Join Group CHAT Session (Enter)=no
+0,Awaiting Event Timer - All activity suspended ...
+7,Sts Msg#    Ref#    To              From            Subject
+1,(@OPTEXT@) Sorry, @FIRST@, download bytes left available are @BYTESLEFT@
+3,Before beginning, enter a description of: @OPTEXT@
+2,Begin description with (/) to make upload `Private'.
+3,Thanks for the file(s), @FIRST@!
+2,(A) (C) (D) (E) (F) (H) (I) (L) (Q) (S) (SA) (SC) (SK) (SN) (U)
+2,(A)bort, (C)ont Line Editor, (D)elete, (E)dit, (F)ull Scrn Editor, (H)elp,
+0,Modem Reset Error ..
+2,Thanks for calling, @FIRST@!
+3,(A), (C), (D), (F), (L), (P), (Q), (S), (U), (#), (+/-)
+3,A)dd, C)hange, D)el, F)ind, L)ist, P)rint, Q)uit, S)can, U)ndel, (#)
+3,~~~~~~~~To:~
+3,~~~~~~From:~
+3,~~~~~~Subj:~
+1,Unable to write USER Record - Aborting!
+0,@OPTEXT@ has changed the topic to:~
+1,Number of Users Purged:
+7,Sysop CHAT active at~
+7,Transfer Successful, @FIRST@.
+1,(@OPTEXT@) is an invalid filename!
+2,(@X0C@TIMELEFT@@X0A min. left) (H)elp, Chat Command
+2,(@X0C@TIMELEFT@@X0A min. left) (H)elp, Chat Command
+7,This channel is now private.  Outsiders cannot join.
+1,That channel is private.  You cannot join it at this time.
+1,7-E-1 Operation Not Available!  Call using 8-N-1 Modem Settings!
+1,PCBPACK Security Level Fail!
+7,Reloading PCBoard.  Please wait ...
+1,User Record Number Bad!
+7,Press ESC to enter command mode.
+0,~Aborted using~
+0,~Completed using~
+0,@OPTEXT@ has made the discussion private.
+0,Ring Detected -~
+0,Press (Space) to acknowledge Page, (Esc) when done.
+6,Minutes Used: @OPTEXT@
+3,Subject (Enter)=no change
+1,Message Security (H)=help
+2,Msg # to Begin Search from (@OPTEXT@)
+3,(@TIMELEFT@ min left), (H)elp, More
+2,(@TIMELEFT@ min left), (H)elp, End of Message Command
+2,Default Protocol Desired (Enter)=no change
+3,~~~~~To (Enter)=`ALL'
+3,Subject (Enter)=abort
+1,Error in filename request!
+6,Welcome back to PCBoard~
+1,Creating New Message Index File .
+7,Online update of user's record completed.
+1,Only ASCII and Kermit Protocols supported at 7-E-1!
+1,Number of Msgs Purged :
+1,Number of Bytes Purged:
+7,@X07@OPTEXT@ @X0Cnot found in user file.
+3,Two lines left before message is full, @FIRST@ ...
+0,@OPTEXT@ has entered this channel.
+0,@OPTEXT@ has left this channel.
+2,(V)iew, (P)rint, (S)can, (D)elete Caller Log, (Enter)=quit
+2,(V)iew, (P)rint Users, (Enter)=quit
+1,) was not found in line
+0,Carrier Lost ...
+5,(Enter) Starts, (Ctrl-X) Aborts
+5,(Ctrl-X) Aborts Transfer
+1,File Size is `0' - Aborting ...
+7,Sysop CHAT ended at~
+2,Edit: (T)o, (F)rom, (S)ubject, Refer (N)um, (R)ead, (P)rotection
+7,`Echo' Message, (Enter)=@OPTEXT@
+3,Text Entry Command
+3,(H)elp, (1-@NUMDIR@), File List Command
+3,(H)elp, (1-@NUMBLT@), Bulletin List Command
+1,~wants to CHAT with you on Channel @OPTEXT@.
+2,Respond by typing (CHAT) (G) and then select channel @OPTEXT@.
+3,Node CHAT: (G)roup, (U)navailable, (H)elp, (Enter)=none
+3,Node CHAT: (G)roup, (A)vailable, (H)elp, (Enter)=none
+1,Sorry, @FIRST@, Node requested is not available for CHAT.
+7,Node CHAT ended at @OPTEXT@
+7,Node CHAT entered at @OPTEXT@
+2,Enter a new `topic' for Channel @OPTEXT@
+0,Refused to register.
+6,Enter channel number (1-255), (L)ist channels or (Q)uit chat
+7,Monitor Mode is now off.
+7,Monitor Mode is now on.
+1,There are no channels in use at this time.
+2,Enter your text. (Enter) alone to end.~
+6,Out to DOS
+3,Filename to View (Enter)=none
+1,Error executing View of file (@OPTEXT@)
+2,View executed on file (@OPTEXT@)
+7,Checking View request.  Please wait, @FIRST@ ...
+6,Chatting with Sysop
+2,Default Protocol set to~
+1,Error reading PCBPROT.DAT!  Aborting ...
+6,Answering Script
+3,Enter the number of the node to CALL into chat
+3,Enter node (#) to ignore, (C)ancel or (W)ho
+7,Ignore Mode Cancelled
+7,This channel is now public.
+6,Rcvd Broadcast Message
+7,Loading PCBPack module.  Please wait ...
+1,PCBPack module not found!  Pack request unsuccessful ...
+7,Ignoring Nodes:~
+1,User already exists in the data base.
+3,What is the user's first name
+3,~What is the user's last name
+3,What is your first name
+3,~What is your last name
+7,Silent Mode is now off.
+7,Silent Mode is now on.
+3,Send private message to Node (#), (C)ancel or (S)how users
+2,Please wait - Adding @USER@ to Quick Index File ...
+3,City and State calling from
+3,~Reg. Exp. Date (as mmddyy)
+3,~~~Exp. Reg. Security Level
+3,~Exp. Reg. Conference Info.
+3,Special Comment/Record Info
+1,Sorry, @OPTEXT@ bps is not supported ...
+1,@OPTEXT@ bps is supported from @OFFHOURS@.
+1,System is currently unavailable ...
+1,@FIRST@, your record has been updated with changes made.
+3,Node # to Drop to DOS (Enter)=none
+1,Sorry, @FIRST@, no Bulletins are presently available.
+1,Sorry, @FIRST@, no DOORS are presently available.
+1,Sorry, @FIRST@, no Directories are presently available.
+1,Sorry, @FIRST@, no Conferences are presently available!
+3,~---   ---------------------   -----------------------------
+2,Protocol Type for Transfer, (Enter) or (N)=abort
+1,(@OPTEXT@) is an invalid Conference selection!
+1,(@OPTEXT@) is an invalid DOOR selection!
+7,Scanning Directory
+2,Page Length is currently set to
+1,Uploads Not Accepted on File Format (@OPTEXT@)
+2,~(#)   Status                  User
+7,Graphics mode is now on, @FIRST@ ...
+0,Graphics mode is now off, @FIRST@ ...
+7,Logoff Information Saved.
+1,Transfer Aborted ...
+1,Sorry, @FIRST@, you entered an invalid Bulletin #!
+1,Sorry, @FIRST@, you entered an invalid Directory #!
+0,Event @OPTEXT@ ran at~
+0,Caller Exited to DOS at @OPTEXT@
+0,Viewed Text file (@OPTEXT@)
+3,Scan Message Base Since `Last Read' (Enter)=yes
+2,New Info
+2,Enter text of private message below:
+1,PRIVATE MESSAGE!  @X0BTo respond privately use: SEND @OPTEXT@
+3,Filename to Download (Enter)=@OPTEXT@
+3,Carbon Copy To (Enter)=none
+0,Opened Door (@OPTEXT@) at~
+6,No Caller this Node
+6,Available for CHAT
+6,Out of Code in DOOR
+6,Auto Logoff Pending
+6,DOS Recycle Pending
+6,Unavailable for CHAT
+6,Transferring a File
+6,Entering a Message
+6,CHATTING with Group
+6,Drop to DOS Pending
+0,@OPTEXT@ has made the discussion public.
+1,Channel 1 cannot be made private.
+1,Incorrect Download Password for File (@OPTEXT@)
+1,Incorrect Upload Password for File (@OPTEXT@)
+1,Incorrect View Password for File (@OPTEXT@)
+1,Incorrect Password for DOOR (@OPTEXT@)
+1,That node is not in group chat!
+7,Preparing file(s) for download.  Please wait.
+0,Bulletin Read:~
+1,Input File Name
+3,File Selected: ~
+3,Protocol Type: ~
+3,Select Conference(s)
+1,(@OPTEXT@) not found on disk!
+2,I'm back!  Thanks for waiting~
+2,@OPTEXT@ Joined
+3,Local password
+2,Enter the Message # to Kill (Enter)=none
+1,Punctuation Error:  Quotes may be necessary around the search criteria.
+0,Back from DOS at @OPTEXT@
+2,Hello, this is @OPTEXT@.~~
+7,Message Restored:~
+1,Message Killed:~
+0,Comment Left:~
+0,Message Left:~
+7,Saving Comment #
+7,Saving Message #
+0,~~~~(Enter) continues with display
+0,~~~~(Y) yes, continue with display
+0,~~~~(N) no, stop displaying this text
+0,~~~~(NS) continue reading in non-stop mode
+6,Drop to DOS - Urgent
+1,Force logoff now (`N'=wait until caller logs off, then drop to DOS)
+0,~~~~(V) View a file, then continue displaying files
+2,~~# Msgs Found:
+3,Node # to Recycle through DOS (Enter)=none
+0,Password Failure (@OPTEXT@)
+7,Expert mode is now on, @FIRST@ ...
+7,Expert mode is now off, @FIRST@ ...
+3,Files: (1-@NUMDIR@), (A), (U), (Enter)=none
+3,Files: (1-@NUMDIR@), (A)ll, (U)ploads, (Enter)=none
+0,Alt-> F=Out I=In N=Next X=DOS P=Printer T=FmFeed F1/F2=Time F9/F10=Security
+0,1=SyPrv 2=LkOut 3=Print 4=Bell 5=SHELL 6=Reg 7=Alarm 8=HngUp 9=Screen 10=Chat
+1,Network Delay - Please Wait, @FIRST@ ...
+3,Download Time:~
+3,Download Size:~
+3,Total Will Be:~
+3,Upload Drive :
+2,~Bytes Free Disk Space
+1,Thread Read Terminated ...
+1,Message Number Memorized ...
+1,Message Text Search Terminated ...
+1,Insufficient memory for CHAT buffers.
+3,Upload Status:
+1,~~Screened Before Posting
+1,~~Posted Immediately
+0,Caller Num.:
+1,Unable to open CHAT file.
+0,Lst Date On:~
+0,Expire Date:~
+0,# Times On :
+0,Page Length:
+0,Expert Mode: On
+0,Expert Mode: Off
+0,Security Lv:
+0,# Downloads:
+0,# Uploads  :
+0,Bytes Avail:
+0,L/Msg. Read:
+0,High Msg. #:
+0,Active Msgs:
+0,Tr/Protocol:~
+3,Operational Languages Available:
+1,Alternative Language Operation Not Available.
+3,Enter Language # to use (Enter)=no change
+7,English Language is now active.
+1,Language Requested Not Available.
+2,~minutes (approximate)
+1,SHELL Batch file Missing (
+0,Resetting Packet ...
+0,Resetting Modem ...
+0,System is Ready For Callers
+3,~min. left)
+3,(@X0C@TIMELEFT@@X0E min. left) @INCONF@Command
+7,Scanning~
+7,Scanning Main (0)
+0,~Conference
+0,Main Board
+1,Error in Chat File format, aborting...
+1,Found: @X07@OPTEXT@
+1,Abort your entry (Enter)=no
+7,Text Entry Aborted ...
+3,Delete Line #
+1,Sorry, @FIRST@, unable to Insert another line!
+3,Before Line #
+3,Which line do you want to edit, @FIRST@
+0,Operator Paged at~
+0,Hanging Up Phone ...
+0,Going Off-Hook ...
+6,@OPTEXT@ Abandoned
+1,(@OPTEXT@) Menu Selection is not available, @FIRST@.
+3,(@OPTEXT@) Enter the password for uploading
+3,~~~Enter password to open the DOOR
+3,(@OPTEXT@) Enter the password for viewing
+3,(@OPTEXT@) Enter the password for downloading
+2,Press (Enter) to continue
+1,Insufficient security for DOOR (@OPTEXT@)
+2,Edit: (T)o, (F)rom, (S)ubject, Refer (N)um, (R)ead, (P)rotection, (E)cho
+1,Sorry, @FIRST@, no NEWS file is available!
+3,~~Msgs For You:~
+3,~Msgs From You:~
+3,(H)elp, (@OPTEXT@), Message Scan Command
+3,(H)elp, (@OPTEXT@), Message Read Command
+1,No message number has been memorized!
+1,The user may be busy.  Attempt to CALL into chat anyway
+1,Insufficient Download Security for (@OPTEXT@)
+7,Caller Log Viewed
+7,Directory Scan for (@OPTEXT@)
+1,User File Viewed
+1,Sorry, @FIRST@, Insufficient Security for `From' edit!
+7,This system is set to test uploaded files.  This can be a lengthy process.
+1,(H)ang up now, or press any other key to remain online...
+7,Hanging up now.  Thank you for the upload(s).
+7,~has exited to DOS.  Please wait ...
+1,Upload aborted ...
+3,~~Enter (Oldtext;Newtext) or (Enter) alone for `no change'.
+7,Date:                               Number:
+0,~~To:
+0,HAS REPLIES
+0,From:
+0,(N/A)
+0,NO
+0,RECEIVER ONLY
+0,GROUP PASSWORD
+0,SENDER PASSWORD
+0,PUBLIC MESSAGE
+7,Uploading will lose the Flagged Files list.  Continue with upload
+0,(Error Correcting Modem Detected)
+0,Refer#
+0,Read:
+0,Subj:
+1,Not Using Sysop Record #1 - Pack not Available!
+0,Status:
+1,Pack Message Base Before Continuing!
+1,No Security Level Match in PWRD File!
+0,Free Msg #s:
+0,Low Msg. # :
+0,Defined #'s:
+2,Generate ONLY a New Index File (Enter)=no
+1,Assign More Message BLOCKS using PCBSetup!
+7,Chat Echo disabled.  Use the ECHO command to re-enable it.
+7,Chat Echo enabled.
+3,Move Message to what Conference #
+0,~/ FILE
+0,Message Moved: #
+0,~/ LIST
+3,Recent Uploads
+0,(Esc) Exit, () () (PgUp) (PgDn) (Home) (End) Scrolls, (Space) Tags/Untags
+0,Scroll Lines Above Cursor:
+0,Scroll Lines Below Cursor:
+0,(Generic Message)
+2,(G)oodbye after Batch, (A)bort, Change (P)rotocol, (Enter)=continue
+5,(Ready to Send in Batch Mode)
+1,The file received is wider than 79 characters.
+3,(S)ave or (A)bort message
+7,Batch Transfer Ended.
+1,Output File Name
+3,Batch Download Time:~
+3,Batch Download Size:~
+3,Batch Protocol Type: ~
+2,(A)ll Abort Detected. Continue with scan (Enter)=yes
+2,Conf:                            Read Type: GENERAL
+2,Conf:                            Read Type: THREAD READ
+2,Conf:                            Read Type: TEXT SCAN
+2,Conf:                            Read Type: MAIL FOR YOU
+2,Conf:                            Read Type: MAIL FROM YOU
+2,Conf:                            Read Type: TO OR FROM YOU
+2,(G)oodbye after Download, (A)bort Download (Enter)=continue
+1,Attached File: @X07@OPTEXT@~~
+1,Capture Aborted.  Read Pointers Restored ...
+1,Goodbye in 10 seconds. (H)ang up now or (Ctrl-K) to cancel
+2,Capture file is empty - nothing to download.
+3,Total Messages Captured for Download ->
+5,Sending File(s) - Start your download ...
+0,Logging into System
+3,Use Full Screen Editor
+6,Full Screen Editor requires ANSI capability
+3,Download Flagged Files
+1,New Bulletin(s):
+0,Attempted to log on as:~
+3,Perform (S)oundex Search, (R)e-enter User's Name or (C)ontinue
+3,(U)se Found Name, (S)earch for more, (R)e-enter Name or (C)ontinue
+3,QUOTE: Starting line number, (Q) to Quit
+3,QUOTE: Ending line number, (Q) to Quit
+7,Compressing capture file, please wait...
+6,Insufficient Memory for Operation @OPTEXT@
+0,Sysop - Not Busy
+0,User - Not Busy
+0,PCBSysMgr
+0,PCBFiler
+0,PCBSetup
+0,SYSTEM Statistics
+0,PCBMoni
+0,Reset Stats
+0,No Printer
+0,Printer is On
+0,Alarm is On
+0,Page Bell is On
+0,Log in as a regular user.  Callers will get a busy signal.
+0,Log in as a regular user.  RING Alert will be activated.
+0,Toggle printer off or on.  When on, caller log is echoed to printer.
+0,Run PCBoard System Manager for User File maintenance.
+0,Choose between System-Wide and Node-Specific Statistics Display
+0,Log in as the Sysop.  Callers will get a busy signal.
+0,Log in as the Sysop.  RING Alert will be activated.
+0,Toggle `Page Bell' on or off.  System will BEEP when caller pages you.
+0,Run PCBFiler for File Directory maintenance.
+0,Run PCBMoni to monitor NODE activity
+0,Drop to DOS.  Callers will get a busy signal.
+0,Drop to DOS.  Callers will NOT get a busy signal.  Phone will ring!
+0,Toggle `Caller Alarm' on or off.  System BEEPs as caller logs on, etc.
+0,Run PCBSetup to change PCBoard configuration.
+0,Reset Node/System Statistics to Zero
+0,No Modem Selected
+0,Last Caller:
+0,Calls:
+0,Msgs:
+0,D/Ls:
+0,U/Ls:
+2,Press (Esc) to Exit  (Ctrl-Z) for Help
+2,(Ins/Ctrl-V) Mode: Overwrite
+2,(Ins/Ctrl-V) Mode: Insert
+3,(@OPTEXT@), Set your Last Message Read to
+1,Last Message Read now set to @OPTEXT@.
+0,Unlimited
+0,~~~~(F) Flag a file for later download, then continue displaying files
+3,(@TIMELEFT@ min left), (H)elp, (V)iew, (F)lag, More
+2,(A)bort, (E)dit, (G)oodbye, (L)ist, (P)rotocol, (Enter)=continue
+2,(A)dd a File, (R)emove a File, (L)ist Batch, (Enter)=continue
+1,(@OPTEXT@), Remove file number(s)
+7,Removed from Batch: @OPTEXT@
+1,(@OPTEXT@) duplicates a file already in the batch!
+1,Batch limit reached.  @OPTEXT@ was not added to the batch.
+3,Clear the screen between each message
+3,Enter the filename to flag for download (Enter)=none
+7,~~~~~~~User Name                  Location              Last On
+3,Enter text to scan for (ENTER alone finds all registered users)
+0,LOCAL Statistics
+1,Delete this record
+3,Enter Conference Numbers, (S)elect All, (D)eselect All or (Q)uit
+3,Enter Conference Numbers or (Q)uit
+3,Conf. Flags (R=Reg, X=Exp Reg, S=Scan, C=Conf Sysop, N=Net Status)
+2,Selecting ALL Conferences, Please Wait
+2,@FIRST@, you have new mail waiting in the following conference(s):
+3,Read messages TO or FROM (enter user's name)
+1,Both First and Last Names are required!
+3,Copy Message to what Conference #
+0,Message Copied: #
+2,Would you like to leave a comment to the Sysop instead
+2,~FREE
+2,~/ NO TIME
+3,Enter the filename to Test (Enter)=none
+2,Verifying @OPTEXT@...
+7,~passed.
+1,~FAILED!
+0,Verification FAILED on @OPTEXT@!
+3,Paging the Sysop
+2,Conference                                                          To   Total
+2,~~#   Name                                                          You  Found
+2,----- ------------------------------------------------------------ ----- -----
+3,Full Screen Editor Default: (Y)es, (N)o, (A)sk
+3,(H)elp, (@OPTEXT@), Message Read Command
+3,(H)elp, (1-@NUMDIR@), File List Command
+7,Conference                                                   Last   High
+7,~~#   Name                                                   Read   Num. Flags
+7,CTTY mode is now on, @FIRST@ ...
+7,ANSI mode is now on, @FIRST@ ...
+0,Modem: @OPTEXT@
+0,Caller Number: @OPTEXT@
+0,Caller Security: @OPTEXT@
+0,of
+7,Loading @OPTEXT@, please wait...
+3,Did you forget your password?
+7,Would you like to leave a comment to the sysop before logging off
+0,COMMENT: PASSWORD FAILURE
+3,Is this correct
+7,Please try using a different name.  If desired, try adding a middle initial.
+1,Lock caller out and disconnect
+1,Disconnect caller
+1,Give caller sysop privileges
+1,Warning:  You have files flagged for download!
+7,Proceed with running the @OPTEXT@ door
+7,Proceed with logoff
+1,@INCONF@has been selected.
+1,@INCONF@has been deselected.
+6,Searching for @OPTEXT@
+2,Upload Credits: 0.0 minutes, 0 bytes
+1,Could not find @X07@OPTEXT@ @X0Cin the user file.
+3,(H)elp, (1-@NUMBLT@), Bulletin List Command
+2,(@TIMELEFT@ min left), (H)elp, End of Message Command
+3,(H)elp, (@OPTEXT@), Message Scan Command
+1,(maximum per-conference limit reached)
+1,(maximum message limit reached)
+1,(Rcvd Files: @RFILES@  Bytes: @RBYTES@  CPS: @RCPS@  Combined CPS: @BICPS@)
+1,Batch Upld: @RFILES@  Bytes: @RBYTES@  Avg. CPS: @RCPS@ (@BICPS@)
+1,Batch Upld: @RFILES@  Bytes: @RBYTES@  Avg. CPS: @RCPS@
+1,Batch Dnld: @SFILES@  Bytes: @SBYTES@  Avg. CPS: @SCPS@
+1,~~(Files: @SFILES@  Bytes: @SBYTES@  Avg. CPS: @SCPS@)
+1,~~(Files: @RFILES@  Bytes: @RBYTES@  Avg. CPS: @RCPS@)
+1,~~(Avg. CPS: @SCPS@)
+1,~~(Avg. CPS: @RCPS@)
+2,Additional Commands: (@X0FFLAG@X0A) for download, (@X0FV@X0A)iew file.
+1,Size: @X07@OPTEXT@
+1,That handle is not allowed, please pick another!
+3,Scroll multi-screen messages
+3,Use long headers when reading messages
+2,(I)nsert, (L)ist Msg, (Q)uote, (S)ave, (SA)Save Attach, (U)pload Msg
+2,Request Return Receipt
+1,Return Receipt Requested.~~
+7,Generating Receipt, please wait...
+1,Your message number   : @X07
+1,Which was addressed to: @X07
+1,Was received/read on  : @X07
+2,Route message to
+3,Set editor workspace default to 79 columns
+1,This conference is READ-ONLY!
+1,Private messages are not allowed in this conference.
+3,Conference Password
+1,The message already contains a File Attachment!
+3,Carbon List To (Enter)=none
+1,cc: @OPTEXT@
+3,Read messages TO (enter user's name)
+3,Read messages FROM (enter user's name)
+1,The File Attachment is missing from disk and cannot be flagged.
+1,File Attachments are not allowed in this conference.
+1,Carbon Copy List maximum reached!
+1,Errors encountered, PPE aborted...
+1,Unable to allocate memory (@OPTEXT@).
+1,Invalid token encountered (@OPTEXT@).
+1,Error occurred executing PPE (@OPTEXT@).
+1,An error occurred evaluating an expression.
+1,Error loading PPE (@OPTEXT@) from disk.
+1,Error appending (@OPTEXT@) to answer file.
+1,Error deleting file (@OPTEXT@).
+1,Updating index file, please wait...
+2,(72 chars/line, @OPTEXT@ lines maximum)
+2,(79 chars/line, @OPTEXT@ lines maximum)
+2,(45 chars/line, @OPTEXT@ lines maximum)
+0,(Carbon List)
+7,Read your personal mail now: (Y)es, (N)o, (A)ll new mail
+2,Scanning for new mail...
+7,You have new mail waiting.  Please read it NOW.
+2,Scanning for new bulletins...
+2,Your current Download:Upload file ratio is  : @X0F@FILERATIO@
+2,Your current Download:Upload byte ratio is  : @X0F@BYTERATIO@
+2,Your Download:Upload ratio must remain below: @X0F@OPTEXT@
+1,Downloading @OPTEXT@ would exceed your file ratio.
+1,Downloading @OPTEXT@ would exceed your byte ratio.
+2,Number of files downloaded so far: @X0F@DLFILES@
+2,Number of bytes downloaded so far: @X0F@DLBYTES@
+1,Your download limit is set at    : @X0F@OPTEXT@
+1,Downloading @OPTEXT@ would exceed your file limit.
+1,Downloading @OPTEXT@ would exceed your byte limit.
+7,Creating QWK Packet, please wait...
+1,Error compressing file.
+2,QWK Commands: (D)ownload, (U)pload
+3,Extracting messages, please wait...
+1,Error extracting messages.
+1,Invalid menu option type encountered (@OPTEXT@)
+3,@OPTEXT@ Menu Command ('MENU' for options)
+6,Running Event
+0,Event finished at~
+7,Message(s) successfully inserted.
+1,Message insertion failed.
+1,Files matching (@OPTEXT@) are not allowed on this system.
+3,Date when message should be Packed-Out (mmddyy)
+1,Message Pack Date: @OPTEXT@
+3,Alias Name (enter=no change)
+7,Hiding identity change, please wait...
+1,Changed name to @OPTEXT@.
+1,Your true identity is protected while you remain in this conference.
+0,Changed alias to @OPTEXT@.
+0,Attempted to use @OPTEXT@ as an alias.
+0,Byte Ratio :~
+0,File Ratio :~
+1,Please enter your Address (2 lines provided for Street Address):
+3,~~~~~Street (1 of 2)
+3,~~~~~Street (2 of 2)
+3,~~~~~~~~~~~~~~~~City
+3,~~~~~~~~~~~~~~~State
+3,~~~~~~~~~~~~Zip Code
+3,~~~~~~~~~~~~~Country
+1,You have already used that password.  Please pick another one.
+3,Enter your mother's maiden name
+7,For verification, enter your mother's maiden name
+1,Password too short!  Must be @OPTEXT@ characters or longer, try again.
+1,Your password cannot be a subset of your name, try again.
+1,Your password has expired.  Please enter a new password now.
+1,Your password will expire in @OPTEXT@ days.  Use the (W) command to change it.
+2,Date as (mmddyy) to search from (Enter)=
+0,Return Receipt:~
+1,Forwarded From: @X07@OPTEXT@
+1,Forwarded By  : @X07@OPTEXT@
+1,Insufficient Credits!  Credits Needed @OPTEXT@, Credits Left @CREDLEFT@.
+5,Credits Used: @CREDNOW:9R@
+5,Credits Left: @CREDLEFT:9R@
+1,You have exceeded your credit limit!
+1,Your security level has been changed to @SECURITY@.
+0,~NO COST
+0,RETURN RECEIPT
+0,COMMENT
+1,Error in FROM name: @OPTEXT@
+7,~Msg#    Ref#    To              From            Subject
+0,FILE FAILED VERIFICATION CHECK
+0,Uploaded by: @OPTEXT@
+3,(@FNUM@) Enter the filename to Download (Enter)=none
+3,(@FNUM@) Enter the Filename to Upload (Enter)=none
+0,------------------------  ------------------------  ---------------
+5,(Net)~
+3,Set Message Capture Limit (System Max=@OPTEXT@)
+3,Set Per-Conference Message Capture Limit (System Max=@OPTEXT@)
+3,Maximum Size to Auto-Include Personal Attachments in QWK Packet
+3,Maximum Size to Auto-Include Attachments in QWK Packet
+2,Post-to Groups
+2,Follow-up Groups
+6,Handling Mail
+3,(@TIMELEFT@ min left), (V)iew, (F)lag, (S)how, More
+3,Enter DIR Command
+1,No files found.
+5,Directory of @OPTEXT@
+7,Short Description Mode in effect
+7,Long Description Mode in effect
+3,Show long description of what file
+3,Set default file description to SHORT (one-line) format
+3,Enter your gender (M/F)
+3,Enter your birthdate
+3,Enter your E-mail address
+3,Enter your WEB address
+3,Enter color (B)lue,(G)reen,(C)yan,(R)ed,(M)agenta,(Y)ellow,(W)hite,(+/-)
+3,Enter node # or Handle

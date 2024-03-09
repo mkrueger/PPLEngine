@@ -6,7 +6,9 @@
     clippy::cast_possible_wrap,
     clippy::too_many_lines,
     clippy::cast_lossless,
-    clippy::cast_precision_loss
+    clippy::cast_precision_loss,
+    clippy::struct_excessive_bools,
+    clippy::module_name_repetitions
 )]
 use ast::Statement;
 
@@ -18,8 +20,12 @@ pub mod compiler;
 pub mod crypt;
 pub mod decompiler;
 pub mod executable;
+pub mod icy_board;
+pub mod interpreter;
 pub mod parser;
 pub mod tables;
+
+pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
 #[derive(PartialEq, Debug)]
 pub enum OutputFunc {

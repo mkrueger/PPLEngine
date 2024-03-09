@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use ppl_engine::{
+use icy_ppe::{
     ast::{Program, Statement, VariableType, VariableValue},
     compiler::transform_ast,
     crypt::{encode_rle, encrypt},
@@ -259,7 +259,7 @@ impl Executable {
 
         for d in prg.declarations.iter() {
             match d {
-                ppl_engine::ast::Declaration::Function(name, params, ret_value) => {
+                icy_ppe::ast::Declaration::Function(name, params, ret_value) => {
                     self.procedure_declarations.insert(
                         name.clone(),
                         Function {
@@ -272,7 +272,7 @@ impl Executable {
                         },
                     );
                 }
-                ppl_engine::ast::Declaration::Procedure(name, params) => {
+                icy_ppe::ast::Declaration::Procedure(name, params) => {
                     self.procedure_declarations.insert(
                         name.clone(),
                         Function {
@@ -285,7 +285,7 @@ impl Executable {
                         },
                     );
                 }
-                ppl_engine::ast::Declaration::Variable(var_type, vars) => {
+                icy_ppe::ast::Declaration::Variable(var_type, vars) => {
                     for v in vars {
                         self.add_variable(*var_type, v.get_name(), v.get_dims(), 0, 0, 0);
                     }
@@ -550,31 +550,31 @@ impl Executable {
         Ok(buffer)
     }
 
-    fn compile_expression(&mut self, expr: &ppl_engine::ast::Expression) -> Vec<u16> {
+    fn compile_expression(&mut self, expr: &icy_ppe::ast::Expression) -> Vec<u16> {
         let mut stack = Vec::new();
         self.comp_expr(&mut stack, expr);
         stack.push(0); // push end of expression
         stack
     }
 
-    fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &ppl_engine::ast::Expression) {
+    fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &icy_ppe::ast::Expression) {
         match expr {
-            ppl_engine::ast::Expression::Identifier(id) => {
+            icy_ppe::ast::Expression::Identifier(id) => {
                 let decl = self.variable_declarations.get(id).unwrap();
                 stack.push(*decl as u16);
                 stack.push(0);
             }
-            ppl_engine::ast::Expression::Const(constant) => {
+            icy_ppe::ast::Expression::Const(constant) => {
                 stack.push(self.lookup_constant(constant));
                 stack.push(0);
             }
-            ppl_engine::ast::Expression::Parens(expr) => {
+            icy_ppe::ast::Expression::Parens(expr) => {
                 self.comp_expr(stack, expr);
             }
-            ppl_engine::ast::Expression::FunctionCall(_, _) => {
+            icy_ppe::ast::Expression::FunctionCall(_, _) => {
                 print!("Function call not implemented");
             }
-            ppl_engine::ast::Expression::PredefinedFunctionCall(func, parameters) => {
+            icy_ppe::ast::Expression::PredefinedFunctionCall(func, parameters) => {
                 for p in parameters {
                     let mut stack = Vec::new();
                     self.comp_expr(&mut stack, p);
@@ -582,11 +582,11 @@ impl Executable {
                 }
                 self.script_buffer.push(func.opcode as u16);
             }
-            ppl_engine::ast::Expression::UnaryExpression(op, expr) => {
+            icy_ppe::ast::Expression::UnaryExpression(op, expr) => {
                 self.comp_expr(stack, expr);
                 stack.push(*op as u16);
             }
-            ppl_engine::ast::Expression::BinaryExpression(op, left, right) => {
+            icy_ppe::ast::Expression::BinaryExpression(op, left, right) => {
                 self.comp_expr(stack, left);
                 self.comp_expr(stack, right);
                 stack.push(*op as u16);
@@ -594,7 +594,7 @@ impl Executable {
         }
     }
 
-    fn lookup_constant(&mut self, constant: &ppl_engine::ast::Constant) -> u16 {
+    fn lookup_constant(&mut self, constant: &icy_ppe::ast::Constant) -> u16 {
         let id = self.variable_table.len() as u16;
         self.variable_table.insert(
             self.variable_table.len().to_string(),

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::ast::{constant::BuiltinConst, variable_value::VariableValue, BinOp, VariableType};
+use crate::ast::{constant::BuiltinConst, BinOp, VariableType};
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp
@@ -1740,83 +1740,6 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 218] = [
 
 pub const PPL_TRUE: i32 = 1;
 pub const PPL_FALSE: i32 = 0;
-
-pub static CONSTANT_VALUES: [(&str, VariableValue); 72] = [
-    ("AUTO", VariableValue::Integer(0x02000)),
-    ("BELL", VariableValue::Integer(0x00800)),
-    ("DEFS", VariableValue::Integer(0x00)),
-    ("ECHODOTS", VariableValue::Integer(0x00001)),
-    ("ERASELINE", VariableValue::Integer(0x00020)),
-    ("FCL", VariableValue::Integer(0x02)),
-    ("FIELDLEN", VariableValue::Integer(0x00002)),
-    ("FNS", VariableValue::Integer(0x01)),
-    ("F_EXP", VariableValue::Integer(0x02)),
-    ("F_MW", VariableValue::Integer(0x10)),
-    ("F_REG", VariableValue::Integer(0x01)),
-    ("F_SEL", VariableValue::Integer(0x04)),
-    ("F_SYS", VariableValue::Integer(0x08)),
-    ("GRAPH", VariableValue::Integer(0x01)),
-    ("GUIDE", VariableValue::Integer(0x00004)),
-    ("HIGHASCII", VariableValue::Integer(0x01000)),
-    ("LANG", VariableValue::Integer(0x04)),
-    ("LFAFTER", VariableValue::Integer(0x00100)),
-    ("LFBEFORE", VariableValue::Integer(0x00080)),
-    ("LOGIT", VariableValue::Integer(0x08000)),
-    ("LOGITLEFT", VariableValue::Integer(0x10000)),
-    ("NC", VariableValue::Integer(0x00)),
-    ("NEWLINE", VariableValue::Integer(0x00040)),
-    ("NOCLEAR", VariableValue::Integer(0x00400)),
-    ("O_RD", VariableValue::Integer(0x00)),
-    ("O_RW", VariableValue::Integer(0x02)),
-    ("O_WR", VariableValue::Integer(0x01)),
-    ("SEC", VariableValue::Integer(0x02)),
-    ("SEEK_CUR", VariableValue::Integer(0x01)),
-    ("SEEK_END", VariableValue::Integer(0x02)),
-    ("SEEK_SET", VariableValue::Integer(0x00)),
-    ("STACKED", VariableValue::Integer(0x00010)),
-    ("S_DB", VariableValue::Integer(0x03)),
-    ("S_DN", VariableValue::Integer(0x00)),
-    ("S_DR", VariableValue::Integer(0x01)),
-    ("S_DW", VariableValue::Integer(0x02)),
-    ("UPCASE", VariableValue::Integer(0x00008)),
-    ("WORDWRAP", VariableValue::Integer(0x00200)),
-    ("YESNO", VariableValue::Integer(0x04000)),
-    // Debug
-    ("START_BAL", VariableValue::Integer(0x00)),
-    ("START_SESSION", VariableValue::Integer(0x01)),
-    ("DEB_CALL", VariableValue::Integer(0x02)),
-    ("DEB_TIME", VariableValue::Integer(0x03)),
-    ("DEB_MSGREAD", VariableValue::Integer(0x04)),
-    ("DEB_MSGCAP", VariableValue::Integer(0x05)),
-    ("DEB_MSGWRITE", VariableValue::Integer(0x06)),
-    ("DEB_MSGECHOED", VariableValue::Integer(0x07)),
-    ("DEB_MSGPRIVATE", VariableValue::Integer(0x08)),
-    ("DEB_DOWNFILE", VariableValue::Integer(0x09)),
-    ("DEB_DOWNBYTES", VariableValue::Integer(0x0A)),
-    ("DEB_CHAT", VariableValue::Integer(0x0B)),
-    ("DEB_TPU", VariableValue::Integer(0x0C)),
-    ("DEB_SPECIAL", VariableValue::Integer(0x0D)),
-    ("CRED_UPFILE", VariableValue::Integer(0x0E)),
-    ("CRED_UPBYTES", VariableValue::Integer(0x0F)),
-    ("CRED_SPECIAL", VariableValue::Integer(0x10)),
-    ("SEC_DROP", VariableValue::Integer(0x11)),
-    // Undocumented 15.4 constants
-    ("HDR_STATUS", VariableValue::Integer(1)),
-    ("HDR_MSGNUM", VariableValue::Integer(2)),
-    ("HDR_MSGREF", VariableValue::Integer(3)),
-    ("HDR_BLOCKS", VariableValue::Integer(4)),
-    ("HDR_DATE", VariableValue::Integer(5)),
-    ("HDR_TIME", VariableValue::Integer(6)),
-    ("HDR_TO", VariableValue::Integer(7)),
-    ("HDR_RPLYDATE", VariableValue::Integer(8)),
-    ("HDR_RPLYTIME", VariableValue::Integer(9)),
-    ("HDR_REPLY", VariableValue::Integer(10)),
-    ("HDR_FROM", VariableValue::Integer(11)),
-    ("HDR_SUBJ", VariableValue::Integer(12)),
-    ("HDR_PWD", VariableValue::Integer(13)),
-    ("HDR_ACTIVE", VariableValue::Integer(14)),
-    ("HDR_ECHO", VariableValue::Integer(15)),
-];
 
 #[repr(i16)]
 #[allow(dead_code)]

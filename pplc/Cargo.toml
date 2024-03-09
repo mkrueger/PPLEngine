@@ -1,0 +1,16 @@
+[package]
+name = "pplc"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+icy_ppe = { path = "../icy_ppe" }
+
+lazy_static = "1.4.0"
+argh = "0.1.7"
+semver = "1.0.20"
+thiserror = "1.0.57"
+
+[profile.release]
+strip = "symbols"

@@ -1,4 +1,7 @@
-use crate::ast::{constant::BuiltinConst, Constant};
+use crate::{
+    ast::{constant::BuiltinConst, Constant},
+    tables::UNICODE_TO_CP437,
+};
 use core::fmt;
 use logos::Logos;
 use thiserror::Error;
@@ -175,7 +178,9 @@ pub enum Token {
     #[token("end", ignore(case))]
     End,
 
-    #[regex(r#""[^"]*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
+    #[regex(r#""[^"]*""#, |lex| {
+        Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string())
+    })]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
         let slice = lex.slice();
         let num = i32::from_str_radix(&lex.slice()[2..], 16);

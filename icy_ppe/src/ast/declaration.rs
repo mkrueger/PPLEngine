@@ -65,6 +65,37 @@ impl VarInfo {
         }
     }
 
+    pub fn get_vector_size(&self) -> usize {
+        match self {
+            VarInfo::Var0(_) => 0,
+            VarInfo::Var1(_, vec) | VarInfo::Var2(_, vec, _) | VarInfo::Var3(_, vec, _, _) => {
+                match vec {
+                    Expression::Const(Constant::Integer(size)) => *size as usize,
+                    _ => panic!("vector size not int"),
+                }
+            }
+        }
+    }
+    pub fn get_matrix_size(&self) -> usize {
+        match self {
+            VarInfo::Var0(_) | VarInfo::Var1(_, _) => 0,
+            VarInfo::Var2(_, _, mat) | VarInfo::Var3(_, _, mat, _) => match mat {
+                Expression::Const(Constant::Integer(size)) => *size as usize,
+                _ => panic!("matrix size not int"),
+            },
+        }
+    }
+
+    pub fn get_cube_size(&self) -> usize {
+        match self {
+            VarInfo::Var0(_) | VarInfo::Var1(_, _) | VarInfo::Var2(_, _, _) => 0,
+            VarInfo::Var3(_, _, _, cube) => match cube {
+                Expression::Const(Constant::Integer(size)) => *size as usize,
+                _ => panic!("cube size not int"),
+            },
+        }
+    }
+
     pub fn is_array(&self) -> bool {
         match self {
             VarInfo::Var0(_) => false,

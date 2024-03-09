@@ -207,7 +207,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 decrypt(&mut (buf[i..(i + string_length)]), version);
                 let mut str = String::new();
                 for c in &buf[i..(i + string_length - 1)] {
-                    str.push(*c as char);
+                    str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
                 }
                 var_decl.string_value = str; // C strings always end with \0
                 i += string_length;

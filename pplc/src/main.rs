@@ -100,9 +100,18 @@ impl Variable {
             } else {
                 String::new()
             };
-            buffer.extend_from_slice(&u16::to_le_bytes(s.len() as u16 + 1));
-            let mut string_buffer: Vec<u8> = s.bytes().collect();
+            let mut string_buffer: Vec<u8> = Vec::new();
+
+            for c in s.chars() {
+                if let Some(b) = icy_ppe::tables::UNICODE_TO_CP437.get(&c) {
+                    string_buffer.push(*b);
+                } else {
+                    string_buffer.push(c as u8);
+                }
+            }
             string_buffer.push(0);
+
+            buffer.extend_from_slice(&u16::to_le_bytes(string_buffer.len() as u16));
             encrypt(&mut string_buffer, version);
             buffer.extend(string_buffer);
         } else {
@@ -136,6 +145,7 @@ struct Executable {
 
 const ENDPROC: u16 = 0x00a9;
 const ENDFUNC: u16 = 0x00ab;
+const END: u16 = 1;
 
 impl Executable {
     pub fn new() -> Self {
@@ -261,7 +271,7 @@ impl Executable {
             match d {
                 icy_ppe::ast::Declaration::Function(name, params, ret_value) => {
                     self.procedure_declarations.insert(
-                        name.clone(),
+                        name.to_uppercase().clone(),
                         Function {
                             args: params.len() as i32,
                             total_var: 0,
@@ -274,7 +284,7 @@ impl Executable {
                 }
                 icy_ppe::ast::Declaration::Procedure(name, params) => {
                     self.procedure_declarations.insert(
-                        name.clone(),
+                        name.to_uppercase().clone(),
                         Function {
                             args: params.len() as i32,
                             total_var: 0,
@@ -287,7 +297,14 @@ impl Executable {
                 }
                 icy_ppe::ast::Declaration::Variable(var_type, vars) => {
                     for v in vars {
-                        self.add_variable(*var_type, v.get_name(), v.get_dims(), 0, 0, 0);
+                        self.add_variable(
+                            *var_type,
+                            v.get_name(),
+                            v.get_dims(),
+                            v.get_vector_size(),
+                            v.get_matrix_size(),
+                            v.get_cube_size(),
+                        );
                     }
                 }
             }
@@ -296,6 +313,8 @@ impl Executable {
         prg.main_block.statements.iter().for_each(|s| {
             self.compile_statement(s);
         });
+        self.script_buffer.push(END);
+
         self.fill_labels();
 
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
@@ -453,7 +472,33 @@ impl Executable {
 
                 let decl = self.variable_declarations.get(var.get_name()).unwrap();
                 self.script_buffer.push(*decl as u16);
-                self.script_buffer.push(0);
+
+                match &**var {
+                    icy_ppe::ast::VarInfo::Var0(_) => {
+                        self.script_buffer.push(0);
+                    }
+                    icy_ppe::ast::VarInfo::Var1(_, expr) => {
+                        self.script_buffer.push(1);
+                        let expr_buffer = self.compile_expression(expr);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                    icy_ppe::ast::VarInfo::Var2(_, expr1, expr2) => {
+                        self.script_buffer.push(2);
+                        let expr_buffer = self.compile_expression(expr1);
+                        self.script_buffer.extend(expr_buffer);
+                        let expr_buffer = self.compile_expression(expr2);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                    icy_ppe::ast::VarInfo::Var3(_, expr1, expr2, expr3) => {
+                        self.script_buffer.push(3);
+                        let expr_buffer = self.compile_expression(expr1);
+                        self.script_buffer.extend(expr_buffer);
+                        let expr_buffer = self.compile_expression(expr2);
+                        self.script_buffer.extend(expr_buffer);
+                        let expr_buffer = self.compile_expression(expr3);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                }
 
                 let expr_buffer = self.compile_expression(expr);
                 self.script_buffer.extend(expr_buffer);
@@ -582,9 +627,35 @@ impl Executable {
             icy_ppe::ast::Expression::Parens(expr) => {
                 self.comp_expr(stack, expr);
             }
-            icy_ppe::ast::Expression::FunctionCall(_, _) => {
-                print!("Function call not implemented");
+            icy_ppe::ast::Expression::FunctionCall(name, parameters) => {
+                if self
+                    .procedure_declarations
+                    .contains_key(&name.to_uppercase())
+                {
+                    for p in parameters {
+                        let expr_buffer = self.compile_expression(p);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                    if let Some(decl) = self.procedure_declarations.get_mut(&name.to_uppercase()) {
+                        // will be filled later.
+                        decl.add_usage(self.script_buffer.len());
+                        self.script_buffer.push(0);
+                    }
+                } else {
+                    if let Some(var) = self.variable_table.get(&name.to_uppercase()) {
+                        self.script_buffer.push(var.info.id as u16 + 1);
+                        self.script_buffer.push(var.info.dims as u16);
+                    } else {
+                        panic!("variable not found!");
+                    }
+
+                    for p in parameters {
+                        let expr_buffer = self.compile_expression(p);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                }
             }
+
             icy_ppe::ast::Expression::PredefinedFunctionCall(func, parameters) => {
                 for p in parameters {
                     let mut stack = Vec::new();
@@ -598,6 +669,7 @@ impl Executable {
                 stack.push(*op as u16);
             }
             icy_ppe::ast::Expression::BinaryExpression(op, left, right) => {
+                println!("op:{}", op);
                 self.comp_expr(stack, left);
                 self.comp_expr(stack, right);
                 stack.push(*op as u16);

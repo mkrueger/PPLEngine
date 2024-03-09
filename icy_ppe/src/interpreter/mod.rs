@@ -316,14 +316,6 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                             }
                         }
                     };
-                    println!(
-                        "set array value {} {} {} {} {:?}",
-                        var_name,
-                        get_int(dim1)?,
-                        get_int(dim2)?,
-                        get_int(dim3)?,
-                        value
-                    );
                     set_array_value(
                         val,
                         value,

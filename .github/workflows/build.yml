@@ -9,12 +9,33 @@ env:
   APP_NAME: ppl_engine
   CARGO_TERM_COLOR: always
 jobs:
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: |
+        export VERSION="$(cargo get package.version)"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        cargo build --release
+    - name: 'Upload deb'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}_linux_${{ env.VERSION }}
+        path: |
+          ./target/release/ppld
+          ./target/release/pplc
+          ./target/release/pplx
+          file_id.diz
+ 
   build_windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build exe
       run: |
+        $VERSION=$(cargo pkgid | foreach-object { $_ -replace '(.*)#','' })
+        echo "Version: $VERSION"
         cargo build --release
     - name: Copy exe
       run: |
@@ -27,6 +48,6 @@ jobs:
         name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_exe
         path: |
           .\ppld.exe
-          .\pplp.exe
+          .\pplc.exe
           .\pplx.exe
           file_id.diz

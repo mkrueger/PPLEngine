@@ -31,7 +31,6 @@ pub fn call_predefined_procedure(
         OpCode::MORE => predefined_procedures::more(interpreter),
         OpCode::WAIT => predefined_procedures::wait(interpreter),
         OpCode::COLOR => predefined_procedures::color(interpreter, params),
-        OpCode::GOTO => predefined_procedures::goto(interpreter, params),
         OpCode::PRINT => {
             for expr in params {
                 let value = evaluate_exp(interpreter, expr)?;
@@ -70,7 +69,7 @@ pub fn call_predefined_procedure(
         OpCode::RESETDISP => predefined_procedures::resetdisp(interpreter, params),
         OpCode::STARTDISP => predefined_procedures::startdisp(interpreter, params),
         OpCode::FPUTPAD => predefined_procedures::fputpad(interpreter, params),
-        OpCode::HANGUP => predefined_procedures::hangup(interpreter, params),
+        OpCode::HANGUP => predefined_procedures::hangup(interpreter),
         OpCode::GETUSER => predefined_procedures::getuser(interpreter),
         OpCode::PUTUSER => predefined_procedures::putuser(interpreter),
         OpCode::DEFCOLOR => predefined_procedures::defcolor(interpreter, params),
@@ -115,8 +114,8 @@ pub fn call_predefined_procedure(
         OpCode::BLT => predefined_procedures::blt(interpreter, params),
         OpCode::DIR => predefined_procedures::dir(interpreter, params),
         OpCode::KBDFILE => predefined_procedures::kbdfile(interpreter, params),
-        OpCode::BYE => predefined_procedures::bye(interpreter, params),
-        OpCode::GOODBYE => predefined_procedures::goodbye(interpreter, params),
+        OpCode::BYE => predefined_procedures::bye(interpreter),
+        OpCode::GOODBYE => predefined_procedures::goodbye(interpreter),
         OpCode::BROADCAST => predefined_procedures::broadcast(interpreter, params),
         OpCode::WAITFOR => predefined_procedures::waitfor(interpreter, params),
         OpCode::KBDCHKON => predefined_procedures::kbdchkon(interpreter, params),

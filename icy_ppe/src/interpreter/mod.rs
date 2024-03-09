@@ -48,6 +48,13 @@ pub enum TerminalTarget {
     Sysop,
 }
 
+#[derive(Clone, Copy)]
+pub enum HangupType {
+    Hangup,
+    Bye,
+    Goodbye,
+}
+
 pub trait ExecutionContext {
     fn has_sysop(&self) -> bool;
 
@@ -91,6 +98,8 @@ pub trait ExecutionContext {
     /// # Errors
     /// Errors if the variable is not found.
     fn send_to_com(&mut self, data: &str) -> Res<()>;
+
+    fn hangup(&mut self, hangup_type: HangupType);
 }
 
 pub struct StackFrame {

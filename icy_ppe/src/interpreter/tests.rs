@@ -2,7 +2,7 @@
 mod interpreter_tests {
     use crate::{
         icy_board::data::IcyBoardData,
-        interpreter::{run, ExecutionContext, MemoryIO, PCBoardIO, TerminalTarget},
+        interpreter::{run, ExecutionContext, HangupType, MemoryIO, PCBoardIO, TerminalTarget},
         parser::parse_program,
         Res,
     };
@@ -54,6 +54,7 @@ mod interpreter_tests {
         }
 
         fn set_color(&mut self, _color: u8) {}
+        fn hangup(&mut self, _hangup_type: HangupType) {}
     }
 
     #[test]

@@ -12,7 +12,7 @@ use crossterm::{
     ExecutableCommand,
 };
 use icy_ppe::{
-    interpreter::{ExecutionContext, TerminalTarget},
+    interpreter::{ExecutionContext, HangupType, TerminalTarget},
     tables::CP437_TO_UNICODE,
     Res,
 };
@@ -324,4 +324,6 @@ impl ExecutionContext for Output {
     fn send_to_com(&mut self, _data: &str) -> Res<()> {
         Ok(())
     }
+
+    fn hangup(&mut self, _hangup_type: HangupType) {}
 }

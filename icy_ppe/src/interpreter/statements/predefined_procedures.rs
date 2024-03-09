@@ -63,9 +63,6 @@ pub fn color(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn goto(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
 pub fn confflag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
@@ -188,8 +185,12 @@ pub fn fputpad(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn hangup(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn hangup(interpreter: &mut Interpreter) -> Res<()> {
+    interpreter
+        .ctx
+        .hangup(crate::interpreter::HangupType::Hangup);
+    interpreter.is_running = false;
+    Ok(())
 }
 
 /// # Errors
@@ -228,8 +229,12 @@ pub fn deluser(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 pub fn adjtime(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn log(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let msg = &evaluate_exp(interpreter, &params[0])?.to_string();
+    // let left = &evaluate_exp(interpreter, &params[0])?;
+    log::info!("{}", msg);
+    Ok(())
 }
 
 pub fn inputstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
@@ -357,11 +362,18 @@ pub fn dir(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 pub fn kbdfile(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bye(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn bye(interpreter: &mut Interpreter) -> Res<()> {
+    interpreter.ctx.hangup(crate::interpreter::HangupType::Bye);
+    interpreter.is_running = false;
+    Ok(())
 }
-pub fn goodbye(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn goodbye(interpreter: &mut Interpreter) -> Res<()> {
+    interpreter
+        .ctx
+        .hangup(crate::interpreter::HangupType::Goodbye);
+    interpreter.is_running = false;
+    Ok(())
 }
 
 /// Broadcast a single line message to a range of nodes.

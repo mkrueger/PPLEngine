@@ -121,9 +121,8 @@ pub fn read_file(file_name: &str) -> Executable {
             offset += chunk_size;
 
             if use_rle {
-                let d = decode_rle(chunk);
-                println!("rle size:{} old:{}", d.len(), chunk.len());
-                decrypted_data.extend_from_slice(&d);
+                let decoded = decode_rle(chunk);
+                decrypted_data.extend_from_slice(&decoded);
             } else {
                 decrypted_data.extend_from_slice(chunk);
             }

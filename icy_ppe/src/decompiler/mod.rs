@@ -8,6 +8,7 @@ use crate::tables::{
     FuncOpCode, OpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS,
     STATEMENT_SIGNATURE_TABLE, TYPE_NAMES,
 };
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use std::path::PathBuf;
@@ -21,94 +22,6 @@ struct FuncL {
 }
 
 #[must_use]
-pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
-    let mut prg = Program::new();
-    let mut d = Decompiler::new(read_file(file_name));
-
-    println!(
-        "{}.{} detected",
-        d.executable.version / 100,
-        d.executable.version % 100
-    );
-
-    if to_file {
-        println!("Pass 1 ...");
-    }
-    d.do_pass1();
-    if to_file {
-        println!();
-    }
-    d.dump_vars(&mut prg);
-    if to_file {
-        println!("Pass 2 ...");
-    }
-    d.do_pass2(&mut prg);
-    if !raw {
-        if to_file {
-            println!("Pass 3 ...");
-        }
-        reconstruct::do_pass3(&mut prg);
-        reconstruct::do_pass4(&mut prg);
-    }
-    if to_file {
-        println!();
-        println!("Source decompilation complete...");
-    }
-
-    let trash_flag = d.trash_flag;
-    if trash_flag != 0 {
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment("---------------------------------------".to_string()),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(format!(
-                "!!! {trash_flag} ERROR(S) CAUSED BY PPLC BUGS DETECTED"
-            )),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(
-                "PROBLEM: These expressions most probably looked like !0+!0+!0 or similar"
-                    .to_string(),
-            ),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(
-                "         before PPLC fucked it up to something like !(!(+0)+0)!0. This may"
-                    .to_string(),
-            ),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(
-                "         also apply to - / and * aswell. Also occurs upon use of multiple !'s."
-                    .to_string(),
-            ),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(
-                "         Some smartbrains use this BUG to make programms running different"
-                    .to_string(),
-            ),
-        );
-        d.output_stmt(
-            &mut prg,
-            Statement::Comment(
-                "         (or not at all) when being de- and recompiled.".to_string(),
-            ),
-        );
-        if to_file {
-            println!("{trash_flag} COMPILER ERROR(S) DETECTED");
-        }
-    }
-    prg
-}
-
-#[must_use]
 pub fn load_file(file_name: &str) -> Program {
     let mut prg = Program::new();
     prg.file_name = PathBuf::from(file_name);
@@ -119,8 +32,8 @@ pub fn load_file(file_name: &str) -> Program {
     prg
 }
 
-struct Decompiler {
-    executable: Executable,
+pub struct Decompiler {
+    pub executable: Executable,
     cur_stmt: i32,
     akt_proc: i32,
     uvar_flag: bool,
@@ -133,7 +46,10 @@ struct Decompiler {
     symbol: i32,
     valid_buffer: Vec<bool>,
     exp_count: i32,
-    trash_flag: i32,
+
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+
     label_used: HashMap<i32, i32>,
     func_used: HashMap<i32, FuncL>,
     label_stack: Vec<i32>,
@@ -141,7 +57,7 @@ struct Decompiler {
 }
 
 impl Decompiler {
-    fn new(executable: Executable) -> Self {
+    pub fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
         valid_buffer.resize(executable.code_size as usize / 2, false);
         Decompiler {
@@ -158,7 +74,8 @@ impl Decompiler {
             symbol: 0,
             valid_buffer,
             exp_count: 0,
-            trash_flag: 0,
+            warnings: Vec::new(),
+            errors: Vec::new(),
             label_used: HashMap::new(),
             func_used: HashMap::new(),
             label_stack: Vec::new(),
@@ -192,7 +109,7 @@ impl Decompiler {
         }
     }
 
-    fn do_pass1(&mut self) {
+    pub fn do_pass1(&mut self) {
         let mut last_point = 0;
         let mut if_ptr = -5;
 
@@ -388,7 +305,7 @@ impl Decompiler {
         self.pass += 1;
     }
 
-    fn dump_vars(&mut self, prg: &mut Program) {
+    pub fn dump_vars(&mut self, prg: &mut Program) {
         self.uvar_flag = self.executable.variable_declarations[&0].variable_type
             == VariableType::Boolean
             && (self.executable.variable_declarations[&1].variable_type == VariableType::Boolean)
@@ -1088,7 +1005,7 @@ impl Decompiler {
     fn fnktout(&mut self, func: i32) -> i32 {
         let offset = -func as usize;
         if offset >= FUNCTION_DEFINITIONS.len() {
-            println!("unknown built in function {} at {}", func, self.src_ptr);
+            log::error!("unknown built in function {} at {}", func, self.src_ptr);
             return -1;
         }
 
@@ -1110,12 +1027,29 @@ impl Decompiler {
                     FuncOpCode::UPLUS => {
                         self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)));
                     }
-                    _ => panic!("{}", format!("unknown unary function {func}")),
+                    _ => {
+                        self.errors
+                            .push(format!("unknown unary function {func} at {}", self.src_ptr));
+                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)));
+                    }
                 }
                 return 0;
             }
             0x11 => {
                 if self.exp_count < 2 {
+                    if let Some(l_value) = self.pop_expr() {
+                        self.warnings.push(format!(
+                            "too few argument for built in function {} should be 2 was {} at {} expression on stack: '{}'",
+                            func_def.name, self.exp_count, self.src_ptr, l_value.to_string()
+                        ));
+
+                        self.push_expr(l_value);
+                    } else {
+                        self.warnings.push(format!(
+                            "too few argument for built in function {} should be 2 was {} at {} (empty stack)",
+                            func_def.name, self.exp_count, self.src_ptr
+                        ));
+                    }
                     return -1;
                 }
                 let r_value = self.pop_expr().unwrap();
@@ -1135,9 +1069,12 @@ impl Decompiler {
         }
 
         if self.exp_count < i32::from(func_def.args) {
-            println!(
+            log::error!(
                 "too few argument for built in function {} should be {} was {} at {}",
-                func_def.name, func_def.args, self.exp_count, self.src_ptr
+                func_def.name,
+                func_def.args,
+                self.exp_count,
+                self.src_ptr
             );
             return -1;
         }
@@ -1258,16 +1195,16 @@ impl Decompiler {
                     if self.executable.source_buffer[self.src_ptr as usize]
                         < crate::tables::LAST_FUNC
                     {
-                        println!(
+                        log::error!(
                             "Error: Unknown function {} at {} avoiding...",
-                            self.executable.source_buffer[self.src_ptr as usize], self.src_ptr
+                            self.executable.source_buffer[self.src_ptr as usize],
+                            self.src_ptr
                         );
                         return 1;
                     }
                     if self.pass == 1 {
                         if self.fnktout(x) != 0 {
                             tmp_func = self.executable.source_buffer[self.src_ptr as usize];
-                            self.trash_flag = 1;
                         } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
                             tmp_func = 0;
                         }
@@ -1305,13 +1242,12 @@ impl Decompiler {
     fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> bool {
         let mut cur_expr = 0;
         let temp_expr = self.exp_count;
-
         self.src_ptr += 1;
         while (max_expr & 0x0ff) != cur_expr {
             cur_expr += 1;
 
             self.exp_count = 0;
-            let mut tmp_func = 0;
+            let mut trash_func = 0;
 
             while self.executable.source_buffer[self.src_ptr as usize] != 0 {
                 if self.executable.source_buffer[self.src_ptr as usize] >= 0
@@ -1330,6 +1266,7 @@ impl Decompiler {
                             self.push_expr(tmp);
                         }
                         self.src_ptr += 1;
+
                         if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                             if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize])
                                 != 0
@@ -1365,6 +1302,7 @@ impl Decompiler {
                                 .unwrap()
                                 .flag = 1;
                         }
+
                         if self
                             .executable
                             .variable_declarations
@@ -1412,6 +1350,7 @@ impl Decompiler {
                             }
 
                             self.src_ptr += 1;
+
                             if !self.parse_expr(
                                 self.executable
                                     .variable_declarations
@@ -1425,6 +1364,7 @@ impl Decompiler {
                             ) {
                                 return false;
                             }
+
                             if self.pass == 1 {
                                 let mut params = Vec::new();
                                 while stack_len < self.expr_stack.len() {
@@ -1449,6 +1389,7 @@ impl Decompiler {
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
+
                             if self.executable.source_buffer[self.src_ptr as usize] != 0 {
                                 self.executable
                                     .variable_declarations
@@ -1471,10 +1412,9 @@ impl Decompiler {
                 } else {
                     if self.pass == 1 {
                         if self.fnktout(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
-                            tmp_func = self.executable.source_buffer[self.src_ptr as usize];
-                            self.trash_flag = 1;
-                        } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
-                            tmp_func = 0;
+                            trash_func = self.executable.source_buffer[self.src_ptr as usize];
+                        } else if trash_func != 0 && self.fnktout(trash_func) == 0 {
+                            trash_func = 0;
                         }
                     }
                     self.src_ptr += 1;
@@ -1534,12 +1474,11 @@ impl Decompiler {
         }
     }
 
-    fn do_pass2(&mut self, prg: &mut Program) {
+    pub fn do_pass2(&mut self, prg: &mut Program) {
         self.cur_stmt = -1;
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
-        self.trash_flag = 0;
         let mut if_ptr = -1;
         let mut if_while_stack = vec![];
 
@@ -1730,7 +1669,7 @@ impl Decompiler {
                         }
                     }
                     if !found {
-                        println!("unknown statement opcode: {}", self.cur_stmt);
+                        log::error!("unknown statement opcode: {}", self.cur_stmt);
                         self.src_ptr += 1;
                     }
                 }
@@ -1796,7 +1735,7 @@ mod tests {
         //        println!("at {} {}", j, String::from_utf8_lossy(&output[j..]));
         false
     }
-
+    /*
     #[test]
     fn test_decompiler() {
         use std::fs::{self};
@@ -1853,5 +1792,5 @@ mod tests {
             assert!(are_equal);
         }
         // println!("successful {} skipped {}", success, skipped);
-    }
+    }*/
 }

@@ -564,7 +564,6 @@ pub fn readline(
         reader.next_line()?;
     }
     let line_text = reader.next_line()?.unwrap_or_default();
-    println!("{line_text}");
     Ok(VariableValue::String(line_text))
 }
 

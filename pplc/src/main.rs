@@ -572,9 +572,6 @@ impl Executable {
                     stack.push(*decl as u16);
                     stack.push(0);
                 } else {
-                    for (k, v) in &self.variable_declarations {
-                        println!("{}: {}", k, v);
-                    }
                     panic!("Variable '{}' not found", id);
                 }
             }

@@ -1,29 +1,35 @@
-use argh::FromArgs;
+use clap::Parser;
+use crossterm::cursor::MoveTo;
+use crossterm::ExecutableCommand;
 use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
 use icy_ppe::icy_board::data::PcbDataType;
 use icy_ppe::icy_board::data::UserRecord;
-use icy_ppe::icy_board::text_messages::DisplayText;
 use icy_ppe::interpreter::run;
 use icy_ppe::interpreter::DiskIO;
 use icy_ppe::*;
 use semver::Version;
 use std::ffi::OsStr;
+use std::io::stdout;
 use std::path::Path;
 
 use crate::output::Output;
+use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
+use crossterm::{
+    queue,
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
 mod output;
 
-#[derive(FromArgs)]
-/// original by chicken/tools4fools https://github.com/astuder/ppld rust port https://github.com/mkrueger/PPLEngine
-struct Arguments {
-    #[argh(option, short = 's')]
-    /// keyword casing style, valid values are u=upper (default), l=lower, c=camel
-    style: Option<char>,
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// If set, the executable will run in sysop mode
+    #[arg(short, long, default_value_t = false)]
+    sysop: bool,
 
-    /// srcname[.ext] .ext defaults to .ppe
-    #[argh(positional)]
-    srcname: String,
+    /// file_name[.ppe] to run
+    file: String,
 }
 
 lazy_static::lazy_static! {
@@ -31,24 +37,9 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    println!(
-        "PPLX Version {} - PCBoard Programming Language Runtime",
-        *crate::VERSION
-    );
-    let mut arguments: Arguments = argh::from_env();
+    let arguments = Args::parse();
 
-    unsafe {
-        match arguments.style {
-            Some('u') => DEFAULT_OUTPUT_FUNC = OutputFunc::Upper,
-            Some('l') => DEFAULT_OUTPUT_FUNC = OutputFunc::Lower,
-            Some('c') => DEFAULT_OUTPUT_FUNC = OutputFunc::CamelCase,
-            Some(x) => panic!("unsupported keyword style {}", x),
-            None => {}
-        }
-    }
-
-    let file_name = &mut arguments.srcname;
-
+    let mut file_name = arguments.file;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".ppe");
@@ -78,8 +69,37 @@ fn main() {
         no_char: 'N',
     };
 
-    let prg = icy_ppe::decompiler::load_file(file_name);
+    let prg = icy_ppe::decompiler::load_file(&file_name);
     let mut io = DiskIO::new(".");
-    let mut connection = Output::default();
-    run(&prg, &mut connection, &mut io, icy_board_data).unwrap();
+    let mut output = Output::default();
+    output.is_sysop = arguments.sysop;
+    enable_raw_mode().unwrap();
+    let supports_keyboard_enhancement = matches!(
+        crossterm::terminal::supports_keyboard_enhancement(),
+        Ok(true)
+    );
+
+    if supports_keyboard_enhancement {
+        queue!(
+            stdout(),
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
+        )
+        .unwrap();
+    }
+
+    stdout()
+        .execute(crossterm::terminal::Clear(
+            crossterm::terminal::ClearType::All,
+        ))
+        .unwrap()
+        .execute(MoveTo(0, 0))
+        .unwrap();
+    run(&prg, &mut output, &mut io, icy_board_data).unwrap();
+
+    disable_raw_mode().unwrap();
 }

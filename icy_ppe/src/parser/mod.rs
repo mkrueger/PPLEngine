@@ -30,7 +30,14 @@ impl<'a> Tokenizer<'a> {
     /// Panics if .
     pub fn next_token(&mut self) -> Option<Token> {
         if let Some(token) = self.lex.next() {
-            self.cur_token = Some(token.unwrap());
+            match token {
+                Ok(token) => {
+                    self.cur_token = Some(token);
+                }
+                Err(e) => {
+                    panic!("lexer error: {:?} ('{:?}')", e, self.lex.slice());
+                }
+            }
         } else {
             self.cur_token = None;
         }
@@ -374,7 +381,7 @@ pub fn parse_program(input: &str) -> Program {
         } else {
             statements.push(tokenizer.parse_statement());
         }
-
+        tokenizer.next_token();
         tokenizer.skip_eol();
     }
 

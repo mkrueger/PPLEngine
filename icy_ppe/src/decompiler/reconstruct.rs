@@ -71,17 +71,24 @@ fn scan_select_statements(statements: &mut [Statement]) {
                 i += 1;
                 continue;
             };
+
+            let mut skip = false;
             for if_else_block in &if_else_blocks {
                 let Expression::BinaryExpression(BinOp::Eq, lhs2, _) =
                     Statement::try_boolean_conversion(&if_else_block.cond)
                 else {
-                    i += 1;
-                    continue;
+                    skip = true;
+                    break;
                 };
                 if lhs != lhs2 {
-                    i += 1;
-                    continue;
+                    skip = true;
+                    break;
                 }
+            }
+
+            if skip {
+                i += 1;
+                continue;
             }
 
             let mut case_blocks = Vec::new();
@@ -796,69 +803,71 @@ fn scan_replace_vars(
     index: &mut i32,
     file_names: &mut i32,
 ) {
-    match stmt {
-        Statement::For(v, _, _, _, stmts) => {
-            let var_name = get_var_name(v);
-            if !rename_map.contains_key(&var_name) && *index < INDEX_VARS.len() as i32 {
-                rename_map.insert(var_name, INDEX_VARS[*index as usize].to_string());
+    /*
+        match stmt {
+            Statement::For(v, _, _, _, stmts) => {
+                let var_name = get_var_name(v);
+                if !rename_map.contains_key(&var_name) && *index < INDEX_VARS.len() as i32 {
+                    rename_map.insert(var_name, INDEX_VARS[*index as usize].to_string());
 
-                *index += 1;
-            }
-            for s in stmts {
-                scan_replace_vars(s, rename_map, index, file_names);
-            }
-        }
-
-        Statement::DoWhile(_, stmts) | Statement::Block(stmts) => {
-            for s in stmts {
-                scan_replace_vars(s, rename_map, index, file_names);
-            }
-        }
-        Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
-            for s in stmts {
-                scan_replace_vars(s, rename_map, index, file_names);
-            }
-            for block in else_ifs {
-                for s in &block.block {
-                    scan_replace_vars(s, rename_map, index, file_names);
+                    *index += 1;
                 }
-            }
-            if let Some(stmts) = else_stmts {
                 for s in stmts {
                     scan_replace_vars(s, rename_map, index, file_names);
                 }
             }
-        }
 
-        Statement::If(_, s) | Statement::While(_, s) => {
-            scan_replace_vars(s, rename_map, index, file_names);
-        }
-        Statement::Call(def, parameters) => match &def.opcode {
-            OpCode::FOPEN => {
-                let var_name = get_var_name(&parameters[1]);
-                rename_map.entry(var_name).or_insert_with(|| {
-                    *file_names += 1;
-                    format!("fileName{file_names}")
-                });
+            Statement::DoWhile(_, stmts) | Statement::Block(stmts) => {
+                for s in stmts {
+                    scan_replace_vars(s, rename_map, index, file_names);
+                }
             }
-            OpCode::DELETE => {
-                let var_name = get_var_name(&parameters[0]);
-                rename_map.entry(var_name).or_insert_with(|| {
-                    *file_names += 1;
-                    format!("fileName{file_names}")
-                });
+            Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
+                for s in stmts {
+                    scan_replace_vars(s, rename_map, index, file_names);
+                }
+                for block in else_ifs {
+                    for s in &block.block {
+                        scan_replace_vars(s, rename_map, index, file_names);
+                    }
+                }
+                if let Some(stmts) = else_stmts {
+                    for s in stmts {
+                        scan_replace_vars(s, rename_map, index, file_names);
+                    }
+                }
             }
-            OpCode::DISPFILE => {
-                let var_name = get_var_name(&parameters[0]);
-                rename_map.entry(var_name).or_insert_with(|| {
-                    *file_names += 1;
-                    format!("fileName{file_names}")
-                });
+
+            Statement::If(_, s) | Statement::While(_, s) => {
+                scan_replace_vars(s, rename_map, index, file_names);
             }
+            Statement::Call(def, parameters) => match &def.opcode {
+                OpCode::FOPEN => {
+                    let var_name = get_var_name(&parameters[1]);
+                    rename_map.entry(var_name).or_insert_with(|| {
+                        *file_names += 1;
+                        format!("fileName{file_names}")
+                    });
+                }
+                OpCode::DELETE => {
+                    let var_name = get_var_name(&parameters[0]);
+                    rename_map.entry(var_name).or_insert_with(|| {
+                        *file_names += 1;
+                        format!("fileName{file_names}")
+                    });
+                }
+                OpCode::DISPFILE => {
+                    let var_name = get_var_name(&parameters[0]);
+                    rename_map.entry(var_name).or_insert_with(|| {
+                        *file_names += 1;
+                        format!("fileName{file_names}")
+                    });
+                }
+                _ => {}
+            },
             _ => {}
-        },
-        _ => {}
-    }
+        }
+    */
 }
 
 fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>) {

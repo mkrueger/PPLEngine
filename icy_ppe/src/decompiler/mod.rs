@@ -843,8 +843,6 @@ impl Decompiler {
     }
 
     fn push_expr(&mut self, str: Expression) {
-        //println!("push expression: '{:?}'", str);
-        //println!("{}", std::backtrace::Backtrace::force_capture());
         self.exp_count += 1;
         self.expr_stack.push(str);
     }
@@ -1499,6 +1497,12 @@ impl Decompiler {
 
     fn set_if_ptr(&mut self, i: i32) -> i32 {
         let j = self.executable.source_buffer[self.src_ptr as usize] as usize / 2;
+        assert!(
+            !(j < 2 || j >= self.executable.source_buffer.len() - 1),
+            "Error: Invalid IF pointer at {} buffer length is {}",
+            self.src_ptr,
+            self.executable.source_buffer.len() / 2
+        );
         if self.executable.source_buffer[j - 2] == 0x0007
             && self.executable.source_buffer[j - 1] / 2 == i
         {

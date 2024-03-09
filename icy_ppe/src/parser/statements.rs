@@ -1,5 +1,5 @@
 use crate::{
-    ast::{ElseIfBlock, Expression, Statement, VarInfo},
+    ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
     tables::STATEMENT_DEFINITIONS,
 };
 
@@ -35,6 +35,7 @@ impl<'a> Tokenizer<'a> {
             self.skip_eol();
             while self.cur_token != Some(Token::EndWhile) {
                 statements.push(self.parse_statement());
+                self.next_token();
                 self.skip_eol();
             }
             self.next_token(); // skip ENDWHILE
@@ -137,6 +138,7 @@ impl<'a> Tokenizer<'a> {
         {
             assert!(self.cur_token.is_some(), "unexpected eol");
             statements.push(self.parse_statement());
+            self.next_token();
             self.skip_eol();
         }
         let mut else_if_blocks = Vec::new();
@@ -168,10 +170,12 @@ impl<'a> Tokenizer<'a> {
                         && self.cur_token != Some(Token::EndIf)
                     {
                         statements.push(self.parse_statement());
+                        self.next_token();
                         self.skip_eol();
                     }
                 } else {
                     statements.push(self.parse_statement());
+                    self.next_token();
                     self.skip_eol();
                 }
 
@@ -188,6 +192,7 @@ impl<'a> Tokenizer<'a> {
             self.skip_eol();
             while self.cur_token != Some(Token::EndIf) {
                 statements.push(self.parse_statement());
+                self.next_token();
                 self.skip_eol();
             }
             Some(statements)
@@ -224,6 +229,7 @@ impl<'a> Tokenizer<'a> {
                 self.skip_eol();
                 while self.cur_token != Some(Token::EndSelect) {
                     statements.push(self.parse_statement());
+                    self.next_token();
                     self.skip_eol();
                 }
                 else_block = Some(statements);
@@ -237,6 +243,7 @@ impl<'a> Tokenizer<'a> {
             let mut statements = Vec::new();
             while self.cur_token != Some(Token::Case) && self.cur_token != Some(Token::EndSelect) {
                 statements.push(self.parse_statement());
+                self.next_token();
                 self.skip_eol();
             }
             case_blocks.push(ElseIfBlock {
@@ -257,7 +264,6 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_statement(&mut self) -> Statement {
-        println!("parse_statement: {:?}", self.cur_token);
         match self.cur_token.clone() {
             Some(Token::End) => {
                 self.next_token();
@@ -305,101 +311,17 @@ impl<'a> Tokenizer<'a> {
                 }
                 panic!("goto expected a label, got: {:?}", self.cur_token);
             }
+            Some(Token::Const(Constant::Builtin(c))) => {
+                if let Some(value) = self.parse_call(c.name.to_string()) {
+                    return value;
+                }
+                panic!("invalid identifier {:?}", self.cur_token);
+            }
 
             Some(Token::Identifier(id)) => {
-                self.next_token();
-                for def in &STATEMENT_DEFINITIONS {
-                    if def.name.to_uppercase() == id {
-                        let mut params = Vec::new();
-                        while self.cur_token != Some(Token::Eol) && self.cur_token.is_some() {
-                            if params.len() as i8 >= def.max_args {
-                                break;
-                            }
-                            params.push(self.parse_expression());
-
-                            if self.cur_token.is_none() {
-                                break;
-                            }
-                            if self.cur_token == Some(Token::Comma) {
-                                self.next_token();
-                            } else {
-                                break;
-                            }
-                        }
-
-                        assert!(
-                            (params.len() as i8) >= def.min_args,
-                            "{} has too few arguments {} [{}:{}]",
-                            def.name,
-                            params.len(),
-                            def.min_args,
-                            def.max_args
-                        );
-                        assert!(
-                            (params.len() as i8) <= def.max_args,
-                            "{} has too many arguments {} [{}:{}]",
-                            def.name,
-                            params.len(),
-                            def.min_args,
-                            def.max_args
-                        );
-                        return Statement::Call(def, params);
-                    }
+                if let Some(value) = self.parse_call(id) {
+                    return value;
                 }
-
-                if self.cur_token == Some(Token::Eq) {
-                    self.next_token();
-                    let right = self.parse_expression();
-                    return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
-                }
-
-                if self.cur_token == Some(Token::LPar) {
-                    self.next_token();
-                    let mut params = Vec::new();
-
-                    while self.cur_token != Some(Token::RPar) {
-                        params.push(self.parse_expression());
-                        if self.cur_token == Some(Token::Comma) {
-                            self.next_token();
-                        }
-                    }
-                    assert!(
-                        !(self.cur_token != Some(Token::RPar)),
-                        "missing closing parens"
-                    );
-                    self.next_token();
-                    if self.cur_token == Some(Token::Eq) {
-                        self.next_token();
-                        let right = self.parse_expression();
-                        if params.len() == 1 {
-                            return Statement::Let(
-                                Box::new(VarInfo::Var1(id, params[0].clone())),
-                                Box::new(right),
-                            );
-                        }
-                        if params.len() == 2 {
-                            return Statement::Let(
-                                Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())),
-                                Box::new(right),
-                            );
-                        }
-                        if params.len() == 3 {
-                            return Statement::Let(
-                                Box::new(VarInfo::Var3(
-                                    id,
-                                    params[0].clone(),
-                                    params[1].clone(),
-                                    params[2].clone(),
-                                )),
-                                Box::new(right),
-                            );
-                        }
-                        panic!("too many dimensions: {}", params.len());
-                    }
-
-                    return Statement::ProcedureCall(id, params);
-                }
-
                 panic!("invalid identifier {:?}", self.cur_token);
             }
 
@@ -412,6 +334,101 @@ impl<'a> Tokenizer<'a> {
                 panic!("error unexpected token {:?}", self.cur_token);
             }
         }
+    }
+
+    fn parse_call(&mut self, id: String) -> Option<Statement> {
+        self.next_token();
+        for def in &STATEMENT_DEFINITIONS {
+            if def.name.to_uppercase() == id {
+                let mut params = Vec::new();
+                while self.cur_token != Some(Token::Eol) && self.cur_token.is_some() {
+                    if params.len() as i8 >= def.max_args {
+                        break;
+                    }
+                    params.push(self.parse_expression());
+
+                    if self.cur_token.is_none() {
+                        break;
+                    }
+                    if self.cur_token == Some(Token::Comma) {
+                        self.next_token();
+                    } else {
+                        break;
+                    }
+                }
+
+                assert!(
+                    (params.len() as i8) >= def.min_args,
+                    "{} has too few arguments {} [{}:{}]",
+                    def.name,
+                    params.len(),
+                    def.min_args,
+                    def.max_args
+                );
+                assert!(
+                    (params.len() as i8) <= def.max_args,
+                    "{} has too many arguments {} [{}:{}]",
+                    def.name,
+                    params.len(),
+                    def.min_args,
+                    def.max_args
+                );
+                return Some(Statement::Call(def, params));
+            }
+        }
+        if self.cur_token == Some(Token::Eq) {
+            self.next_token();
+            let right = self.parse_expression();
+            return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
+        }
+        if self.cur_token == Some(Token::LPar) {
+            self.next_token();
+            let mut params = Vec::new();
+
+            while self.cur_token != Some(Token::RPar) {
+                params.push(self.parse_expression());
+                if self.cur_token == Some(Token::Comma) {
+                    self.next_token();
+                }
+            }
+            assert!(
+                !(self.cur_token != Some(Token::RPar)),
+                "missing closing parens"
+            );
+            self.next_token();
+            if self.cur_token == Some(Token::Eq) {
+                self.next_token();
+                let right = self.parse_expression();
+                if params.len() == 1 {
+                    return Some(Statement::Let(
+                        Box::new(VarInfo::Var1(id, params[0].clone())),
+                        Box::new(right),
+                    ));
+                }
+                if params.len() == 2 {
+                    return Some(Statement::Let(
+                        Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())),
+                        Box::new(right),
+                    ));
+                }
+                if params.len() == 3 {
+                    return Some(Statement::Let(
+                        Box::new(VarInfo::Var3(
+                            id,
+                            params[0].clone(),
+                            params[1].clone(),
+                            params[2].clone(),
+                        )),
+                        Box::new(right),
+                    ));
+                }
+                panic!("too many dimensions: {}", params.len());
+            }
+
+            return Some(Statement::ProcedureCall(id, params));
+        }
+
+        None
     }
 }
 

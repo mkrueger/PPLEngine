@@ -2,7 +2,7 @@
 mod interpreter_tests {
     use crate::{
         icy_board::data::IcyBoardData,
-        interpreter::{run, ExecutionContext, MemoryIO, PCBoardIO},
+        interpreter::{run, ExecutionContext, MemoryIO, PCBoardIO, TerminalTarget},
         parser::parse_program,
         Res,
     };
@@ -19,19 +19,23 @@ mod interpreter_tests {
     }
 
     impl ExecutionContext for TestContext {
-        fn gotoxy(&mut self, _x: i32, _y: i32) -> Res<()> {
+        fn has_sysop(&self) -> bool {
+            false
+        }
+
+        fn gotoxy(&mut self, _terminal_target: TerminalTarget, _x: i32, _y: i32) -> Res<()> {
             Ok(())
         }
         fn get_char(&mut self) -> Res<Option<char>> {
             todo!()
         }
 
-        fn print(&mut self, str: &str) -> Res<()> {
+        fn print(&mut self, _terminal_target: TerminalTarget, str: &str) -> Res<()> {
             self.output.push_str(str);
             Ok(())
         }
 
-        fn write_raw(&mut self, _data: &[u8]) -> Res<()> {
+        fn write_raw(&mut self, _terminal_target: TerminalTarget, _data: &[u8]) -> Res<()> {
             Ok(())
         }
 

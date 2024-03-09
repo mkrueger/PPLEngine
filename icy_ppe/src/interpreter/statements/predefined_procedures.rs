@@ -3,22 +3,23 @@ use std::{fs, thread, time::Duration};
 use crate::{
     ast::{convert_to, get_var_name, Expression, ProgramContext, VariableValue},
     icy_board::text_messages,
-    interpreter::{evaluate_exp, get_int, get_string, Interpreter},
+    interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
     Res,
 };
 
 use super::super::errors::IcyError;
 
 pub fn cls(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    interpreter.ctx.print("\x1B[2J")
+    interpreter.ctx.print(TerminalTarget::Both, "\x1B[2J")
 }
 
 pub fn clreol(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    interpreter.ctx.print("\x1B[K")
+    interpreter.ctx.print(TerminalTarget::Both, "\x1B[K")
 }
 
 pub fn more(interpreter: &mut Interpreter) -> Res<()> {
     interpreter.ctx.print(
+        TerminalTarget::Both,
         &interpreter
             .icy_board_data
             .display_text
@@ -40,6 +41,7 @@ pub fn more(interpreter: &mut Interpreter) -> Res<()> {
 
 pub fn wait(interpreter: &mut Interpreter) -> Res<()> {
     interpreter.ctx.print(
+        TerminalTarget::Both,
         &interpreter
             .icy_board_data
             .display_text
@@ -78,10 +80,11 @@ pub fn dispfile(interpreter: &mut Interpreter, file: &str, flags: i32) -> Res<()
 
     let content = fs::read(&file);
     match content {
-        Ok(content) => interpreter.ctx.write_raw(&content),
-        Err(err) => interpreter
-            .ctx
-            .print(format!("{} error {}", file, err).as_str()),
+        Ok(content) => interpreter.ctx.write_raw(TerminalTarget::Both, &content),
+        Err(err) => interpreter.ctx.print(
+            TerminalTarget::Both,
+            format!("{} error {}", file, err).as_str(),
+        ),
     }
 }
 
@@ -287,7 +290,7 @@ pub fn dec(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn newline(interpreter: &mut Interpreter) -> Res<()> {
-    interpreter.ctx.write_raw(&[b'\n'])
+    interpreter.ctx.write_raw(TerminalTarget::Both, &[b'\n'])
 }
 
 pub fn newlines(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
@@ -332,7 +335,9 @@ pub fn pop(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 pub fn kbdstuff(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let value = evaluate_exp(interpreter, &params[0])?;
-    interpreter.ctx.print(&get_string(&value))
+    interpreter
+        .ctx
+        .print(TerminalTarget::Both, &get_string(&value))
 }
 pub fn call(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
@@ -394,7 +399,9 @@ pub fn optext(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 pub fn dispstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let value = evaluate_exp(interpreter, &params[0])?;
-    interpreter.ctx.print(&get_string(&value))
+    interpreter
+        .ctx
+        .print(TerminalTarget::Both, &get_string(&value))
 }
 
 pub fn rdunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
@@ -450,7 +457,7 @@ pub fn varaddr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 pub fn ansipos(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let x = get_int(&evaluate_exp(interpreter, &params[0])?)? - 1;
     let y = get_int(&evaluate_exp(interpreter, &params[1])?)? - 1;
-    interpreter.ctx.gotoxy(x, y)
+    interpreter.ctx.gotoxy(TerminalTarget::Both, x, y)
 }
 
 pub fn backup(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
@@ -496,7 +503,9 @@ pub fn chat(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 pub fn sprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
-        print!("{}", &value.to_string());
+        interpreter
+            .ctx
+            .print(TerminalTarget::Sysop, &value.to_string())?;
     }
     Ok(())
 }
@@ -504,16 +513,20 @@ pub fn sprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 pub fn sprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
-        print!("{}", &value.to_string());
+        interpreter
+            .ctx
+            .print(TerminalTarget::Sysop, &value.to_string())?;
     }
-    println!();
+    interpreter.ctx.print(TerminalTarget::Sysop, "\n")?;
     Ok(())
 }
 
 pub fn mprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
-        interpreter.ctx.print(&value.to_string())?;
+        interpreter
+            .ctx
+            .print(TerminalTarget::User, &value.to_string())?;
     }
     Ok(())
 }
@@ -521,9 +534,11 @@ pub fn mprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 pub fn mprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
-        interpreter.ctx.print(&value.to_string())?;
+        interpreter
+            .ctx
+            .print(TerminalTarget::User, &value.to_string())?;
     }
-    interpreter.ctx.print("\n")?;
+    interpreter.ctx.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 

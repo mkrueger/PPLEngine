@@ -488,6 +488,7 @@ pub fn inkey(interpreter: &mut Interpreter) -> Res<VariableValue> {
             }
             return Ok(VariableValue::String("\x1B".to_string()));
         }
+
         Ok(VariableValue::String(ch.to_string()))
     } else {
         Ok(VariableValue::String(String::new()))
@@ -863,19 +864,14 @@ pub fn tokcount(interpreter: &mut Interpreter) -> VariableValue {
     VariableValue::Integer(interpreter.cur_tokens.len() as i32)
 }
 
-pub fn u_recnum(interpreter: &mut Interpreter, user_name: VariableValue) -> Res<VariableValue> {
-    let user_name = get_string(&user_name);
-    let record_num = if let Some(idx) = interpreter
-        .icy_board_data
-        .users
-        .iter()
-        .position(|x| x.name == user_name)
-    {
-        idx as i32
-    } else {
-        return Err(Box::new(IcyError::UserNotFound(user_name)));
-    };
-    Ok(VariableValue::Integer(record_num))
+pub fn u_recnum(interpreter: &mut Interpreter, user_name: VariableValue) -> VariableValue {
+    let user_name = get_string(&user_name).to_uppercase();
+    for (i, user) in interpreter.icy_board_data.users.iter().enumerate() {
+        if user.name.to_uppercase() == user_name {
+            return VariableValue::Integer(i as i32);
+        }
+    }
+    VariableValue::Integer(-1)
 }
 
 pub fn u_inconf(_x: VariableValue) -> VariableValue {

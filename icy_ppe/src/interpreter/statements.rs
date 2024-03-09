@@ -35,16 +35,20 @@ pub fn call_predefined_procedure(
         OpCode::PRINT => {
             for expr in params {
                 let value = evaluate_exp(interpreter, expr)?;
-                interpreter.ctx.print(&value.to_string())?;
+                interpreter
+                    .ctx
+                    .print(super::TerminalTarget::Both, &value.to_string())?;
             }
             Ok(())
         }
         OpCode::PRINTLN => {
             for expr in params {
                 let value = evaluate_exp(interpreter, expr)?;
-                interpreter.ctx.print(&value.to_string())?;
+                interpreter
+                    .ctx
+                    .print(super::TerminalTarget::Both, &value.to_string())?;
             }
-            interpreter.ctx.print("\n")?;
+            interpreter.ctx.print(super::TerminalTarget::Both, "\n")?;
             Ok(())
         }
         OpCode::CONFFLAG => predefined_procedures::confflag(interpreter, params),

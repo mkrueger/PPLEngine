@@ -85,45 +85,60 @@ pub fn read_file(file_name: &str) -> Executable {
     let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
     i += 2;
     let real_size = buffer.len() - i;
-
-    let code_data: &mut [u8] = &mut buffer[i..];
-    let mut data = code_data.to_vec();
-
-    let mut data: Vec<u8> = Vec::new();
-    let mut offset = 0;
-    if version > 300 {
-        let use_rle = real_size != code_size;
-        println!("use RLE! {use_rle} {}/{}", real_size, code_size);
-        while offset < code_data.len() {
-            let mut chunk_size = 2027;
-            if use_rle
-                && offset + chunk_size < code_data.len()
-                && code_data[offset + chunk_size] == 0
-            {
-                chunk_size += 1;
-            }
-            let end = (offset + chunk_size).min(code_data.len());
-            let chunk = &mut code_data[offset..end];
-            offset += chunk_size;
-            println!(
-                "chunk size:{} last{} end:{}",
-                chunk_size,
-                end,
-                chunk.last().unwrap()
-            );
-
-            decrypt(chunk, version);
-            if use_rle {
-                let mut r = decode_rle(chunk);
-                data.append(&mut r);
-            } else {
-                data.extend_from_slice(chunk);
-            }
+    /*
+    let data: Vec<u8> = if version >= 300 {
+        let data = &mut buffer[i..real_size + i];
+        decrypt(data, version);
+        if real_size == code_size {
+            data.to_vec()
+        } else {
+            decode_rle(data)
         }
     } else {
-        data = code_data.to_vec();
-    }
+        buffer[i..real_size + i].to_vec()
+    };*/
 
+    let code_data: &mut [u8] = &mut buffer[i..];
+    let mut decrypted_data = Vec::new();
+
+    let mut offset = 0;
+    let data: &[u8] = if version > 300 {
+        let use_rle = real_size != code_size;
+
+        let code_data_len = code_data.len();
+
+        while offset < code_data_len {
+            let mut chunk_size = 2047;
+            let end = (offset + chunk_size).min(code_data_len);
+            let mut chunk = &mut code_data[offset..end];
+            decrypt(chunk, version);
+
+            if use_rle && offset + chunk_size < code_data_len && chunk[chunk_size - 1] == 0 {
+                chunk = &mut code_data[offset..=end];
+                chunk_size += 1;
+            }
+
+            offset += chunk_size;
+
+            if use_rle {
+                let d = decode_rle(chunk);
+                println!("rle size:{} old:{}", d.len(), chunk.len());
+                decrypted_data.extend_from_slice(&d);
+            } else {
+                decrypted_data.extend_from_slice(chunk);
+            }
+        }
+        &decrypted_data
+    } else {
+        code_data
+    };
+    if data.len() != code_size {
+        println!(
+            "WARNING: decoded size({}) differs from expected size ({}).",
+            data.len(),
+            code_size
+        );
+    }
     let mut source_buffer = Vec::new();
     let mut i = 0;
     while i < data.len() {

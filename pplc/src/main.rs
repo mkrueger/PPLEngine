@@ -160,7 +160,7 @@ impl Executable {
         let id = self.variable_table.len();
         self.variable_declarations.insert(name.to_string(), id + 1);
         self.variable_table.insert(
-            name.to_string(),
+            name.to_ascii_uppercase().to_string(),
             Variable {
                 info: VarInfo {
                     id,
@@ -181,7 +181,7 @@ impl Executable {
         let id = self.variable_table.len();
         self.variable_declarations.insert(name.to_string(), id + 1);
         self.variable_table.insert(
-            name.to_string(),
+            name.to_ascii_uppercase().to_string(),
             Variable {
                 info: VarInfo {
                     id,
@@ -311,7 +311,7 @@ impl Executable {
                 decl.start = self.script_buffer.len() as i32 * 2;
                 decl.first_var = self.variable_table.len() as i32 + 1;
                 self.variable_table.insert(
-                    p.declaration.get_name().clone(),
+                    p.declaration.get_name().to_ascii_uppercase().clone(),
                     Variable {
                         info: VarInfo {
                             id: self.variable_table.len(),
@@ -355,7 +355,7 @@ impl Executable {
                 decl.return_var = p.declaration.get_return_vartype();
 
                 self.variable_table.insert(
-                    p.declaration.get_name().clone(),
+                    p.declaration.get_name().to_ascii_uppercase().clone(),
                     Variable {
                         info: VarInfo {
                             id: decl.first_var as usize,
@@ -530,22 +530,30 @@ impl Executable {
 
         buffer.extend_from_slice(&u16::to_le_bytes(self.script_buffer.len() as u16 * 2));
         // in the very unlikely case the rle compressed buffer is larger than the original buffer
-        if code_data.len() > script_buffer.len() || version < 300 {
+        let use_rle = code_data.len() > script_buffer.len() || version < 300;
+        if use_rle {
             code_data = script_buffer;
         }
 
         let mut offset = 0;
         while offset < code_data.len() {
-            let mut chunk_size = 2027;
-            if offset + chunk_size < code_data.len() && code_data[offset + chunk_size] == 0 {
-                chunk_size += 1;
-            }
+            let chunk_size = 2027;
+            let add_byte = use_rle
+                && offset + chunk_size < code_data.len()
+                && code_data[offset + chunk_size] == 0;
+
             let end = (offset + chunk_size).min(code_data.len());
             let chunk = &mut code_data[offset..end];
+
             offset += chunk_size;
 
             encrypt(chunk, version);
             buffer.extend_from_slice(chunk);
+
+            if add_byte {
+                buffer.push(code_data[end]);
+                offset += 1;
+            }
         }
         Ok(buffer)
     }
@@ -560,9 +568,15 @@ impl Executable {
     fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &icy_ppe::ast::Expression) {
         match expr {
             icy_ppe::ast::Expression::Identifier(id) => {
-                let decl = self.variable_declarations.get(id).unwrap();
-                stack.push(*decl as u16);
-                stack.push(0);
+                if let Some(decl) = self.variable_declarations.get(&id.to_ascii_uppercase()) {
+                    stack.push(*decl as u16);
+                    stack.push(0);
+                } else {
+                    for (k, v) in &self.variable_declarations {
+                        println!("{}: {}", k, v);
+                    }
+                    panic!("Variable '{}' not found", id);
+                }
             }
             icy_ppe::ast::Expression::Const(constant) => {
                 stack.push(self.lookup_constant(constant));
@@ -623,17 +637,18 @@ impl Executable {
         self.get_label_info(label).usages.push(len);
     }
 
-    fn get_label_info(&mut self, label: &String) -> &mut LabelInfo {
-        if !self.label_table.contains_key(label) {
+    fn get_label_info(&mut self, label: &str) -> &mut LabelInfo {
+        let label = label.to_ascii_uppercase();
+        if !self.label_table.contains_key(&label) {
             self.label_table.insert(
-                label.clone(),
+                label.to_ascii_uppercase().clone(),
                 LabelInfo {
                     address: 0,
                     usages: Vec::new(),
                 },
             );
         }
-        self.label_table.get_mut(label).unwrap()
+        self.label_table.get_mut(&label).unwrap()
     }
 
     fn fill_labels(&mut self) {
@@ -650,10 +665,6 @@ lazy_static::lazy_static! {
     static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
 }
 fn main() {
-    println!(
-        "PPLC Version {} - PCBoard Programming Language Compiler",
-        *crate::VERSION
-    );
     let arguments: Arguments = argh::from_env();
     let mut file_name = arguments.file_name;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
@@ -722,14 +733,13 @@ fn main() {
         });*/
 
     let mut prg = parse_program(&src);
-    println!("---- Output:");
     transform_ast(&mut prg);
-    println!("{}", prg);
     let mut exec = Executable::new();
     exec.compile(&prg);
     match exec.create_binary(200) {
         Ok(bin) => {
             fs::write("out.ppe", bin).expect("Unable to write file");
+            println!("compilation done.");
         }
         Err(err) => {
             println!("Error while creating binary {}", err);

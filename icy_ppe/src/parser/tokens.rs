@@ -6,8 +6,11 @@ use thiserror::Error;
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum LexingError {
     #[default]
-    #[error("Invalid character")]
-    InvalidChar,
+    #[error("Unknown error")]
+    Unknown,
+
+    #[error("Invalid character {0}")]
+    InvalidChar(char),
 
     #[error("Error parsing number: '{0}' from {1}")]
     InvalidInteger(String, String),
@@ -172,7 +175,7 @@ pub enum Token {
     #[token("end", ignore(case))]
     End,
 
-    #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
+    #[regex(r#""[^"]*""#, |lex| Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string()))]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
         let slice = lex.slice();
         let num = i32::from_str_radix(&lex.slice()[2..], 16);
@@ -420,6 +423,15 @@ mod tests {
 
     #[test]
     fn test_string() {
+        assert_eq!(
+            Token::Const(Constant::String(String::new())),
+            get_token("\"\"")
+        );
+        assert_eq!(
+            Token::Const(Constant::String("\\".to_string())),
+            get_token("\"\\\"")
+        );
+
         let src = "\"Hello World\"\"foo\"";
         let mut lex: logos::Lexer<'_, Token> = crate::parser::tokens::Token::lexer(src);
         assert_eq!(

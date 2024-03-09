@@ -40,7 +40,6 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     }
                 }
             }
-            println!("{}", std::backtrace::Backtrace::force_capture());
             Err(Box::new(IcyError::VariableNotFound(str.clone())))
         }
         Expression::Const(constant) => match constant {
@@ -249,20 +248,16 @@ pub fn get_string(val: &VariableValue) -> String {
             }
         }
         VariableValue::Integer(i) => i.to_string(),
-        VariableValue::Unsigned(i) => i.to_string(),
-        VariableValue::Word(i) => i.to_string(),
         VariableValue::SWord(i) => i.to_string(),
         VariableValue::Byte(i) => i.to_string(),
         VariableValue::SByte(i) => i.to_string(),
-        VariableValue::Money(i) => i.to_string(), // TODO
-        VariableValue::Real(i) => i.to_string(),
+        VariableValue::Money(i) | VariableValue::Real(i) => i.to_string(),
         VariableValue::String(i) => i.clone(),
-        VariableValue::Date(i) => i.to_string(),      // TODO
-        VariableValue::EDate(i) => i.to_string(),     // TODO
-        VariableValue::Time(i) => i.to_string(),      // TODO
-        VariableValue::Dim1(_, _) => val.to_string(), // TODO
-        VariableValue::Dim2(_, _) => val.to_string(), // TODO
-        VariableValue::Dim3(_, _) => val.to_string(), // TODO
+        VariableValue::Word(i) | VariableValue::Date(i) | VariableValue::EDate(i) => i.to_string(), // TODO
+        VariableValue::Unsigned(i) | VariableValue::Time(i) => i.to_string(), // TODO
+        VariableValue::Dim1(_, _) | VariableValue::Dim2(_, _) | VariableValue::Dim3(_, _) => {
+            val.to_string()
+        } // TODO
     }
 }
 
@@ -527,7 +522,7 @@ fn call_function(
         FuncOpCode::TOKCOUNT => predefined_functions::tokcount(interpreter),
         FuncOpCode::U_RECNUM => {
             let user_name = evaluate_exp(interpreter, &params[0])?;
-            predefined_functions::u_recnum(interpreter, user_name)?
+            predefined_functions::u_recnum(interpreter, user_name)
         }
         FuncOpCode::U_INCONF => {
             predefined_functions::u_inconf(evaluate_exp(interpreter, &params[0])?)

@@ -9,6 +9,7 @@ pub struct Program {
     pub main_block: Block,
 
     pub file_name: PathBuf,
+    pub errors: Vec<crate::parser::Error>,
 }
 
 impl fmt::Display for Program {
@@ -60,6 +61,7 @@ impl Program {
             function_implementations: vec![],
             procedure_implementations: vec![],
             file_name: PathBuf::new(),
+            errors: Vec::new(),
         }
     }
 }

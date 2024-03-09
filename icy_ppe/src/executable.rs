@@ -146,7 +146,6 @@ pub fn read_file(file_name: &str) -> Executable {
         } else {
             i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
         };
-        // println!("{i}:{k}");
         source_buffer.push(k);
         i += 2;
     }

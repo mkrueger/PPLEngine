@@ -2,23 +2,29 @@ use super::{tokens::Token, Tokenizer};
 use crate::{
     ast::{BinOp, Expression},
     tables::FUNCTION_DEFINITIONS,
+    Res,
 };
 
 impl<'a> Tokenizer<'a> {
-    pub fn parse_expression(&mut self) -> Expression {
+    pub fn parse_expression(&mut self) -> Option<Expression> {
         self.parse_bool()
     }
-    fn parse_bool(&mut self) -> Expression {
+    fn parse_bool(&mut self) -> Option<Expression> {
         // it's correct on the upper level - it's very unusual
         if self.cur_token == Some(Token::Not) {
             self.next_token();
-            return Expression::UnaryExpression(
+            let Some(expr) = self.parse_bool() else {
+                return None;
+            };
+            return Some(Expression::UnaryExpression(
                 crate::ast::UnaryOp::Not,
-                Box::new(self.parse_bool()),
-            );
+                Box::new(expr),
+            ));
         }
 
-        let mut expr = self.parse_comparison();
+        let Some(mut expr) = self.parse_comparison() else {
+            return None;
+        };
         while self.cur_token == Some(Token::Or) || self.cur_token == Some(Token::And) {
             let op = match self.cur_token {
                 Some(Token::Or) => BinOp::Or,
@@ -27,13 +33,19 @@ impl<'a> Tokenizer<'a> {
             };
             self.next_token();
             let right = self.parse_comparison();
-            expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(right));
+            if let Some(e) = right {
+                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+            } else {
+                return None;
+            }
         }
-        expr
+        Some(expr)
     }
 
-    fn parse_comparison(&mut self) -> Expression {
-        let mut expr = self.parse_term();
+    fn parse_comparison(&mut self) -> Option<Expression> {
+        let Some(mut expr) = self.parse_term() else {
+            return None;
+        };
         while self.cur_token == Some(Token::Greater)
             || self.cur_token == Some(Token::GreaterEq)
             || self.cur_token == Some(Token::Lower)
@@ -53,14 +65,20 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
 
             let right = self.parse_term();
-            expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(right));
+            if let Some(e) = right {
+                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+            } else {
+                return None;
+            }
         }
 
-        expr
+        Some(expr)
     }
 
-    fn parse_term(&mut self) -> Expression {
-        let mut expr = self.parse_factor();
+    fn parse_term(&mut self) -> Option<Expression> {
+        let Some(mut expr) = self.parse_factor() else {
+            return None;
+        };
         while self.cur_token == Some(Token::Add) || self.cur_token == Some(Token::Sub) {
             let op = match self.cur_token {
                 Some(Token::Add) => BinOp::Add,
@@ -69,14 +87,20 @@ impl<'a> Tokenizer<'a> {
             };
             self.next_token();
             let right = self.parse_factor();
-            expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(right));
+            if let Some(e) = right {
+                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+            } else {
+                return None;
+            }
         }
 
-        expr
+        Some(expr)
     }
 
-    fn parse_factor(&mut self) -> Expression {
-        let mut expr = self.parse_pow();
+    fn parse_factor(&mut self) -> Option<Expression> {
+        let Some(mut expr) = self.parse_pow() else {
+            return None;
+        };
         while self.cur_token == Some(Token::Mul)
             || self.cur_token == Some(Token::Div)
             || self.cur_token == Some(Token::Mod)
@@ -88,54 +112,74 @@ impl<'a> Tokenizer<'a> {
                 _ => panic!(),
             };
             self.next_token();
+
             let right = self.parse_pow();
-            expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(right));
+            if let Some(e) = right {
+                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+            } else {
+                return None;
+            }
         }
-        expr
+        Some(expr)
     }
 
-    fn parse_pow(&mut self) -> Expression {
-        let mut expr = self.parse_unary();
+    fn parse_pow(&mut self) -> Option<Expression> {
+        let Some(mut expr) = self.parse_unary() else {
+            return None;
+        };
         while self.cur_token == Some(Token::PoW) {
             self.next_token();
             let right = self.parse_unary();
-            expr = Expression::BinaryExpression(BinOp::PoW, Box::new(expr), Box::new(right));
+            if let Some(e) = right {
+                expr = Expression::BinaryExpression(BinOp::PoW, Box::new(expr), Box::new(e));
+            } else {
+                return None;
+            }
         }
-        expr
+        Some(expr)
     }
 
-    fn parse_unary(&mut self) -> Expression {
+    fn parse_unary(&mut self) -> Option<Expression> {
         if self.cur_token == Some(Token::Add) {
             self.next_token();
-            return Expression::UnaryExpression(
-                crate::ast::UnaryOp::Plus,
-                Box::new(self.parse_unary()),
-            );
+            let expr = self.parse_unary();
+            if let Some(e) = expr {
+                return Some(Expression::UnaryExpression(
+                    crate::ast::UnaryOp::Plus,
+                    Box::new(e),
+                ));
+            }
         }
         if self.cur_token == Some(Token::Sub) {
             self.next_token();
-            return Expression::UnaryExpression(
-                crate::ast::UnaryOp::Minus,
-                Box::new(self.parse_unary()),
-            );
+            let expr = self.parse_unary();
+            if let Some(e) = expr {
+                return Some(Expression::UnaryExpression(
+                    crate::ast::UnaryOp::Minus,
+                    Box::new(e),
+                ));
+            }
         }
         if self.cur_token == Some(Token::Not) {
             self.next_token();
-            return Expression::UnaryExpression(
-                crate::ast::UnaryOp::Not,
-                Box::new(self.parse_unary()),
-            );
+            let expr = self.parse_unary();
+            if let Some(e) = expr {
+                return Some(Expression::UnaryExpression(
+                    crate::ast::UnaryOp::Not,
+                    Box::new(e),
+                ));
+            }
         }
 
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Expression {
+    fn parse_primary(&mut self) -> Option<Expression> {
         let t = self.cur_token.clone();
         match t {
             Some(Token::Const(c)) => {
                 self.next_token();
-                Expression::Const(c.clone())
+                Some(Expression::Const(c.clone()))
             }
             Some(Token::Identifier(id)) => {
                 self.next_token();
@@ -145,7 +189,11 @@ impl<'a> Tokenizer<'a> {
                     let mut params = Vec::new();
 
                     while self.cur_token != Some(Token::RPar) {
-                        params.push(self.parse_expression());
+                        let Some(value) = self.parse_expression() else {
+                            return None;
+                        };
+
+                        params.push(value);
                         if self.cur_token == Some(Token::Comma) {
                             self.next_token();
                         }
@@ -160,26 +208,27 @@ impl<'a> Tokenizer<'a> {
                     // TODO: Check parameter signature
 
                     if predef >= 0 {
-                        return Expression::PredefinedFunctionCall(
+                        return Some(Expression::PredefinedFunctionCall(
                             &FUNCTION_DEFINITIONS[predef as usize],
                             params,
-                        );
+                        ));
                     }
-                    return Expression::FunctionCall(id, params);
+                    return Some(Expression::FunctionCall(id, params));
                 }
 
-                Expression::Identifier(id)
+                Some(Expression::Identifier(id))
             }
             Some(Token::LPar) => {
                 self.next_token();
-                let ret = Expression::Parens(Box::new(self.parse_expression()));
+                let Some(expr) = self.parse_expression() else {
+                    return None;
+                };
+                let ret = Expression::Parens(Box::new(expr));
                 assert!(!(self.cur_token != Some(Token::RPar)), "unclosed parens.");
                 self.next_token();
-                ret
+                Some(ret)
             }
-            _ => {
-                panic!("invalid primary token {:?}", self.cur_token);
-            }
+            _ => None,
         }
     }
 }
@@ -194,7 +243,7 @@ mod tests {
     fn parse_expression(src: &str) -> Expression {
         let mut tokenizer = Tokenizer::new(src);
         tokenizer.next_token();
-        tokenizer.parse_expression()
+        tokenizer.parse_expression().unwrap()
     }
 
     #[test]

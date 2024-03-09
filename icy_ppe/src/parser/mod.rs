@@ -1,15 +1,49 @@
 use std::path::PathBuf;
 
-use crate::ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType};
+use crate::{
+    ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType},
+    parser::tokens::LexingError,
+};
 
 use self::tokens::Token;
 use logos::Logos;
+use thiserror::Error;
 
 mod expression;
 mod statements;
 pub mod tokens;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Error {
+    /// Triggered if there's an issue when tokenizing, and an AST can't be made
+    TokenizerError(LexingError),
+    ParserError(ParserError),
+}
+
+#[derive(Error, Default, Debug, Clone, PartialEq)]
+pub enum ParserErrorType {
+    #[default]
+    #[error("Parser Error")]
+    GenericError,
+
+    #[error("Too '{0}' from {1}")]
+    InvalidInteger(String, String),
+
+    #[error("Too few arguments for {0} expected {1} got {2}")]
+    TooFewArguments(String, usize, i8),
+
+    #[error("Too many arguments for {0} expected {1} got {2}")]
+    TooManyArguments(String, usize, i8),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParserError {
+    pub error: ParserErrorType,
+    pub range: core::ops::Range<usize>,
+}
+
 pub struct Tokenizer<'a> {
+    pub errors: Vec<Error>,
     pub cur_token: Option<Token>,
     lex: logos::Lexer<'a, Token>,
 }
@@ -18,6 +52,7 @@ impl<'a> Tokenizer<'a> {
     pub fn new(text: &'a str) -> Self {
         let lex = crate::parser::tokens::Token::lexer(text);
         Tokenizer {
+            errors: Vec::new(),
             cur_token: None,
             lex,
         }
@@ -34,8 +69,13 @@ impl<'a> Tokenizer<'a> {
                 Ok(token) => {
                     self.cur_token = Some(token);
                 }
-                Err(e) => {
-                    panic!("lexer error: {:?} ('{:?}')", e, self.lex.slice());
+                Err(error) => {
+                    let err = LexingError {
+                        error,
+                        range: self.lex.span(),
+                    };
+                    self.errors.push(Error::TokenizerError(err));
+                    self.next_token();
                 }
             }
         } else {
@@ -84,15 +124,15 @@ impl<'a> Tokenizer<'a> {
 
         if let Some(Token::LPar) = &self.cur_token {
             self.next_token();
-            let vec = self.parse_expression();
+            let vec = self.parse_expression().unwrap();
 
             let var = if let Some(Token::Comma) = &self.cur_token {
                 self.next_token();
-                let mat = self.parse_expression();
+                let mat = self.parse_expression().unwrap();
 
                 if let Some(Token::Comma) = &self.cur_token {
                     self.next_token();
-                    let cube = self.parse_expression();
+                    let cube = self.parse_expression().unwrap();
                     VarInfo::Var3(var_name, vec, mat, cube)
                 } else {
                     VarInfo::Var2(var_name, vec, mat)
@@ -256,7 +296,9 @@ impl<'a> Tokenizer<'a> {
                 id: -1,
                 declaration: Declaration::Procedure(name, vars),
                 variable_declarations,
-                block: Block { statements },
+                block: Block {
+                    statements: statements.into_iter().flatten().collect(),
+                },
             });
         }
         None
@@ -343,7 +385,9 @@ impl<'a> Tokenizer<'a> {
                 id: -1,
                 declaration: Declaration::Function(name, vars, func_t),
                 variable_declarations,
-                block: Block { statements },
+                block: Block {
+                    statements: statements.into_iter().flatten().collect(),
+                },
             });
         }
         None
@@ -389,8 +433,11 @@ pub fn parse_program(input: &str) -> Program {
         declarations,
         function_implementations,
         procedure_implementations,
-        main_block: Block { statements },
+        main_block: Block {
+            statements: statements.into_iter().flatten().collect(),
+        },
         file_name: PathBuf::from("/test/test.ppe"),
+        errors: tokenizer.errors,
     }
 }
 

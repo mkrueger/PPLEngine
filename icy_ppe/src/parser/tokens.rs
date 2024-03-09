@@ -4,23 +4,26 @@ use crate::{
 };
 use core::fmt;
 use logos::Logos;
+use std::collections::btree_map::Range;
 use thiserror::Error;
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]
-pub enum LexingError {
+pub enum LexingErrorType {
     #[default]
-    #[error("Unknown error")]
-    Unknown,
-
-    #[error("Invalid character {0}")]
-    InvalidChar(char),
+    #[error("Invalid token")]
+    InvalidToken,
 
     #[error("Error parsing number: '{0}' from {1}")]
     InvalidInteger(String, String),
 }
+#[derive(Clone, Debug, PartialEq)]
+pub struct LexingError {
+    pub error: LexingErrorType,
+    pub range: core::ops::Range<usize>,
+}
 
 #[derive(Logos, Clone, Debug, PartialEq)]
-#[logos(error = LexingError)]
+#[logos(error = LexingErrorType)]
 #[logos(skip r"[ \t\f]+")] // Ignore this regex pattern between tokens
 pub enum Token {
     #[token("\r\n")]
@@ -186,7 +189,7 @@ pub enum Token {
         let num = i32::from_str_radix(&lex.slice()[2..], 16);
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"[0-9][0-9a-fA-F]*[hH]", |lex| {
@@ -194,7 +197,7 @@ pub enum Token {
         let num = i32::from_str_radix(&slice[..slice.len() - 1], 16);
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"[0-7]+[oO]", |lex| {
@@ -202,7 +205,7 @@ pub enum Token {
         let num = i32::from_str_radix(&slice[..slice.len() - 1], 8);
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"[01]+[bB]", |lex| {
@@ -210,7 +213,7 @@ pub enum Token {
         let num = i32::from_str_radix(&slice[..slice.len() - 1], 2);
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"\d+[dD]?", |lex| {
@@ -219,7 +222,7 @@ pub enum Token {
         let num = slice[..len].parse::<i32>();
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"\$\d+(\.\d+)?", |lex| {
@@ -227,7 +230,7 @@ pub enum Token {
         let num = lex.slice()[1..].parse::<f64>();
         match num {
             Ok(num) => Ok(Constant::Money(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     #[regex(r"(?:0|[1-9]\d*)(?:(?:[eE][+-]?\d+)|\.\d+(?:[eE][+-]?\d+)?)",  |lex| {
@@ -235,7 +238,7 @@ pub enum Token {
         let num = lex.slice().parse::<f64>();
         match num {
             Ok(num) => Ok(Constant::Real(num)),
-            Err(err) => Err(LexingError::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
     // AUTO GENERATED CONSTANTS

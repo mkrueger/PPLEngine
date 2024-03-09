@@ -1,5 +1,6 @@
 use crate::{
     ast::{Constant, ElseIfBlock, Expression, Statement, VarInfo},
+    parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
 };
 
@@ -20,7 +21,7 @@ impl<'a> Tokenizer<'a> {
             self.cur_token
         );
         self.next_token();
-        let cond = self.parse_expression();
+        let cond = self.parse_expression().unwrap();
 
         assert!(
             !(self.cur_token != Some(Token::RPar)),
@@ -39,9 +40,9 @@ impl<'a> Tokenizer<'a> {
                 self.skip_eol();
             }
             self.next_token(); // skip ENDWHILE
-            Statement::DoWhile(Box::new(cond), statements)
+            Statement::DoWhile(Box::new(cond), statements.into_iter().flatten().collect())
         } else {
-            Statement::While(Box::new(cond), Box::new(self.parse_statement()))
+            Statement::While(Box::new(cond), Box::new(self.parse_statement().unwrap()))
         }
     }
 
@@ -53,7 +54,7 @@ impl<'a> Tokenizer<'a> {
             self.skip_eol();
         }
         self.next_token();
-        Statement::Block(statements)
+        Statement::Block(statements.into_iter().flatten().collect())
     }
 
     fn parse_for(&mut self) -> Statement {
@@ -85,7 +86,11 @@ impl<'a> Tokenizer<'a> {
 
         let step = if self.cur_token == Some(Token::Identifier("STEP".to_string())) {
             self.next_token();
-            Some(Box::new(self.parse_expression()))
+            if let Some(e) = self.parse_expression() {
+                Some(Box::new(e))
+            } else {
+                None
+            }
         } else {
             None
         };
@@ -100,10 +105,10 @@ impl<'a> Tokenizer<'a> {
 
         Statement::For(
             Box::new(var),
-            Box::new(from),
-            Box::new(to),
+            Box::new(from.unwrap()),
+            Box::new(to.unwrap()),
             step,
-            statements,
+            statements.into_iter().flatten().collect(),
         )
     }
 
@@ -116,7 +121,7 @@ impl<'a> Tokenizer<'a> {
             self.cur_token
         );
         self.next_token();
-        let cond = self.parse_expression();
+        let cond = self.parse_expression().unwrap();
 
         assert!(
             !(self.cur_token != Some(Token::RPar)),
@@ -127,7 +132,7 @@ impl<'a> Tokenizer<'a> {
 
         if self.cur_token != Some(Token::Then) {
             self.skip_eol();
-            return Statement::If(Box::new(cond), Box::new(self.parse_statement()));
+            return Statement::If(Box::new(cond), Box::new(self.parse_statement().unwrap()));
         }
         self.next_token();
         let mut statements = Vec::new();
@@ -180,8 +185,8 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 else_if_blocks.push(ElseIfBlock {
-                    cond: Box::new(cond),
-                    block: statements,
+                    cond: Box::new(cond.unwrap()),
+                    block: statements.into_iter().flatten().collect(),
                 });
             }
         };
@@ -202,7 +207,12 @@ impl<'a> Tokenizer<'a> {
 
         self.next_token();
 
-        Statement::IfThen(Box::new(cond), statements, else_if_blocks, else_block)
+        Statement::IfThen(
+            Box::new(cond),
+            statements.into_iter().flatten().collect(),
+            else_if_blocks,
+            else_block.into_iter().flatten().collect(),
+        )
     }
 
     fn parse_select(&mut self) -> Statement {
@@ -214,7 +224,7 @@ impl<'a> Tokenizer<'a> {
             self.cur_token
         );
         self.next_token();
-        let case_expr = self.parse_expression();
+        let case_expr = self.parse_expression().unwrap();
         self.next_token();
         self.skip_eol();
 
@@ -236,7 +246,7 @@ impl<'a> Tokenizer<'a> {
                 break;
             };
 
-            let expr = self.parse_expression();
+            let expr = self.parse_expression().unwrap();
             self.next_token();
             self.skip_eol();
 
@@ -248,14 +258,18 @@ impl<'a> Tokenizer<'a> {
             }
             case_blocks.push(ElseIfBlock {
                 cond: Box::new(expr),
-                block: statements,
+                block: statements.into_iter().flatten().collect(),
             });
         }
 
         self.next_token();
         self.skip_eol();
 
-        Statement::Select(Box::new(case_expr), case_blocks, else_block)
+        Statement::Select(
+            Box::new(case_expr),
+            case_blocks,
+            else_block.into_iter().flatten().collect(),
+        )
     }
 
     /// Returns the parse statement of this [`Tokenizer`].
@@ -263,20 +277,20 @@ impl<'a> Tokenizer<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn parse_statement(&mut self) -> Statement {
+    pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.clone() {
             Some(Token::End) => {
                 self.next_token();
-                Statement::End
+                Some(Statement::End)
             }
             Some(Token::Begin) => {
                 self.next_token();
-                self.parse_block()
+                Some(self.parse_block())
             }
-            Some(Token::While) => self.parse_while(),
-            Some(Token::Select) => self.parse_select(),
-            Some(Token::If) => self.parse_if(),
-            Some(Token::For) => self.parse_for(),
+            Some(Token::While) => Some(self.parse_while()),
+            Some(Token::Select) => Some(self.parse_select()),
+            Some(Token::If) => Some(self.parse_if()),
+            Some(Token::For) => Some(self.parse_for()),
             Some(Token::Let) => {
                 self.next_token();
                 let id = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
@@ -287,19 +301,21 @@ impl<'a> Tokenizer<'a> {
                 };
                 if self.cur_token == Some(Token::Eq) {
                     self.next_token();
-                    let right = self.parse_expression();
-                    return Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right));
+                    let Some(right) = self.parse_expression() else {
+                        return None;
+                    };
+                    return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
                 }
                 panic!("error parsing let statement");
             }
-            Some(Token::Break) => Statement::Break,
-            Some(Token::Continue) => Statement::Continue,
-            Some(Token::Return) => Statement::Return,
+            Some(Token::Break) => Some(Statement::Break),
+            Some(Token::Continue) => Some(Statement::Continue),
+            Some(Token::Return) => Some(Statement::Return),
             Some(Token::Gosub) => {
                 self.next_token();
                 if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
-                    return Statement::Gosub(id);
+                    return Some(Statement::Gosub(id));
                 }
                 panic!("gosub expected a label, got: {:?}", self.cur_token);
             }
@@ -307,28 +323,32 @@ impl<'a> Tokenizer<'a> {
                 self.next_token();
                 if let Some(Token::Identifier(id)) = self.cur_token.clone() {
                     self.next_token();
-                    return Statement::Goto(id);
+                    return Some(Statement::Goto(id));
                 }
                 panic!("goto expected a label, got: {:?}", self.cur_token);
             }
             Some(Token::Const(Constant::Builtin(c))) => {
                 if let Some(value) = self.parse_call(c.name.to_string()) {
-                    return value;
+                    return Some(value);
                 }
-                panic!("invalid identifier {:?}", self.cur_token);
+                self.next_token();
+                return self.parse_statement();
             }
 
             Some(Token::Identifier(id)) => {
                 if let Some(value) = self.parse_call(id) {
-                    return value;
+                    return Some(value);
                 }
-                panic!("invalid identifier {:?}", self.cur_token);
+                self.next_token();
+                return self.parse_statement();
             }
 
             Some(Token::Label(id)) => {
                 self.next_token();
-                Statement::Label(id)
+                Some(Statement::Label(id))
             }
+
+            None => None,
 
             _ => {
                 panic!("error unexpected token {:?}", self.cur_token);
@@ -345,7 +365,10 @@ impl<'a> Tokenizer<'a> {
                     if params.len() as i8 >= def.max_args {
                         break;
                     }
-                    params.push(self.parse_expression());
+                    let Some(value) = self.parse_expression() else {
+                        return None;
+                    };
+                    params.push(value);
 
                     if self.cur_token.is_none() {
                         break;
@@ -357,28 +380,41 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                assert!(
-                    (params.len() as i8) >= def.min_args,
-                    "{} has too few arguments {} [{}:{}]",
-                    def.name,
-                    params.len(),
-                    def.min_args,
-                    def.max_args
-                );
-                assert!(
-                    (params.len() as i8) <= def.max_args,
-                    "{} has too many arguments {} [{}:{}]",
-                    def.name,
-                    params.len(),
-                    def.min_args,
-                    def.max_args
-                );
+                if (params.len() as i8) >= def.min_args {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::TooFewArguments(
+                                def.name.to_string(),
+                                params.len(),
+                                def.min_args,
+                            ),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+
+                if (params.len() as i8) <= def.max_args {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::TooManyArguments(
+                                def.name.to_string(),
+                                params.len(),
+                                def.max_args,
+                            ),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
                 return Some(Statement::Call(def, params));
             }
         }
+
         if self.cur_token == Some(Token::Eq) {
             self.next_token();
-            let right = self.parse_expression();
+            let Some(right) = self.parse_expression() else {
+                return None;
+            };
+
             return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
         }
         if self.cur_token == Some(Token::LPar) {
@@ -386,7 +422,10 @@ impl<'a> Tokenizer<'a> {
             let mut params = Vec::new();
 
             while self.cur_token != Some(Token::RPar) {
-                params.push(self.parse_expression());
+                let Some(right) = self.parse_expression() else {
+                    return None;
+                };
+                params.push(right);
                 if self.cur_token == Some(Token::Comma) {
                     self.next_token();
                 }
@@ -398,7 +437,9 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             if self.cur_token == Some(Token::Eq) {
                 self.next_token();
-                let right = self.parse_expression();
+                let Some(right) = self.parse_expression() else {
+                    return None;
+                };
                 if params.len() == 1 {
                     return Some(Statement::Let(
                         Box::new(VarInfo::Var1(id, params[0].clone())),
@@ -443,7 +484,7 @@ mod tests {
     fn parse_statement(src: &str) -> Statement {
         let mut tokenizer = Tokenizer::new(src);
         tokenizer.next_token();
-        tokenizer.parse_statement()
+        tokenizer.parse_statement().unwrap()
     }
 
     fn get_statement_definition(name: &str) -> Option<&'static StatementDefinition> {

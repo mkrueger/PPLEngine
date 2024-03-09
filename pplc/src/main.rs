@@ -1,4 +1,5 @@
 use argh::FromArgs;
+use ariadne::{Label, Report, ReportKind, Source};
 use icy_ppe::{
     ast::{Program, Statement, VariableType, VariableValue},
     compiler::transform_ast,
@@ -9,7 +10,7 @@ use icy_ppe::{
 use semver::Version;
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path};
 use thiserror::Error;
-
+pub mod parser;
 #[derive(Error, Debug)]
 pub enum CompilationError {
     #[error("Too many declarations: {0}")]
@@ -669,7 +670,6 @@ impl Executable {
                 stack.push(*op as u16);
             }
             icy_ppe::ast::Expression::BinaryExpression(op, left, right) => {
-                println!("op:{}", op);
                 self.comp_expr(stack, left);
                 self.comp_expr(stack, right);
                 stack.push(*op as u16);
@@ -741,7 +741,7 @@ fn main() {
         file_name.push_str(".pps");
     }
 
-    let src = fs::read_to_string(file_name).expect("Failed to read file");
+    let src = fs::read_to_string(&file_name).expect("Failed to read file");
     /*    let (tokens, mut errs) = lexer().parse(src.as_str()).into_output_errors();
 
     let parse_errs = if let Some(tokens) = &tokens {
@@ -802,6 +802,47 @@ fn main() {
         });*/
 
     let mut prg = parse_program(&src);
+
+    if !prg.errors.is_empty() {
+        let mut errors = 0;
+        let mut warnings = 0;
+
+        for e in &prg.errors {
+            match e {
+                icy_ppe::parser::Error::ParserError(err) => {
+                    errors += 1;
+                    Report::build(ReportKind::Error, &file_name, 12)
+                        .with_code(errors)
+                        .with_message(format!("{}", err.error))
+                        .with_label(
+                            Label::new((&file_name, err.range.clone()))
+                                .with_color(ariadne::Color::Red),
+                        )
+                        .finish()
+                        .print((&file_name, Source::from(&src)))
+                        .unwrap();
+                }
+                icy_ppe::parser::Error::TokenizerError(err) => {
+                    errors += 1;
+                    Report::build(ReportKind::Error, &file_name, 12)
+                        .with_code(errors)
+                        .with_message(format!("{}", err.error))
+                        .with_label(
+                            Label::new((&file_name, err.range.clone()))
+                                .with_color(ariadne::Color::Red),
+                        )
+                        .finish()
+                        .print((&file_name, Source::from(&src)))
+                        .unwrap();
+                }
+            }
+        }
+
+        println!("{} errors, {} warnings", errors, warnings);
+
+        return;
+    }
+
     transform_ast(&mut prg);
     let mut exec = Executable::new();
     exec.compile(&prg);

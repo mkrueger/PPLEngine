@@ -1,0 +1,8 @@
+         -* PPL Engine *-
+
+A PPL compile, decompiler and execution runtime.
+PPL is a language created for PCBoard. These tools
+run without PCBoard but aim for compatibility.
+
+Development
+GitHub https://github.com/mkrueger/ppl_engine

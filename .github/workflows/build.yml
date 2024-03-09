@@ -1,0 +1,32 @@
+name: Build
+on:
+  workflow_run:
+    workflows: ["Run Tests"]
+    branches: [main]
+    types: 
+      - completed
+env:
+  APP_NAME: ppl_engine
+  CARGO_TERM_COLOR: always
+jobs:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build exe
+      run: |
+        cargo build --release
+    - name: Copy exe
+      run: |
+        cp ".\target\release\ppld.exe" .
+        cp ".\target\release\pplc.exe" .
+        cp ".\target\release\pplx.exe" .
+    - name: 'Upload plain exe'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_exe
+        path: |
+          .\ppld.exe
+          .\pplp.exe
+          .\pplx.exe
+          file_id.diz

@@ -99,6 +99,118 @@ impl Output {
     }
 }
 
+fn translate_variable(s: &str) -> String {
+    let s = match s {
+        "ALIAS" => "1",
+        "AUTOMORE" => "1",
+        "BEEP" => "1",
+        "BICPS" => "1",
+        "BOARDNAME" => "1",
+        "BPS" => "1",
+        "BYTECREDIT" => "1",
+        "BYTELIMIT" => "1",
+        "BYTERATIO" => "1",
+        "BYTESLEFT" => "1",
+        "CARRIER" => "1",
+        "CITY" => "1",
+        "CLREOL" => "1",
+        "CLS" => "1",
+        "CONFNAME" => "1",
+        "CONFNUM" => "1",
+        "CREDLEFT" => "1",
+        "CREDNOW" => "1",
+        "CREDSTART" => "1",
+        "CREDUSED" => "1",
+        "CURMSGNUM" => "1",
+        "DATAPHONE" => "1",
+        "DAYBYTES" => "1",
+        "DELAY" => "1",
+        "DIRNAME" => "1",
+        "DIRNUM" => "1",
+        "DLBYTES" => "1",
+        "DLFILES" => "1",
+        "ENV=" => "1",
+        "EVENT" => "1",
+        "EXPDATE" => "1",
+        "EXPDAYS" => "1",
+        "FBYTES" => "1",
+        "FFILES" => "1",
+        "FILECREDIT" => "1",
+        "FILERATIO" => "1",
+        "FIRSTU" => "1",
+        "FIRST" => "1",
+        "FNUM" => "1",
+        "FREESPACE" => "1",
+        "HOMEPHONE" => "1",
+        "HIGHMSGNUM" => "1",
+        "INAME" => "1",
+        "INCONF" => "1",
+        "KBLEFT" => "1",
+        "KBLIMIT" => "1",
+        "LASTCALLERNODE" => "1",
+        "LASTCALLERSYSTEM" => "1",
+        "LASTDATEON" => "1",
+        "LASTTIMEON" => "1",
+        "LMR" => "1",
+        "LOGDATE" => "1",
+        "LOGTIME" => "1",
+        "LOWMSGNUM" => "1",
+        "MAXBYTES" => "1",
+        "MAXFILES" => "1",
+        "MINLEFT" => "1000",
+        "MORE" => "1",
+        "MSGLEFT" => "1",
+        "MSGREAD" => "1",
+        "NOCHAR" => "1",
+        "NODE" => "1",
+        "NUMBLT" => "1",
+        "NUMCALLS" => "1",
+        "NUMCONF" => "1",
+        "NUMDIR" => "1",
+        "NUMTIMESON" => "1",
+        "OFFHOURS" => "1",
+        "OPTEXT" => "1",
+        "PAUSE" => "1",
+        "POFF" => "1",
+        "PON" => "1",
+        "POS" => "1",
+        "PROLTR" => "1",
+        "PRODESC" => "1",
+        "PWXDATE" => "1",
+        "PWXDAYS" => "1",
+        "QOFF" => "1",
+        "QON" => "1",
+        "RATIOBYTES" => "1",
+        "RATIOFILES" => "1",
+        "RBYTES" => "1",
+        "RCPS" => "1",
+        "REAL" => "1",
+        "RFILES" => "1",
+        "SBYTES" => "1",
+        "SCPS" => "1",
+        "SECURITY" => "1",
+        "SFILES" => "1",
+        "SYSDATE" => "1",
+        "SYSOPIN" => "1",
+        "SYSOPOUT" => "1",
+        "SYSTIME" => "1",
+        "TIMELIMIT" => "1000",
+        "TIMELEFT" => "1000",
+        "TIMEUSED" => "1",
+        "TOTALTIME" => "1",
+        "UPBYTES" => "1",
+        "UPFILES" => "1",
+        "USER" => "1",
+        "WAIT" => "1",
+        "WHO" => "1",
+        "XOFF" => "1",
+        "XON" => "1",
+        "YESCHAR" => "Y",
+        _ => "UNKNOWN",
+    };
+    s.to_string()
+}
+
 impl ExecutionContext for Output {
     fn has_sysop(&self) -> bool {
         self.is_sysop
@@ -155,8 +267,8 @@ impl ExecutionContext for Output {
                                     .execute(MoveTo(0, 0))
                                     .unwrap();
                             }
-                            _str => {
-                                // println!("Unknown pcb sequence: {}", str);
+                            str => {
+                                print!("{}", translate_variable(str));
                             }
                         }
                     } else {
@@ -231,8 +343,8 @@ impl ExecutionContext for Output {
                                     .execute(MoveTo(0, 0))
                                     .unwrap();
                             }
-                            _str => {
-                                // println!("Unknown pcb sequence: {}", str);
+                            str => {
+                                print!("{}", translate_variable(str));
                             }
                         }
                     } else {

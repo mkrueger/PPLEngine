@@ -1,6 +1,10 @@
 use std::fmt;
 
-use crate::{output_keyword, tables::FunctionDefinition};
+use crate::{
+    output_keyword,
+    parser::tokens::{SpannedToken, Token},
+    tables::FunctionDefinition,
+};
 
 use super::{Constant, Statement};
 
@@ -63,7 +67,7 @@ impl fmt::Display for UnaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Identifier(String),
+    Identifier(IdentifierExpression),
     Const(Constant),
     Parens(Box<Expression>),
     FunctionCall(String, Vec<Expression>),
@@ -94,5 +98,43 @@ impl fmt::Display for Expression {
                 Statement::param_list_to_string(params)
             ),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct IdentifierExpression {
+    identifier_token: SpannedToken,
+}
+
+impl IdentifierExpression {
+    pub fn new(identifier_token: SpannedToken) -> Self {
+        Self { identifier_token }
+    }
+
+    pub fn empty(identifier: impl Into<String>) -> Self {
+        Self {
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+        }
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub(crate) fn create_empty_expression(identifier: impl Into<String>) -> Expression {
+        Expression::Identifier(IdentifierExpression::empty(identifier))
+    }
+}
+
+impl fmt::Display for IdentifierExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_identifier())
     }
 }

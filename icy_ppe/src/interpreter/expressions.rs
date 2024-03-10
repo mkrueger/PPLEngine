@@ -26,21 +26,23 @@ use super::Interpreter;
 /// # Errors
 pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<VariableValue> {
     match expr {
-        Expression::Identifier(str) => {
+        Expression::Identifier(identifier_expr) => {
             for frame in &interpreter.cur_frame.last().unwrap().values {
-                if frame.0 == str {
+                if frame.0 == identifier_expr.get_identifier() {
                     return Ok(frame.1.clone());
                 }
             }
 
             if interpreter.cur_frame.len() > 1 {
                 for frame in &interpreter.cur_frame[0].values {
-                    if frame.0 == str {
+                    if frame.0 == identifier_expr.get_identifier() {
                         return Ok(frame.1.clone());
                     }
                 }
             }
-            Err(Box::new(IcyError::VariableNotFound(str.clone())))
+            Err(Box::new(IcyError::VariableNotFound(
+                identifier_expr.get_identifier().clone(),
+            )))
         }
         Expression::Const(constant) => match constant {
             Constant::Boolean(true) => Ok(VariableValue::Integer(PPL_TRUE)),

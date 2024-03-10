@@ -614,7 +614,10 @@ impl Executable {
     fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &icy_ppe::ast::Expression) {
         match expr {
             icy_ppe::ast::Expression::Identifier(id) => {
-                if let Some(decl) = self.variable_declarations.get(&id.to_ascii_uppercase()) {
+                if let Some(decl) = self
+                    .variable_declarations
+                    .get(&id.get_identifier().to_ascii_uppercase())
+                {
                     stack.push(*decl as u16);
                     stack.push(0);
                 } else {

@@ -1,8 +1,7 @@
 use super::{tokens::Token, Tokenizer};
 use crate::{
-    ast::{BinOp, Expression},
+    ast::{BinOp, Expression, IdentifierExpression},
     tables::FUNCTION_DEFINITIONS,
-    Res,
 };
 
 impl<'a> Tokenizer<'a> {
@@ -11,7 +10,7 @@ impl<'a> Tokenizer<'a> {
     }
     fn parse_bool(&mut self) -> Option<Expression> {
         // it's correct on the upper level - it's very unusual
-        if self.cur_token == Some(Token::Not) {
+        if self.get_cur_token() == Some(Token::Not) {
             self.next_token();
             let Some(expr) = self.parse_bool() else {
                 return None;
@@ -25,8 +24,8 @@ impl<'a> Tokenizer<'a> {
         let Some(mut expr) = self.parse_comparison() else {
             return None;
         };
-        while self.cur_token == Some(Token::Or) || self.cur_token == Some(Token::And) {
-            let op = match self.cur_token {
+        while self.get_cur_token() == Some(Token::Or) || self.get_cur_token() == Some(Token::And) {
+            let op = match self.get_cur_token() {
                 Some(Token::Or) => BinOp::Or,
                 Some(Token::And) => BinOp::And,
                 _ => panic!(),
@@ -46,14 +45,14 @@ impl<'a> Tokenizer<'a> {
         let Some(mut expr) = self.parse_term() else {
             return None;
         };
-        while self.cur_token == Some(Token::Greater)
-            || self.cur_token == Some(Token::GreaterEq)
-            || self.cur_token == Some(Token::Lower)
-            || self.cur_token == Some(Token::LowerEq)
-            || self.cur_token == Some(Token::Eq)
-            || self.cur_token == Some(Token::NotEq)
+        while self.get_cur_token() == Some(Token::Greater)
+            || self.get_cur_token() == Some(Token::GreaterEq)
+            || self.get_cur_token() == Some(Token::Lower)
+            || self.get_cur_token() == Some(Token::LowerEq)
+            || self.get_cur_token() == Some(Token::Eq)
+            || self.get_cur_token() == Some(Token::NotEq)
         {
-            let op = match self.cur_token {
+            let op = match self.get_cur_token() {
                 Some(Token::Greater) => BinOp::Greater,
                 Some(Token::GreaterEq) => BinOp::GreaterEq,
                 Some(Token::Lower) => BinOp::Lower,
@@ -79,8 +78,8 @@ impl<'a> Tokenizer<'a> {
         let Some(mut expr) = self.parse_factor() else {
             return None;
         };
-        while self.cur_token == Some(Token::Add) || self.cur_token == Some(Token::Sub) {
-            let op = match self.cur_token {
+        while self.get_cur_token() == Some(Token::Add) || self.get_cur_token() == Some(Token::Sub) {
+            let op = match self.get_cur_token() {
                 Some(Token::Add) => BinOp::Add,
                 Some(Token::Sub) => BinOp::Sub,
                 _ => panic!(),
@@ -101,11 +100,11 @@ impl<'a> Tokenizer<'a> {
         let Some(mut expr) = self.parse_pow() else {
             return None;
         };
-        while self.cur_token == Some(Token::Mul)
-            || self.cur_token == Some(Token::Div)
-            || self.cur_token == Some(Token::Mod)
+        while self.get_cur_token() == Some(Token::Mul)
+            || self.get_cur_token() == Some(Token::Div)
+            || self.get_cur_token() == Some(Token::Mod)
         {
-            let op = match self.cur_token {
+            let op = match self.get_cur_token() {
                 Some(Token::Mul) => BinOp::Mul,
                 Some(Token::Div) => BinOp::Div,
                 Some(Token::Mod) => BinOp::Mod,
@@ -127,7 +126,7 @@ impl<'a> Tokenizer<'a> {
         let Some(mut expr) = self.parse_unary() else {
             return None;
         };
-        while self.cur_token == Some(Token::PoW) {
+        while self.get_cur_token() == Some(Token::PoW) {
             self.next_token();
             let right = self.parse_unary();
             if let Some(e) = right {
@@ -140,7 +139,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_unary(&mut self) -> Option<Expression> {
-        if self.cur_token == Some(Token::Add) {
+        if self.get_cur_token() == Some(Token::Add) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
@@ -150,7 +149,7 @@ impl<'a> Tokenizer<'a> {
                 ));
             }
         }
-        if self.cur_token == Some(Token::Sub) {
+        if self.get_cur_token() == Some(Token::Sub) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
@@ -160,7 +159,7 @@ impl<'a> Tokenizer<'a> {
                 ));
             }
         }
-        if self.cur_token == Some(Token::Not) {
+        if self.get_cur_token() == Some(Token::Not) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
@@ -175,31 +174,35 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_primary(&mut self) -> Option<Expression> {
-        let t = self.cur_token.clone();
+        let Some(t) = self.get_cur_token() else {
+            return None;
+        };
+
         match t {
-            Some(Token::Const(c)) => {
+            Token::Const(c) => {
                 self.next_token();
                 Some(Expression::Const(c.clone()))
             }
-            Some(Token::Identifier(id)) => {
+            Token::Identifier(id) => {
+                let ct = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
 
-                if self.cur_token == Some(Token::LPar) {
+                if self.get_cur_token() == Some(Token::LPar) {
                     self.next_token();
                     let mut params = Vec::new();
 
-                    while self.cur_token != Some(Token::RPar) {
+                    while self.get_cur_token() != Some(Token::RPar) {
                         let Some(value) = self.parse_expression() else {
                             return None;
                         };
 
                         params.push(value);
-                        if self.cur_token == Some(Token::Comma) {
+                        if self.get_cur_token() == Some(Token::Comma) {
                             self.next_token();
                         }
                     }
                     assert!(
-                        !(self.cur_token != Some(Token::RPar)),
+                        !(self.get_cur_token() != Some(Token::RPar)),
                         "missing closing parens"
                     );
                     self.next_token();
@@ -216,15 +219,18 @@ impl<'a> Tokenizer<'a> {
                     return Some(Expression::FunctionCall(id, params));
                 }
 
-                Some(Expression::Identifier(id))
+                Some(Expression::Identifier(IdentifierExpression::new(ct)))
             }
-            Some(Token::LPar) => {
+            Token::LPar => {
                 self.next_token();
                 let Some(expr) = self.parse_expression() else {
                     return None;
                 };
                 let ret = Expression::Parens(Box::new(expr));
-                assert!(!(self.cur_token != Some(Token::RPar)), "unclosed parens.");
+                assert!(
+                    !(self.get_cur_token() != Some(Token::RPar)),
+                    "unclosed parens."
+                );
                 self.next_token();
                 Some(ret)
             }

@@ -1,8 +1,6 @@
-use crate::ast::{BinOp, ElseIfBlock, VarInfo};
+use crate::ast::{BinOp, ElseIfBlock, IdentifierExpression, VarInfo};
 
-use super::{
-    get_var_name, Block, Declaration, Expression, HashMap, HashSet, OpCode, Program, Statement,
-};
+use super::{Block, Declaration, Expression, HashMap, HashSet, Program, Statement};
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.main_block.statements);
@@ -433,7 +431,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                             continue;
                         } // always add even if step is negative
                         if let Expression::Identifier(lstr) = &**lvalue {
-                            if *lstr != index_label {
+                            if *lstr.get_identifier() != index_label {
                                 i += 1;
                                 continue;
                             }
@@ -968,8 +966,8 @@ fn replace_in_varinfo(repl_expr: &mut VarInfo, rename_map: &HashMap<String, Stri
 fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String, String>) {
     match repl_expr {
         Expression::Identifier(id) => {
-            if rename_map.contains_key(id) {
-                *id = rename_map.get(id).unwrap().to_string();
+            if rename_map.contains_key(id.get_identifier()) {
+                *id = IdentifierExpression::empty(rename_map.get(id.get_identifier()).unwrap());
             }
         }
         Expression::Parens(expr) | Expression::UnaryExpression(_, expr) => {

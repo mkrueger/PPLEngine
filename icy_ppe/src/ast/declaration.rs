@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{Constant, Expression, VariableType};
+use super::{Constant, Expression, IdentifierExpression, VariableType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarInfo {
@@ -13,7 +13,7 @@ pub enum VarInfo {
 impl VarInfo {
     pub fn as_expr(&self) -> Expression {
         match &self {
-            VarInfo::Var0(name) => Expression::Identifier(name.clone()),
+            VarInfo::Var0(name) => IdentifierExpression::create_empty_expression(name),
             VarInfo::Var1(name, vec) => Expression::FunctionCall(name.clone(), vec![vec.clone()]),
             VarInfo::Var2(name, vec, mat) => {
                 Expression::FunctionCall(name.clone(), vec![vec.clone(), mat.clone()])
@@ -31,9 +31,9 @@ impl VarInfo {
     /// Panics if .
     pub fn from(expr: &Expression) -> Self {
         match expr {
-            Expression::Const(Constant::String(name)) | Expression::Identifier(name) => {
-                VarInfo::Var0(name.clone())
-            }
+            Expression::Identifier(name) => VarInfo::Var0(name.get_identifier().clone()),
+            Expression::Const(Constant::String(name)) => VarInfo::Var0(name.clone()),
+
             Expression::FunctionCall(name, vec) => match vec.len() {
                 1 => VarInfo::Var1(name.clone(), vec[0].clone()),
                 2 => VarInfo::Var2(name.clone(), vec[0].clone(), vec[1].clone()),

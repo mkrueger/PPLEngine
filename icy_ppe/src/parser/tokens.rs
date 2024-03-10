@@ -22,6 +22,21 @@ pub struct LexingError {
     pub range: core::ops::Range<usize>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct SpannedToken {
+    pub token: Token,
+    pub span: core::ops::Range<usize>,
+}
+
+impl SpannedToken {
+    pub fn new(token: Token, span: core::ops::Range<usize>) -> Self {
+        Self { token, span }
+    }
+    pub fn create_empty(token: Token) -> Self {
+        Self { token, span: 0..0 }
+    }
+}
+
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(error = LexingErrorType)]
 #[logos(skip r"[ \t\f]+")] // Ignore this regex pattern between tokens
@@ -425,7 +440,7 @@ mod tests {
     }
 
     fn get_token(src: &str) -> Token {
-        let mut lex: logos::Lexer<'_, Token> = crate::parser::tokens::Token::lexer(src);
+        let mut lex = crate::parser::tokens::Token::lexer(src);
         lex.next().unwrap().unwrap()
     }
 

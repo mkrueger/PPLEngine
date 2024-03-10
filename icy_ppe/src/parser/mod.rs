@@ -5,8 +5,8 @@ use crate::{
     parser::tokens::LexingError,
 };
 
-use self::tokens::Token;
-use logos::Logos;
+use self::tokens::{SpannedToken, Token};
+use logos::{Logos, SpannedIter};
 use thiserror::Error;
 
 mod expression;
@@ -44,7 +44,7 @@ pub struct ParserError {
 
 pub struct Tokenizer<'a> {
     pub errors: Vec<Error>,
-    pub cur_token: Option<Token>,
+    pub cur_token: Option<SpannedToken>,
     lex: logos::Lexer<'a, Token>,
 }
 
@@ -58,16 +58,24 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    pub fn get_cur_token(&self) -> Option<Token> {
+        if let Some(token) = &self.cur_token {
+            Some(token.token.clone())
+        } else {
+            None
+        }
+    }
+
     /// Returns the next token of this [`Tokenizer`].
     ///
     /// # Panics
     ///
     /// Panics if .
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn next_token(&mut self) -> Option<SpannedToken> {
         if let Some(token) = self.lex.next() {
             match token {
                 Ok(token) => {
-                    self.cur_token = Some(token);
+                    self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
                 }
                 Err(error) => {
                     let err = LexingError {
@@ -87,7 +95,11 @@ impl<'a> Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
     pub fn get_variable_type(&self) -> Option<VariableType> {
-        if let Some(Token::Identifier(id)) = &self.cur_token {
+        let Some(token) = &self.cur_token else {
+            return None;
+        };
+
+        if let Token::Identifier(id) = &token.token {
             match id.as_str() {
                 "INTEGER" => Some(VariableType::Integer),
                 "STRING" | "BIGSTR" => Some(VariableType::String),
@@ -115,22 +127,22 @@ impl<'a> Tokenizer<'a> {
     /// Panics if .
     pub fn parse_var_info(&mut self) -> VarInfo {
         let var_name;
-        if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+        if let Some(Token::Identifier(id)) = self.get_cur_token() {
             self.next_token();
             var_name = id.clone();
         } else {
             panic!("expected identifier, got: {:?}", self.cur_token);
         }
 
-        if let Some(Token::LPar) = &self.cur_token {
+        if let Some(Token::LPar) = &self.get_cur_token() {
             self.next_token();
             let vec = self.parse_expression().unwrap();
 
-            let var = if let Some(Token::Comma) = &self.cur_token {
+            let var = if let Some(Token::Comma) = &self.get_cur_token() {
                 self.next_token();
                 let mat = self.parse_expression().unwrap();
 
-                if let Some(Token::Comma) = &self.cur_token {
+                if let Some(Token::Comma) = &self.get_cur_token() {
                     self.next_token();
                     let cube = self.parse_expression().unwrap();
                     VarInfo::Var3(var_name, vec, mat, cube)
@@ -141,7 +153,7 @@ impl<'a> Tokenizer<'a> {
                 VarInfo::Var1(var_name, vec)
             };
 
-            if let Some(Token::RPar) = &self.cur_token {
+            if let Some(Token::RPar) = &self.get_cur_token() {
                 self.next_token();
                 return var;
             }
@@ -157,19 +169,19 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_function_declaration(&mut self) -> Option<Declaration> {
-        if Some(Token::Declare) == self.cur_token {
+        if Some(Token::Declare) == self.get_cur_token() {
             self.next_token();
 
-            let is_function = if Some(Token::Procedure) == self.cur_token {
+            let is_function = if Some(Token::Procedure) == self.get_cur_token() {
                 false
-            } else if Some(Token::Function) == self.cur_token {
+            } else if Some(Token::Function) == self.get_cur_token() {
                 true
             } else {
                 panic!("FUNCTION or PROCEDURE expected. got {:?}", self.cur_token);
             };
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
                 self.next_token();
                 id
             } else {
@@ -177,7 +189,7 @@ impl<'a> Tokenizer<'a> {
             };
 
             assert!(
-                !(self.cur_token != Some(Token::LPar)),
+                !(self.get_cur_token() != Some(Token::LPar)),
                 "'(' expected. got {:?}",
                 self.cur_token
             );
@@ -185,7 +197,7 @@ impl<'a> Tokenizer<'a> {
 
             let mut vars = Vec::new();
 
-            while self.cur_token != Some(Token::RPar) {
+            while self.get_cur_token() != Some(Token::RPar) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
@@ -195,13 +207,13 @@ impl<'a> Tokenizer<'a> {
                     panic!("variable type expeted got: {:?}", self.cur_token);
                 }
 
-                if self.cur_token == Some(Token::Comma) {
+                if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
 
             assert!(
-                !(self.cur_token != Some(Token::RPar)),
+                !(self.get_cur_token() != Some(Token::RPar)),
                 "')' expected. got {:?}",
                 self.cur_token
             );
@@ -228,10 +240,10 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_procedure(&mut self) -> Option<FunctionImplementation> {
-        if Some(Token::Procedure) == self.cur_token {
+        if Some(Token::Procedure) == self.get_cur_token() {
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
                 self.next_token();
                 id
             } else {
@@ -239,7 +251,7 @@ impl<'a> Tokenizer<'a> {
             };
 
             assert!(
-                !(self.cur_token != Some(Token::LPar)),
+                !(self.get_cur_token() != Some(Token::LPar)),
                 "'(' expected. got {:?}",
                 self.cur_token
             );
@@ -247,7 +259,7 @@ impl<'a> Tokenizer<'a> {
 
             let mut vars = Vec::new();
 
-            while self.cur_token != Some(Token::RPar) {
+            while self.get_cur_token() != Some(Token::RPar) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
@@ -257,13 +269,13 @@ impl<'a> Tokenizer<'a> {
                     panic!("variable type expeted got: {:?}", self.cur_token);
                 }
 
-                if self.cur_token == Some(Token::Comma) {
+                if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
 
             assert!(
-                !(self.cur_token != Some(Token::RPar)),
+                !(self.get_cur_token() != Some(Token::RPar)),
                 "')' expected. got {:?}",
                 self.cur_token
             );
@@ -273,14 +285,14 @@ impl<'a> Tokenizer<'a> {
             let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
-            while self.cur_token != Some(Token::EndProc) {
+            while self.get_cur_token() != Some(Token::EndProc) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
                     let mut vars = Vec::new();
 
                     vars.push(self.parse_var_info());
-                    while self.cur_token == Some(Token::Comma) {
+                    while self.get_cur_token() == Some(Token::Comma) {
                         self.next_token();
                         vars.push(self.parse_var_info());
                     }
@@ -310,10 +322,10 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn parse_function(&mut self) -> Option<FunctionImplementation> {
-        if Some(Token::Function) == self.cur_token {
+        if Some(Token::Function) == self.get_cur_token() {
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.cur_token.clone() {
+            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
                 self.next_token();
                 id
             } else {
@@ -321,7 +333,7 @@ impl<'a> Tokenizer<'a> {
             };
 
             assert!(
-                !(self.cur_token != Some(Token::LPar)),
+                !(self.get_cur_token() != Some(Token::LPar)),
                 "'(' expected. got {:?}",
                 self.cur_token
             );
@@ -329,7 +341,7 @@ impl<'a> Tokenizer<'a> {
 
             let mut vars = Vec::new();
 
-            while self.cur_token != Some(Token::RPar) {
+            while self.get_cur_token() != Some(Token::RPar) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
@@ -339,13 +351,13 @@ impl<'a> Tokenizer<'a> {
                     panic!("variable type expeted got: {:?}", self.cur_token);
                 }
 
-                if self.cur_token == Some(Token::Comma) {
+                if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
 
             assert!(
-                !(self.cur_token != Some(Token::RPar)),
+                !(self.get_cur_token() != Some(Token::RPar)),
                 "')' expected. got {:?}",
                 self.cur_token
             );
@@ -362,14 +374,14 @@ impl<'a> Tokenizer<'a> {
             let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
-            while self.cur_token != Some(Token::EndFunc) {
+            while self.get_cur_token() != Some(Token::EndFunc) {
                 if let Some(var_type) = self.get_variable_type() {
                     self.next_token();
 
                     let mut vars = Vec::new();
 
                     vars.push(self.parse_var_info());
-                    while self.cur_token == Some(Token::Comma) {
+                    while self.get_cur_token() == Some(Token::Comma) {
                         self.next_token();
                         vars.push(self.parse_var_info());
                     }
@@ -411,7 +423,7 @@ pub fn parse_program(input: &str) -> Program {
             let mut vars = Vec::new();
 
             vars.push(tokenizer.parse_var_info());
-            while tokenizer.cur_token == Some(Token::Comma) {
+            while tokenizer.get_cur_token() == Some(Token::Comma) {
                 tokenizer.next_token();
                 vars.push(tokenizer.parse_var_info());
             }

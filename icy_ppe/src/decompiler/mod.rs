@@ -1,14 +1,13 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    get_var_name, Block, Constant, Declaration, Expression, FunctionImplementation, Program,
-    Statement, UnaryOp, VarInfo, VariableType,
+    get_var_name, Block, Constant, Declaration, Expression, FunctionImplementation,
+    IdentifierExpression, Program, Statement, UnaryOp, VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
     FuncOpCode, OpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS,
     STATEMENT_SIGNATURE_TABLE, TYPE_NAMES,
 };
-use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use std::path::PathBuf;
@@ -897,37 +896,37 @@ impl Decompiler {
                 || self.executable.version >= 300 && var_nr < 0x18)
         {
             match var_nr {
-                0 => return Expression::Identifier("U_EXPERT".to_string()),
-                1 => return Expression::Identifier("U_FSE".to_string()),
-                2 => return Expression::Identifier("U_FSEP".to_string()),
-                3 => return Expression::Identifier("U_CLS".to_string()),
-                4 => return Expression::Identifier("U_EXPDATE".to_string()),
-                5 => return Expression::Identifier("U_SEC".to_string()),
-                6 => return Expression::Identifier("U_PAGELEN".to_string()),
-                7 => return Expression::Identifier("U_EXPSEC".to_string()),
-                8 => return Expression::Identifier("U_CITY".to_string()),
-                9 => return Expression::Identifier("U_BDPHONE".to_string()),
-                10 => return Expression::Identifier("U_HVPHONE".to_string()),
-                11 => return Expression::Identifier("U_TRANS".to_string()),
-                12 => return Expression::Identifier("U_CMNT1".to_string()),
-                13 => return Expression::Identifier("U_CMNT2".to_string()),
-                14 => return Expression::Identifier("U_PWD".to_string()),
-                15 => return Expression::Identifier("U_SCROLL".to_string()),
-                16 => return Expression::Identifier("U_LONGHDR".to_string()),
-                17 => return Expression::Identifier("U_DEF79".to_string()),
-                18 => return Expression::Identifier("U_ALIAS".to_string()),
-                19 => return Expression::Identifier("U_VER".to_string()),
-                20 => return Expression::Identifier("U_ADDR".to_string()),
-                21 => return Expression::Identifier("U_NOTES".to_string()),
-                22 => return Expression::Identifier("U_PWDEXP".to_string()),
-                23 => return Expression::Identifier("U_ACCOUNT".to_string()),
+                0 => return IdentifierExpression::create_empty_expression("U_EXPERT"),
+                1 => return IdentifierExpression::create_empty_expression("U_FSE"),
+                2 => return IdentifierExpression::create_empty_expression("U_FSEP"),
+                3 => return IdentifierExpression::create_empty_expression("U_CLS"),
+                4 => return IdentifierExpression::create_empty_expression("U_EXPDATE"),
+                5 => return IdentifierExpression::create_empty_expression("U_SEC"),
+                6 => return IdentifierExpression::create_empty_expression("U_PAGELEN"),
+                7 => return IdentifierExpression::create_empty_expression("U_EXPSEC"),
+                8 => return IdentifierExpression::create_empty_expression("U_CITY"),
+                9 => return IdentifierExpression::create_empty_expression("U_BDPHONE"),
+                10 => return IdentifierExpression::create_empty_expression("U_HVPHONE"),
+                11 => return IdentifierExpression::create_empty_expression("U_TRANS"),
+                12 => return IdentifierExpression::create_empty_expression("U_CMNT1"),
+                13 => return IdentifierExpression::create_empty_expression("U_CMNT2"),
+                14 => return IdentifierExpression::create_empty_expression("U_PWD"),
+                15 => return IdentifierExpression::create_empty_expression("U_SCROLL"),
+                16 => return IdentifierExpression::create_empty_expression("U_LONGHDR"),
+                17 => return IdentifierExpression::create_empty_expression("U_DEF79"),
+                18 => return IdentifierExpression::create_empty_expression("U_ALIAS"),
+                19 => return IdentifierExpression::create_empty_expression("U_VER"),
+                20 => return IdentifierExpression::create_empty_expression("U_ADDR"),
+                21 => return IdentifierExpression::create_empty_expression("U_NOTES"),
+                22 => return IdentifierExpression::create_empty_expression("U_PWDEXP"),
+                23 => return IdentifierExpression::create_empty_expression("U_ACCOUNT"),
 
                 // Added in 3.40
-                24 => return Expression::Identifier("U_SHORTDESC".to_string()),
-                25 => return Expression::Identifier("U_GENDER".to_string()),
-                26 => return Expression::Identifier("U_BIRTHDATE".to_string()),
-                27 => return Expression::Identifier("U_EMAIL".to_string()),
-                28 => return Expression::Identifier("U_WEB".to_string()),
+                24 => return IdentifierExpression::create_empty_expression("U_SHORTDESC"),
+                25 => return IdentifierExpression::create_empty_expression("U_GENDER"),
+                26 => return IdentifierExpression::create_empty_expression("U_BIRTHDATE"),
+                27 => return IdentifierExpression::create_empty_expression("U_EMAIL"),
+                28 => return IdentifierExpression::create_empty_expression("U_WEB"),
 
                 _ => return Expression::FunctionCall("????".to_string(), vec![]),
             }
@@ -957,7 +956,10 @@ impl Decompiler {
                         .fflag
                         == 1
                     {
-                        return Expression::Identifier(format!("FUNC{0:>03}", cur_var.number));
+                        return IdentifierExpression::create_empty_expression(format!(
+                            "FUNC{0:>03}",
+                            cur_var.number
+                        ));
                     }
                     if self
                         .executable
@@ -967,9 +969,12 @@ impl Decompiler {
                         .lflag
                         == 1
                     {
-                        return Expression::Identifier(format!("LOC{0:>03}", cur_var.number));
+                        return IdentifierExpression::create_empty_expression(format!(
+                            "LOC{0:>03}",
+                            cur_var.number
+                        ));
                     }
-                    return Expression::Identifier(cur_var.var_name.clone());
+                    return IdentifierExpression::create_empty_expression(cur_var.var_name.clone());
                 }
             }
         }
@@ -1561,7 +1566,7 @@ impl Decompiler {
                 0xfd => { // label (Goto)
                     self.src_ptr += 1;
                     let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr as usize]);
-                    self.push_expr(Expression::Identifier(format!("LABEL{tmp:>03}")));
+                    self.push_expr(IdentifierExpression::create_empty_expression(format!("LABEL{tmp:>03}")));
                     self.src_ptr += 1;
                 }
                 _ => {
@@ -1693,7 +1698,6 @@ impl Decompiler {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
 
     fn is_match(output: &str, original: &str) -> bool {
         let mut i = 0;

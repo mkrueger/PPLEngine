@@ -571,7 +571,10 @@ pub fn run(
 
 fn evaluate_constant_int(expression: &Expression) -> i32 {
     match expression {
-        Expression::Const(Constant::Integer(x)) => *x,
+        Expression::Const(c) => match c.get_constant_value() {
+            Constant::Integer(x) => *x,
+            _ => panic!("expected constant integer"),
+        },
         _ => panic!("expected constant integer"),
     }
 }

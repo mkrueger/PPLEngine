@@ -1,7 +1,7 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    Block, Constant, Declaration, Expression, FunctionImplementation, IdentifierExpression,
-    Program, Statement, UnaryOp, VarInfo, VariableType,
+    Block, Constant, ConstantExpression, Declaration, Expression, FunctionImplementation,
+    IdentifierExpression, Program, Statement, UnaryOp, VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -800,16 +800,18 @@ impl Decompiler {
     }
     fn repl_const(expr: Expression, names: &'static [BuiltinConst]) -> Expression {
         match expr {
-            Expression::Const(c) => match c {
+            Expression::Const(c) => match c.get_constant_value() {
                 Constant::Integer(parse_result) => {
                     let mut i = 0;
-                    while i < names.len() && names[i].value != parse_result {
+                    while i < names.len() && names[i].value != *parse_result {
                         i += 1;
                     }
                     if i < names.len() {
-                        return Expression::Const(Constant::Builtin(&names[i]));
+                        return ConstantExpression::create_empty_expression(Constant::Builtin(
+                            &names[i],
+                        ));
                     }
-                    Expression::Const(Constant::Integer(parse_result))
+                    ConstantExpression::create_empty_expression(Constant::Integer(*parse_result))
                 }
                 _ => Expression::Const(c),
             },
@@ -991,9 +993,9 @@ impl Decompiler {
         match cur_var.variable_type {
             VariableType::Boolean => {
                 if cur_var.content == 0 {
-                    Expression::Const(Constant::Boolean(false))
+                    ConstantExpression::create_empty_expression(Constant::Boolean(false))
                 } else {
-                    Expression::Const(Constant::Boolean(true))
+                    ConstantExpression::create_empty_expression(Constant::Boolean(true))
                 }
             }
             VariableType::Integer
@@ -1006,14 +1008,18 @@ impl Decompiler {
             | VariableType::EDate
             | VariableType::DDate
             | VariableType::Money
-            | VariableType::Time => Expression::Const(Constant::Integer(cur_var.content as i32)),
+            | VariableType::Time => ConstantExpression::create_empty_expression(Constant::Integer(
+                cur_var.content as i32,
+            )),
             VariableType::BigStr | VariableType::String => {
-                Expression::Const(Constant::String(cur_var.string_value.clone()))
+                ConstantExpression::create_empty_expression(Constant::String(
+                    cur_var.string_value.clone(),
+                ))
             }
             VariableType::Double | VariableType::Real => {
-                Expression::Const(Constant::Real(cur_var.content as f64))
+                ConstantExpression::create_empty_expression(Constant::Real(cur_var.content as f64))
             }
-            _ => Expression::Const(Constant::Integer(0)),
+            _ => ConstantExpression::create_empty_expression(Constant::Integer(0)),
         }
     }
 

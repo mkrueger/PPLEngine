@@ -1,5 +1,6 @@
 use crate::ast::{
-    get_var_name, BinOp, Constant, ElseIfBlock, Expression, Program, Statement, VarInfo,
+    get_var_name, BinOp, Constant, ConstantExpression, ElseIfBlock, Expression, Program, Statement,
+    VarInfo,
 };
 
 pub fn transform_ast(prg: &mut Program) {
@@ -71,9 +72,9 @@ fn transform_block(statements: &mut Vec<Statement>) {
 
                 statements.insert(i, Statement::Label(break_label.clone()));
                 statements.insert(i, Statement::Goto(loop_label.clone()));
-                let step = *opt_step
-                    .clone()
-                    .unwrap_or(Box::new(Expression::Const(Constant::Integer(1))));
+                let step = *opt_step.clone().unwrap_or(Box::new(
+                    ConstantExpression::create_empty_expression(Constant::Integer(1)),
+                ));
                 statements.insert(
                     i,
                     Statement::Let(
@@ -105,7 +106,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                             Expression::BinaryExpression(
                                                 BinOp::Lower,
                                                 Box::new(step.clone()),
-                                                Box::new(Expression::Const(Constant::Integer(0))),
+                                                Box::new(
+                                                    ConstantExpression::create_empty_expression(
+                                                        Constant::Integer(0),
+                                                    ),
+                                                ),
                                             ),
                                         ))),
                                         Box::new(Expression::Parens(Box::new(
@@ -124,7 +129,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                             Expression::BinaryExpression(
                                                 BinOp::GreaterEq,
                                                 Box::new(step.clone()),
-                                                Box::new(Expression::Const(Constant::Integer(0))),
+                                                Box::new(
+                                                    ConstantExpression::create_empty_expression(
+                                                        Constant::Integer(0),
+                                                    ),
+                                                ),
                                             ),
                                         ))),
                                         Box::new(Expression::Parens(Box::new(

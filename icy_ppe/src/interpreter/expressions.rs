@@ -44,7 +44,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 identifier_expr.get_identifier().clone(),
             )))
         }
-        Expression::Const(constant) => match constant {
+        Expression::Const(constant) => match constant.get_constant_value() {
             Constant::Boolean(true) => Ok(VariableValue::Integer(PPL_TRUE)),
             Constant::Boolean(false) => Ok(VariableValue::Integer(PPL_FALSE)),
             Constant::Money(x) => Ok(VariableValue::Money(*x)),

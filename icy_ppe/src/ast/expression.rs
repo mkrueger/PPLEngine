@@ -68,7 +68,7 @@ impl fmt::Display for UnaryOp {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Identifier(IdentifierExpression),
-    Const(Constant),
+    Const(ConstantExpression),
     Parens(Box<Expression>),
     FunctionCall(String, Vec<Expression>),
     PredefinedFunctionCall(&'static FunctionDefinition<'static>, Vec<Expression>),
@@ -141,5 +141,45 @@ impl IdentifierExpression {
 impl fmt::Display for IdentifierExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.get_identifier())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConstantExpression {
+    constant_token: SpannedToken,
+    constant_value: Constant,
+}
+
+impl ConstantExpression {
+    pub fn new(constant_token: SpannedToken, constant_value: Constant) -> Self {
+        Self {
+            constant_token,
+            constant_value,
+        }
+    }
+
+    pub fn empty(constant_value: Constant) -> Self {
+        Self {
+            constant_token: SpannedToken::create_empty(Token::Comment),
+            constant_value,
+        }
+    }
+
+    pub fn get_constant_token(&self) -> &SpannedToken {
+        &self.constant_token
+    }
+
+    pub fn get_constant_value(&self) -> &Constant {
+        &self.constant_value
+    }
+
+    pub(crate) fn create_empty_expression(constant_value: Constant) -> Expression {
+        Expression::Const(ConstantExpression::empty(constant_value))
+    }
+}
+
+impl fmt::Display for ConstantExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_constant_value())
     }
 }

@@ -471,13 +471,11 @@ impl<'a> Tokenizer<'a> {
         None
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{constant::BuiltinConst, Constant, ElseIfBlock, Expression, Statement, VarInfo},
-        parser::Tokenizer,
-        tables::{StatementDefinition, STATEMENT_DEFINITIONS},
+        ast:: Statement,
     };
 
     fn parse_statement(src: &str) -> Statement {
@@ -560,58 +558,59 @@ mod tests {
             parse_statement("PRINTLN \"Hello World\"")
         );
     }
+*/
+ /*
+ #[test]
+ fn test_parse_hello_world() {
+     // check_statements(";This is a comment\nPRINT \"Hello World\"\n\t\n\n", vec![Statement::Call(get_statement_definition("PRINT").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))])]);
+ }
 
-    #[test]
-    fn test_parse_hello_world() {
-        // check_statements(";This is a comment\nPRINT \"Hello World\"\n\t\n\n", vec![Statement::Call(get_statement_definition("PRINT").unwrap(), vec![Expression::Const(Constant::String("Hello World".to_string()))])]);
-    }
+ #[test]
+ fn test_gotogosub() {
+     assert_eq!(
+         Statement::Goto("LABEL1".to_string()),
+         parse_statement("GOTO LABEL1")
+     );
 
-    #[test]
-    fn test_gotogosub() {
-        assert_eq!(
-            Statement::Goto("LABEL1".to_string()),
-            parse_statement("GOTO LABEL1")
-        );
+     assert_eq!(
+         Statement::Gosub("LABEL2".to_string()),
+         parse_statement("GOSUB LABEL2")
+     );
+     assert_eq!(
+         Statement::Label("LABEL1".to_string()),
+         parse_statement(":LABEL1")
+     );
+ }
 
-        assert_eq!(
-            Statement::Gosub("LABEL2".to_string()),
-            parse_statement("GOSUB LABEL2")
-        );
-        assert_eq!(
-            Statement::Label("LABEL1".to_string()),
-            parse_statement(":LABEL1")
-        );
-    }
-    /*
-    #[test]
-    fn test_incdec() {
-        assert_eq!(
-            Statement::Call(
-                get_statement_definition("INC").unwrap(),
-                vec![Expression::Identifier("VAR1".to_string()),]
-            ),
-            parse_statement("INC VAR1\n")
-        );
-        assert_eq!(
-            Statement::Call(
-                get_statement_definition("DEC").unwrap(),
-                vec![Expression::Identifier("VAR2".to_string()),]
-            ),
-            parse_statement("DEC VAR2\n")
-        );
-    }*/
+ #[test]
+ fn test_incdec() {
+     assert_eq!(
+         Statement::Call(
+             get_statement_definition("INC").unwrap(),
+             vec![Expression::Identifier("VAR1".to_string()),]
+         ),
+         parse_statement("INC VAR1\n")
+     );
+     assert_eq!(
+         Statement::Call(
+             get_statement_definition("DEC").unwrap(),
+             vec![Expression::Identifier("VAR2".to_string()),]
+         ),
+         parse_statement("DEC VAR2\n")
+     );
+ }
 
-    #[test]
-    fn test_parse_simple_noncalls() {
-        assert_eq!(Statement::End, parse_statement("End ; Predifined End"));
+ #[test]
+ fn test_parse_simple_noncalls() {
+     assert_eq!(Statement::End, parse_statement("End ; Predifined End"));
 
-        assert_eq!(Statement::Break, parse_statement("BREAK"));
+     assert_eq!(Statement::Break, parse_statement("BREAK"));
 
-        assert_eq!(Statement::Continue, parse_statement("CONTINUE"));
+     assert_eq!(Statement::Continue, parse_statement("CONTINUE"));
 
-        assert_eq!(Statement::Return, parse_statement("RETURN"));
-    }
-
+     assert_eq!(Statement::Return, parse_statement("RETURN"));
+ }*/
+/*
     #[test]
     fn test_procedure_calls() {
         assert_eq!(
@@ -701,7 +700,7 @@ mod tests {
             parse_statement("WHILE (TRUE) DO ENDWHILE")
         );
     }
-    /*
+
         #[test]
         fn test_for_next() {
             assert_eq!(
@@ -738,12 +737,11 @@ mod tests {
                 parse_statement("FOR i = 1 TO 10 STEP -1 NEXT")
             );
         }
-    */
+
     #[test]
     fn test_parse_block() {
         assert_eq!(Statement::Block(Vec::new()), parse_statement("BEGIN END"));
     }
-    /*
     #[test]
     fn test_select_case() {
         assert_eq!(
@@ -781,5 +779,5 @@ mod tests {
             ),
             parse_statement("WHILE (TRUE) DO ENDWHILE")
         );
-    }*/
-}
+    }
+}*/

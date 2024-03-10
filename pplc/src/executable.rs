@@ -617,7 +617,7 @@ impl Executable {
                 }
             }
             icy_ppe::ast::Expression::Const(constant) => {
-                stack.push(self.lookup_constant(constant));
+                stack.push(self.lookup_constant(constant.get_constant_value()));
                 stack.push(0);
             }
             icy_ppe::ast::Expression::Parens(expr) => {

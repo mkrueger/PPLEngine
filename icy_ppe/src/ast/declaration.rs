@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{Constant, Expression, IdentifierExpression, VariableType};
+use super::{Constant, ConstantExpression, Expression, IdentifierExpression, VariableType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarInfo {
@@ -32,7 +32,12 @@ impl VarInfo {
     pub fn from(expr: &Expression) -> Self {
         match expr {
             Expression::Identifier(name) => VarInfo::Var0(name.get_identifier().clone()),
-            Expression::Const(Constant::String(name)) => VarInfo::Var0(name.clone()),
+            Expression::Const(constant_expression) => {
+                match constant_expression.get_constant_value() {
+                    Constant::String(name) => VarInfo::Var0(name.clone()),
+                    _ => panic!("can't translate const to var info {expr:?}"),
+                }
+            }
 
             Expression::FunctionCall(name, vec) => match vec.len() {
                 1 => VarInfo::Var1(name.clone(), vec[0].clone()),
@@ -43,7 +48,7 @@ impl VarInfo {
             Expression::BinaryExpression(_op, left, _right) => Self::from(left),
             Expression::Parens(expr) | Expression::UnaryExpression(_, expr) => Self::from(expr),
 
-            _ => panic!("unsupported expr {expr:?}"),
+            Expression::PredefinedFunctionCall(..) => panic!("unsupported expr {expr:?}"),
         }
     }
 
@@ -75,8 +80,13 @@ impl VarInfo {
             VarInfo::Var0(_) => 0,
             VarInfo::Var1(_, vec) | VarInfo::Var2(_, vec, _) | VarInfo::Var3(_, vec, _, _) => {
                 match vec {
-                    Expression::Const(Constant::Integer(size)) => *size as usize,
-                    _ => panic!("vector size not int"),
+                    Expression::Const(constant_expression) => {
+                        match constant_expression.get_constant_value() {
+                            Constant::Integer(size) => *size as usize,
+                            _ => panic!("vector size not int {constant_expression:?}"),
+                        }
+                    }
+                    _ => panic!(""),
                 }
             }
         }
@@ -91,7 +101,12 @@ impl VarInfo {
         match self {
             VarInfo::Var0(_) | VarInfo::Var1(_, _) => 0,
             VarInfo::Var2(_, _, mat) | VarInfo::Var3(_, _, mat, _) => match mat {
-                Expression::Const(Constant::Integer(size)) => *size as usize,
+                Expression::Const(constant_expression) => {
+                    match constant_expression.get_constant_value() {
+                        Constant::Integer(size) => *size as usize,
+                        _ => panic!("vector size not int {constant_expression:?}"),
+                    }
+                }
                 _ => panic!("matrix size not int"),
             },
         }
@@ -106,7 +121,12 @@ impl VarInfo {
         match self {
             VarInfo::Var0(_) | VarInfo::Var1(_, _) | VarInfo::Var2(_, _, _) => 0,
             VarInfo::Var3(_, _, _, cube) => match cube {
-                Expression::Const(Constant::Integer(size)) => *size as usize,
+                Expression::Const(constant_expression) => {
+                    match constant_expression.get_constant_value() {
+                        Constant::Integer(size) => *size as usize,
+                        _ => panic!("vector size not int {constant_expression:?}"),
+                    }
+                }
                 _ => panic!("cube size not int"),
             },
         }
@@ -235,7 +255,7 @@ impl Declaration {
             var_type,
             vec![VarInfo::Var1(
                 name,
-                Expression::Const(Constant::Integer(vs)),
+                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
             )],
         )
     }
@@ -245,8 +265,8 @@ impl Declaration {
             var_type,
             vec![VarInfo::Var2(
                 name,
-                Expression::Const(Constant::Integer(vs)),
-                Expression::Const(Constant::Integer(ms)),
+                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
+                ConstantExpression::create_empty_expression(Constant::Integer(ms)),
             )],
         )
     }
@@ -262,9 +282,9 @@ impl Declaration {
             var_type,
             vec![VarInfo::Var3(
                 name,
-                Expression::Const(Constant::Integer(vs)),
-                Expression::Const(Constant::Integer(ms)),
-                Expression::Const(Constant::Integer(cs)),
+                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
+                ConstantExpression::create_empty_expression(Constant::Integer(ms)),
+                ConstantExpression::create_empty_expression(Constant::Integer(cs)),
             )],
         )
     }

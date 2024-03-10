@@ -3,7 +3,9 @@ use crate::{
     tables::{StatementDefinition, PPL_TRUE},
 };
 
-use super::{Constant, Expression, ProgramContext, UnaryOp, VarInfo, VariableType};
+use super::{
+    Constant, ConstantExpression, Expression, ProgramContext, UnaryOp, VarInfo, VariableType,
+};
 use crate::output_keyword;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,38 +67,41 @@ impl Statement {
         res
     }
 
-    pub fn try_boolean_conversion(expr: &Expression) -> &Expression {
+    pub fn try_boolean_conversion(expr: &Expression) -> Expression {
         match expr {
-            Expression::Const(Constant::Integer(i)) => {
-                if *i == PPL_TRUE {
-                    &Expression::Const(Constant::Boolean(true))
-                } else {
-                    &Expression::Const(Constant::Boolean(false))
+            Expression::Const(c) => match c.get_constant_value() {
+                Constant::Integer(i) => {
+                    if *i == PPL_TRUE {
+                        ConstantExpression::create_empty_expression(Constant::Boolean(true))
+                    } else {
+                        ConstantExpression::create_empty_expression(Constant::Boolean(false))
+                    }
                 }
-            }
+                _ => expr.clone(),
+            },
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr),
             Expression::UnaryExpression(op, notexpr) => {
                 if !matches!(op, UnaryOp::Not) {
-                    return expr;
+                    return expr.clone();
                 }
 
                 match &**notexpr {
-                    Expression::Const(Constant::Boolean(false)) => {
-                        &Expression::Const(Constant::Boolean(true))
-                    }
-                    Expression::Const(Constant::Boolean(true)) => {
-                        &Expression::Const(Constant::Boolean(false))
-                    }
+                    Expression::Const(c) => match c.get_constant_value() {
+                        Constant::Boolean(b) => {
+                            Expression::Const(ConstantExpression::empty(Constant::Boolean(!b)))
+                        }
+                        _ => expr.clone(),
+                    },
                     Expression::UnaryExpression(op, notexpr) => {
                         if matches!(op, UnaryOp::Not) {
                             return Statement::try_boolean_conversion(notexpr);
                         }
-                        expr
+                        expr.clone()
                     }
-                    _ => expr,
+                    _ => expr.clone(),
                 }
             }
-            _ => expr,
+            _ => expr.clone(),
         }
     }
 
@@ -190,7 +195,7 @@ impl Statement {
     }
 
     pub fn out_bool_func(expr: &Expression) -> String {
-        Statement::strip_outer_parens(Statement::try_boolean_conversion(
+        Statement::strip_outer_parens(&Statement::try_boolean_conversion(
             Statement::strip_outer_parens(expr),
         ))
         .to_string()
@@ -278,7 +283,7 @@ impl Statement {
                 let expr2 = if expected_type == VariableType::Boolean {
                     Statement::try_boolean_conversion(expr)
                 } else {
-                    &**expr
+                    (**expr).clone()
                 };
                 (format!("{var} = {expr2}"), indent, 0)
             }

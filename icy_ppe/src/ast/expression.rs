@@ -1,12 +1,10 @@
 use std::fmt;
 
 use crate::{
-    output_keyword,
     parser::tokens::{SpannedToken, Token},
-    tables::FunctionDefinition,
 };
 
-use super::{Constant, Statement};
+use super::{Constant};
 
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -71,8 +69,8 @@ pub enum Expression {
     Const(ConstantExpression),
     Parens(ParensExpression),
     FunctionCall(FunctionCallExpression),
-    Unary(UnaryOp, Box<Expression>),
-    BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
+    Unary(UnaryExpression),
+    Binary(BinOp, Box<Expression>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -81,10 +79,10 @@ impl fmt::Display for Expression {
             Expression::Identifier(id) => write!(f, "{id}"),
             Expression::Const(c) => write!(f, "{c}"),
             Expression::Parens(expr) => write!(f, "{expr}"),
-            Expression::Unary(op, expr) => {
-                write!(f, "{}{}", op, **expr)
+            Expression::Unary(expr) => {
+                write!(f, "{expr}")
             }
-            Expression::BinaryExpression(op, l_expr, r_expr) => {
+            Expression::Binary(op, l_expr, r_expr) => {
                 write!(f, "{} {} {}", **l_expr, op, **r_expr)
             }
             Expression::FunctionCall(expr) => {
@@ -310,5 +308,66 @@ impl FunctionCallExpression {
 impl fmt::Display for FunctionCallExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}()", self.get_identifier())
+    }
+}
+
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnaryExpression {
+    op_token: SpannedToken,
+    expression: Box<Expression>,
+}
+
+impl UnaryExpression {
+    pub fn new(
+        op_token: SpannedToken,
+        expression: Box<Expression>,
+    ) -> Self {
+        Self {
+            op_token,
+            expression,
+        }
+    }
+
+    pub fn empty(op: UnaryOp, expression: Box<Expression>) -> Self {
+        Self {
+            op_token: SpannedToken::create_empty(match op {
+                UnaryOp::Plus => Token::Add,
+                UnaryOp::Minus => Token::Sub,
+                UnaryOp::Not => Token::Not,
+            }),
+            expression,
+        }
+    }
+
+    pub fn get_op(&self) -> UnaryOp {
+        match &self.op_token.token {
+            Token::Add => UnaryOp::Plus,
+            Token::Sub => UnaryOp::Minus,
+            Token::Not => UnaryOp::Not,
+            _ => panic!("Expected unary operator"),
+        }
+    }
+
+    pub fn get_op_token(&self) -> &SpannedToken {
+        &self.op_token
+    }
+
+    pub fn get_expression(&self) -> &Expression {
+        &self.expression
+    }
+
+    pub fn get_expression_mut(&mut self) -> &mut Expression {
+        &mut self.expression
+    }
+
+    pub(crate) fn create_empty_expression(op: UnaryOp, expression: Box<Expression>) -> Expression {
+        Expression::Unary(UnaryExpression::empty(op, expression))
+    }
+}
+
+impl fmt::Display for UnaryExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.get_op(), self.get_expression())
     }
 }

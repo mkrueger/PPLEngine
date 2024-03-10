@@ -1,6 +1,5 @@
 use crate::ast::{
-    get_var_name, BinOp, Constant, ConstantExpression, ElseIfBlock, Expression, ParensExpression,
-    Program, Statement, VarInfo,
+    get_var_name, BinOp, Constant, ConstantExpression, ElseIfBlock, Expression, ParensExpression, Program, Statement, UnaryExpression, VarInfo
 };
 
 pub fn transform_ast(prg: &mut Program) {
@@ -48,7 +47,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Unary(
+                        Box::new(UnaryExpression::create_empty_expression(
                             crate::ast::UnaryOp::Not,
                             Box::new(ParensExpression::create_empty_expression(cond.clone())),
                         )),
@@ -79,7 +78,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                     i,
                     Statement::Let(
                         Box::new(VarInfo::Var0(get_var_name(var_name))),
-                        Box::new(Expression::BinaryExpression(
+                        Box::new(Expression::Binary(
                             BinOp::Add,
                             var_name.clone(),
                             Box::new(step.clone()),
@@ -95,16 +94,16 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Unary(
+                        Box::new(UnaryExpression::create_empty_expression(
                             crate::ast::UnaryOp::Not,
                             Box::new(ParensExpression::create_empty_expression(Box::new(
-                                Expression::BinaryExpression(
+                                Expression::Binary(
                                     BinOp::Or,
                                     Box::new(ParensExpression::create_empty_expression(Box::new(
-                                        Expression::BinaryExpression(
+                                        Expression::Binary(
                                             BinOp::And,
                                             Box::new(ParensExpression::create_empty_expression(
-                                                Box::new(Expression::BinaryExpression(
+                                                Box::new(Expression::Binary(
                                                     BinOp::Lower,
                                                     Box::new(step.clone()),
                                                     Box::new(
@@ -115,7 +114,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                                 )),
                                             )),
                                             Box::new(ParensExpression::create_empty_expression(
-                                                Box::new(Expression::BinaryExpression(
+                                                Box::new(Expression::Binary(
                                                     BinOp::GreaterEq,
                                                     var_name.clone(),
                                                     to.clone(),
@@ -124,10 +123,10 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                         ),
                                     ))),
                                     Box::new(ParensExpression::create_empty_expression(Box::new(
-                                        Expression::BinaryExpression(
+                                        Expression::Binary(
                                             BinOp::And,
                                             Box::new(ParensExpression::create_empty_expression(
-                                                Box::new(Expression::BinaryExpression(
+                                                Box::new(Expression::Binary(
                                                     BinOp::GreaterEq,
                                                     Box::new(step.clone()),
                                                     Box::new(
@@ -138,7 +137,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                                                 )),
                                             )),
                                             Box::new(ParensExpression::create_empty_expression(
-                                                Box::new(Expression::BinaryExpression(
+                                                Box::new(Expression::Binary(
                                                     BinOp::LowerEq,
                                                     var_name.clone(),
                                                     to.clone(),
@@ -194,7 +193,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                         statements.insert(
                             i,
                             Statement::If(
-                                Box::new(Expression::Unary(
+                                Box::new(UnaryExpression::create_empty_expression(
                                     crate::ast::UnaryOp::Not,
                                     Box::new(ParensExpression::create_empty_expression(
                                         ef.cond.clone(),
@@ -217,7 +216,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 statements.insert(
                     i,
                     Statement::If(
-                        Box::new(Expression::Unary(
+                        Box::new(UnaryExpression::create_empty_expression(
                             crate::ast::UnaryOp::Not,
                             Box::new(ParensExpression::create_empty_expression(cond.clone())),
                         )),
@@ -240,7 +239,7 @@ fn translate_select_case(statements: &mut [Statement]) {
     while i < statements.len() {
         if let Statement::Select(case_expr, case_blocks, case_else) = &statements[i] {
             statements[i] = Statement::IfThen(
-                Box::new(Expression::BinaryExpression(
+                Box::new(Expression::Binary(
                     BinOp::Eq,
                     case_expr.clone(),
                     case_blocks[0].cond.clone(),
@@ -249,7 +248,7 @@ fn translate_select_case(statements: &mut [Statement]) {
                 case_blocks[1..]
                     .iter()
                     .map(|block| ElseIfBlock {
-                        cond: Box::new(Expression::BinaryExpression(
+                        cond: Box::new(Expression::Binary(
                             BinOp::Eq,
                             case_expr.clone(),
                             block.cond.clone(),

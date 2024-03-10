@@ -55,7 +55,6 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             Constant::Builtin(x) => Ok(VariableValue::Integer(x.value)),
         },
         Expression::Parens(expr) => evaluate_exp(interpreter, expr.get_expression()),
-        Expression::Unary(UnaryOp::Plus, expr) => evaluate_exp(interpreter, expr),
         Expression::FunctionCall(expr) => {
             let predef = crate::tables::get_function_definition(expr.get_identifier());
             // TODO: Check parameter signature
@@ -170,30 +169,36 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
             }*/
         }
-        Expression::Unary(UnaryOp::Not, expr) => {
-            let value = evaluate_exp(interpreter, expr)?;
-            match value {
-                VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
-                    PPL_TRUE
-                } else {
-                    PPL_FALSE
-                })),
-                VariableValue::Boolean(x) => Ok(VariableValue::Boolean(!x)),
-                _ => {
-                    panic!("unsupported for minus {expr:?} value {value:?}");
+        Expression::Unary(expr) => {
+            match expr.get_op() {
+                UnaryOp::Plus => evaluate_exp(interpreter, expr.get_expression()),
+                UnaryOp::Not => {
+                    let value = evaluate_exp(interpreter, expr.get_expression())?;
+                    match value {
+                        VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
+                            PPL_TRUE
+                        } else {
+                            PPL_FALSE
+                        })),
+                        VariableValue::Boolean(x) => Ok(VariableValue::Boolean(!x)),
+                        _ => {
+                            panic!("unsupported for minus {expr:?} value {value:?}");
+                        }
+                    }
+                }
+                UnaryOp::Minus => {
+                    let value = evaluate_exp(interpreter, expr.get_expression())?;
+                    match value {
+                        VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),
+                        _ => {
+                            panic!("unsupported for minus {expr:?} value {value:?}");
+                        }
+                    }
                 }
             }
         }
-        Expression::Unary(UnaryOp::Minus, expr) => {
-            let value = evaluate_exp(interpreter, expr)?;
-            match value {
-                VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),
-                _ => {
-                    panic!("unsupported for minus {expr:?} value {value:?}");
-                }
-            }
-        }
-        Expression::BinaryExpression(op, l_value, r_value) => match op {
+        
+        Expression::Binary(op, l_value, r_value) => match op {
             BinOp::Add => {
                 Ok(evaluate_exp(interpreter, l_value)? + evaluate_exp(interpreter, r_value)?)
             }

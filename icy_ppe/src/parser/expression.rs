@@ -2,7 +2,7 @@ use super::{tokens::Token, Tokenizer};
 use crate::{
     ast::{
         BinOp, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression,
-        ParensExpression,
+        ParensExpression, UnaryExpression,
     },
     tables::FUNCTION_DEFINITIONS,
 };
@@ -18,7 +18,7 @@ impl<'a> Tokenizer<'a> {
             let Some(expr) = self.parse_bool() else {
                 return None;
             };
-            return Some(Expression::Unary(crate::ast::UnaryOp::Not, Box::new(expr)));
+            return Some(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Not, Box::new(expr)));
         }
 
         let Some(mut expr) = self.parse_comparison() else {
@@ -33,7 +33,7 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let right = self.parse_comparison();
             if let Some(e) = right {
-                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+                expr = Expression::Binary(op, Box::new(expr), Box::new(e));
             } else {
                 return None;
             }
@@ -65,7 +65,7 @@ impl<'a> Tokenizer<'a> {
 
             let right = self.parse_term();
             if let Some(e) = right {
-                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+                expr = Expression::Binary(op, Box::new(expr), Box::new(e));
             } else {
                 return None;
             }
@@ -87,7 +87,7 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let right = self.parse_factor();
             if let Some(e) = right {
-                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+                expr = Expression::Binary(op, Box::new(expr), Box::new(e));
             } else {
                 return None;
             }
@@ -114,7 +114,7 @@ impl<'a> Tokenizer<'a> {
 
             let right = self.parse_pow();
             if let Some(e) = right {
-                expr = Expression::BinaryExpression(op, Box::new(expr), Box::new(e));
+                expr = Expression::Binary(op, Box::new(expr), Box::new(e));
             } else {
                 return None;
             }
@@ -130,7 +130,7 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let right = self.parse_unary();
             if let Some(e) = right {
-                expr = Expression::BinaryExpression(BinOp::PoW, Box::new(expr), Box::new(e));
+                expr = Expression::Binary(BinOp::PoW, Box::new(expr), Box::new(e));
             } else {
                 return None;
             }
@@ -143,21 +143,21 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::Unary(crate::ast::UnaryOp::Plus, Box::new(e)));
+                return Some(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Plus, Box::new(e)));
             }
         }
         if self.get_cur_token() == Some(Token::Sub) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::Unary(crate::ast::UnaryOp::Minus, Box::new(e)));
+                return Some(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Minus, Box::new(e)));
             }
         }
         if self.get_cur_token() == Some(Token::Not) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::Unary(crate::ast::UnaryOp::Not, Box::new(e)));
+                return Some(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Not, Box::new(e)));
             }
         }
 

@@ -80,25 +80,25 @@ impl Statement {
                 _ => expr.clone(),
             },
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr.get_expression()),
-            Expression::Unary(op, notexpr) => {
-                if !matches!(op, UnaryOp::Not) {
-                    return expr.clone();
+            Expression::Unary(expr) => {
+                if !matches!(expr.get_op(), UnaryOp::Not) {
+                    return expr.get_expression().clone();
                 }
 
-                match &**notexpr {
+                match expr.get_expression() {
                     Expression::Const(c) => match c.get_constant_value() {
                         Constant::Boolean(b) => {
                             Expression::Const(ConstantExpression::empty(Constant::Boolean(!b)))
                         }
-                        _ => expr.clone(),
+                        _ => expr.get_expression().clone(),
                     },
-                    Expression::Unary(op, notexpr) => {
-                        if matches!(op, UnaryOp::Not) {
-                            return Statement::try_boolean_conversion(notexpr);
+                    Expression::Unary(notexpr) => {
+                        if matches!(notexpr.get_op(), UnaryOp::Not) {
+                            return Statement::try_boolean_conversion(notexpr.get_expression());
                         }
-                        expr.clone()
+                        expr.get_expression().clone()
                     }
-                    _ => expr.clone(),
+                    _ => expr.get_expression().clone()
                 }
             }
             _ => expr.clone(),

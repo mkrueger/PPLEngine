@@ -1,6 +1,9 @@
 use super::{tokens::Token, Tokenizer};
 use crate::{
-    ast::{BinOp, ConstantExpression, Expression, IdentifierExpression},
+    ast::{
+        BinOp, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression,
+        ParensExpression,
+    },
     tables::FUNCTION_DEFINITIONS,
 };
 
@@ -15,10 +18,7 @@ impl<'a> Tokenizer<'a> {
             let Some(expr) = self.parse_bool() else {
                 return None;
             };
-            return Some(Expression::UnaryExpression(
-                crate::ast::UnaryOp::Not,
-                Box::new(expr),
-            ));
+            return Some(Expression::Unary(crate::ast::UnaryOp::Not, Box::new(expr)));
         }
 
         let Some(mut expr) = self.parse_comparison() else {
@@ -143,30 +143,21 @@ impl<'a> Tokenizer<'a> {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::UnaryExpression(
-                    crate::ast::UnaryOp::Plus,
-                    Box::new(e),
-                ));
+                return Some(Expression::Unary(crate::ast::UnaryOp::Plus, Box::new(e)));
             }
         }
         if self.get_cur_token() == Some(Token::Sub) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::UnaryExpression(
-                    crate::ast::UnaryOp::Minus,
-                    Box::new(e),
-                ));
+                return Some(Expression::Unary(crate::ast::UnaryOp::Minus, Box::new(e)));
             }
         }
         if self.get_cur_token() == Some(Token::Not) {
             self.next_token();
             let expr = self.parse_unary();
             if let Some(e) = expr {
-                return Some(Expression::UnaryExpression(
-                    crate::ast::UnaryOp::Not,
-                    Box::new(e),
-                ));
+                return Some(Expression::Unary(crate::ast::UnaryOp::Not, Box::new(e)));
             }
         }
 
@@ -210,16 +201,10 @@ impl<'a> Tokenizer<'a> {
                     );
                     self.next_token();
 
-                    let predef = crate::tables::get_function_definition(id);
-                    // TODO: Check parameter signature
-
-                    if predef >= 0 {
-                        return Some(Expression::PredefinedFunctionCall(
-                            &FUNCTION_DEFINITIONS[predef as usize],
-                            params,
-                        ));
-                    }
-                    return Some(Expression::FunctionCall(id.clone(), params));
+                    return Some(FunctionCallExpression::create_empty_expression(
+                        id.clone(),
+                        params,
+                    ));
                 }
 
                 Some(Expression::Identifier(IdentifierExpression::new(ct)))
@@ -229,7 +214,7 @@ impl<'a> Tokenizer<'a> {
                 let Some(expr) = self.parse_expression() else {
                     return None;
                 };
-                let ret = Expression::Parens(Box::new(expr));
+                let ret = ParensExpression::create_empty_expression(Box::new(expr));
                 assert!(
                     !(self.get_cur_token() != Some(Token::RPar)),
                     "unclosed parens."

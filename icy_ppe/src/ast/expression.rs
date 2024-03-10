@@ -69,10 +69,9 @@ impl fmt::Display for UnaryOp {
 pub enum Expression {
     Identifier(IdentifierExpression),
     Const(ConstantExpression),
-    Parens(Box<Expression>),
-    FunctionCall(String, Vec<Expression>),
-    PredefinedFunctionCall(&'static FunctionDefinition<'static>, Vec<Expression>),
-    UnaryExpression(UnaryOp, Box<Expression>),
+    Parens(ParensExpression),
+    FunctionCall(FunctionCallExpression),
+    Unary(UnaryOp, Box<Expression>),
     BinaryExpression(BinOp, Box<Expression>, Box<Expression>),
 }
 
@@ -81,22 +80,16 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(id) => write!(f, "{id}"),
             Expression::Const(c) => write!(f, "{c}"),
-            Expression::Parens(expr) => write!(f, "({})", **expr),
-            Expression::UnaryExpression(op, expr) => {
+            Expression::Parens(expr) => write!(f, "{expr}"),
+            Expression::Unary(op, expr) => {
                 write!(f, "{}{}", op, **expr)
             }
             Expression::BinaryExpression(op, l_expr, r_expr) => {
                 write!(f, "{} {} {}", **l_expr, op, **r_expr)
             }
-            Expression::FunctionCall(name, params) => {
-                write!(f, "{}({})", name, Statement::param_list_to_string(params))
+            Expression::FunctionCall(expr) => {
+                write!(f, "{}", expr)
             }
-            Expression::PredefinedFunctionCall(name, params) => write!(
-                f,
-                "{}({})",
-                output_keyword(name.name),
-                Statement::param_list_to_string(params)
-            ),
         }
     }
 }
@@ -181,5 +174,141 @@ impl ConstantExpression {
 impl fmt::Display for ConstantExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.get_constant_value())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParensExpression {
+    lpar_token: SpannedToken,
+    expression: Box<Expression>,
+    rpar_token: SpannedToken,
+}
+
+impl ParensExpression {
+    pub fn new(
+        lpar_token: SpannedToken,
+        expression: Box<Expression>,
+        rpar_token: SpannedToken,
+    ) -> Self {
+        Self {
+            lpar_token,
+            expression,
+            rpar_token,
+        }
+    }
+
+    pub fn empty(expression: Box<Expression>) -> Self {
+        Self {
+            lpar_token: SpannedToken::create_empty(Token::LPar),
+            expression,
+            rpar_token: SpannedToken::create_empty(Token::RPar),
+        }
+    }
+
+    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+        &self.lpar_token
+    }
+
+    pub fn get_expression(&self) -> &Expression {
+        &self.expression
+    }
+
+    pub fn get_expression_mut(&mut self) -> &mut Expression {
+        &mut self.expression
+    }
+
+    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+        &self.rpar_token
+    }
+
+    pub(crate) fn create_empty_expression(constant_value: Box<Expression>) -> Expression {
+        Expression::Parens(ParensExpression::empty(constant_value))
+    }
+}
+
+impl fmt::Display for ParensExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({})", self.get_expression())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunctionCallExpression {
+    identifier_token: SpannedToken,
+    lpar_token: SpannedToken,
+    arguments: Vec<Expression>,
+    rpar_token: SpannedToken,
+}
+
+impl FunctionCallExpression {
+    pub fn new(
+        identifier_token: SpannedToken,
+        lpar_token: SpannedToken,
+        arguments: Vec<Expression>,
+        rpar_token: SpannedToken,
+    ) -> Self {
+        Self {
+            identifier_token,
+            lpar_token,
+            arguments,
+            rpar_token,
+        }
+    }
+
+    pub fn empty(identifier: impl Into<String>, arguments: Vec<Expression>) -> Self {
+        Self {
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            lpar_token: SpannedToken::create_empty(Token::LPar),
+            arguments,
+            rpar_token: SpannedToken::create_empty(Token::RPar),
+        }
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+        &self.lpar_token
+    }
+
+    pub fn get_arguments(&self) -> &Vec<Expression> {
+        &self.arguments
+    }
+
+    pub fn get_arguments_mut(&mut self) -> &mut Vec<Expression> {
+        &mut self.arguments
+    }
+
+    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+        &self.rpar_token
+    }
+
+    /// Returns a reference to the get identifier of this [`IdentifierExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub(crate) fn create_empty_expression(
+        identifier: impl Into<String>,
+        arguments: Vec<Expression>,
+    ) -> Expression {
+        Expression::FunctionCall(FunctionCallExpression::empty(identifier, arguments))
+    }
+
+    pub(crate) fn set_identifier(&mut self, identifier: String) {
+        self.identifier_token.token = Token::Identifier(identifier);
+    }
+}
+
+impl fmt::Display for FunctionCallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}()", self.get_identifier())
     }
 }

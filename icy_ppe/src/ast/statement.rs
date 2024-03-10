@@ -48,8 +48,8 @@ pub enum Statement {
 }
 
 pub fn get_var_name(expr: &Expression) -> String {
-    if let Expression::FunctionCall(name, _) = expr {
-        name.clone()
+    if let Expression::FunctionCall(call_expr) = expr {
+        call_expr.get_identifier().clone()
     } else {
         expr.to_string()
     }
@@ -79,8 +79,8 @@ impl Statement {
                 }
                 _ => expr.clone(),
             },
-            Expression::Parens(expr) => Statement::try_boolean_conversion(expr),
-            Expression::UnaryExpression(op, notexpr) => {
+            Expression::Parens(expr) => Statement::try_boolean_conversion(expr.get_expression()),
+            Expression::Unary(op, notexpr) => {
                 if !matches!(op, UnaryOp::Not) {
                     return expr.clone();
                 }
@@ -92,7 +92,7 @@ impl Statement {
                         }
                         _ => expr.clone(),
                     },
-                    Expression::UnaryExpression(op, notexpr) => {
+                    Expression::Unary(op, notexpr) => {
                         if matches!(op, UnaryOp::Not) {
                             return Statement::try_boolean_conversion(notexpr);
                         }
@@ -188,7 +188,7 @@ impl Statement {
 
     pub fn strip_outer_parens(exp: &Expression) -> &Expression {
         if let Expression::Parens(pexpr) = exp {
-            pexpr
+            pexpr.get_expression()
         } else {
             exp
         }

@@ -407,7 +407,7 @@ impl<'a> Tokenizer<'a> {
 
 pub fn parse_program(input: &str) -> Program {
     let mut declarations = Vec::new();
-    let mut function_implementations = Vec::new();
+    let mut function_implementations: Vec<FunctionImplementation> = Vec::new();
     let mut procedure_implementations = Vec::new();
     let mut statements = Vec::new();
 
@@ -416,7 +416,13 @@ pub fn parse_program(input: &str) -> Program {
     tokenizer.skip_eol();
 
     while tokenizer.cur_token.is_some() {
-        if let Some(var_type) = tokenizer.get_variable_type() {
+        if let Some(decl) = tokenizer.parse_function_declaration() {
+            declarations.push(decl);
+        } else if let Some(func) = tokenizer.parse_function() {
+            function_implementations.push(func);
+        } else if let Some(func) = tokenizer.parse_procedure() {
+            procedure_implementations.push(func);
+        } else if let Some(var_type) = tokenizer.get_variable_type() {
             tokenizer.next_token();
             let mut vars = Vec::new();
             vars.push(tokenizer.parse_var_info());
@@ -425,12 +431,6 @@ pub fn parse_program(input: &str) -> Program {
                 vars.push(tokenizer.parse_var_info());
             }
             declarations.push(Declaration::Variable(var_type, vars));
-        } else if let Some(decl) = tokenizer.parse_function_declaration() {
-            declarations.push(decl);
-        } else if let Some(func) = tokenizer.parse_function() {
-            function_implementations.push(func);
-        } else if let Some(func) = tokenizer.parse_procedure() {
-            procedure_implementations.push(func);
         } else {
             let tok = tokenizer.cur_token.clone();
             let stmt = tokenizer.parse_statement();

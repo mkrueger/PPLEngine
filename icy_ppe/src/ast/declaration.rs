@@ -1,6 +1,9 @@
 use std::fmt;
 
-use super::{Constant, ConstantExpression, Expression, IdentifierExpression, VariableType};
+use super::{
+    Constant, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression,
+    VariableType,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarInfo {
@@ -14,13 +17,17 @@ impl VarInfo {
     pub fn as_expr(&self) -> Expression {
         match &self {
             VarInfo::Var0(name) => IdentifierExpression::create_empty_expression(name),
-            VarInfo::Var1(name, vec) => Expression::FunctionCall(name.clone(), vec![vec.clone()]),
-            VarInfo::Var2(name, vec, mat) => {
-                Expression::FunctionCall(name.clone(), vec![vec.clone(), mat.clone()])
+            VarInfo::Var1(name, vec) => {
+                FunctionCallExpression::create_empty_expression(name.clone(), vec![vec.clone()])
             }
-            VarInfo::Var3(name, vec, mat, cube) => {
-                Expression::FunctionCall(name.clone(), vec![vec.clone(), mat.clone(), cube.clone()])
-            }
+            VarInfo::Var2(name, vec, mat) => FunctionCallExpression::create_empty_expression(
+                name.clone(),
+                vec![vec.clone(), mat.clone()],
+            ),
+            VarInfo::Var3(name, vec, mat, cube) => FunctionCallExpression::create_empty_expression(
+                name.clone(),
+                vec![vec.clone(), mat.clone(), cube.clone()],
+            ),
         }
     }
 
@@ -39,16 +46,27 @@ impl VarInfo {
                 }
             }
 
-            Expression::FunctionCall(name, vec) => match vec.len() {
-                1 => VarInfo::Var1(name.clone(), vec[0].clone()),
-                2 => VarInfo::Var2(name.clone(), vec[0].clone(), vec[1].clone()),
-                3 => VarInfo::Var3(name.clone(), vec[0].clone(), vec[2].clone(), vec[3].clone()),
+            Expression::FunctionCall(expr) => match expr.get_arguments().len() {
+                1 => VarInfo::Var1(
+                    expr.get_identifier().clone(),
+                    expr.get_arguments()[0].clone(),
+                ),
+                2 => VarInfo::Var2(
+                    expr.get_identifier().clone(),
+                    expr.get_arguments()[0].clone(),
+                    expr.get_arguments()[1].clone(),
+                ),
+                3 => VarInfo::Var3(
+                    expr.get_identifier().clone(),
+                    expr.get_arguments()[0].clone(),
+                    expr.get_arguments()[2].clone(),
+                    expr.get_arguments()[3].clone(),
+                ),
                 _ => panic!("can't translate func call t var info {expr:?}"),
             },
             Expression::BinaryExpression(_op, left, _right) => Self::from(left),
-            Expression::Parens(expr) | Expression::UnaryExpression(_, expr) => Self::from(expr),
-
-            Expression::PredefinedFunctionCall(..) => panic!("unsupported expr {expr:?}"),
+            Expression::Parens(expr) => Self::from(expr.get_expression()),
+            Expression::Unary(_, expr) => Self::from(expr),
         }
     }
 

@@ -54,16 +54,22 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             Constant::Real(x) => Ok(VariableValue::Real(*x)),
             Constant::Builtin(x) => Ok(VariableValue::Integer(x.value)),
         },
-        Expression::Parens(expr) | Expression::UnaryExpression(UnaryOp::Plus, expr) => {
-            evaluate_exp(interpreter, expr)
-        }
-        Expression::PredefinedFunctionCall(func_def, params) => {
-            call_function(interpreter, func_def, params)
-        }
-        Expression::FunctionCall(name, parameters) => {
+        Expression::Parens(expr) => evaluate_exp(interpreter, expr.get_expression()),
+        Expression::Unary(UnaryOp::Plus, expr) => evaluate_exp(interpreter, expr),
+        Expression::FunctionCall(expr) => {
+            let predef = crate::tables::get_function_definition(expr.get_identifier());
+            // TODO: Check parameter signature
+            if predef >= 0 {
+                return call_function(
+                    interpreter,
+                    &crate::tables::FUNCTION_DEFINITIONS[predef as usize],
+                    expr.get_arguments(),
+                );
+            }
+
             for f in &interpreter.prg.function_implementations {
                 if let Declaration::Function(pname, params, _return_type) = &f.declaration {
-                    if name != pname {
+                    if expr.get_identifier() != pname {
                         continue;
                     }
                     let label_table = calc_table(&f.block);
@@ -75,9 +81,9 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                         label_table,
                     };
 
-                    for i in 0..parameters.len() {
+                    for i in 0..expr.get_arguments().len() {
                         if let Declaration::Variable(var_type, infos) = &params[i] {
-                            let value = evaluate_exp(interpreter, &parameters[i])?;
+                            let value = evaluate_exp(interpreter, &expr.get_arguments()[i])?;
                             for info in infos {
                                 prg_frame
                                     .values
@@ -98,39 +104,49 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     }
                     let prg_frame = interpreter.cur_frame.pop().unwrap();
 
-                    if let Some(val) = prg_frame.values.get(name) {
+                    if let Some(val) = prg_frame.values.get(expr.get_identifier()) {
                         return Ok(val.clone());
                     }
-                    panic!("function didn't return a value  {name}");
+                    panic!("function didn't return a value  {}", expr.get_identifier());
                 }
             }
-            let expr = &evaluate_exp(interpreter, &parameters[0])?.clone();
+            let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 
             let var_value = if interpreter
                 .cur_frame
                 .last()
                 .unwrap()
                 .values
-                .get(name)
+                .get(expr.get_identifier())
                 .is_some()
             {
-                interpreter.cur_frame.last().unwrap().values.get(name)
+                interpreter
+                    .cur_frame
+                    .last()
+                    .unwrap()
+                    .values
+                    .get(expr.get_identifier())
             } else if interpreter
                 .cur_frame
                 .first()
                 .unwrap()
                 .values
-                .get(name)
+                .get(expr.get_identifier())
                 .is_some()
             {
-                interpreter.cur_frame.first().unwrap().values.get(name)
+                interpreter
+                    .cur_frame
+                    .first()
+                    .unwrap()
+                    .values
+                    .get(expr.get_identifier())
             } else {
-                panic!("function not found {name}");
+                panic!("function not found {}", expr.get_identifier());
             };
 
             if let Some(var_value) = var_value {
-                if parameters.len() == 1 {
-                    let i = get_int(expr)? - 1;
+                if expr.get_arguments().len() == 1 {
+                    let i = get_int(var_value)? - 1;
                     if let VariableValue::Dim1(var_type, data) = var_value {
                         if i < 0 {
                             return Ok(var_type.create_empty_value());
@@ -140,7 +156,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
                 panic!("unsupported parameter length");
             }
-            panic!("function/array not found {name}");
+            panic!("function/array not found {}", expr.get_identifier());
 
             /*
             if parameters.len() == 2 {
@@ -154,7 +170,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
             }*/
         }
-        Expression::UnaryExpression(UnaryOp::Not, expr) => {
+        Expression::Unary(UnaryOp::Not, expr) => {
             let value = evaluate_exp(interpreter, expr)?;
             match value {
                 VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
@@ -168,7 +184,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
             }
         }
-        Expression::UnaryExpression(UnaryOp::Minus, expr) => {
+        Expression::Unary(UnaryOp::Minus, expr) => {
             let value = evaluate_exp(interpreter, expr)?;
             match value {
                 VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),

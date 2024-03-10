@@ -1,7 +1,8 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    Block, Constant, ConstantExpression, Declaration, Expression, FunctionImplementation,
-    IdentifierExpression, Program, Statement, UnaryOp, VarInfo, VariableType,
+    Block, Constant, ConstantExpression, Declaration, Expression, FunctionCallExpression,
+    FunctionImplementation, IdentifierExpression, ParensExpression, Program, Statement, UnaryOp,
+    VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -121,6 +122,10 @@ impl Decompiler {
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
+        /*
+        for (i, s) in self.executable.source_buffer.iter().enumerate() {
+            println!("{}: {}", i, s);
+        }*/
 
         while self.src_ptr != -1 && self.src_ptr <= self.executable.code_size / 2 {
             if self.src_ptr >= self.executable.code_size / 2
@@ -784,7 +789,7 @@ impl Decompiler {
 
     fn stripper(str: Expression) -> Expression {
         match str {
-            Expression::Parens(expr) => Decompiler::stripper(*expr),
+            Expression::Parens(expr) => Decompiler::stripper(expr.get_expression().clone()),
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(
                 op,
                 Box::new(Decompiler::stripper(*l)),
@@ -816,23 +821,22 @@ impl Decompiler {
                 _ => Expression::Const(c),
             },
             Expression::Identifier(s) => Expression::Identifier(s),
-            Expression::Parens(e) => Expression::Parens(Box::new(Self::repl_const(*e, names))),
-            Expression::FunctionCall(n, p) => {
+            Expression::Parens(e) => ParensExpression::create_empty_expression(Box::new(
+                Self::repl_const(e.get_expression().clone(), names),
+            )),
+            Expression::FunctionCall(call_expr) => {
                 let mut p2 = vec![];
-                for e in p {
-                    p2.push(Self::repl_const(e, names));
+                for e in call_expr.get_arguments() {
+                    p2.push(Self::repl_const(e.clone(), names));
                 }
-                Expression::FunctionCall(n, p2)
+
+                FunctionCallExpression::create_empty_expression(
+                    call_expr.get_identifier().clone(),
+                    p2,
+                )
             }
-            Expression::PredefinedFunctionCall(n, p) => {
-                let mut p2 = vec![];
-                for e in p {
-                    p2.push(Self::repl_const(e, names));
-                }
-                Expression::PredefinedFunctionCall(n, p2)
-            }
-            Expression::UnaryExpression(op, e) => {
-                Expression::UnaryExpression(op, Box::new(Self::repl_const(*e, names)))
+            Expression::Unary(op, e) => {
+                Expression::Unary(op, Box::new(Self::repl_const(*e, names)))
             }
             Expression::BinaryExpression(op, l, r) => Expression::BinaryExpression(
                 op,
@@ -940,7 +944,12 @@ impl Decompiler {
                 27 => return IdentifierExpression::create_empty_expression("U_EMAIL"),
                 28 => return IdentifierExpression::create_empty_expression("U_WEB"),
 
-                _ => return Expression::FunctionCall("????".to_string(), vec![]),
+                _ => {
+                    return FunctionCallExpression::create_empty_expression(
+                        "????".to_string(),
+                        vec![],
+                    )
+                }
             }
         }
 
@@ -948,13 +957,13 @@ impl Decompiler {
         if cur_var.flag == 1 {
             match cur_var.variable_type {
                 VariableType::Function => {
-                    return Expression::FunctionCall(
+                    return FunctionCallExpression::create_empty_expression(
                         format!("FUNC{0:>03}", cur_var.number),
                         vec![],
                     );
                 }
                 VariableType::Procedure => {
-                    return Expression::FunctionCall(
+                    return FunctionCallExpression::create_empty_expression(
                         format!("PROC{0:>03}", cur_var.number),
                         vec![],
                     );
@@ -1040,18 +1049,18 @@ impl Decompiler {
                 let tmp = self.pop_expr().unwrap();
                 match func_def.opcode {
                     FuncOpCode::NOT => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Not, Box::new(tmp)));
+                        self.push_expr(Expression::Unary(UnaryOp::Not, Box::new(tmp)));
                     }
                     FuncOpCode::UMINUS => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Minus, Box::new(tmp)));
+                        self.push_expr(Expression::Unary(UnaryOp::Minus, Box::new(tmp)));
                     }
                     FuncOpCode::UPLUS => {
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)));
+                        self.push_expr(Expression::Unary(UnaryOp::Plus, Box::new(tmp)));
                     }
                     _ => {
                         self.errors
                             .push(format!("unknown unary function {func} at {}", self.src_ptr));
-                        self.push_expr(Expression::UnaryExpression(UnaryOp::Plus, Box::new(tmp)));
+                        self.push_expr(Expression::Unary(UnaryOp::Plus, Box::new(tmp)));
                     }
                 }
                 return 0;
@@ -1078,11 +1087,9 @@ impl Decompiler {
 
                 let binop = BIN_EXPR[offset];
 
-                self.push_expr(Expression::Parens(Box::new(Expression::BinaryExpression(
-                    binop,
-                    Box::new(l_value),
-                    Box::new(r_value),
-                ))));
+                self.push_expr(ParensExpression::create_empty_expression(Box::new(
+                    Expression::BinaryExpression(binop, Box::new(l_value), Box::new(r_value)),
+                )));
 
                 return 0;
             }
@@ -1105,7 +1112,10 @@ impl Decompiler {
             parameters.push(self.pop_expr().unwrap());
         }
         parameters.reverse();
-        self.push_expr(Expression::PredefinedFunctionCall(func_def, parameters));
+        self.push_expr(FunctionCallExpression::create_empty_expression(
+            func_def.name,
+            parameters,
+        ));
         0
     }
 
@@ -1162,12 +1172,18 @@ impl Decompiler {
                             let tmp = self.pop_expr();
                             if let Some(e) = tmp {
                                 let new_expr = match e {
-                                    Expression::FunctionCall(expr, vec_expr) => {
-                                        let mut v = vec_expr.clone();
+                                    Expression::FunctionCall(expr) => {
+                                        let mut v = expr.get_arguments().clone();
                                         v.push(temp_str2);
-                                        Expression::FunctionCall(expr, v)
+                                        FunctionCallExpression::create_empty_expression(
+                                            expr.get_identifier().clone(),
+                                            v,
+                                        )
                                     }
-                                    _ => Expression::FunctionCall(e.to_string(), vec![temp_str2]),
+                                    _ => FunctionCallExpression::create_empty_expression(
+                                        e.to_string(),
+                                        vec![temp_str2],
+                                    ),
                                 };
                                 self.push_expr(new_expr);
                             } else {
@@ -1238,17 +1254,23 @@ impl Decompiler {
                 let temp_str2 = self.pop_expr().unwrap();
                 let tmp = self.pop_expr();
                 if let Some(e) = tmp {
-                    if let Expression::FunctionCall(name, params) = e {
-                        let mut v = params.clone();
+                    if let Expression::FunctionCall(expr) = e {
+                        let mut v = expr.get_arguments().clone();
                         v.push(temp_str2);
-                        self.push_expr(Expression::FunctionCall(name.clone(), v));
+                        self.push_expr(FunctionCallExpression::create_empty_expression(
+                            expr.get_identifier().clone(),
+                            v,
+                        ));
                     } else {
                         if e.to_string() == "VAR001" {
                             println!("cur {cur_dim} dims: {dims}");
                             //panic!();
                         }
 
-                        self.push_expr(Expression::FunctionCall(e.to_string(), vec![temp_str2]));
+                        self.push_expr(FunctionCallExpression::create_empty_expression(
+                            e.to_string(),
+                            vec![temp_str2],
+                        ));
                     }
                 } else {
                     self.push_expr(temp_str2);
@@ -1395,8 +1417,8 @@ impl Decompiler {
                                 let func_name = self.pop_expr().unwrap();
 
                                 match func_name {
-                                    Expression::FunctionCall(name, _oldparams) => {
-                                        self.push_expr(Expression::FunctionCall(name, params));
+                                    Expression::FunctionCall(expr) => {
+                                        self.push_expr(Expression::FunctionCall(expr));
                                     }
                                     _ => {
                                         self.push_expr(func_name);

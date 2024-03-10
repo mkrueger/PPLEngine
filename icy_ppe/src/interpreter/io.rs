@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Result, Seek, SeekFrom, Write},
-    os::unix::prelude::MetadataExt,
     time::SystemTime,
 };
 
@@ -328,8 +327,11 @@ impl PCBoardIO for DiskIO {
     }
 
     fn get_file_size(&self, file: &str) -> u64 {
-        let metadata = fs::metadata(self.resolve_file(file)).unwrap();
-        metadata.size()
+        if let Ok(metadata) = fs::metadata(self.resolve_file(file)) {
+            metadata.len()
+        } else {
+            0
+        }
     }
 }
 

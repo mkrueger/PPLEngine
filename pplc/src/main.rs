@@ -1,15 +1,8 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
-use icy_ppe::{
-    ast::{Program, Statement, VariableType, VariableValue},
-    compiler::transform_ast,
-    crypt::{encode_rle, encrypt},
-    parser::parse_program,
-    tables::OpCode,
-};
+use icy_ppe::{compiler::transform_ast, parser::parse_program};
 use semver::Version;
-use std::{collections::HashMap, ffi::OsStr, fmt::Arguments, fs, path::Path};
-use thiserror::Error;
+use std::{ffi::OsStr, fs, path::Path};
 mod executable;
 pub mod parser;
 
@@ -48,7 +41,7 @@ fn main() {
 
     if !prg.errors.is_empty() {
         let mut errors = 0;
-        let mut warnings = 0;
+        let warnings = 0;
 
         for e in &prg.errors {
             match e {

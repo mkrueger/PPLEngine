@@ -160,7 +160,7 @@ impl ExecutionContext for Output {
                             }
                         }
                     } else {
-                        state = PcbState::ReadAtSequence(s + &(c as char).to_string());
+                        state = PcbState::ReadAtSequence(s + &c.to_string());
                     }
                 }
                 PcbState::ReadColor1 => {
@@ -179,7 +179,7 @@ impl ExecutionContext for Output {
                             CP437_TO_UNICODE[ch1 as usize], CP437_TO_UNICODE[c as usize]
                         );
                     } else {
-                        let color = ((c as char).to_digit(16).unwrap()
+                        let color = (c.to_digit(16).unwrap()
                             | ((ch1 as char).to_digit(16).unwrap() << 4))
                             as u8;
                         self.set_color(color);
@@ -325,5 +325,7 @@ impl ExecutionContext for Output {
         Ok(())
     }
 
-    fn hangup(&mut self, _hangup_type: HangupType) {}
+    fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
+        Ok(())
+    }
 }

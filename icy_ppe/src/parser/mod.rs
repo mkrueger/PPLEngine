@@ -6,7 +6,7 @@ use crate::{
 };
 
 use self::tokens::{SpannedToken, Token};
-use logos::{Logos, SpannedIter};
+use logos::Logos;
 use thiserror::Error;
 
 mod expression;
@@ -59,11 +59,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     pub fn get_cur_token(&self) -> Option<Token> {
-        if let Some(token) = &self.cur_token {
-            Some(token.token.clone())
-        } else {
-            None
-        }
+        self.cur_token.as_ref().map(|token| token.token.clone())
     }
 
     /// Returns the next token of this [`Tokenizer`].

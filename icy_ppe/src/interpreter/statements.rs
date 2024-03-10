@@ -66,9 +66,18 @@ pub fn call_predefined_procedure(
         OpCode::FGET => predefined_procedures::fget(interpreter, params),
         OpCode::FPUT => predefined_procedures::fput(interpreter, params),
         OpCode::FPUTLN => predefined_procedures::fputln(interpreter, params),
-        OpCode::RESETDISP => predefined_procedures::resetdisp(interpreter, params),
-        OpCode::STARTDISP => predefined_procedures::startdisp(interpreter, params),
-        OpCode::FPUTPAD => predefined_procedures::fputpad(interpreter, params),
+        OpCode::RESETDISP => {
+            predefined_procedures::resetdisp(interpreter, params);
+            Ok(())
+        }
+        OpCode::STARTDISP => {
+            predefined_procedures::startdisp(interpreter, params);
+            Ok(())
+        }
+        OpCode::FPUTPAD => {
+            predefined_procedures::fputpad(interpreter, params);
+            Ok(())
+        }
         OpCode::HANGUP => predefined_procedures::hangup(interpreter),
         OpCode::GETUSER => predefined_procedures::getuser(interpreter),
         OpCode::PUTUSER => predefined_procedures::putuser(interpreter),
@@ -97,7 +106,8 @@ pub fn call_predefined_procedure(
         OpCode::NEWLINES => predefined_procedures::newlines(interpreter, params),
         OpCode::TOKENIZE => {
             let s = get_string(&evaluate_exp(interpreter, &params[0])?);
-            predefined_procedures::tokenize(interpreter, s)
+            predefined_procedures::tokenize(interpreter, &s);
+            Ok(())
         }
         OpCode::GETTOKEN => predefined_procedures::gettoken(interpreter, params),
         OpCode::SHELL => predefined_procedures::shell(interpreter, params),
@@ -174,9 +184,18 @@ pub fn call_predefined_procedure(
         OpCode::REDIM => predefined_procedures::redim(interpreter, params),
         OpCode::APPEND => predefined_procedures::append(interpreter, params),
         OpCode::COPY => predefined_procedures::copy(interpreter, params),
-        OpCode::KBDFLUSH => predefined_procedures::kbdflush(interpreter, params),
-        OpCode::MDMFLUSH => predefined_procedures::mdmflush(interpreter, params),
-        OpCode::KEYFLUSH => predefined_procedures::keyflush(interpreter, params),
+        OpCode::KBDFLUSH => {
+            predefined_procedures::kbdflush(interpreter, params);
+            Ok(())
+        }
+        OpCode::MDMFLUSH => {
+            predefined_procedures::mdmflush(interpreter, params);
+            Ok(())
+        }
+        OpCode::KEYFLUSH => {
+            predefined_procedures::keyflush(interpreter, params);
+            Ok(())
+        }
         OpCode::LASTIN => predefined_procedures::lastin(interpreter, params),
         OpCode::FLAG => predefined_procedures::flag(interpreter, params),
         OpCode::DOWNLOAD => predefined_procedures::download(interpreter, params),

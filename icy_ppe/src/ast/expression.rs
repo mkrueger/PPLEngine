@@ -121,6 +121,11 @@ impl IdentifierExpression {
         &self.identifier_token
     }
 
+    /// Returns a reference to the get identifier of this [`IdentifierExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_identifier(&self) -> &String {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;

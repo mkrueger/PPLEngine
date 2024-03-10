@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Constant, ElseIfBlock, Expression, IdentifierExpression, Statement, VarInfo},
+    ast::{Constant, ElseIfBlock, IdentifierExpression, Statement, VarInfo},
     parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
 };
@@ -87,11 +87,7 @@ impl<'a> Tokenizer<'a> {
 
         let step = if self.get_cur_token() == Some(Token::Identifier("STEP".to_string())) {
             self.next_token();
-            if let Some(e) = self.parse_expression() {
-                Some(Box::new(e))
-            } else {
-                None
-            }
+            self.parse_expression().map(Box::new)
         } else {
             None
         };
@@ -335,7 +331,7 @@ impl<'a> Tokenizer<'a> {
                     return Some(value);
                 }
                 self.next_token();
-                return self.parse_statement();
+                self.parse_statement()
             }
 
             Some(Token::Identifier(id)) => {
@@ -343,7 +339,7 @@ impl<'a> Tokenizer<'a> {
                     return Some(value);
                 }
                 self.next_token();
-                return self.parse_statement();
+                self.parse_statement()
             }
 
             Some(Token::Label(id)) => {

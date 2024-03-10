@@ -54,7 +54,9 @@ mod interpreter_tests {
         }
 
         fn set_color(&mut self, _color: u8) {}
-        fn hangup(&mut self, _hangup_type: HangupType) {}
+        fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
+            Ok(())
+        }
     }
 
     #[test]

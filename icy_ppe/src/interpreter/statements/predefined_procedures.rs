@@ -78,10 +78,9 @@ pub fn dispfile(interpreter: &mut Interpreter, file: &str, flags: i32) -> Res<()
     let content = fs::read(&file);
     match content {
         Ok(content) => interpreter.ctx.write_raw(TerminalTarget::Both, &content),
-        Err(err) => interpreter.ctx.print(
-            TerminalTarget::Both,
-            format!("{} error {}", file, err).as_str(),
-        ),
+        Err(err) => interpreter
+            .ctx
+            .print(TerminalTarget::Both, format!("{file} error {err}").as_str()),
     }
 }
 
@@ -102,7 +101,7 @@ pub fn fopen(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let file = &evaluate_exp(interpreter, &params[1])?.to_string();
     let am = get_int(&evaluate_exp(interpreter, &params[2])?)?;
     let sm = get_int(&evaluate_exp(interpreter, &params[3])?)?;
-    interpreter.io.fopen(channel, file, am, sm);
+    interpreter.io.fopen(channel, file, am, sm)?;
     Ok(())
 }
 
@@ -165,21 +164,19 @@ pub fn fputln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn resetdisp(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn resetdisp(interpreter: &Interpreter, params: &[Expression]) {
     // TODO?: unused
-    Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn startdisp(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn startdisp(interpreter: &Interpreter, params: &[Expression]) {
     // TODO?: unused
-    Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn fputpad(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fputpad(interpreter: &Interpreter, params: &[Expression]) {
     panic!("TODO")
 }
 
@@ -188,7 +185,7 @@ pub fn fputpad(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 pub fn hangup(interpreter: &mut Interpreter) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Hangup);
+        .hangup(crate::interpreter::HangupType::Hangup)?;
     interpreter.is_running = false;
     Ok(())
 }
@@ -196,7 +193,14 @@ pub fn hangup(interpreter: &mut Interpreter) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn getuser(interpreter: &mut Interpreter) -> Res<()> {
-    let user = interpreter.icy_board_data.users[interpreter.cur_user].clone();
+    let user = if let Some(user) = interpreter.icy_board_data.users.get(interpreter.cur_user) {
+        user.clone()
+    } else {
+        return Err(Box::new(IcyError::UserNotFound(
+            interpreter.cur_user.to_string(),
+        )));
+    };
+
     interpreter.set_user_variables(&user);
     interpreter.current_user = Some(user);
     Ok(())
@@ -207,8 +211,10 @@ pub fn getuser(interpreter: &mut Interpreter) -> Res<()> {
 pub fn putuser(interpreter: &mut Interpreter) -> Res<()> {
     if let Some(user) = interpreter.current_user.take() {
         interpreter.icy_board_data.users[interpreter.cur_user] = user;
+        Ok(())
+    } else {
+        Err(Box::new(IcyError::UserNotSet))
     }
-    Ok(())
 }
 
 pub fn defcolor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
@@ -326,10 +332,11 @@ pub fn newlines(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn tokenize(interpreter: &mut Interpreter, str: String) -> Res<()> {
-    let split = str.split(&[' ', ';'][..]).map(|s| s.to_string());
+pub fn tokenize(interpreter: &mut Interpreter, str: &str) {
+    let split = str
+        .split(&[' ', ';'][..])
+        .map(std::string::ToString::to_string);
     interpreter.cur_tokens = split.collect();
-    Ok(())
 }
 
 pub fn gettoken(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
@@ -381,7 +388,9 @@ pub fn kbdfile(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn bye(interpreter: &mut Interpreter) -> Res<()> {
-    interpreter.ctx.hangup(crate::interpreter::HangupType::Bye);
+    interpreter
+        .ctx
+        .hangup(crate::interpreter::HangupType::Bye)?;
     interpreter.is_running = false;
     Ok(())
 }
@@ -389,7 +398,7 @@ pub fn bye(interpreter: &mut Interpreter) -> Res<()> {
 pub fn goodbye(interpreter: &mut Interpreter) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Goodbye);
+        .hangup(crate::interpreter::HangupType::Goodbye)?;
     interpreter.is_running = false;
     Ok(())
 }
@@ -408,10 +417,7 @@ pub fn broadcast(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     let hinode = get_int(&evaluate_exp(interpreter, &params[1])?)?;
     let message = get_string(&evaluate_exp(interpreter, &params[2])?);
     // TODO: Broadcast
-    println!(
-        "Broadcasting message from {} to {}: {}",
-        lonode, hinode, message
-    );
+    println!("Broadcasting message from {lonode} to {hinode}: {message}");
     Ok(())
 }
 
@@ -663,23 +669,20 @@ pub fn copy(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn kbdflush(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdflush(interpreter: &Interpreter, params: &[Expression]) {
     // TODO?
-    Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn mdmflush(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn mdmflush(interpreter: &Interpreter, params: &[Expression]) {
     // TODO?
-    Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn keyflush(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn keyflush(interpreter: &Interpreter, params: &[Expression]) {
     // TODO?
-    Ok(())
 }
 pub fn lastin(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")

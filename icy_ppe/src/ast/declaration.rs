@@ -65,6 +65,11 @@ impl VarInfo {
         }
     }
 
+    /// Returns the get vector size of this [`VarInfo`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_vector_size(&self) -> usize {
         match self {
             VarInfo::Var0(_) => 0,
@@ -76,6 +81,12 @@ impl VarInfo {
             }
         }
     }
+
+    /// Returns the get matrix size of this [`VarInfo`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_matrix_size(&self) -> usize {
         match self {
             VarInfo::Var0(_) | VarInfo::Var1(_, _) => 0,
@@ -86,6 +97,11 @@ impl VarInfo {
         }
     }
 
+    /// Returns the get cube size of this [`VarInfo`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_cube_size(&self) -> usize {
         match self {
             VarInfo::Var0(_) | VarInfo::Var1(_, _) | VarInfo::Var2(_, _, _) => 0,

@@ -22,4 +22,7 @@ pub enum IcyError {
 
     #[error("User {0} not found.")]
     UserNotFound(String),
+
+    #[error("User not set.")]
+    UserNotSet,
 }

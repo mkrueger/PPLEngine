@@ -99,7 +99,10 @@ pub trait ExecutionContext {
     /// Errors if the variable is not found.
     fn send_to_com(&mut self, data: &str) -> Res<()>;
 
-    fn hangup(&mut self, hangup_type: HangupType);
+    /// .
+    /// # Errors
+    /// Errors if the variable is not found.
+    fn hangup(&mut self, hangup_type: HangupType) -> Res<()>;
 }
 
 pub struct StackFrame {
@@ -240,9 +243,10 @@ pub fn set_array_value(
 /// # Errors
 /// Errors if the variable is not found.
 pub fn get_first_index(var_info: &VarInfo) -> &Expression {
-    match var_info {
-        VarInfo::Var1(_, v) | VarInfo::Var2(_, v, _) | VarInfo::Var3(_, v, _, _) => v,
-        _ => panic!(""),
+    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, v, _) | VarInfo::Var3(_, v, _, _) = var_info {
+        v
+    } else {
+        panic!("")
     }
 }
 
@@ -254,9 +258,10 @@ pub fn get_first_index(var_info: &VarInfo) -> &Expression {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn get_second_index(var_info: &VarInfo) -> &Expression {
-    match var_info {
-        VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, v, _) => v,
-        _ => panic!(""),
+    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, v, _) = var_info {
+        v
+    } else {
+        panic!("")
     }
 }
 
@@ -268,9 +273,10 @@ pub fn get_second_index(var_info: &VarInfo) -> &Expression {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn get_third_index(var_info: &VarInfo) -> &Expression {
-    match var_info {
-        VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, _, v) => v,
-        _ => panic!(""),
+    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, _, v) = var_info {
+        v
+    } else {
+        panic!("")
     }
 }
 

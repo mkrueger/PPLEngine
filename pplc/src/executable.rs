@@ -693,11 +693,11 @@ impl Executable {
         id + 1
     }
 
-    fn add_label_address(&mut self, label: &String, len: usize) {
+    fn add_label_address(&mut self, label: &str, len: usize) {
         self.get_label_info(label).address = len;
     }
 
-    fn add_label_usage(&mut self, label: &String, len: usize) {
+    fn add_label_usage(&mut self, label: &str, len: usize) {
         self.get_label_info(label).usages.push(len);
     }
 

@@ -616,78 +616,80 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
     }
 }
 
-fn scan_do_while2(statements: &mut Vec<Statement>) {
-    return;
-    let mut i = 0;
+fn scan_do_while2(_statements: &mut [Statement]) {
+    /*
+        let mut i = 0;
 
-    while i < statements.len() {
-        let cur = &statements[i];
-        if let Statement::Label(while_label) = cur {
-            i += 1;
-            if i >= statements.len() {
-                break;
-            }
-
-            // search matching goto
-            let mut j = i + 1;
-
-            let mut matching_goto = 0;
-            while j < statements.len() {
-                if let Statement::Goto(check_label) = &statements[j] {
-                    if j + 1 >= statements.len() {
-                        break;
-                    }
-                    if check_label == while_label {
-                        matching_goto = j;
-                        break;
-                    }
-                }
-                j += 1;
-            }
-            if matching_goto <= i {
+        while i < statements.len() {
+            let cur = &statements[i];
+            if let Statement::Label(while_label) = cur {
                 i += 1;
-                continue;
-            }
-            // test for break label
-            if let Statement::If(exp, stmt) = statements[matching_goto - 1].clone() {
-                if let Statement::Goto(break_label) = &*stmt {
-                    if let Statement::Label(next_label) = &statements[matching_goto + 1] {
-                        // check break label
-                        if next_label != break_label {
-                            i += 1;
+                if i >= statements.len() {
+                    break;
+                }
+
+                // search matching goto
+                let mut j = i + 1;
+
+                let mut matching_goto = 0;
+                while j < statements.len() {
+                    if let Statement::Goto(check_label) = &statements[j] {
+                        if j + 1 >= statements.len() {
+                            break;
+                        }
+                        if check_label == while_label {
+                            matching_goto = j;
+                            break;
+                        }
+                    }
+                    j += 1;
+                }
+                if matching_goto <= i {
+                    i += 1;
+                    continue;
+                }
+                // test for break label
+                if let Statement::If(exp, stmt) = statements[matching_goto - 1].clone() {
+                    if let Statement::Goto(break_label) = &*stmt {
+                        if let Statement::Label(next_label) = &statements[matching_goto + 1] {
+                            // check break label
+                            if next_label != break_label {
+                                i += 1;
+                                continue;
+                            }
+                            let label_cp = break_label.clone();
+                            let mut block: Vec<Statement> =
+                                statements.drain((i + 1)..=matching_goto).collect();
+                            block.pop(); // pop goto start of while
+                            block.pop(); // pop goto start of while
+                            optimize_loops(&mut block);
+                            scan_possible_breaks(&mut block, label_cp.as_str());
+                            // there needs to be a better way to handle that
+                            let mut continue_label = String::new();
+                            if let Some(Statement::Label(lbl)) = &block.last() {
+                                continue_label = lbl.clone();
+                            }
+                            if !continue_label.is_empty() {
+                                scan_possible_continues(&mut block, continue_label.as_str());
+                            }
+                            optimize_ifs(&mut block);
+                            statements[i] = Statement::DoWhile(
+                                Box::new(Expression::UnaryExpression(
+                                    crate::ast::UnaryOp::Not,
+                                    exp.clone(),
+                                )),
+                                block,
+                            );
+                            i = 0;
                             continue;
                         }
-                        let label_cp = break_label.clone();
-                        let mut block: Vec<Statement> =
-                            statements.drain((i + 1)..=matching_goto).collect();
-                        block.pop(); // pop goto start of while
-                        block.pop(); // pop goto start of while
-                        optimize_loops(&mut block);
-                        scan_possible_breaks(&mut block, label_cp.as_str());
-                        // there needs to be a better way to handle that
-                        let mut continue_label = String::new();
-                        if let Some(Statement::Label(lbl)) = &block.last() {
-                            continue_label = lbl.clone();
-                        }
-                        if !continue_label.is_empty() {
-                            scan_possible_continues(&mut block, continue_label.as_str());
-                        }
-                        optimize_ifs(&mut block);
-                        statements[i] = Statement::DoWhile(
-                            Box::new(Expression::UnaryExpression(
-                                crate::ast::UnaryOp::Not,
-                                exp.clone(),
-                            )),
-                            block,
-                        );
-                        i = 0;
-                        continue;
                     }
                 }
             }
+            i += 1;
         }
-        i += 1;
-    }
+
+    */
 }
 
 fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
@@ -795,13 +797,13 @@ pub fn do_pass4(prg: &mut Program) {
     }
 }
 
-const INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];
+const _INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];
 
 fn scan_replace_vars(
-    stmt: &Statement,
-    rename_map: &mut HashMap<String, String>,
-    index: &mut i32,
-    file_names: &mut i32,
+    _stmt: &Statement,
+    _rename_map: &mut HashMap<String, String>,
+    _index: &mut i32,
+    _file_names: &mut i32,
 ) {
     /*
         match stmt {

@@ -1,10 +1,6 @@
-use crate::{
-    ast::{constant::BuiltinConst, Constant},
-    tables::UNICODE_TO_CP437,
-};
+use crate::ast::{constant::BuiltinConst, Constant};
 use core::fmt;
 use logos::Logos;
-use std::collections::btree_map::Range;
 use thiserror::Error;
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]

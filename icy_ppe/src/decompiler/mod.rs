@@ -1,7 +1,7 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    get_var_name, Block, Constant, Declaration, Expression, FunctionImplementation,
-    IdentifierExpression, Program, Statement, UnaryOp, VarInfo, VariableType,
+    Block, Constant, Declaration, Expression, FunctionImplementation, IdentifierExpression,
+    Program, Statement, UnaryOp, VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -108,6 +108,11 @@ impl Decompiler {
         }
     }
 
+    /// Returns the do pass1 of this [`Decompiler`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn do_pass1(&mut self) {
         let mut last_point = 0;
         let mut if_ptr = -5;
@@ -304,6 +309,11 @@ impl Decompiler {
         self.pass += 1;
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn dump_vars(&mut self, prg: &mut Program) {
         self.uvar_flag = self.executable.variable_declarations[&0].variable_type
             == VariableType::Boolean
@@ -1045,7 +1055,7 @@ impl Decompiler {
                     if let Some(l_value) = self.pop_expr() {
                         self.warnings.push(format!(
                             "too few argument for built in function {} should be 2 was {} at {} expression on stack: '{}'",
-                            func_def.name, self.exp_count, self.src_ptr, l_value.to_string()
+                            func_def.name, self.exp_count, self.src_ptr, l_value
                         ));
 
                         self.push_expr(l_value);
@@ -1479,6 +1489,11 @@ impl Decompiler {
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn do_pass2(&mut self, prg: &mut Program) {
         self.cur_stmt = -1;
         self.next_label = 0;
@@ -1698,7 +1713,7 @@ impl Decompiler {
 
 #[cfg(test)]
 mod tests {
-
+    /*
     fn is_match(output: &str, original: &str) -> bool {
         let mut i = 0;
         let mut j = 0;
@@ -1739,7 +1754,7 @@ mod tests {
         //        println!("at {} {}", j, String::from_utf8_lossy(&output[j..]));
         false
     }
-    /*
+
     #[test]
     fn test_decompiler() {
         use std::fs::{self};

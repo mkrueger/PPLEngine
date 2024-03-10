@@ -665,10 +665,6 @@ impl Executable {
                 stack.push(*op as u16);
             }
             icy_ppe::ast::Expression::BinaryExpression(op, left, right) => {
-                println!(
-                    "Binary expression: {:?} left:{:?} right :{:?}",
-                    op, left, right
-                );
                 self.comp_expr(stack, left);
                 self.comp_expr(stack, right);
                 stack.push(*op as u16);

@@ -23,6 +23,10 @@ struct Arguments {
     #[argh(switch, short = 'r')]
     raw: bool,
 
+    /// output to console instead of writing to file
+    #[argh(switch, short = 'o')]
+    output: bool,
+
     #[argh(option, short = 's')]
     /// keyword casing style, valid values are u=upper (default), l=lower, c=camel
     style: Option<char>,
@@ -208,21 +212,26 @@ fn main() {
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
     let decompilation = decompile(file_name, true, arguments.raw);
-    let mut output = File::create(&out_file_name).unwrap();
-    if let Err(err) = write!(output, "{}", decompilation) {
-        stdout()
-            .execute(SetForegroundColor(Color::Red))
-            .unwrap()
-            .execute(Print(format!(
-                "Can't create {:?} on disk, reason: {}",
-                &out_file_name, err
-            )))
-            .unwrap()
-            .execute(ResetColor)
-            .unwrap()
-            .flush()
-            .unwrap();
+
+    if arguments.output {
+        println!("{}", decompilation);
     } else {
+        let mut output = File::create(&out_file_name).unwrap();
+        if let Err(err) = write!(output, "{}", decompilation) {
+            stdout()
+                .execute(SetForegroundColor(Color::Red))
+                .unwrap()
+                .execute(Print(format!(
+                    "Can't create {:?} on disk, reason: {}",
+                    &out_file_name, err
+                )))
+                .unwrap()
+                .execute(ResetColor)
+                .unwrap()
+                .flush()
+                .unwrap();
+            return;
+        }
         println!();
         println!("Source decompilation complete...");
         println!("'{}' decompiled to '{:?}'.", &file_name, &out_file_name);

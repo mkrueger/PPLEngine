@@ -39,7 +39,7 @@ fn main() {
     let mut exec = executable::Executable::new();
     exec.compile(&prg);
 
-    if !prg.errors.is_empty() {
+    if !prg.errors.is_empty() || !exec.errors.is_empty() {
         let mut errors = 0;
         let warnings = 0;
 
@@ -72,6 +72,19 @@ fn main() {
                         .unwrap();
                 }
             }
+        }
+
+        for err in &exec.errors {
+            errors += 1;
+            Report::build(ReportKind::Error, &file_name, 12)
+                .with_code(errors)
+                .with_message(format!("{}", err.error))
+                .with_label(
+                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Red),
+                )
+                .finish()
+                .print((&file_name, Source::from(&src)))
+                .unwrap();
         }
         println!("{} errors, {} warnings", errors, warnings);
         return;

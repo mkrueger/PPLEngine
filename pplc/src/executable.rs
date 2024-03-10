@@ -7,9 +7,16 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CompilationError {
+pub enum CompilationErrorType {
     #[error("Too many declarations: {0}")]
     TooManyDeclarations(usize),
+
+    #[error("Variable not found: {0}")]
+    VariableNotFound(String),
+}
+pub struct CompilationError {
+    pub error: CompilationErrorType,
+    pub range: core::ops::Range<usize>,
 }
 
 struct VarInfo {
@@ -129,6 +136,7 @@ pub struct Executable {
     script_buffer: Vec<u16>,
 
     label_table: HashMap<String, LabelInfo>,
+    pub errors: Vec<CompilationError>,
 }
 
 const ENDPROC: u16 = 0x00a9;
@@ -143,6 +151,7 @@ impl Executable {
             variable_declarations: HashMap::new(),
             script_buffer: Vec::new(),
             label_table: HashMap::new(),
+            errors: Vec::new(),
         }
     }
 
@@ -458,12 +467,13 @@ impl Executable {
             Statement::Let(var, expr) => {
                 self.script_buffer.push(OpCode::LET as u16);
 
-                let decl = self
-                    .variable_declarations
-                    .get(var.get_name())
-                    .unwrap_or_else(|| {
-                        panic!("Variable '{}' not found", var.get_name());
+                let Some(decl) = self.variable_declarations.get(var.get_name()) else {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::VariableNotFound(var.get_name().clone()),
+                        range: 0..0, // TODO :Range
                     });
+                    return;
+                };
                 self.script_buffer.push(*decl as u16);
 
                 match &**var {
@@ -536,7 +546,7 @@ impl Executable {
         }
     }
 
-    pub fn create_binary(&self, version: u16) -> Result<Vec<u8>, CompilationError> {
+    pub fn create_binary(&self, version: u16) -> Result<Vec<u8>, CompilationErrorType> {
         let mut buffer = Vec::new();
         buffer.extend_from_slice(b"PCBoard Programming Language Executable  ");
         buffer.push(b'0' + (version / 100) as u8);
@@ -547,7 +557,7 @@ impl Executable {
         buffer.extend_from_slice(b"\x0D\x0A\x1A");
 
         if self.variable_table.len() > 65535 {
-            return Err(CompilationError::TooManyDeclarations(
+            return Err(CompilationErrorType::TooManyDeclarations(
                 self.variable_table.len(),
             ));
         }
@@ -613,7 +623,10 @@ impl Executable {
                     stack.push(*decl as u16);
                     stack.push(0);
                 } else {
-                    panic!("Variable '{}' not found", id);
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::VariableNotFound(id.get_identifier().clone()),
+                        range: id.get_identifier_token().span.clone(),
+                    });
                 }
             }
             icy_ppe::ast::Expression::Const(constant) => {
@@ -642,7 +655,10 @@ impl Executable {
                         stack.push(var.info.id as u16 + 1);
                         stack.push(var.info.dims as u16);
                     } else {
-                        panic!("variable not found!");
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::VariableNotFound(name.clone()),
+                            range: 0..0, // TODO :Range
+                        });
                     }
 
                     for p in parameters {

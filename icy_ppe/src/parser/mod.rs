@@ -34,6 +34,9 @@ pub enum ParserErrorType {
 
     #[error("Too many arguments for {0} expected {1} got {2}")]
     TooManyArguments(String, usize, i8),
+
+    #[error("Invalid token {0}")]
+    InvalidToken(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -415,9 +418,7 @@ pub fn parse_program(input: &str) -> Program {
     while tokenizer.cur_token.is_some() {
         if let Some(var_type) = tokenizer.get_variable_type() {
             tokenizer.next_token();
-
             let mut vars = Vec::new();
-
             vars.push(tokenizer.parse_var_info());
             while tokenizer.get_cur_token() == Some(Token::Comma) {
                 tokenizer.next_token();
@@ -431,7 +432,18 @@ pub fn parse_program(input: &str) -> Program {
         } else if let Some(func) = tokenizer.parse_procedure() {
             procedure_implementations.push(func);
         } else {
-            statements.push(tokenizer.parse_statement());
+            let tok = tokenizer.cur_token.clone();
+            let stmt = tokenizer.parse_statement();
+            if stmt.is_some() {
+                statements.push(stmt);
+            } else if let Some(t) = tok {
+                if !matches!(t.token, Token::Eol | Token::Comment) {
+                    tokenizer.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::InvalidToken(t.token),
+                        range: t.span,
+                    }));
+                }
+            }
         }
         tokenizer.next_token();
         tokenizer.skip_eol();

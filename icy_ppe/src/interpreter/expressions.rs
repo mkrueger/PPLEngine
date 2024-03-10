@@ -109,7 +109,6 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     panic!("function didn't return a value  {}", expr.get_identifier());
                 }
             }
-            //  let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 
             let var_value = if interpreter
                 .cur_frame
@@ -142,7 +141,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             } else {
                 panic!("function not found {}", expr.get_identifier());
             };
-
+            let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
             if let Some(var_value) = var_value {
                 if expr.get_arguments().len() == 1 {
                     let i = get_int(var_value)? - 1;

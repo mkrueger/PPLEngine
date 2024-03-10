@@ -37,6 +37,9 @@ pub enum ParserErrorType {
 
     #[error("Invalid token {0}")]
     InvalidToken(Token),
+
+    #[error("Missing close ')' found: {0}")]
+    MissingCloseParens(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]

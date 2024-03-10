@@ -287,11 +287,29 @@ pub fn delay(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn inc(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let value = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let new_value = VariableValue::Integer(value + 1);
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(params[0].to_string(), new_value);
+    Ok(())
 }
-pub fn dec(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let value = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let new_value = VariableValue::Integer(value - 1);
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(params[0].to_string(), new_value);
+    Ok(())
 }
 
 pub fn newline(interpreter: &mut Interpreter) -> Res<()> {
@@ -762,27 +780,6 @@ pub fn setenv(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn fcloseall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn declare(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn function(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn procedure(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn pcall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn fpclr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn begin(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
-}
-pub fn fend(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn stackabort(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {

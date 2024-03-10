@@ -440,29 +440,6 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
             }
         }
 
-        /*
-        Statement::Inc(expr) => {
-            let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone()))?
-                + VariableValue::Integer(1);
-            interpreter
-                .cur_frame
-                .last_mut()
-                .unwrap()
-                .values
-                .insert(expr.to_string(), new_value);
-        }
-
-        Statement::Dec(expr) => {
-            let new_value = evaluate_exp(interpreter, &Expression::Identifier(expr.clone()))?
-                + VariableValue::Integer(-1);
-            interpreter
-                .cur_frame
-                .last_mut()
-                .unwrap()
-                .values
-                .insert(expr.to_string(), new_value);
-        }*/
-
         /* unsupported - the compiler does not generate them and ast transformation should remove them */
         Statement::Continue => {
             panic!("unsupported statement Continue")

@@ -351,7 +351,7 @@ impl<'a> Tokenizer<'a> {
                 Some(Statement::Label(id))
             }
 
-            None => None,
+            Some(Token::Comment | Token::Eol) | None => None,
 
             _ => {
                 panic!("error unexpected token {:?}", self.cur_token);
@@ -383,7 +383,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                if (params.len() as i8) >= def.min_args {
+                if (params.len() as i8) < def.min_args {
                     self.errors
                         .push(crate::parser::Error::ParserError(ParserError {
                             error: ParserErrorType::TooFewArguments(
@@ -396,7 +396,7 @@ impl<'a> Tokenizer<'a> {
                     return None;
                 }
 
-                if (params.len() as i8) <= def.max_args {
+                if (params.len() as i8) > def.max_args {
                     self.errors
                         .push(crate::parser::Error::ParserError(ParserError {
                             error: ParserErrorType::TooManyArguments(

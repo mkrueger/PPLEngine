@@ -617,7 +617,9 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
 }
 
 fn scan_do_while2(statements: &mut Vec<Statement>) {
+    return;
     let mut i = 0;
+
     while i < statements.len() {
         let cur = &statements[i];
         if let Statement::Label(while_label) = cur {

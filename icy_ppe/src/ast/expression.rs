@@ -1,10 +1,7 @@
 use std::fmt;
 
-use crate::{
-    parser::tokens::{SpannedToken, Token},
-};
-
-use super::{Constant};
+use super::Constant;
+use crate::parser::tokens::{SpannedToken, Token};
 
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -70,7 +67,7 @@ pub enum Expression {
     Parens(ParensExpression),
     FunctionCall(FunctionCallExpression),
     Unary(UnaryExpression),
-    Binary(BinOp, Box<Expression>, Box<Expression>),
+    Binary(BinaryExpression),
 }
 
 impl fmt::Display for Expression {
@@ -82,11 +79,11 @@ impl fmt::Display for Expression {
             Expression::Unary(expr) => {
                 write!(f, "{expr}")
             }
-            Expression::Binary(op, l_expr, r_expr) => {
-                write!(f, "{} {} {}", **l_expr, op, **r_expr)
+            Expression::Binary(expr) => {
+                write!(f, "{expr}")
             }
             Expression::FunctionCall(expr) => {
-                write!(f, "{}", expr)
+                write!(f, "{expr}")
             }
         }
     }
@@ -184,14 +181,14 @@ pub struct ParensExpression {
 
 impl ParensExpression {
     pub fn new(
-        lpar_token: SpannedToken,
+        leftpar_token: SpannedToken,
         expression: Box<Expression>,
-        rpar_token: SpannedToken,
+        rightpar_token: SpannedToken,
     ) -> Self {
         Self {
-            lpar_token,
+            lpar_token: leftpar_token,
             expression,
-            rpar_token,
+            rpar_token: rightpar_token,
         }
     }
 
@@ -241,15 +238,15 @@ pub struct FunctionCallExpression {
 impl FunctionCallExpression {
     pub fn new(
         identifier_token: SpannedToken,
-        lpar_token: SpannedToken,
+        leftpar_token: SpannedToken,
         arguments: Vec<Expression>,
-        rpar_token: SpannedToken,
+        rightpar_token: SpannedToken,
     ) -> Self {
         Self {
             identifier_token,
-            lpar_token,
+            lpar_token: leftpar_token,
             arguments,
-            rpar_token,
+            rpar_token: rightpar_token,
         }
     }
 
@@ -311,7 +308,6 @@ impl fmt::Display for FunctionCallExpression {
     }
 }
 
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpression {
     op_token: SpannedToken,
@@ -319,10 +315,7 @@ pub struct UnaryExpression {
 }
 
 impl UnaryExpression {
-    pub fn new(
-        op_token: SpannedToken,
-        expression: Box<Expression>,
-    ) -> Self {
+    pub fn new(op_token: SpannedToken, expression: Box<Expression>) -> Self {
         Self {
             op_token,
             expression,
@@ -340,6 +333,11 @@ impl UnaryExpression {
         }
     }
 
+    /// Returns the get op of this [`UnaryExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_op(&self) -> UnaryOp {
         match &self.op_token.token {
             Token::Add => UnaryOp::Plus,
@@ -369,5 +367,122 @@ impl UnaryExpression {
 impl fmt::Display for UnaryExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.get_op(), self.get_expression())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct BinaryExpression {
+    left_expression: Box<Expression>,
+    op_token: SpannedToken,
+    right_expression: Box<Expression>,
+}
+
+impl BinaryExpression {
+    pub fn new(
+        left_expression: Box<Expression>,
+        op_token: SpannedToken,
+        right_expression: Box<Expression>,
+    ) -> Self {
+        Self {
+            left_expression,
+            op_token,
+            right_expression,
+        }
+    }
+
+    pub fn empty(
+        left_expression: Box<Expression>,
+        op: BinOp,
+        right_expression: Box<Expression>,
+    ) -> Self {
+        Self {
+            left_expression,
+            op_token: SpannedToken::create_empty(match op {
+                BinOp::PoW => Token::PoW,
+                BinOp::Mul => Token::Mul,
+                BinOp::Div => Token::Div,
+                BinOp::Mod => Token::Mod,
+                BinOp::Add => Token::Add,
+                BinOp::Sub => Token::Sub,
+                BinOp::Eq => Token::Eq,
+                BinOp::NotEq => Token::NotEq,
+                BinOp::Lower => Token::Lower,
+                BinOp::LowerEq => Token::LowerEq,
+                BinOp::Greater => Token::Greater,
+                BinOp::GreaterEq => Token::GreaterEq,
+                BinOp::And => Token::And,
+                BinOp::Or => Token::Or,
+            }),
+            right_expression,
+        }
+    }
+
+    /// Returns the get op of this [`UnaryExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_op(&self) -> BinOp {
+        match &self.op_token.token {
+            Token::PoW => BinOp::PoW,
+            Token::Mul => BinOp::Mul,
+            Token::Div => BinOp::Div,
+            Token::Mod => BinOp::Mod,
+            Token::Add => BinOp::Add,
+            Token::Sub => BinOp::Sub,
+            Token::Eq => BinOp::Eq,
+            Token::NotEq => BinOp::NotEq,
+            Token::Lower => BinOp::Lower,
+            Token::LowerEq => BinOp::LowerEq,
+            Token::Greater => BinOp::Greater,
+            Token::GreaterEq => BinOp::GreaterEq,
+            Token::And => BinOp::And,
+            Token::Or => BinOp::Or,
+            _ => panic!("Expected binary operator"),
+        }
+    }
+
+    pub fn get_left_expression(&self) -> &Expression {
+        &self.left_expression
+    }
+
+    pub fn get_left_expressionmut(&mut self) -> &mut Expression {
+        &mut self.left_expression
+    }
+
+    pub fn get_op_token(&self) -> &SpannedToken {
+        &self.op_token
+    }
+
+    pub fn get_right_expression(&self) -> &Expression {
+        &self.right_expression
+    }
+
+    pub fn get_right_expressionmut(&mut self) -> &mut Expression {
+        &mut self.right_expression
+    }
+
+    pub(crate) fn create_empty_expression(
+        op: BinOp,
+        left_expression: Box<Expression>,
+        right_expression: Box<Expression>,
+    ) -> Expression {
+        Expression::Binary(BinaryExpression::empty(
+            left_expression,
+            op,
+            right_expression,
+        ))
+    }
+}
+
+impl fmt::Display for BinaryExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {}",
+            self.get_left_expression(),
+            self.get_op(),
+            self.get_right_expression()
+        )
     }
 }

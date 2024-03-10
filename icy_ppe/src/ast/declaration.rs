@@ -64,7 +64,7 @@ impl VarInfo {
                 ),
                 _ => panic!("can't translate func call t var info {expr:?}"),
             },
-            Expression::Binary(_op, left, _right) => Self::from(left),
+            Expression::Binary(expr) => Self::from(expr.get_left_expression()),
             Expression::Parens(expr) => Self::from(expr.get_expression()),
             Expression::Unary(expr) => Self::from(expr.get_expression()),
         }

@@ -98,7 +98,7 @@ impl Statement {
                         }
                         expr.get_expression().clone()
                     }
-                    _ => expr.get_expression().clone()
+                    _ => expr.get_expression().clone(),
                 }
             }
             _ => expr.clone(),

@@ -1,6 +1,8 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    Block, Constant, ConstantExpression, Declaration, Expression, FunctionCallExpression, FunctionImplementation, IdentifierExpression, ParensExpression, Program, Statement, UnaryExpression, UnaryOp, VarInfo, VariableType
+    BinaryExpression, Block, Constant, ConstantExpression, Declaration, Expression,
+    FunctionCallExpression, FunctionImplementation, IdentifierExpression, ParensExpression,
+    Program, Statement, UnaryExpression, UnaryOp, VarInfo, VariableType,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -788,10 +790,10 @@ impl Decompiler {
     fn stripper(str: Expression) -> Expression {
         match str {
             Expression::Parens(expr) => Decompiler::stripper(expr.get_expression().clone()),
-            Expression::Binary(op, l, r) => Expression::Binary(
-                op,
-                Box::new(Decompiler::stripper(*l)),
-                Box::new(Decompiler::stripper(*r)),
+            Expression::Binary(expr) => BinaryExpression::create_empty_expression(
+                expr.get_op(),
+                Box::new(Decompiler::stripper(expr.get_left_expression().clone())),
+                Box::new(Decompiler::stripper(expr.get_right_expression().clone())),
             ),
             _ => str,
         }
@@ -833,13 +835,14 @@ impl Decompiler {
                     p2,
                 )
             }
-            Expression::Unary(expr) => {
-                UnaryExpression::create_empty_expression(expr.get_op(), Box::new(Self::repl_const(expr.get_expression().clone(), names)))
-            }
-            Expression::Binary(op, l, r) => Expression::Binary(
-                op,
-                Box::new(Self::repl_const(*l, names)),
-                Box::new(Self::repl_const(*r, names)),
+            Expression::Unary(expr) => UnaryExpression::create_empty_expression(
+                expr.get_op(),
+                Box::new(Self::repl_const(expr.get_expression().clone(), names)),
+            ),
+            Expression::Binary(expr) => BinaryExpression::create_empty_expression(
+                expr.get_op(),
+                Box::new(Self::repl_const(expr.get_left_expression().clone(), names)),
+                Box::new(Self::repl_const(expr.get_right_expression().clone(), names)),
             ),
         }
     }
@@ -1047,18 +1050,30 @@ impl Decompiler {
                 let tmp = self.pop_expr().unwrap();
                 match func_def.opcode {
                     FuncOpCode::NOT => {
-                        self.push_expr(UnaryExpression::create_empty_expression(UnaryOp::Not, Box::new(tmp)));
+                        self.push_expr(UnaryExpression::create_empty_expression(
+                            UnaryOp::Not,
+                            Box::new(tmp),
+                        ));
                     }
                     FuncOpCode::UMINUS => {
-                        self.push_expr(UnaryExpression::create_empty_expression(UnaryOp::Minus, Box::new(tmp)));
+                        self.push_expr(UnaryExpression::create_empty_expression(
+                            UnaryOp::Minus,
+                            Box::new(tmp),
+                        ));
                     }
                     FuncOpCode::UPLUS => {
-                        self.push_expr(UnaryExpression::create_empty_expression(UnaryOp::Plus, Box::new(tmp)));
+                        self.push_expr(UnaryExpression::create_empty_expression(
+                            UnaryOp::Plus,
+                            Box::new(tmp),
+                        ));
                     }
                     _ => {
                         self.errors
                             .push(format!("unknown unary function {func} at {}", self.src_ptr));
-                        self.push_expr(UnaryExpression::create_empty_expression(UnaryOp::Plus, Box::new(tmp)));
+                        self.push_expr(UnaryExpression::create_empty_expression(
+                            UnaryOp::Plus,
+                            Box::new(tmp),
+                        ));
                     }
                 }
                 return 0;
@@ -1086,7 +1101,11 @@ impl Decompiler {
                 let binop = BIN_EXPR[offset];
 
                 self.push_expr(ParensExpression::create_empty_expression(Box::new(
-                    Expression::Binary(binop, Box::new(l_value), Box::new(r_value)),
+                    BinaryExpression::create_empty_expression(
+                        binop,
+                        Box::new(l_value),
+                        Box::new(r_value),
+                    ),
                 )));
 
                 return 0;

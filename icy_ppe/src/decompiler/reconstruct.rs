@@ -63,22 +63,28 @@ fn scan_select_statements(statements: &mut [Statement]) {
                 i += 1;
                 continue;
             }
-            let Expression::Binary(BinOp::Eq, lhs, rhs) =
-                Statement::try_boolean_conversion(&cond)
-            else {
+            let Expression::Binary(bin_expr) = Statement::try_boolean_conversion(&cond) else {
                 i += 1;
                 continue;
             };
+            if bin_expr.get_op() != BinOp::Eq {
+                i += 1;
+                continue;
+            }
 
             let mut skip = false;
             for if_else_block in &if_else_blocks {
-                let Expression::Binary(BinOp::Eq, lhs2, _) =
+                let Expression::Binary(bin_expr2) =
                     Statement::try_boolean_conversion(&if_else_block.cond)
                 else {
                     skip = true;
                     break;
                 };
-                if lhs != lhs2 {
+                if bin_expr2.get_op() != BinOp::Eq {
+                    skip = true;
+                    break;
+                }
+                if bin_expr.get_left_expression() != bin_expr2.get_left_expression() {
                     skip = true;
                     break;
                 }
@@ -93,26 +99,34 @@ fn scan_select_statements(statements: &mut [Statement]) {
 
             if !stmt.is_empty() {
                 case_blocks.push(ElseIfBlock {
-                    cond: rhs.clone(),
+                    cond: Box::new(bin_expr.get_right_expression().clone()),
                     block: stmt.clone(),
                 });
             }
 
             for if_else_block in &if_else_blocks {
-                let Expression::Binary(BinOp::Eq, _, rhs2) =
+                let Expression::Binary(bin_expr2) =
                     Statement::try_boolean_conversion(&if_else_block.cond)
                 else {
                     i += 1;
                     continue;
                 };
 
+                if bin_expr2.get_op() != BinOp::Eq {
+                    i += 1;
+                    continue;
+                }
                 case_blocks.push(ElseIfBlock {
-                    cond: rhs2.clone(),
+                    cond: Box::new(bin_expr2.get_right_expression().clone()),
                     block: if_else_block.block.clone(),
                 });
             }
 
-            statements[i] = Statement::Select(lhs.clone(), case_blocks, else_block);
+            statements[i] = Statement::Select(
+                Box::new(bin_expr.get_left_expression().clone()),
+                case_blocks,
+                else_block,
+            );
         }
         i += 1;
     }
@@ -277,7 +291,10 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_ifs(&mut statements2);
 
                 statements[i] = Statement::IfThen(
-                    Box::new(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Not, cond)),
+                    Box::new(UnaryExpression::create_empty_expression(
+                        crate::ast::UnaryOp::Not,
+                        cond,
+                    )),
                     statements2,
                     Vec::new(),
                     None,
@@ -314,16 +331,13 @@ fn mach_for_construct(
             if let Expression::Unary(not_expr) = &**expr {
                 if not_expr.get_op() == crate::ast::UnaryOp::Not {
                     if let Expression::Parens(p_expr) = not_expr.get_expression() {
-                        if let Expression::Binary(_op, lvalue, rvalue) =
-                            p_expr.get_expression()
-                        {
+                        if let Expression::Binary(bin_op) = p_expr.get_expression() {
                             // TODO: Check _op
-                            if let Expression::Parens(p_expr_l) = &**lvalue {
-                                if let Expression::Parens(p_expr_r) = &**rvalue {
-                                    if let Expression::Binary(_opl, _llvalue, lrvalue) =
-                                        p_expr_l.get_expression()
-                                    {
-                                        if let Expression::Binary(_opr, _rlvalue, rrvalue) =
+                            if let Expression::Parens(p_expr_l) = bin_op.get_left_expression() {
+                                if let Expression::Parens(p_expr_r) = bin_op.get_right_expression()
+                                {
+                                    if let Expression::Binary(lbin_op) = p_expr_l.get_expression() {
+                                        if let Expression::Binary(rbin_op) =
                                             p_expr_r.get_expression()
                                         {
                                             // TODO: Check _op
@@ -332,30 +346,32 @@ fn mach_for_construct(
                                                 return None;
                                             }*/
 
-                                            if let Expression::Parens(left_binop) = &**lrvalue {
-                                                if let Expression::Parens(right_binop) = &**rrvalue {
-                                                    if let Expression::Binary(
-                                                        _opl,
-                                                        llvalue,
-                                                        lrvalue,
-                                                    ) = left_binop.get_expression()
+                                            if let Expression::Parens(left_binop) =
+                                                lbin_op.get_right_expression()
+                                            {
+                                                if let Expression::Parens(right_binop) =
+                                                    rbin_op.get_right_expression()
+                                                {
+                                                    if let Expression::Binary(bin_op1) =
+                                                        left_binop.get_expression()
                                                     {
-                                                        if let Expression::Binary(
-                                                            _opr,
-                                                            rlvalue,
-                                                            rrvalue,
-                                                        ) = right_binop.get_expression()
+                                                        if let Expression::Binary(bin_op2) =
+                                                            right_binop.get_expression()
                                                         {
                                                             // TODO: Check _op
-                                                            if llvalue != rlvalue/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| lrvalue != rrvalue
+                                                            if bin_op1.get_left_expression() != bin_op2.get_right_expression()/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| bin_op1.get_right_expression() != bin_op2.get_right_expression()
                                                             {
                                                                 return None;
                                                             }
                                                             return Some((
                                                                 for_label.clone(),
-                                                                llvalue.to_string(),
+                                                                bin_op1
+                                                                    .get_left_expression()
+                                                                    .to_string(),
                                                                 breakout_label.clone(),
-                                                                (**lrvalue).clone(),
+                                                                bin_op1
+                                                                    .get_right_expression()
+                                                                    .clone(),
                                                             ));
                                                         }
                                                     }
@@ -367,7 +383,6 @@ fn mach_for_construct(
                             }
                         }
                     }
-                
                 }
             }
         }
@@ -431,17 +446,17 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                         continue;
                     }
 
-                    if let Expression::Binary(op, lvalue, rvalue) = &**expr {
-                        if *op != BinOp::Add {
+                    if let Expression::Binary(bin_expr) = &**expr {
+                        if bin_expr.get_op() != BinOp::Add {
                             continue;
                         } // always add even if step is negative
-                        if let Expression::Identifier(lstr) = &**lvalue {
+                        if let Expression::Identifier(lstr) = bin_expr.get_left_expression() {
                             if *lstr.get_identifier() != index_label {
                                 i += 1;
                                 continue;
                             }
                         }
-                        step_expr = (**rvalue).clone();
+                        step_expr = bin_expr.get_right_expression().clone();
                     } else {
                         i += 1;
                         continue;
@@ -603,7 +618,10 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                     optimize_ifs(&mut statements2);
 
                     statements[i] = Statement::DoWhile(
-                        Box::new(UnaryExpression::create_empty_expression(crate::ast::UnaryOp::Not, exp.clone())),
+                        Box::new(UnaryExpression::create_empty_expression(
+                            crate::ast::UnaryOp::Not,
+                            exp.clone(),
+                        )),
                         statements2,
                     );
                     statements.remove(i + 1);
@@ -977,15 +995,15 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
             }
         }
         Expression::Parens(expr) => {
-            replace_in_expression(&mut expr.get_expression_mut(), rename_map);
+            replace_in_expression(expr.get_expression_mut(), rename_map);
         }
         Expression::Unary(expr) => {
-            replace_in_expression(&mut expr.get_expression_mut(), rename_map);
+            replace_in_expression(expr.get_expression_mut(), rename_map);
         }
 
-        Expression::Binary(_, l_value, r_value) => {
-            replace_in_expression(l_value, rename_map);
-            replace_in_expression(r_value, rename_map);
+        Expression::Binary(expr) => {
+            replace_in_expression(expr.get_left_expressionmut(), rename_map);
+            replace_in_expression(expr.get_right_expressionmut(), rename_map);
         }
 
         Expression::FunctionCall(expr) => {
@@ -996,7 +1014,6 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
                 replace_in_expression(p, rename_map);
             }
         }
-
-        _ => {}
+        Expression::Const(_) => {}
     }
 }

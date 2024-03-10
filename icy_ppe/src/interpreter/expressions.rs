@@ -109,7 +109,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     panic!("function didn't return a value  {}", expr.get_identifier());
                 }
             }
-            let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
+            //  let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 
             let var_value = if interpreter
                 .cur_frame
@@ -169,83 +169,79 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
             }*/
         }
-        Expression::Unary(expr) => {
-            match expr.get_op() {
-                UnaryOp::Plus => evaluate_exp(interpreter, expr.get_expression()),
-                UnaryOp::Not => {
-                    let value = evaluate_exp(interpreter, expr.get_expression())?;
-                    match value {
-                        VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
-                            PPL_TRUE
-                        } else {
-                            PPL_FALSE
-                        })),
-                        VariableValue::Boolean(x) => Ok(VariableValue::Boolean(!x)),
-                        _ => {
-                            panic!("unsupported for minus {expr:?} value {value:?}");
-                        }
-                    }
-                }
-                UnaryOp::Minus => {
-                    let value = evaluate_exp(interpreter, expr.get_expression())?;
-                    match value {
-                        VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),
-                        _ => {
-                            panic!("unsupported for minus {expr:?} value {value:?}");
-                        }
+        Expression::Unary(expr) => match expr.get_op() {
+            UnaryOp::Plus => evaluate_exp(interpreter, expr.get_expression()),
+            UnaryOp::Not => {
+                let value = evaluate_exp(interpreter, expr.get_expression())?;
+                match value {
+                    VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
+                        PPL_TRUE
+                    } else {
+                        PPL_FALSE
+                    })),
+                    VariableValue::Boolean(x) => Ok(VariableValue::Boolean(!x)),
+                    _ => {
+                        panic!("unsupported for minus {expr:?} value {value:?}");
                     }
                 }
             }
-        }
-        
-        Expression::Binary(op, l_value, r_value) => match op {
-            BinOp::Add => {
-                Ok(evaluate_exp(interpreter, l_value)? + evaluate_exp(interpreter, r_value)?)
+            UnaryOp::Minus => {
+                let value = evaluate_exp(interpreter, expr.get_expression())?;
+                match value {
+                    VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),
+                    _ => {
+                        panic!("unsupported for minus {expr:?} value {value:?}");
+                    }
+                }
             }
-            BinOp::Sub => {
-                Ok(evaluate_exp(interpreter, l_value)? - evaluate_exp(interpreter, r_value)?)
-            }
-            BinOp::Mul => {
-                Ok(evaluate_exp(interpreter, l_value)? * evaluate_exp(interpreter, r_value)?)
-            }
-            BinOp::Div => {
-                Ok(evaluate_exp(interpreter, l_value)? / evaluate_exp(interpreter, r_value)?)
-            }
-            BinOp::Mod => {
-                Ok(evaluate_exp(interpreter, l_value)?.modulo(evaluate_exp(interpreter, r_value)?))
-            }
-            BinOp::PoW => {
-                Ok(evaluate_exp(interpreter, l_value)?.pow(evaluate_exp(interpreter, r_value)?))
-            }
+        },
+
+        Expression::Binary(expr) => match expr.get_op() {
+            BinOp::Add => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                + evaluate_exp(interpreter, expr.get_right_expression())?),
+            BinOp::Sub => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                - evaluate_exp(interpreter, expr.get_right_expression())?),
+            BinOp::Mul => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                * evaluate_exp(interpreter, expr.get_right_expression())?),
+            BinOp::Div => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                / evaluate_exp(interpreter, expr.get_right_expression())?),
+            BinOp::Mod => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                .modulo(evaluate_exp(interpreter, expr.get_right_expression())?)),
+            BinOp::PoW => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
+                .pow(evaluate_exp(interpreter, expr.get_right_expression())?)),
             BinOp::Eq => {
-                let l = evaluate_exp(interpreter, l_value)?;
-                let r = evaluate_exp(interpreter, r_value)?;
+                let l = evaluate_exp(interpreter, expr.get_left_expression())?;
+                let r = evaluate_exp(interpreter, expr.get_right_expression())?;
                 Ok(VariableValue::Boolean(l == r))
             }
             BinOp::NotEq => {
-                let l = evaluate_exp(interpreter, l_value)?;
-                let r = evaluate_exp(interpreter, r_value)?;
+                let l = evaluate_exp(interpreter, expr.get_left_expression())?;
+                let r = evaluate_exp(interpreter, expr.get_right_expression())?;
                 Ok(VariableValue::Boolean(l != r))
             }
             BinOp::Or => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)?.as_bool()
-                    || evaluate_exp(interpreter, r_value)?.as_bool(),
+                evaluate_exp(interpreter, expr.get_left_expression())?.as_bool()
+                    || evaluate_exp(interpreter, expr.get_right_expression())?.as_bool(),
             )),
             BinOp::And => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)?.as_bool()
-                    && evaluate_exp(interpreter, r_value)?.as_bool(),
+                evaluate_exp(interpreter, expr.get_left_expression())?.as_bool()
+                    && evaluate_exp(interpreter, expr.get_right_expression())?.as_bool(),
             )),
             BinOp::Lower => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)? < evaluate_exp(interpreter, r_value)?,
+                evaluate_exp(interpreter, expr.get_left_expression())?
+                    < evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
             BinOp::LowerEq => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)? <= evaluate_exp(interpreter, r_value)?,
+                evaluate_exp(interpreter, expr.get_left_expression())?
+                    <= evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
             BinOp::Greater => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)? > evaluate_exp(interpreter, r_value)?,
+                evaluate_exp(interpreter, expr.get_left_expression())?
+                    > evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
             BinOp::GreaterEq => Ok(VariableValue::Boolean(
-                evaluate_exp(interpreter, l_value)? >= evaluate_exp(interpreter, r_value)?,
+                evaluate_exp(interpreter, expr.get_left_expression())?
+                    >= evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
         },
     }

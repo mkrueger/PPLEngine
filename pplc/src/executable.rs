@@ -705,10 +705,10 @@ impl Executable {
                 self.comp_expr(stack, expr.get_expression());
                 stack.push(expr.get_op() as u16);
             }
-            icy_ppe::ast::Expression::Binary(op, left, right) => {
-                self.comp_expr(stack, left);
-                self.comp_expr(stack, right);
-                stack.push(*op as u16);
+            icy_ppe::ast::Expression::Binary(expr) => {
+                self.comp_expr(stack, expr.get_left_expression());
+                self.comp_expr(stack, expr.get_right_expression());
+                stack.push(expr.get_op() as u16);
             }
         }
     }

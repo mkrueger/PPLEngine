@@ -28,8 +28,8 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     sysop: bool,
 
-    /// file_name[.ppe] to run
-    file: String,
+    /// file[.ppe] to run
+    input: String,
 }
 
 lazy_static::lazy_static! {
@@ -39,7 +39,7 @@ lazy_static::lazy_static! {
 fn main() {
     let arguments = Args::parse();
 
-    let mut file_name = arguments.file;
+    let mut file_name = arguments.input;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".ppe");

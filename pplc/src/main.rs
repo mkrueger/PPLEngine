@@ -16,12 +16,14 @@ pub mod parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// file_name[.pps] to compile
-    file: String,
+    /// file[.pps] to compile
+    input: String,
 }
+
 lazy_static::lazy_static! {
     static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
 }
+
 fn main() {
     println!(
         "PCBoard Programming Language Compiler^RUST {}",
@@ -29,7 +31,7 @@ fn main() {
     );
     let arguments = Args::parse();
 
-    let mut file_name = arguments.file;
+    let mut file_name = arguments.input;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".pps");

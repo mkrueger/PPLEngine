@@ -1,4 +1,4 @@
-use argh::FromArgs;
+use clap::Parser;
 use crossterm::style::Color;
 use crossterm::style::Print;
 use crossterm::style::ResetColor;
@@ -16,24 +16,23 @@ use std::fs::*;
 use std::io::*;
 use std::path::Path;
 
-#[derive(FromArgs)]
-/// original by chicken/tools4fools https://github.com/astuder/ppld rust port https://github.com/mkrueger/PPLEngine
-struct Arguments {
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
     /// raw ppe without reconstruction control structures
-    #[argh(switch, short = 'r')]
+    #[arg(short, long)]
     raw: bool,
 
     /// output to console instead of writing to file
-    #[argh(switch, short = 'o')]
+    #[arg(short, long)]
     output: bool,
 
-    #[argh(option, short = 's')]
+    #[arg(short, long)]
     /// keyword casing style, valid values are u=upper (default), l=lower, c=camel
     style: Option<char>,
 
-    /// srcname[.ext] .ext defaults to .ppe
-    #[argh(positional)]
-    srcname: String,
+    /// file[.ppe] to decompile
+    input: String,
 }
 
 lazy_static::lazy_static! {
@@ -191,7 +190,7 @@ fn main() {
         "PCBoard Programming Language Decompiler^RUST {}",
         *crate::VERSION
     );
-    let mut arguments: Arguments = argh::from_env();
+    let mut arguments = Args::parse();
 
     unsafe {
         match arguments.style {
@@ -203,7 +202,7 @@ fn main() {
         }
     }
 
-    let file_name = &mut arguments.srcname;
+    let file_name = &mut arguments.input;
 
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {

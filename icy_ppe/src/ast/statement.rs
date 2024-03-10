@@ -4,7 +4,8 @@ use crate::{
 };
 
 use super::{
-    Constant, ConstantExpression, Expression, ProgramContext, UnaryOp, VarInfo, VariableType,
+    Constant, ConstantExpression, Expression, ProgramContext, UnaryExpression, UnaryOp, VarInfo,
+    VariableType,
 };
 use crate::output_keyword;
 
@@ -80,25 +81,28 @@ impl Statement {
                 _ => expr.clone(),
             },
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr.get_expression()),
-            Expression::Unary(expr) => {
-                if !matches!(expr.get_op(), UnaryOp::Not) {
-                    return expr.get_expression().clone();
+            Expression::Unary(un_expr) => {
+                if !matches!(un_expr.get_op(), UnaryOp::Not) {
+                    return expr.clone();
                 }
 
-                match expr.get_expression() {
+                match un_expr.get_expression() {
                     Expression::Const(c) => match c.get_constant_value() {
                         Constant::Boolean(b) => {
                             Expression::Const(ConstantExpression::empty(Constant::Boolean(!b)))
                         }
-                        _ => expr.get_expression().clone(),
+                        _ => expr.clone(),
                     },
                     Expression::Unary(notexpr) => {
                         if matches!(notexpr.get_op(), UnaryOp::Not) {
                             return Statement::try_boolean_conversion(notexpr.get_expression());
                         }
-                        expr.get_expression().clone()
+                        UnaryExpression::create_empty_expression(
+                            un_expr.get_op(),
+                            Box::new(Statement::try_boolean_conversion(un_expr.get_expression())),
+                        )
                     }
-                    _ => expr.get_expression().clone(),
+                    _ => expr.clone(),
                 }
             }
             _ => expr.clone(),

@@ -294,6 +294,7 @@ impl FunctionCallExpression {
         identifier: impl Into<String>,
         arguments: Vec<Expression>,
     ) -> Expression {
+        let identifier = identifier.into();
         Expression::FunctionCall(FunctionCallExpression::empty(identifier, arguments))
     }
 
@@ -304,7 +305,14 @@ impl FunctionCallExpression {
 
 impl fmt::Display for FunctionCallExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}()", self.get_identifier())
+        write!(f, "{}(", self.get_identifier())?;
+        for (i, arg) in self.get_arguments().iter().enumerate() {
+            write!(f, "{arg}")?;
+            if i < self.get_arguments().len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, ")")
     }
 }
 

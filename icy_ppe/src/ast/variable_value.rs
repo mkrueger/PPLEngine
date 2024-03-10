@@ -185,8 +185,6 @@ impl Add<VariableValue> for VariableValue {
     type Output = VariableValue;
 
     fn add(self, other: VariableValue) -> Self {
-        println!("ADD {:?} {:?}", &self, &other);
-
         match self {
             VariableValue::Integer(x) => {
                 if let VariableValue::Integer(y) = convert_to(VariableType::Integer, &other) {

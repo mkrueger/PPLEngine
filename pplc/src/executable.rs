@@ -13,6 +13,9 @@ pub enum CompilationErrorType {
 
     #[error("Variable not found: {0}")]
     VariableNotFound(String),
+
+    #[error("Procedure not found: {0}")]
+    ProcedureNotFound(String),
 }
 pub struct CompilationError {
     pub error: CompilationErrorType,
@@ -537,17 +540,21 @@ impl Executable {
                 self.script_buffer.push(OpCode::PCALL as u16);
 
                 // will be filled later.
-                self.procedure_declarations
-                    .get_mut(name)
-                    .unwrap()
-                    .add_usage(self.script_buffer.len());
-                self.script_buffer.push(0);
+                if let Some(procedure) = self.procedure_declarations.get_mut(name) {
+                    procedure.add_usage(self.script_buffer.len());
+                    self.script_buffer.push(0);
 
-                for p in parameters {
-                    let expr_buffer = self.compile_expression(p);
-                    self.script_buffer.extend(expr_buffer);
+                    for p in parameters {
+                        let expr_buffer = self.compile_expression(p);
+                        self.script_buffer.extend(expr_buffer);
+                    }
+                    self.script_buffer.push(0);
+                } else {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::ProcedureNotFound(name.clone()),
+                        range: 0..0, // TODO :Range
+                    });
                 }
-                self.script_buffer.push(0);
             }
 
             Statement::Continue => panic!("Continue not allowed in output AST."),

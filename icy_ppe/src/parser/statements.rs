@@ -350,7 +350,15 @@ impl<'a> Tokenizer<'a> {
             Some(Token::Comment | Token::Eol) | None => None,
 
             _ => {
-                panic!("error unexpected token {:?}", self.cur_token);
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::InvalidToken(
+                            self.cur_token.as_ref().unwrap().token.clone(),
+                        ),
+                        range: self.lex.span(),
+                    }));
+                self.next_token();
+                return None;
             }
         }
     }

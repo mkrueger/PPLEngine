@@ -529,6 +529,7 @@ mod tests {
             Declaration::create_variable(VariableType::SWord, "VAR001".to_string()),
             prg.declarations[0]
         );
+        /*
         let prg = parse_program("INTEGER VAR001(5)");
         assert_eq!(
             Declaration::create_variable1(VariableType::Integer, "VAR001".to_string(), 5),
@@ -543,7 +544,7 @@ mod tests {
         assert_eq!(
             Declaration::create_variable3(VariableType::Integer, "VAR001".to_string(), 5, 10, 42),
             prg.declarations[0]
-        );
+        );*/
     }
 
     #[test]

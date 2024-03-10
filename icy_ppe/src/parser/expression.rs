@@ -1,8 +1,11 @@
 use super::{tokens::Token, Tokenizer};
-use crate::{ast::{
-    BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
-    IdentifierExpression, ParensExpression, UnaryExpression,
-}, parser::{Error, ParserError, ParserErrorType}};
+use crate::{
+    ast::{
+        BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
+        IdentifierExpression, ParensExpression, UnaryExpression,
+    },
+    parser::{Error, ParserError, ParserErrorType},
+};
 
 impl<'a> Tokenizer<'a> {
     pub fn parse_expression(&mut self) -> Option<Expression> {
@@ -193,34 +196,43 @@ impl<'a> Tokenizer<'a> {
             Token::Identifier(id) => {
                 let ct = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-
                 if self.get_cur_token() == Some(Token::LPar) {
                     self.next_token();
                     let mut params = Vec::new();
-                    
+
                     while self.get_cur_token() != Some(Token::RPar) {
                         let Some(value) = self.parse_expression() else {
                             self.errors.push(Error::ParserError(ParserError {
-                                error: ParserErrorType::InvalidToken(self.cur_token.as_ref().unwrap().token.clone()),
+                                error: ParserErrorType::InvalidToken(
+                                    self.cur_token.as_ref().unwrap().token.clone(),
+                                ),
                                 range: self.cur_token.as_ref().unwrap().span.clone(),
                             }));
                             return None;
                         };
                         params.push(value);
-                        if self.get_cur_token() != Some(Token::RPar) && self.get_cur_token() != Some(Token::Comma) {
+                        if self.get_cur_token() == Some(Token::Comma) {
+                            self.next_token();
+                            continue;
+                        }
+
+                        if self.get_cur_token() != Some(Token::RPar)
+                            && self.get_cur_token() != Some(Token::Comma)
+                        {
                             break;
                         }
                     }
 
                     if self.get_cur_token() != Some(Token::RPar) {
                         self.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.cur_token.as_ref().unwrap().token.clone()),
+                            error: ParserErrorType::MissingCloseParens(
+                                self.cur_token.as_ref().unwrap().token.clone(),
+                            ),
                             range: self.cur_token.as_ref().unwrap().span.clone(),
                         }));
                     }
 
                     self.next_token();
-
                     return Some(FunctionCallExpression::create_empty_expression(
                         id.clone(),
                         params,

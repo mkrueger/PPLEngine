@@ -109,6 +109,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     panic!("function didn't return a value  {}", expr.get_identifier());
                 }
             }
+            let first_arg_expr = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 
             let var_value = if interpreter
                 .cur_frame
@@ -141,10 +142,9 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             } else {
                 panic!("function not found {}", expr.get_identifier());
             };
-            let var_value = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
             if let Some(var_value) = var_value {
                 if expr.get_arguments().len() == 1 {
-                    let i = get_int(var_value)? - 1;
+                    let i = get_int(first_arg_expr)? - 1;
                     if let VariableValue::Dim1(var_type, data) = var_value {
                         if i < 0 {
                             return Ok(var_type.create_empty_value());

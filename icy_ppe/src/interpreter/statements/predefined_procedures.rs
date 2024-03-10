@@ -1,7 +1,9 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    ast::{convert_to, get_var_name, Expression, ProgramContext, VariableValue},
+    ast::{
+        convert_to, get_var_name, Expression, IdentifierExpression, ProgramContext, VariableValue,
+    },
     icy_board::text_messages,
     interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
     Res,
@@ -295,8 +297,11 @@ pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let value = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-    let new_value = VariableValue::Integer(value + 1);
+    let new_value = evaluate_exp(
+        interpreter,
+        &IdentifierExpression::create_empty_expression(params[0].to_string()),
+    )? + VariableValue::Integer(1);
+
     interpreter
         .cur_frame
         .last_mut()
@@ -307,8 +312,10 @@ pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let value = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-    let new_value = VariableValue::Integer(value - 1);
+    let new_value = evaluate_exp(
+        interpreter,
+        &IdentifierExpression::create_empty_expression(params[0].to_string()),
+    )? - VariableValue::Integer(1);
     interpreter
         .cur_frame
         .last_mut()

@@ -233,7 +233,13 @@ pub enum Token {
         let num = slice[..len].parse::<i32>();
         match num {
             Ok(num) => Ok(Constant::Integer(num)),
-            Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
+            Err(_) => {
+                let num = slice[..len].parse::<u32>();
+                match num {
+                    Ok(num) => Ok(Constant::Unsigned(num)),
+                    Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
+                }
+            }
         }
     })]
     #[regex(r"\$\d+(\.\d+)?", |lex| {

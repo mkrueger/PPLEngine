@@ -1,5 +1,5 @@
 [workspace]
-members = ["icy_ppe", "ppld", "pplc", "pplx"]
+members = ["icy_ppe", "ppld", "pplc", "pplx", "ppl-lsp"]
 
 [workspace.package]
 version = "0.1.0"

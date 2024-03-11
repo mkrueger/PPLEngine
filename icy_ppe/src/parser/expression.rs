@@ -31,7 +31,13 @@ impl<'a> Tokenizer<'a> {
             let op = match self.get_cur_token() {
                 Some(Token::Or) => BinOp::Or,
                 Some(Token::And) => BinOp::And,
-                _ => panic!(),
+                _ => {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::UnexpectedError,
+                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                    }));
+                    return None;
+                }
             };
             self.next_token();
             let right = self.parse_comparison();
@@ -62,7 +68,13 @@ impl<'a> Tokenizer<'a> {
                 Some(Token::LowerEq) => BinOp::LowerEq,
                 Some(Token::Eq) => BinOp::Eq,
                 Some(Token::NotEq) => BinOp::NotEq,
-                _ => panic!(),
+                _ => {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::UnexpectedError,
+                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                    }));
+                    return None;
+                }
             };
             self.next_token();
 
@@ -85,7 +97,13 @@ impl<'a> Tokenizer<'a> {
             let op = match self.get_cur_token() {
                 Some(Token::Add) => BinOp::Add,
                 Some(Token::Sub) => BinOp::Sub,
-                _ => panic!(),
+                _ => {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::UnexpectedError,
+                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                    }));
+                    return None;
+                }
             };
             self.next_token();
             let right = self.parse_factor();
@@ -111,7 +129,13 @@ impl<'a> Tokenizer<'a> {
                 Some(Token::Mul) => BinOp::Mul,
                 Some(Token::Div) => BinOp::Div,
                 Some(Token::Mod) => BinOp::Mod,
-                _ => panic!(),
+                _ => {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::UnexpectedError,
+                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                    }));
+                    return None;
+                }
             };
             self.next_token();
 

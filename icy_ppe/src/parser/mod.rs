@@ -26,6 +26,9 @@ pub enum ParserErrorType {
     #[error("Parser Error")]
     GenericError,
 
+    #[error("Unexpected error (should never happen)")]
+    UnexpectedError,
+
     #[error("Too '{0}' from {1}")]
     InvalidInteger(String, String),
 
@@ -61,6 +64,12 @@ pub enum ParserErrorType {
 
     #[error("Expected expression, got '{0}'")]
     ExpressionExpected(Token),
+
+    #[error("Expected statement")]
+    StatementExpected,
+
+    #[error("To many dimensions for variable '{0}' (max 3)")]
+    TooManyDimensions(usize),
 }
 
 #[derive(Clone, Debug, PartialEq)]

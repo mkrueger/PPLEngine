@@ -87,13 +87,24 @@ impl<'a> Tokenizer<'a> {
                 end_while_token,
             )))
         } else {
-            Some(Statement::While(WhileStatement::new(
-                while_token,
-                lpar_token,
-                Box::new(cond),
-                rightpar_token,
-                Box::new(self.parse_statement().unwrap()),
-            )))
+            self.skip_eol();
+            let start = self.lex.span().start;
+            if let Some(stmt) = self.parse_statement() {
+                Some(Statement::While(WhileStatement::new(
+                    while_token,
+                    lpar_token,
+                    Box::new(cond),
+                    rightpar_token,
+                    Box::new(stmt),
+                )))
+            } else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::StatementExpected,
+                        range: start..self.lex.span().end,
+                    }));
+                None
+            }
         }
     }
 
@@ -264,13 +275,23 @@ impl<'a> Tokenizer<'a> {
 
         if self.get_cur_token() != Some(Token::Then) {
             self.skip_eol();
-            return Some(Statement::If(IfStatement::new(
-                if_token,
-                lpar_token,
-                Box::new(cond),
-                rightpar_token,
-                Box::new(self.parse_statement().unwrap()),
-            )));
+
+            let start = self.lex.span().start;
+            if let Some(stmt) = self.parse_statement() {
+                return Some(Statement::If(IfStatement::new(
+                    if_token,
+                    lpar_token,
+                    Box::new(cond),
+                    rightpar_token,
+                    Box::new(stmt),
+                )));
+            }
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::StatementExpected,
+                    range: start..self.lex.span().end,
+                }));
+            return None;
         }
         let then_token = self.cur_token.as_ref().unwrap().clone();
 
@@ -722,7 +743,13 @@ impl<'a> Tokenizer<'a> {
                         Box::new(right),
                     ));
                 }
-                panic!("too many dimensions: {}", params.len());
+
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::TooManyDimensions(params.len()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             }
 
             return Some(Statement::Call(ProcedureCallStatement::new(

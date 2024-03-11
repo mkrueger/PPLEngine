@@ -529,6 +529,10 @@ impl IfThenStatement {
         &mut self.else_block
     }
 
+    pub fn get_endif_token(&self) -> &SpannedToken {
+        &self.endif_token
+    }
+
     pub fn empty(
         condition: Box<Expression>,
         statements: Vec<Statement>,
@@ -1086,7 +1090,7 @@ impl GotoStatement {
         }
     }
 
-    pub fn get_gosub_token(&self) -> &SpannedToken {
+    pub fn get_goto_token(&self) -> &SpannedToken {
         &self.goto_token
     }
 
@@ -1137,10 +1141,10 @@ impl LabelStatement {
     ///
     /// Panics if .
     pub fn get_label(&self) -> &String {
-        if let Token::Comment(id) = &self.label_token.token {
-            return &id.1;
+        if let Token::Label(id) = &self.label_token.token {
+            return id;
         }
-        panic!("Expected identifier token")
+        panic!("Expected label token")
     }
 
     /// # Panics

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::Constant;
+use super::{AstVisitor, Constant};
 use crate::parser::tokens::{SpannedToken, Token};
 
 #[repr(i16)]
@@ -68,6 +68,19 @@ pub enum Expression {
     FunctionCall(FunctionCallExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
+}
+
+impl Expression {
+    pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
+        match self {
+            Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
+            Expression::Const(expr) => visitor.visit_constant_expression(expr),
+            Expression::Parens(expr) => visitor.visit_parens_expression(expr),
+            Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
+            Expression::Unary(expr) => visitor.visit_unary_expression(expr),
+            Expression::Binary(expr) => visitor.visit_binary_expression(expr),
+        }
+    }
 }
 
 impl fmt::Display for Expression {

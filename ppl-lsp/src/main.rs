@@ -625,7 +625,7 @@ fn get_tooltip_from_stmt(offset: usize, stmt: &icy_ppe::ast::Statement) -> Optio
     match stmt {
         icy_ppe::ast::Statement::PredifinedCall(call) => {
             if call.get_identifier_token().span.contains(&offset) {
-                return get_func_tooltip(call.get_func().opcode);
+                return get_statement_hover(call.get_func().opcode);
             }
         }
         _ => {}
@@ -633,8 +633,29 @@ fn get_tooltip_from_stmt(offset: usize, stmt: &icy_ppe::ast::Statement) -> Optio
     None
 }
 
-fn get_func_tooltip(opcode: icy_ppe::tables::OpCode) -> Option<Hover> {
+fn get_statement_hover(opcode: icy_ppe::tables::OpCode) -> Option<Hover> {
     match opcode {
+        OpCode::ADJTIME => {
+            Some(
+                Hover {
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value:  [
+                            "### Function",
+                            "Adjust the users time up or down",
+                            "### Syntax",
+                            "```ADJTIME minutes```",
+                            "```minutes``` An integer expression containing the number of minutes to adjust the time left by. > 0 will add time, < 0 will deduct time.",
+                            "### Remarks",
+                            "The added/deducted time is only applied to the curent call.",
+                               ]
+                               .join("\n"),
+                    }),
+                    range: None,
+                }
+            )
+        
+        }
         OpCode::PRINT => {
             Some(
                 Hover {

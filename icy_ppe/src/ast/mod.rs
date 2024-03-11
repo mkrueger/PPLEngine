@@ -25,6 +25,9 @@ pub use self::variable_type::*;
 pub mod variable_value;
 pub use self::variable_value::*;
 
+pub mod visitor;
+pub use self::visitor::*;
+
 pub trait ProgramContext {
     fn get_var_type(&self, var_name: &str) -> VariableType;
     fn get_var_info(&self, var_name: &str) -> Option<&VarInfo>;

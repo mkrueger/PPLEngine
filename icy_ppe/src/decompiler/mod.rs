@@ -3,8 +3,8 @@ use crate::ast::{
     BinaryExpression, Block, CommentStatement, Constant, ConstantExpression, Declaration,
     EndStatement, Expression, FunctionCallExpression, FunctionImplementation, GosubStatement,
     GotoStatement, IdentifierExpression, IfStatement, LabelStatement, ParensExpression,
-    ProcedureCallStatement, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp, VarInfo,
-    VariableType, WhileStatement,
+    PredefinedCallStatement, ProcedureCallStatement, Program, ReturnStatement, Statement,
+    UnaryExpression, UnaryOp, VarInfo, VariableType, WhileStatement,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -1754,9 +1754,7 @@ impl Decompiler {
                             self.outputpass2(
                                 prg,
                                 &mut if_while_stack,
-                                ProcedureCallStatement::create_empty_statement(
-                                    def.name, parameters,
-                                ),
+                                PredefinedCallStatement::create_empty_statement(def, parameters),
                             );
                             found = true;
                             if def.max_args <= 0 {

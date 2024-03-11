@@ -73,6 +73,9 @@ pub enum ParserErrorType {
 
     #[error("Invalid token '{0}' - 'CASE' expected")]
     CaseExpected(Token),
+
+    #[error("Unexpected identifier '{0}'")]
+    UnknownIdentifier(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -476,6 +479,7 @@ pub fn parse_program(input: &str) -> Program {
     tokenizer.skip_eol();
 
     while tokenizer.cur_token.is_some() {
+        log::info!("token: {:?}", tokenizer.cur_token);
         if let Some(decl) = tokenizer.parse_function_declaration() {
             declarations.push(decl);
         } else if let Some(func) = tokenizer.parse_function() {

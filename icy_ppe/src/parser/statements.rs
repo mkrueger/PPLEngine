@@ -3,8 +3,8 @@ use crate::{
         BlockStatement, BreakStatement, CaseBlock, CommentStatement, Constant, ContinueStatement,
         ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-        ProcedureCallStatement, ReturnStatement, SelectStatement, Statement, VarInfo,
-        WhileDoStatement, WhileStatement,
+        PredefinedCallStatement, ProcedureCallStatement, ReturnStatement, SelectStatement,
+        Statement, VarInfo, WhileDoStatement, WhileStatement,
     },
     parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
@@ -17,9 +17,7 @@ use super::{
 
 impl<'a> Tokenizer<'a> {
     pub fn skip_eol(&mut self) {
-        while self.get_cur_token() == Some(Token::Eol)
-            || matches!(self.get_cur_token(), Some(Token::Comment(_)))
-        {
+        while self.get_cur_token() == Some(Token::Eol) {
             self.next_token();
         }
     }
@@ -172,14 +170,17 @@ impl<'a> Tokenizer<'a> {
             return None;
         };
 
-        if self.get_cur_token() != Some(Token::Identifier("TO".to_string())) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ToExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
-            return None;
+        if let Some(Token::Identifier(id)) = self.get_cur_token() {
+            if id.to_uppercase() != "TO" {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::ToExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
         }
+
         let to_token = self.save_spannedtoken();
         self.next_token();
         let Some(end_expr) = self.parse_expression() else {
@@ -507,6 +508,11 @@ impl<'a> Tokenizer<'a> {
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
+            Some(Token::Comment(_)) => {
+                let cmt = self.save_spannedtoken();
+                self.next_token();
+                Some(Statement::Comment(CommentStatement::new(cmt)))
+            }
             Some(Token::End) => {
                 let ct = self.save_spannedtoken();
                 self.next_token();
@@ -673,9 +679,9 @@ impl<'a> Tokenizer<'a> {
                         }));
                     return None;
                 }
-                return Some(ProcedureCallStatement::create_empty_statement(
-                    def.name, params,
-                ));
+                return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
+                    id_token, def, params,
+                )));
             }
         }
 
@@ -687,6 +693,7 @@ impl<'a> Tokenizer<'a> {
 
             return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
         }
+
         if self.get_cur_token() == Some(Token::LPar) {
             let lpar_token = self.save_spannedtoken();
 
@@ -755,7 +762,11 @@ impl<'a> Tokenizer<'a> {
                 rightpar_token,
             )));
         }
-
+        self.errors
+            .push(crate::parser::Error::ParserError(ParserError {
+                error: ParserErrorType::UnknownIdentifier(id_token.token.to_string()),
+                range: id_token.span,
+            }));
         None
     }
 }

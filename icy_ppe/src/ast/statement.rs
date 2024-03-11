@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     output_keyword_indented,
     parser::tokens::{CommentType, SpannedToken, Token},
-    tables::PPL_TRUE,
+    tables::{StatementDefinition, PPL_TRUE},
 };
 
 use super::{
@@ -33,6 +33,7 @@ pub enum Statement {
     Goto(GotoStatement),
     Label(LabelStatement),
     Call(ProcedureCallStatement),
+    PredifinedCall(PredefinedCallStatement),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -1233,6 +1234,70 @@ impl ProcedureCallStatement {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct PredefinedCallStatement {
+    identifier_token: SpannedToken,
+    func: &'static StatementDefinition<'static>,
+    arguments: Vec<Expression>,
+}
+
+impl PredefinedCallStatement {
+    pub fn new(
+        identifier_token: SpannedToken,
+        func: &'static StatementDefinition<'static>,
+        arguments: Vec<Expression>,
+    ) -> Self {
+        Self {
+            identifier_token,
+            func,
+            arguments,
+        }
+    }
+
+    pub fn empty(func: &'static StatementDefinition<'static>, arguments: Vec<Expression>) -> Self {
+        Self {
+            identifier_token: SpannedToken::create_empty(Token::Identifier(func.name.to_string())),
+            func,
+            arguments,
+        }
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+
+    pub fn get_func(&self) -> &StatementDefinition {
+        &self.func
+    }
+
+    pub fn get_arguments(&self) -> &Vec<Expression> {
+        &self.arguments
+    }
+
+    pub fn get_arguments_mut(&mut self) -> &mut Vec<Expression> {
+        &mut self.arguments
+    }
+
+    /// Returns a reference to the get identifier of this [`IdentifierExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub fn create_empty_statement(
+        func: &'static StatementDefinition<'static>,
+        arguments: Vec<Expression>,
+    ) -> Statement {
+        Statement::PredifinedCall(PredefinedCallStatement::empty(func, arguments))
+    }
+}
+
 pub fn get_var_name(expr: &Expression) -> String {
     if let Expression::FunctionCall(call_expr) = expr {
         call_expr.get_identifier().clone()
@@ -1550,6 +1615,15 @@ impl Statement {
                 ),
                 indent,
                 -1,
+            ),
+            Statement::PredifinedCall(call_stmt) => (
+                format!(
+                    "{} {}",
+                    call_stmt.func.name,
+                    Statement::param_list_to_string(call_stmt.get_arguments())
+                ),
+                indent,
+                0,
             ),
             Statement::Call(call_stmt) => (
                 format!(

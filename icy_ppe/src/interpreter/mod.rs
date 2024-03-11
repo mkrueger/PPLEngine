@@ -117,7 +117,7 @@ pub fn calc_table(blk: &Block) -> HashMap<String, usize> {
     let mut res = HashMap::new();
     for i in 0..blk.statements.len() {
         if let Statement::Label(label) = &blk.statements[i] {
-            res.insert(label.clone(), i);
+            res.insert(label.get_label().clone(), i);
         }
     }
     res
@@ -357,23 +357,23 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         }
         Statement::Goto(label) => {
             if let Some(frame) = interpreter.cur_frame.last_mut() {
-                let Some(label_ptr) = frame.label_table.get(label) else {
-                    panic!("label not found {label}");
+                let Some(label_ptr) = frame.label_table.get(label.get_label()) else {
+                    panic!("label not found {}", label.get_label());
                 };
                 frame.cur_ptr = *label_ptr;
             }
         }
 
-        Statement::Gosub(label) => {
+        Statement::Gosub(gosub_label) => {
             if let Some(frame) = interpreter.cur_frame.last_mut() {
-                let Some(label_ptr) = frame.label_table.get(label) else {
-                    panic!("label not found {label}");
+                let Some(label_ptr) = frame.label_table.get(gosub_label.get_label()) else {
+                    panic!("label not found {}", gosub_label.get_label());
                 };
                 frame.gosub_stack.push(frame.cur_ptr);
                 frame.cur_ptr = *label_ptr;
             }
         }
-        Statement::Return => {
+        Statement::Return(_) => {
             //let table = &interpreter.label_tables[interpreter.cur_frame.last().unwrap().label_table as usize];
             interpreter.cur_frame.last_mut().unwrap().cur_ptr = interpreter
                 .cur_frame
@@ -384,14 +384,17 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 .unwrap();
         }
 
-        Statement::Call(def, params) => {
-            call_predefined_procedure(interpreter, def, params)?;
-        }
-        Statement::ProcedureCall(name, parameters) => {
+        Statement::Call(call_stmt) => {
+            for def in &crate::tables::STATEMENT_DEFINITIONS {
+                if def.name.to_uppercase() == call_stmt.get_identifier().to_uppercase() {
+                    return call_predefined_procedure(interpreter, def, call_stmt.get_arguments());
+                }
+            }
+
             let mut found = false;
             for f in &interpreter.prg.procedure_implementations {
                 if let Declaration::Procedure(pname, params) = &f.declaration {
-                    if name != pname {
+                    if call_stmt.get_identifier() != pname {
                         continue;
                     }
                     let label_table = calc_table(&f.block);
@@ -402,9 +405,9 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                         label_table,
                     };
 
-                    for i in 0..parameters.len() {
-                        if let Declaration::Variable(var_type, infos) = &params[i] {
-                            let value = evaluate_exp(interpreter, &parameters[i])?;
+                    for (i, param) in params.iter().enumerate() {
+                        if let Declaration::Variable(var_type, infos) = param {
+                            let value = evaluate_exp(interpreter, &call_stmt.get_arguments()[i])?;
                             prg_frame
                                 .values
                                 .insert(infos[0].get_name().clone(), convert_to(*var_type, &value));
@@ -425,21 +428,21 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                     break;
                 }
             }
-            assert!(found, "procedure not found {name}");
+            assert!(found, "procedure not found {}", call_stmt.get_identifier());
         }
 
-        Statement::End => {
+        Statement::End(_) => {
             interpreter.cur_frame.last_mut().unwrap().cur_ptr = usize::MAX - 1;
         }
-        Statement::If(cond, statement) => {
-            let value = evaluate_exp(interpreter, cond)?;
+        Statement::If(if_statement) => {
+            let value = evaluate_exp(interpreter, if_statement.get_condition())?;
             if let VariableValue::Integer(x) = value {
                 if x == PPL_TRUE {
-                    execute_statement(interpreter, statement)?;
+                    execute_statement(interpreter, if_statement.get_statement())?;
                 }
             } else if let VariableValue::Boolean(x) = value {
                 if x {
-                    execute_statement(interpreter, statement)?;
+                    execute_statement(interpreter, if_statement.get_statement())?;
                 }
             } else {
                 panic!("no bool value {value:?}");
@@ -447,19 +450,19 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         }
 
         /* unsupported - the compiler does not generate them and ast transformation should remove them */
-        Statement::Continue => {
+        Statement::Continue(_) => {
             panic!("unsupported statement Continue")
         }
-        Statement::Break => {
+        Statement::Break(_) => {
             panic!("unsupported statement Break")
         }
-        Statement::For(_, _, _, _, _) => {
+        Statement::For(_) => {
             panic!("unsupported statement For")
         }
-        Statement::DoWhile(_, _) => {
+        Statement::WhileDo(_) => {
             panic!("unsupported statement DoWhile")
         }
-        Statement::IfThen(_, _, _, _) => {
+        Statement::IfThen(_) => {
             panic!("unsupported statement IfThen")
         }
         Statement::Block(_) => {

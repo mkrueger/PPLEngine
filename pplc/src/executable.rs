@@ -1,7 +1,7 @@
 use icy_ppe::{
     ast::{Program, Statement, VariableType, VariableValue},
     crypt::{encode_rle, encrypt},
-    tables::{self, get_function_definition, OpCode},
+    tables::{self, get_function_definition, OpCode, STATEMENT_DEFINITIONS},
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -425,53 +425,41 @@ impl Executable {
 
     fn compile_statement(&mut self, s: &Statement) {
         match s {
-            Statement::Call(smt, pars) => {
-                let op_code = smt.opcode as u8;
-                self.script_buffer.push(op_code as u16);
-                if (pars.len() as i8) < smt.min_args || (pars.len() as i8) > smt.max_args {
-                    panic!("Invalid number of parameters for {}", smt.name);
-                }
-                if smt.min_args != smt.max_args {
-                    self.script_buffer.push(pars.len() as u16);
-                }
-                for expr in pars {
-                    let expr_buffer = self.compile_expression(expr);
-                    self.script_buffer.extend(expr_buffer);
-                }
-            }
-
-            Statement::End => {
+            Statement::End(_) => {
                 self.script_buffer.push(OpCode::END as u16);
             }
             Statement::Comment(_) => {
                 // ignore
             }
-            Statement::Block(block) => {
-                block.iter().for_each(|s| self.compile_statement(s));
+            Statement::Block(block_stmt) => {
+                block_stmt
+                    .get_statements()
+                    .iter()
+                    .for_each(|s| self.compile_statement(s));
             }
-            Statement::If(cond, stmt) => {
+            Statement::If(if_stmt) => {
                 self.script_buffer.push(OpCode::IF as u16);
 
-                let cond_buffer = self.compile_expression(cond);
+                let cond_buffer = self.compile_expression(if_stmt.get_condition());
                 self.script_buffer.extend(cond_buffer);
 
                 // MAGIC?
                 self.script_buffer.push(26);
 
-                self.compile_statement(stmt);
+                self.compile_statement(if_stmt.get_statement());
             }
-            Statement::While(cond, stmt) => {
+            Statement::While(while_stmt) => {
                 self.script_buffer.push(OpCode::WHILE as u16);
 
-                let cond_buffer = self.compile_expression(cond);
+                let cond_buffer = self.compile_expression(while_stmt.get_condition());
                 self.script_buffer.extend(cond_buffer);
 
                 // MAGIC?
                 self.script_buffer.push(30);
 
-                self.compile_statement(stmt);
+                self.compile_statement(while_stmt.get_statement());
             }
-            Statement::Return => {
+            Statement::Return(_) => {
                 self.script_buffer.push(OpCode::RETURN as u16);
             }
             Statement::Let(var, expr) => {
@@ -522,47 +510,72 @@ impl Executable {
                 let expr_buffer = self.compile_expression(expr);
                 self.script_buffer.extend(expr_buffer);
             }
-            Statement::Gosub(label) => {
+            Statement::Gosub(gosub_stmt) => {
                 self.script_buffer.push(OpCode::GOSUB as u16);
-                self.add_label_usage(label, self.script_buffer.len() * 2);
+                self.add_label_usage(gosub_stmt.get_label(), self.script_buffer.len() * 2);
                 self.script_buffer.push(0);
             }
             Statement::Goto(label) => {
                 self.script_buffer.push(OpCode::GOTO as u16);
-                self.add_label_usage(label, self.script_buffer.len() * 2);
+                self.add_label_usage(label.get_label(), self.script_buffer.len() * 2);
                 self.script_buffer.push(0);
             }
             Statement::Label(label) => {
-                self.add_label_address(label, self.script_buffer.len() * 2);
+                self.add_label_address(label.get_label(), self.script_buffer.len() * 2);
             }
 
-            Statement::ProcedureCall(name, parameters) => {
+            Statement::Call(call_stmt) => {
+                for def in &STATEMENT_DEFINITIONS {
+                    if def.name.to_uppercase() == call_stmt.get_identifier().to_uppercase() {
+                        let op_code = def.opcode as u8;
+                        self.script_buffer.push(op_code as u16);
+                        if (call_stmt.get_arguments().len() as i8) < def.min_args
+                            || (call_stmt.get_arguments().len() as i8) > def.max_args
+                        {
+                            panic!("Invalid number of parameters for {}", def.name);
+                        }
+                        if def.min_args != def.max_args {
+                            self.script_buffer
+                                .push(call_stmt.get_arguments().len() as u16);
+                        }
+                        for expr in call_stmt.get_arguments() {
+                            let expr_buffer = self.compile_expression(expr);
+                            self.script_buffer.extend(expr_buffer);
+                        }
+                        return;
+                    }
+                }
                 self.script_buffer.push(OpCode::PCALL as u16);
 
                 // will be filled later.
-                if let Some(procedure) = self.procedure_declarations.get_mut(name) {
+                if let Some(procedure) = self
+                    .procedure_declarations
+                    .get_mut(call_stmt.get_identifier())
+                {
                     procedure.add_usage(self.script_buffer.len());
                     self.script_buffer.push(0);
 
-                    for p in parameters {
+                    for p in call_stmt.get_arguments() {
                         let expr_buffer = self.compile_expression(p);
                         self.script_buffer.extend(expr_buffer);
                     }
                     self.script_buffer.push(0);
                 } else {
                     self.errors.push(CompilationError {
-                        error: CompilationErrorType::ProcedureNotFound(name.clone()),
+                        error: CompilationErrorType::ProcedureNotFound(
+                            call_stmt.get_identifier().clone(),
+                        ),
                         range: 0..0, // TODO :Range
                     });
                 }
             }
 
-            Statement::Continue => panic!("Continue not allowed in output AST."),
-            Statement::Break => panic!("Break not allowed in output AST."),
-            Statement::IfThen(_, _, _, _) => panic!("if then not allowed in output AST."),
-            Statement::DoWhile(_, _) => panic!("do while not allowed in output AST."),
-            Statement::For(_, _, _, _, _) => panic!("for not allowed in output AST."),
-            Statement::Select(_, _, _) => panic!("select not allowed in output AST."),
+            Statement::Continue(_) => panic!("Continue not allowed in output AST."),
+            Statement::Break(_) => panic!("Break not allowed in output AST."),
+            Statement::IfThen(_) => panic!("if then not allowed in output AST."),
+            Statement::WhileDo(_) => panic!("do while not allowed in output AST."),
+            Statement::For(_) => panic!("for not allowed in output AST."),
+            Statement::Select(_) => panic!("select not allowed in output AST."),
         }
     }
 

@@ -79,9 +79,8 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                         cur_ptr: 0,
                         label_table,
                     };
-
-                    for i in 0..expr.get_arguments().len() {
-                        if let Declaration::Variable(var_type, infos) = &params[i] {
+                    for (i, param) in params.iter().enumerate() {
+                        if let Declaration::Variable(var_type, infos) = &param {
                             let value = evaluate_exp(interpreter, &expr.get_arguments()[i])?;
                             for info in infos {
                                 prg_frame

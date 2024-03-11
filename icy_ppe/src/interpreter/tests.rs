@@ -507,4 +507,28 @@ PRINT ARR(1) + ARR(2)
             "5",
         );
     }
+
+    #[test]
+    fn test_local_variables() {
+        check_output(
+            r"
+DECLARE PROCEDURE FOO(INTEGER A)
+DECLARE PROCEDURE BAR(INTEGER A)
+FOO(2)
+
+PROCEDURE FOO(INTEGER A)
+    INTEGER C
+    C = 5
+    BAR(A + C)
+ENDPROC
+
+PROCEDURE BAR(INTEGER A)
+    INTEGER C
+    C = 2
+    PRINT A + C
+ENDPROC		
+",
+            "9",
+        );
+    }
 }

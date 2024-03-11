@@ -1,136 +1,279 @@
 use crate::{
-    ast::{Constant, ElseIfBlock, IdentifierExpression, Statement, VarInfo},
+    ast::{
+        BlockStatement, BreakStatement, CaseBlock, CommentStatement, Constant, ContinueStatement,
+        ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
+        GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
+        ProcedureCallStatement, ReturnStatement, SelectStatement, Statement, VarInfo,
+        WhileDoStatement, WhileStatement,
+    },
     parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
 };
 
-use super::{tokens::Token, Tokenizer};
+use super::{
+    tokens::{SpannedToken, Token},
+    Error, Tokenizer,
+};
 
 impl<'a> Tokenizer<'a> {
     pub fn skip_eol(&mut self) {
         while self.get_cur_token() == Some(Token::Eol)
-            || self.get_cur_token() == Some(Token::Comment)
+            || matches!(self.get_cur_token(), Some(Token::Comment(_)))
         {
             self.next_token();
         }
     }
 
-    fn parse_while(&mut self) -> Statement {
+    fn parse_while(&mut self) -> Option<Statement> {
+        let while_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
-        assert!(
-            !(self.get_cur_token() != Some(Token::LPar)),
-            "'(' expected got: {:?}",
-            self.get_cur_token()
-        );
+
+        if self.get_cur_token() != Some(Token::LPar) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingOpenParens(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let lpar_token = self.cur_token.as_ref().unwrap().clone();
+
         self.next_token();
         let cond = self.parse_expression().unwrap();
 
-        assert!(
-            !(self.get_cur_token() != Some(Token::RPar)),
-            "')' expected got: {:?}",
-            self.cur_token
-        );
+        if self.get_cur_token() != Some(Token::RPar) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingCloseParens(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let rightpar_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
 
         if self.get_cur_token() == Some(Token::Identifier("DO".to_string())) {
+            let do_token = self.cur_token.as_ref().unwrap().clone();
             self.next_token();
+
             let mut statements = Vec::new();
             self.skip_eol();
             while self.get_cur_token() != Some(Token::EndWhile) {
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
                 statements.push(self.parse_statement());
                 self.next_token();
                 self.skip_eol();
             }
+            let end_while_token = self.cur_token.as_ref().unwrap().clone();
             self.next_token(); // skip ENDWHILE
-            Statement::DoWhile(Box::new(cond), statements.into_iter().flatten().collect())
+            Some(Statement::WhileDo(WhileDoStatement::new(
+                while_token,
+                lpar_token,
+                Box::new(cond),
+                rightpar_token,
+                do_token,
+                statements.into_iter().flatten().collect(),
+                end_while_token,
+            )))
         } else {
-            Statement::While(Box::new(cond), Box::new(self.parse_statement().unwrap()))
+            Some(Statement::While(WhileStatement::new(
+                while_token,
+                lpar_token,
+                Box::new(cond),
+                rightpar_token,
+                Box::new(self.parse_statement().unwrap()),
+            )))
         }
     }
 
-    fn parse_block(&mut self) -> Statement {
+    fn parse_block(&mut self, begin_token: SpannedToken) -> Option<Statement> {
         self.skip_eol();
         let mut statements = Vec::new();
         while self.get_cur_token() != Some(Token::End) {
+            if self.get_cur_token().is_none() {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::EndExpected,
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
             statements.push(self.parse_statement());
             self.skip_eol();
         }
+        let end_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
-        Statement::Block(statements.into_iter().flatten().collect())
+        Some(Statement::Block(BlockStatement::new(
+            begin_token,
+            statements.into_iter().flatten().collect(),
+            end_token,
+        )))
     }
 
-    fn parse_for(&mut self) -> Statement {
+    fn parse_for(&mut self) -> Option<Statement> {
+        let for_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
-        let var = if let Some(Token::Identifier(id)) = self.get_cur_token() {
+        let identifier_token = self.cur_token.as_ref().unwrap().clone();
+
+        let _var = if let Some(Token::Identifier(id)) = self.get_cur_token() {
             self.next_token();
             IdentifierExpression::create_empty_expression(id)
         } else {
-            panic!("identifier expected got: {:?}", self.cur_token)
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::IdentifierExpected(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
         };
 
-        assert!(
-            !(self.get_cur_token() != Some(Token::Eq)),
-            "'=' expected got: {:?}",
-            self.cur_token
-        );
+        if self.get_cur_token() != Some(Token::Eq) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::EqTokenExpected(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+
+        let eq_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
-        let from = self.parse_expression();
+        let start_expr = self.parse_expression();
+        if start_expr.is_none() {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::ExpressionExpected(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let start_expr = start_expr.unwrap();
 
-        assert!(
-            !(self.get_cur_token() != Some(Token::Identifier("TO".to_string()))),
-            "'TO' expected got: {:?}",
-            self.cur_token
-        );
+        if self.get_cur_token() != Some(Token::Identifier("TO".to_string())) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::ToExpected(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let to_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
+        let end_expr = self.parse_expression();
+        if end_expr.is_none() {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::ExpressionExpected(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let end_expr = end_expr.unwrap();
 
-        let to = self.parse_expression();
-
-        let step = if self.get_cur_token() == Some(Token::Identifier("STEP".to_string())) {
-            self.next_token();
-            self.parse_expression().map(Box::new)
-        } else {
-            None
-        };
+        let (step_expr, step_token) =
+            if self.get_cur_token() == Some(Token::Identifier("STEP".to_string())) {
+                let to_token = self.cur_token.as_ref().unwrap().clone();
+                self.next_token();
+                (self.parse_expression().map(Box::new), Some(to_token))
+            } else {
+                (None, None)
+            };
 
         let mut statements = Vec::new();
         self.skip_eol();
-        while self.get_cur_token() != Some(Token::Identifier("NEXT".to_string())) {
+        while self.get_cur_token() != Some(Token::Next) {
+            if self.get_cur_token().is_none() {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::EndExpected,
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
             statements.push(self.parse_statement());
             self.skip_eol();
         }
+        let next_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token(); // skip NEXT
 
-        Statement::For(
-            Box::new(var),
-            Box::new(from.unwrap()),
-            Box::new(to.unwrap()),
-            step,
+        Some(Statement::For(ForStatement::new(
+            for_token,
+            identifier_token,
+            eq_token,
+            Box::new(start_expr),
+            to_token,
+            Box::new(end_expr),
+            step_token,
+            step_expr,
             statements.into_iter().flatten().collect(),
-        )
+            next_token,
+        )))
     }
 
-    fn parse_if(&mut self) -> Statement {
+    fn parse_if(&mut self) -> Option<Statement> {
+        let if_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
 
-        assert!(
-            !(self.get_cur_token() != Some(Token::LPar)),
-            "'(' expected got: {:?}",
-            self.cur_token
-        );
+        if self.get_cur_token() != Some(Token::LPar) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingOpenParens(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let lpar_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
         let cond = self.parse_expression().unwrap();
 
-        assert!(
-            !(self.get_cur_token() != Some(Token::RPar)),
-            "')' expected got: {:?}",
-            self.cur_token
-        );
+        if self.get_cur_token() != Some(Token::RPar) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingCloseParens(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let rightpar_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
 
         if self.get_cur_token() != Some(Token::Then) {
             self.skip_eol();
-            return Statement::If(Box::new(cond), Box::new(self.parse_statement().unwrap()));
+            return Some(Statement::If(IfStatement::new(
+                if_token,
+                lpar_token,
+                Box::new(cond),
+                rightpar_token,
+                Box::new(self.parse_statement().unwrap()),
+            )));
         }
+        let then_token = self.cur_token.as_ref().unwrap().clone();
+
         self.next_token();
         let mut statements = Vec::new();
         self.skip_eol();
@@ -138,7 +281,14 @@ impl<'a> Tokenizer<'a> {
             && self.get_cur_token() != Some(Token::Else)
             && self.get_cur_token() != Some(Token::ElseIf)
         {
-            assert!(self.cur_token.is_some(), "unexpected eol");
+            if self.get_cur_token().is_none() {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::EndExpected,
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
             statements.push(self.parse_statement());
             self.next_token();
             self.skip_eol();
@@ -146,21 +296,36 @@ impl<'a> Tokenizer<'a> {
         let mut else_if_blocks = Vec::new();
         if self.get_cur_token() == Some(Token::ElseIf) {
             while self.get_cur_token() == Some(Token::ElseIf) {
+                let else_if_token = self.cur_token.as_ref().unwrap().clone();
+
                 self.next_token();
 
-                assert!(
-                    !(self.get_cur_token() != Some(Token::LPar)),
-                    "'(' expected got: {:?}",
-                    self.cur_token
-                );
+                if self.get_cur_token() != Some(Token::LPar) {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::MissingOpenParens(
+                                self.cur_token.as_ref().unwrap().token.clone(),
+                            ),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+                let else_if_lpar_token = self.cur_token.as_ref().unwrap().clone();
+
                 self.next_token();
                 let cond = self.parse_expression();
 
-                assert!(
-                    !(self.get_cur_token() != Some(Token::RPar)),
-                    "')' expected got: {:?}",
-                    self.cur_token
-                );
+                if self.get_cur_token() != Some(Token::RPar) {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::MissingCloseParens(
+                                self.cur_token.as_ref().unwrap().token.clone(),
+                            ),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+                let else_if_rightpar_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
 
                 let mut statements = Vec::new();
@@ -181,38 +346,62 @@ impl<'a> Tokenizer<'a> {
                     self.skip_eol();
                 }
 
-                else_if_blocks.push(ElseIfBlock {
-                    cond: Box::new(cond.unwrap()),
-                    block: statements.into_iter().flatten().collect(),
-                });
+                else_if_blocks.push(ElseIfBlock::new(
+                    else_if_token,
+                    else_if_lpar_token,
+                    Box::new(cond.unwrap()),
+                    else_if_rightpar_token,
+                    statements.into_iter().flatten().collect(),
+                ));
             }
         };
 
         let else_block = if self.get_cur_token() == Some(Token::Else) {
+            let else_token = self.cur_token.as_ref().unwrap().clone();
+
             self.next_token();
             let mut statements = Vec::new();
             self.skip_eol();
             while self.get_cur_token() != Some(Token::EndIf) {
-                statements.push(self.parse_statement());
+                statements.push(self.parse_statement().unwrap());
                 self.next_token();
                 self.skip_eol();
             }
-            Some(statements)
+            Some(ElseBlock::new(else_token, statements))
         } else {
             None
         };
 
+        if self.get_cur_token() != Some(Token::EndIf) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::InvalidToken(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+        let endif_token = self.cur_token.as_ref().unwrap().clone();
+
         self.next_token();
 
-        Statement::IfThen(
+        Some(Statement::IfThen(IfThenStatement::new(
+            if_token,
+            lpar_token,
             Box::new(cond),
+            rightpar_token,
+            then_token,
             statements.into_iter().flatten().collect(),
             else_if_blocks,
-            else_block.into_iter().flatten().collect(),
-        )
+            else_block,
+            endif_token,
+        )))
     }
 
     fn parse_select(&mut self) -> Statement {
+        let select_token = self.cur_token.as_ref().unwrap().clone();
+
         self.next_token();
 
         assert!(
@@ -220,6 +409,7 @@ impl<'a> Tokenizer<'a> {
             "'CASE' expected got: {:?}",
             self.cur_token
         );
+        let case_token = self.cur_token.as_ref().unwrap().clone();
         self.next_token();
         let case_expr = self.parse_expression().unwrap();
         self.next_token();
@@ -229,8 +419,10 @@ impl<'a> Tokenizer<'a> {
         let mut else_block = None;
 
         while self.get_cur_token() == Some(Token::Case) {
+            let inner_case_token = self.cur_token.as_ref().unwrap().clone();
             self.next_token();
             if self.get_cur_token() == Some(Token::Else) {
+                let else_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
                 let mut statements = Vec::new();
                 self.skip_eol();
@@ -239,7 +431,13 @@ impl<'a> Tokenizer<'a> {
                     self.next_token();
                     self.skip_eol();
                 }
-                else_block = Some(statements);
+                else_block = Some(CaseBlock::new(
+                    inner_case_token,
+                    Box::new(Expression::Identifier(IdentifierExpression::new(
+                        else_token,
+                    ))),
+                    statements.into_iter().flatten().collect(),
+                ));
                 break;
             };
 
@@ -255,20 +453,26 @@ impl<'a> Tokenizer<'a> {
                 self.next_token();
                 self.skip_eol();
             }
-            case_blocks.push(ElseIfBlock {
-                cond: Box::new(expr),
-                block: statements.into_iter().flatten().collect(),
-            });
+            case_blocks.push(CaseBlock::new(
+                inner_case_token,
+                Box::new(expr),
+                statements.into_iter().flatten().collect(),
+            ));
         }
+
+        let end_select_token = self.cur_token.as_ref().unwrap().clone();
 
         self.next_token();
         self.skip_eol();
 
-        Statement::Select(
+        Statement::Select(SelectStatement::new(
+            select_token,
+            case_token,
             Box::new(case_expr),
             case_blocks,
-            else_block.into_iter().flatten().collect(),
-        )
+            else_block,
+            end_select_token,
+        ))
     }
 
     /// Returns the parse statement of this [`Tokenizer`].
@@ -279,17 +483,19 @@ impl<'a> Tokenizer<'a> {
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
             Some(Token::End) => {
+                let ct = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-                Some(Statement::End)
+                Some(Statement::End(EndStatement::new(ct)))
             }
             Some(Token::Begin) => {
+                let begin_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-                Some(self.parse_block())
+                self.parse_block(begin_token)
             }
-            Some(Token::While) => Some(self.parse_while()),
+            Some(Token::While) => self.parse_while(),
             Some(Token::Select) => Some(self.parse_select()),
-            Some(Token::If) => Some(self.parse_if()),
-            Some(Token::For) => Some(self.parse_for()),
+            Some(Token::If) => self.parse_if(),
+            Some(Token::For) => self.parse_for(),
             Some(Token::Let) => {
                 self.next_token();
                 let id = if let Some(Token::Identifier(id)) = self.get_cur_token() {
@@ -307,24 +513,50 @@ impl<'a> Tokenizer<'a> {
                 }
                 panic!("error parsing let statement");
             }
-            Some(Token::Break) => Some(Statement::Break),
-            Some(Token::Continue) => Some(Statement::Continue),
-            Some(Token::Return) => Some(Statement::Return),
+            Some(Token::Break) => Some(Statement::Break(BreakStatement::new(
+                self.cur_token.as_ref().unwrap().clone(),
+            ))),
+            Some(Token::Continue) => Some(Statement::Continue(ContinueStatement::new(
+                self.cur_token.as_ref().unwrap().clone(),
+            ))),
+            Some(Token::Return) => Some(Statement::Return(ReturnStatement::new(
+                self.cur_token.as_ref().unwrap().clone(),
+            ))),
             Some(Token::Gosub) => {
+                let gosub_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-                if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                if let Some(Token::Identifier(_)) = self.get_cur_token() {
+                    let id_token = self.cur_token.as_ref().unwrap().clone();
                     self.next_token();
-                    return Some(Statement::Gosub(id));
+                    return Some(Statement::Gosub(GosubStatement::new(gosub_token, id_token)));
                 }
-                panic!("gosub expected a label, got: {:?}", self.cur_token);
+                self.next_token();
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::LabelExpected(
+                            self.cur_token.as_ref().unwrap().token.clone(),
+                        ),
+                        range: self.lex.span(),
+                    }));
+                None
             }
             Some(Token::Goto) => {
+                let goto_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-                if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                if let Some(Token::Identifier(_)) = self.get_cur_token() {
+                    let id_token = self.cur_token.as_ref().unwrap().clone();
                     self.next_token();
-                    return Some(Statement::Goto(id));
+                    return Some(Statement::Goto(GotoStatement::new(goto_token, id_token)));
                 }
-                panic!("goto expected a label, got: {:?}", self.cur_token);
+                self.next_token();
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::LabelExpected(
+                            self.cur_token.as_ref().unwrap().token.clone(),
+                        ),
+                        range: self.lex.span(),
+                    }));
+                None
             }
             Some(Token::Const(Constant::Builtin(c))) => {
                 if let Some(value) = self.parse_call(c.name.to_string()) {
@@ -342,12 +574,20 @@ impl<'a> Tokenizer<'a> {
                 self.parse_statement()
             }
 
-            Some(Token::Label(id)) => {
+            Some(Token::Label(_)) => {
+                let label_token = self.cur_token.as_ref().unwrap().clone();
                 self.next_token();
-                Some(Statement::Label(id))
+                Some(Statement::Label(LabelStatement::new(label_token)))
             }
 
-            Some(Token::Comment | Token::Eol) | None => None,
+            Some(Token::Comment(_)) => {
+                self.next_token();
+                Some(Statement::Comment(CommentStatement::new(
+                    self.cur_token.as_ref().unwrap().clone(),
+                )))
+            }
+
+            Some(Token::Eol) | None => None,
 
             _ => {
                 self.errors
@@ -358,12 +598,14 @@ impl<'a> Tokenizer<'a> {
                         range: self.lex.span(),
                     }));
                 self.next_token();
-                return None;
+                None
             }
         }
     }
 
     fn parse_call(&mut self, id: String) -> Option<Statement> {
+        let id_token = self.cur_token.as_ref().unwrap().clone();
+
         self.next_token();
         for def in &STATEMENT_DEFINITIONS {
             if def.name.to_uppercase() == id {
@@ -412,7 +654,9 @@ impl<'a> Tokenizer<'a> {
                         }));
                     return None;
                 }
-                return Some(Statement::Call(def, params));
+                return Some(ProcedureCallStatement::create_empty_statement(
+                    def.name, params,
+                ));
             }
         }
 
@@ -425,6 +669,8 @@ impl<'a> Tokenizer<'a> {
             return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
         }
         if self.get_cur_token() == Some(Token::LPar) {
+            let lpar_token = self.cur_token.as_ref().unwrap().clone();
+
             self.next_token();
             let mut params = Vec::new();
 
@@ -437,10 +683,16 @@ impl<'a> Tokenizer<'a> {
                     self.next_token();
                 }
             }
-            assert!(
-                !(self.get_cur_token() != Some(Token::RPar)),
-                "missing closing parens"
-            );
+            if self.get_cur_token() != Some(Token::RPar) {
+                self.errors.push(Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingCloseParens(
+                        self.cur_token.as_ref().unwrap().token.clone(),
+                    ),
+                    range: self.cur_token.as_ref().unwrap().span.clone(),
+                }));
+            }
+            let rightpar_token = self.cur_token.as_ref().unwrap().clone();
+
             self.next_token();
             if self.get_cur_token() == Some(Token::Eq) {
                 self.next_token();
@@ -473,7 +725,12 @@ impl<'a> Tokenizer<'a> {
                 panic!("too many dimensions: {}", params.len());
             }
 
-            return Some(Statement::ProcedureCall(id, params));
+            return Some(Statement::Call(ProcedureCallStatement::new(
+                id_token,
+                lpar_token,
+                params,
+                rightpar_token,
+            )));
         }
 
         None

@@ -1,8 +1,10 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    BinaryExpression, Block, Constant, ConstantExpression, Declaration, Expression,
-    FunctionCallExpression, FunctionImplementation, IdentifierExpression, ParensExpression,
-    Program, Statement, UnaryExpression, UnaryOp, VarInfo, VariableType,
+    BinaryExpression, Block, CommentStatement, Constant, ConstantExpression, Declaration,
+    EndStatement, Expression, FunctionCallExpression, FunctionImplementation, GosubStatement,
+    GotoStatement, IdentifierExpression, IfStatement, LabelStatement, ParensExpression,
+    ProcedureCallStatement, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp, VarInfo,
+    VariableType, WhileStatement,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -756,7 +758,7 @@ impl Decompiler {
 
     fn labelout(&mut self, prg: &mut Program, label: i32) {
         if let Some(x) = self.label_used.get(&label) {
-            let label_stmt = Statement::Label(format!("LABEL{x:>03}"));
+            let label_stmt = LabelStatement::create_empty_statement(format!("LABEL{x:>03}"));
             self.output_stmt(prg, label_stmt);
         }
     }
@@ -939,12 +941,12 @@ impl Decompiler {
                 23 => return IdentifierExpression::create_empty_expression("U_ACCOUNT"),
 
                 // Added in 3.40
-                24 => return IdentifierExpression::create_empty_expression("U_SHORTDESC"),
-                25 => return IdentifierExpression::create_empty_expression("U_GENDER"),
-                26 => return IdentifierExpression::create_empty_expression("U_BIRTHDATE"),
-                27 => return IdentifierExpression::create_empty_expression("U_EMAIL"),
-                28 => return IdentifierExpression::create_empty_expression("U_WEB"),
-
+                /*              24 => return IdentifierExpression::create_empty_expression("U_SHORTDESC"),
+                                25 => return IdentifierExpression::create_empty_expression("U_GENDER"),
+                                26 => return IdentifierExpression::create_empty_expression("U_BIRTHDATE"),
+                                27 => return IdentifierExpression::create_empty_expression("U_EMAIL"),
+                                28 => return IdentifierExpression::create_empty_expression("U_WEB"),
+                */
                 _ => {
                     return FunctionCallExpression::create_empty_expression(
                         "????".to_string(),
@@ -1526,9 +1528,15 @@ impl Decompiler {
             let expr = self.pop_expr().unwrap();
             match op {
                 OpCode::WHILE => {
-                    self.output_stmt(prg, Statement::While(Box::new(expr), Box::new(stmt)));
+                    self.output_stmt(
+                        prg,
+                        WhileStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
+                    );
                 }
-                OpCode::IF => self.output_stmt(prg, Statement::If(Box::new(expr), Box::new(stmt))),
+                OpCode::IF => self.output_stmt(
+                    prg,
+                    IfStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
+                ),
                 _ => {}
             }
         }
@@ -1638,20 +1646,36 @@ impl Decompiler {
             let op: OpCode = unsafe { transmute(self.cur_stmt as u8) };
             match op {
                 OpCode::END => {
-                    self.outputpass2(prg, &mut if_while_stack, Statement::End);
+                    self.outputpass2(
+                        prg,
+                        &mut if_while_stack,
+                        EndStatement::create_empty_statement(),
+                    );
                     self.src_ptr += 1;
                 }
                 OpCode::RETURN => {
-                    self.outputpass2(prg, &mut if_while_stack, Statement::Return);
+                    self.outputpass2(
+                        prg,
+                        &mut if_while_stack,
+                        ReturnStatement::create_empty_statement(),
+                    );
                     self.src_ptr += 1;
                 }
                 OpCode::GOTO => {
                     let label = self.pop_expr().unwrap().to_string();
-                    self.outputpass2(prg, &mut if_while_stack, Statement::Goto(label));
+                    self.outputpass2(
+                        prg,
+                        &mut if_while_stack,
+                        GotoStatement::create_empty_statement(label),
+                    );
                 }
                 OpCode::GOSUB => {
                     let label = self.pop_expr().unwrap().to_string();
-                    self.outputpass2(prg, &mut if_while_stack, Statement::Gosub(label));
+                    self.outputpass2(
+                        prg,
+                        &mut if_while_stack,
+                        GosubStatement::create_empty_statement(label),
+                    );
                 }
                 OpCode::LET => {
                     let value = self.pop_expr().unwrap();
@@ -1696,7 +1720,10 @@ impl Decompiler {
                             .args,
                         0,
                     ) {
-                        self.output_stmt(prg, Statement::ProcedureCall(proc_name, vec![]));
+                        self.output_stmt(
+                            prg,
+                            ProcedureCallStatement::create_empty_statement(proc_name, vec![]),
+                        );
                         return;
                     }
                     let mut params = Vec::new();
@@ -1705,7 +1732,10 @@ impl Decompiler {
                     }
 
                     params.reverse();
-                    self.output_stmt(prg, Statement::ProcedureCall(proc_name, params));
+                    self.output_stmt(
+                        prg,
+                        ProcedureCallStatement::create_empty_statement(proc_name, params),
+                    );
                 }
                 _ => {
                     let mut found = false;
@@ -1724,7 +1754,9 @@ impl Decompiler {
                             self.outputpass2(
                                 prg,
                                 &mut if_while_stack,
-                                Statement::Call(def, parameters),
+                                ProcedureCallStatement::create_empty_statement(
+                                    def.name, parameters,
+                                ),
                             );
                             found = true;
                             if def.max_args <= 0 {
@@ -1746,7 +1778,7 @@ impl Decompiler {
                 => { //STOP
                     self.func_flag = 0;
                     self.proc_flag = 0;
-                    self.output_stmt(prg, Statement::Comment("---------------------------------------".to_string()));
+                    self.output_stmt(prg, CommentStatement::create_empty_statement("---------------------------------------".to_string()));
                 }
                 _ => {}
             }

@@ -4,8 +4,8 @@ use crossterm::style::Print;
 use crossterm::style::ResetColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
+use icy_ppe::ast::CommentStatement;
 use icy_ppe::ast::Program;
-use icy_ppe::ast::Statement;
 use icy_ppe::decompiler::reconstruct;
 use icy_ppe::decompiler::Decompiler;
 use icy_ppe::executable::read_file;
@@ -70,11 +70,13 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     if !d.warnings.is_empty() || d.errors.is_empty() {
         d.output_stmt(
             &mut prg,
-            Statement::Comment("---------------------------------------".to_string()),
+            CommentStatement::create_empty_statement(
+                "---------------------------------------".to_string(),
+            ),
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(format!(
+            CommentStatement::create_empty_statement(format!(
                 "!!! {} WARNING(S), {} ERROR(S) CAUSED BY PPLC BUGS DETECTED",
                 d.warnings.len(),
                 d.errors.len()
@@ -82,35 +84,35 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(
+            CommentStatement::create_empty_statement(
                 "PROBLEM: These expressions most probably looked like !0+!0+!0 or similar"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(
+            CommentStatement::create_empty_statement(
                 "         before PPLC fucked it up to something like !(!(+0)+0)!0. This may"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(
+            CommentStatement::create_empty_statement(
                 "         also apply to - / and * aswell. Also occurs upon use of multiple !'s."
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(
+            CommentStatement::create_empty_statement(
                 "         Some smartbrains use this BUG to make programms running different"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            Statement::Comment(
+            CommentStatement::create_empty_statement(
                 "         (or not at all) when being de- and recompiled.".to_string(),
             ),
         );

@@ -148,7 +148,7 @@ impl ConstantExpression {
 
     pub fn empty(constant_value: Constant) -> Self {
         Self {
-            constant_token: SpannedToken::create_empty(Token::Comment),
+            constant_token: SpannedToken::create_empty(Token::Identifier(String::new())),
             constant_value,
         }
     }

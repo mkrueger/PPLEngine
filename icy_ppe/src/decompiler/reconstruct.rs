@@ -1,4 +1,8 @@
-use crate::ast::{BinOp, ElseIfBlock, IdentifierExpression, UnaryExpression, VarInfo};
+use crate::ast::{
+    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, SelectStatement, UnaryExpression, VarInfo,
+    WhileDoStatement,
+};
 
 use super::{Block, Declaration, Expression, HashMap, HashSet, Program, Statement};
 
@@ -33,7 +37,7 @@ fn optimize_block(statements: &mut Vec<Statement>) {
 fn get_label_index(statements: &[Statement], from: i32, to: i32, label: &String) -> Option<usize> {
     for j in from..to {
         if let Statement::Label(next_label) = &statements[j as usize] {
-            if next_label == label {
+            if next_label.get_label() == label {
                 return Some(j as usize);
             }
         }
@@ -45,7 +49,7 @@ fn get_first(s: &[Statement]) -> Option<&Statement> {
     if s.is_empty() {
         return None;
     }
-    if let Statement::If(_, _) = s[0] {
+    if let Statement::If(_) = s[0] {
         return Some(&s[0]);
     }
     if s.len() < 2 {
@@ -58,12 +62,14 @@ fn get_first(s: &[Statement]) -> Option<&Statement> {
 fn scan_select_statements(statements: &mut [Statement]) {
     let mut i = 0;
     while i < statements.len() {
-        if let Statement::IfThen(cond, stmt, if_else_blocks, else_block) = statements[i].clone() {
-            if if_else_blocks.is_empty() {
+        if let Statement::IfThen(if_then_stmt) = statements[i].clone() {
+            if if_then_stmt.get_else_block().is_none() {
                 i += 1;
                 continue;
             }
-            let Expression::Binary(bin_expr) = Statement::try_boolean_conversion(&cond) else {
+            let Expression::Binary(bin_expr) =
+                Statement::try_boolean_conversion(if_then_stmt.get_condition())
+            else {
                 i += 1;
                 continue;
             };
@@ -73,9 +79,9 @@ fn scan_select_statements(statements: &mut [Statement]) {
             }
 
             let mut skip = false;
-            for if_else_block in &if_else_blocks {
+            for if_else_block in if_then_stmt.get_else_if_blocks() {
                 let Expression::Binary(bin_expr2) =
-                    Statement::try_boolean_conversion(&if_else_block.cond)
+                    Statement::try_boolean_conversion(if_else_block.get_condition())
                 else {
                     skip = true;
                     break;
@@ -97,16 +103,16 @@ fn scan_select_statements(statements: &mut [Statement]) {
 
             let mut case_blocks = Vec::new();
 
-            if !stmt.is_empty() {
-                case_blocks.push(ElseIfBlock {
-                    cond: Box::new(bin_expr.get_right_expression().clone()),
-                    block: stmt.clone(),
-                });
+            if !if_then_stmt.get_statements().is_empty() {
+                case_blocks.push(CaseBlock::empty(
+                    Box::new(bin_expr.get_right_expression().clone()),
+                    if_then_stmt.get_statements().clone(),
+                ));
             }
 
-            for if_else_block in &if_else_blocks {
+            for if_else_block in if_then_stmt.get_else_if_blocks() {
                 let Expression::Binary(bin_expr2) =
-                    Statement::try_boolean_conversion(&if_else_block.cond)
+                    Statement::try_boolean_conversion(if_else_block.get_condition())
                 else {
                     i += 1;
                     continue;
@@ -116,16 +122,21 @@ fn scan_select_statements(statements: &mut [Statement]) {
                     i += 1;
                     continue;
                 }
-                case_blocks.push(ElseIfBlock {
-                    cond: Box::new(bin_expr2.get_right_expression().clone()),
-                    block: if_else_block.block.clone(),
-                });
+                case_blocks.push(CaseBlock::empty(
+                    Box::new(bin_expr2.get_right_expression().clone()),
+                    if_else_block.get_statements().clone(),
+                ));
             }
-
-            statements[i] = Statement::Select(
+            let case_else_block = if_then_stmt.get_else_block().as_ref().map(|else_block| {
+                CaseBlock::empty(
+                    Box::new(IdentifierExpression::create_empty_expression("Else")),
+                    else_block.get_statements().clone(),
+                )
+            });
+            statements[i] = SelectStatement::create_empty_statement(
                 Box::new(bin_expr.get_left_expression().clone()),
                 case_blocks,
-                else_block,
+                case_else_block,
             );
         }
         i += 1;
@@ -135,13 +146,13 @@ fn scan_select_statements(statements: &mut [Statement]) {
 fn scan_if_else(statements: &mut Vec<Statement>) {
     let mut i = 0;
     while i < statements.len() {
-        if let Statement::If(cond, stmt) = statements[i].clone() {
-            if let Statement::Goto(else_label) = &*stmt {
+        if let Statement::If(if_stmt) = statements[i].clone() {
+            if let Statement::Goto(else_label) = if_stmt.get_statement() {
                 let else_label_index = get_label_index(
                     statements,
                     i as i32 + 1,
                     statements.len() as i32,
-                    else_label,
+                    else_label.get_label(),
                 );
                 if else_label_index.is_none() {
                     i += 1;
@@ -152,12 +163,12 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                 let endif_label_index = if let Statement::Goto(end_label) =
                     &statements[else_label_index.unwrap() - 1]
                 {
-                    endif_label = end_label.clone();
+                    endif_label = end_label.get_label().clone();
                     get_label_index(
                         statements,
                         else_label_index.unwrap() as i32 + 1,
                         statements.len() as i32,
-                        end_label,
+                        end_label.get_label(),
                     )
                 } else {
                     endif_label = String::new();
@@ -182,9 +193,9 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 
                     if_block = statements.drain((i + 1)..(else_label_index - 1)).collect();
 
-                    while let Some(Statement::If(cond, stmt)) = get_first(&else_block2) {
-                        if let Statement::Goto(label) = &**stmt {
-                            let label_idx = if *label == endif_label {
+                    while let Some(Statement::If(if_stmt)) = get_first(&else_block2) {
+                        if let Statement::Goto(label) = if_stmt.get_statement() {
+                            let label_idx = if *label.get_label() == endif_label {
                                 // last elseif case.
                                 else_block2.len() as usize
                             } else {
@@ -192,7 +203,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                                     &else_block2,
                                     1,
                                     else_block2.len() as i32,
-                                    label,
+                                    label.get_label(),
                                 );
                                 if label_idx.is_none() {
                                     break;
@@ -200,7 +211,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                                 let mut label_idx = label_idx.unwrap();
 
                                 if let Statement::Goto(label2) = &else_block2[label_idx - 1] {
-                                    if *endif_label != *label2 {
+                                    if *endif_label != *label2.get_label() {
                                         break;
                                     }
                                     label_idx -= 1;
@@ -209,7 +220,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             };
                             let cond = Box::new(UnaryExpression::create_empty_expression(
                                 crate::ast::UnaryOp::Not,
-                                Box::new(*cond.clone()),
+                                Box::new(if_stmt.get_condition().clone()),
                             ));
                             let mut block: Vec<Statement> =
                                 else_block2.drain(0..label_idx).collect();
@@ -221,11 +232,11 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                             };
                             block.remove(a);
 
-                            elseif_blocks.push(ElseIfBlock { cond, block });
+                            elseif_blocks.push(ElseIfBlock::empty(cond, block));
 
                             if !else_block2.is_empty() {
                                 if let Statement::Goto(label2) = &else_block2[0] {
-                                    if *endif_label == *label2 {
+                                    if *endif_label == *label2.get_label() {
                                         else_block2.remove(0);
                                     }
                                 }
@@ -238,21 +249,21 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                     if !else_block2.is_empty() {
                         optimize_loops(&mut else_block2);
                         optimize_ifs(&mut else_block2);
-                        else_block = Some(else_block2);
+                        else_block = Some(ElseBlock::empty(else_block2));
                     }
                 } else {
                     if_block = statements.drain((i + 1)..(endif_label_index - 1)).collect();
                 }
 
                 for block in &mut elseif_blocks {
-                    optimize_loops(&mut block.block);
-                    optimize_ifs(&mut block.block);
+                    optimize_loops(block.get_statements_mut());
+                    optimize_ifs(block.get_statements_mut());
                 }
 
-                statements[i] = Statement::IfThen(
+                statements[i] = IfThenStatement::create_empty_statement(
                     Box::new(UnaryExpression::create_empty_expression(
                         crate::ast::UnaryOp::Not,
-                        Box::new((*cond).clone()),
+                        Box::new(if_stmt.get_condition().clone()),
                     )),
                     if_block,
                     elseif_blocks,
@@ -271,13 +282,13 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 fn scan_if(statements: &mut Vec<Statement>) {
     let mut i = 0;
     while i < statements.len() {
-        if let Statement::If(cond, stmt) = statements[i].clone() {
-            if let Statement::Goto(endif_label) = &*stmt {
+        if let Statement::If(if_stmt) = statements[i].clone() {
+            if let Statement::Goto(endif_label) = if_stmt.get_statement() {
                 let endif_label_index = get_label_index(
                     statements,
                     i as i32 + 1,
                     statements.len() as i32,
-                    endif_label,
+                    endif_label.get_label(),
                 );
                 if endif_label_index.is_none() {
                     i += 1;
@@ -290,10 +301,10 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_loops(&mut statements2);
                 optimize_ifs(&mut statements2);
 
-                statements[i] = Statement::IfThen(
+                statements[i] = IfThenStatement::create_empty_statement(
                     Box::new(UnaryExpression::create_empty_expression(
                         crate::ast::UnaryOp::Not,
-                        cond,
+                        Box::new(if_stmt.get_condition().clone()),
                     )),
                     statements2,
                     Vec::new(),
@@ -319,16 +330,16 @@ fn mach_for_construct(
     };
 
     match if_statement {
-        Statement::If(expr, s) => {
-            match &**s {
-                Statement::Goto(label) => {
+        Statement::If(if_stmt) => {
+            match if_stmt.get_statement() {
+                Statement::Goto(goto_stmt) => {
                     // todo: match expression
-                    breakout_label = label;
+                    breakout_label = goto_stmt.get_label();
                 }
                 _ => return None,
             }
 
-            if let Expression::Unary(not_expr) = &**expr {
+            if let Expression::Unary(not_expr) = if_stmt.get_condition() {
                 if not_expr.get_op() == crate::ast::UnaryOp::Not {
                     if let Expression::Parens(p_expr) = not_expr.get_expression() {
                         if let Expression::Binary(bin_op) = p_expr.get_expression() {
@@ -364,7 +375,7 @@ fn mach_for_construct(
                                                                 return None;
                                                             }
                                                             return Some((
-                                                                for_label.clone(),
+                                                                for_label.get_label().clone(),
                                                                 bin_op1
                                                                     .get_left_expression()
                                                                     .to_string(),
@@ -417,12 +428,12 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 let mut matching_goto = -1;
                 while j < statements.len() {
                     if let Statement::Goto(next_label) = &statements[j] {
-                        if *next_label == for_label {
+                        if *next_label.get_label() == for_label {
                             if j + 1 >= statements.len() {
                                 continue;
                             }
                             if let Statement::Label(next_label) = &statements[j + 1] {
-                                if *next_label == breakout_label {
+                                if *next_label.get_label() == breakout_label {
                                     matching_goto = j as i32;
                                     break;
                                 }
@@ -467,7 +478,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 }
 
                 let from_expr = Box::new(*expr.clone());
-                let var_name = (*var_name).clone();
+                let var_name = (*var_name).clone().to_string();
 
                 statements.remove((matching_goto - 1) as usize); // remove LET
                 statements.remove((matching_goto - 1) as usize); // remove matching goto
@@ -483,7 +494,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 if !statements2.is_empty() {
                     let mut continue_label = String::new();
                     if let Statement::Label(lbl) = &statements2.last().unwrap() {
-                        continue_label = lbl.clone();
+                        continue_label = lbl.get_label().clone();
                     }
                     if !continue_label.is_empty() {
                         scan_possible_continues(&mut statements2, continue_label.as_str());
@@ -492,16 +503,16 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 optimize_ifs(&mut statements2);
 
                 if step_expr.to_string() == "1" {
-                    statements[i] = Statement::For(
-                        Box::new(var_name.as_expr()),
+                    statements[i] = ForStatement::create_empty_statement(
+                        var_name,
                         from_expr,
                         Box::new(to_expr),
                         None,
                         statements2,
                     );
                 } else {
-                    statements[i] = Statement::For(
-                        Box::new(var_name.as_expr()),
+                    statements[i] = ForStatement::create_empty_statement(
+                        var_name,
                         from_expr,
                         Box::new(to_expr),
                         Some(Box::new(step_expr)),
@@ -518,17 +529,19 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
 fn scan_possible_breaks(block: &mut [Statement], break_label: &str) {
     for cur_stmt in block {
         match cur_stmt {
-            Statement::If(cond, stmt) => {
-                if let Statement::Goto(label) = &**stmt {
-                    if label == break_label {
-                        *cur_stmt =
-                            Statement::If(Box::new((**cond).clone()), Box::new(Statement::Break));
+            Statement::If(if_stmt) => {
+                if let Statement::Goto(label) = if_stmt.get_statement() {
+                    if label.get_label() == break_label {
+                        *cur_stmt = IfStatement::create_empty_statement(
+                            Box::new(if_stmt.get_condition().clone()),
+                            Box::new(BreakStatement::create_empty_statement()),
+                        );
                     }
                 }
             }
             Statement::Goto(label) => {
-                if label == break_label {
-                    *cur_stmt = Statement::Break;
+                if label.get_label() == break_label {
+                    *cur_stmt = BreakStatement::create_empty_statement();
                 }
             }
             _ => {}
@@ -540,19 +553,19 @@ fn scan_possible_breaks(block: &mut [Statement], break_label: &str) {
 fn scan_possible_continues(block: &mut [Statement], continue_label: &str) {
     for cur_stmt in block {
         match cur_stmt {
-            Statement::If(cond, stmt) => {
-                if let Statement::Goto(label) = &**stmt {
-                    if label == continue_label {
-                        *cur_stmt = Statement::If(
-                            Box::new((**cond).clone()),
-                            Box::new(Statement::Continue),
+            Statement::If(if_stmt) => {
+                if let Statement::Goto(label) = if_stmt.get_statement() {
+                    if label.get_label() == continue_label {
+                        *cur_stmt = IfStatement::create_empty_statement(
+                            Box::new(if_stmt.get_condition().clone()),
+                            Box::new(ContinueStatement::create_empty_statement()),
                         );
                     }
                 }
             }
             Statement::Goto(label) => {
-                if *label == continue_label {
-                    *cur_stmt = Statement::Continue;
+                if *label.get_label() == continue_label {
+                    *cur_stmt = ContinueStatement::create_empty_statement();
                 }
             }
             _ => {}
@@ -571,20 +584,20 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
             if i >= statements.len() {
                 break;
             }
-            if let Statement::If(exp, stmt) = statements[i].clone() {
-                if let Statement::Goto(break_label) = &*stmt {
+            if let Statement::If(if_stmt) = statements[i].clone() {
+                if let Statement::Goto(break_label) = if_stmt.get_statement() {
                     // search matching goto
                     let mut j = i + 1;
                     let mut matching_goto = -1;
                     while j < statements.len() {
                         if let Statement::Goto(next_label) = &statements[j] {
-                            if next_label == label {
+                            if next_label.get_label() == label.get_label() {
                                 if j + 1 >= statements.len() {
                                     i += 1;
                                     continue 'main;
                                 }
                                 if let Statement::Label(next_label) = &statements[j + 1] {
-                                    if next_label == break_label {
+                                    if next_label.get_label() == break_label.get_label() {
                                         matching_goto = j as i32;
                                         break;
                                     }
@@ -599,7 +612,7 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                         i += 1;
                         continue;
                     }
-                    let label_cp = break_label.clone();
+                    let label_cp = break_label.get_label().clone();
 
                     let mut statements2 = statements
                         .drain((i + 1)..(matching_goto as usize))
@@ -610,17 +623,17 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                     // there needs to be a better way to handle that
                     let mut continue_label = String::new();
                     if let Statement::Label(lbl) = &statements2.last().unwrap() {
-                        continue_label = lbl.clone();
+                        continue_label = lbl.get_label().clone();
                     }
                     if !continue_label.is_empty() {
                         scan_possible_continues(&mut statements2, continue_label.as_str());
                     }
                     optimize_ifs(&mut statements2);
 
-                    statements[i] = Statement::DoWhile(
+                    statements[i] = WhileDoStatement::create_empty_statement(
                         Box::new(UnaryExpression::create_empty_expression(
                             crate::ast::UnaryOp::Not,
-                            exp.clone(),
+                            Box::new(if_stmt.get_condition().clone()),
                         )),
                         statements2,
                     );
@@ -714,45 +727,59 @@ fn scan_do_while2(_statements: &mut [Statement]) {
 
 fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
     match stmt {
-        Statement::If(_, stmt) | Statement::While(_, stmt) => {
-            gather_labels(stmt, used_labels);
+        Statement::If(if_stmt) => {
+            gather_labels(if_stmt.get_statement(), used_labels);
         }
-        Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
-            for stmt in stmts {
+        Statement::While(while_stmt) => {
+            gather_labels(while_stmt.get_statement(), used_labels);
+        }
+        Statement::IfThen(if_then_stmt) => {
+            for stmt in if_then_stmt.get_statements() {
                 gather_labels(stmt, used_labels);
             }
-            for block in else_ifs {
-                for stmt in &block.block {
+            for block in if_then_stmt.get_else_if_blocks() {
+                for stmt in block.get_statements() {
                     gather_labels(stmt, used_labels);
                 }
             }
-            if let Some(stmts) = else_stmts {
-                for stmt in stmts {
-                    gather_labels(stmt, used_labels);
-                }
-            }
-        }
-        Statement::Select(_, case_blocks, case_else) => {
-            for block in case_blocks {
-                for stmt in &block.block {
-                    gather_labels(stmt, used_labels);
-                }
-            }
-            if let Some(stmts) = case_else {
-                for stmt in stmts {
+            if let Some(stmts) = if_then_stmt.get_else_block() {
+                for stmt in stmts.get_statements() {
                     gather_labels(stmt, used_labels);
                 }
             }
         }
-        Statement::DoWhile(_, stmts)
-        | Statement::Block(stmts)
-        | Statement::For(_, _, _, _, stmts) => {
-            for stmt in stmts {
+        Statement::Select(select_stmt) => {
+            for block in select_stmt.get_case_blocks() {
+                for stmt in block.get_statements() {
+                    gather_labels(stmt, used_labels);
+                }
+            }
+            if let Some(stmts) = select_stmt.get_case_else_block() {
+                for stmt in stmts.get_statements() {
+                    gather_labels(stmt, used_labels);
+                }
+            }
+        }
+        Statement::Block(block_stmt) => {
+            for stmt in block_stmt.get_statements() {
                 gather_labels(stmt, used_labels);
             }
         }
-        Statement::Goto(label) | Statement::Gosub(label) => {
-            used_labels.insert(label.clone());
+        Statement::WhileDo(while_do_stmt) => {
+            for stmt in while_do_stmt.get_statements() {
+                gather_labels(stmt, used_labels);
+            }
+        }
+        Statement::For(for_stmt) => {
+            for stmt in for_stmt.get_statements() {
+                gather_labels(stmt, used_labels);
+            }
+        }
+        Statement::Goto(goto_stmt) => {
+            used_labels.insert(goto_stmt.get_label().clone());
+        }
+        Statement::Gosub(gosub_stmt) => {
+            used_labels.insert(gosub_stmt.get_label().clone());
         }
         _ => {}
     }
@@ -772,34 +799,38 @@ fn strip_unused_labels2(statements: &mut Vec<Statement>, used_labels: &HashSet<S
     let mut i = 0;
     while i < statements.len() {
         if let Statement::Label(label) = &statements[i] {
-            if !used_labels.contains(label) {
+            if !used_labels.contains(label.get_label()) {
                 statements.remove(i);
                 continue;
             }
         }
 
         match &mut statements[i] {
-            Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
-                strip_unused_labels2(stmts, used_labels);
-                for block in else_ifs {
-                    strip_unused_labels2(&mut block.block, used_labels);
+            Statement::IfThen(if_then_stmt) => {
+                strip_unused_labels2(if_then_stmt.get_statements_mut(), used_labels);
+                for else_if_block in if_then_stmt.get_else_if_blocks_mut() {
+                    strip_unused_labels2(else_if_block.get_statements_mut(), used_labels);
                 }
-                if let Some(stmts) = else_stmts {
-                    strip_unused_labels2(stmts, used_labels);
-                }
-            }
-            Statement::Select(_, case_blocks, case_else) => {
-                for block in case_blocks {
-                    strip_unused_labels2(&mut block.block, used_labels);
-                }
-                if let Some(stmts) = case_else {
-                    strip_unused_labels2(stmts, used_labels);
+                if let Some(else_block) = if_then_stmt.get_else_block_mut() {
+                    strip_unused_labels2(else_block.get_statements_mut(), used_labels);
                 }
             }
-            Statement::DoWhile(_, stmts)
-            | Statement::Block(stmts)
-            | Statement::For(_, _, _, _, stmts) => {
-                strip_unused_labels2(stmts, used_labels);
+            Statement::Select(case_stmt) => {
+                for block in case_stmt.get_case_blocks_mut() {
+                    strip_unused_labels2(block.get_statements_mut(), used_labels);
+                }
+                if let Some(stmts) = case_stmt.get_case_else_block_mut() {
+                    strip_unused_labels2(stmts.get_statements_mut(), used_labels);
+                }
+            }
+            Statement::Block(block_stmt) => {
+                strip_unused_labels2(block_stmt.get_statements_mut(), used_labels);
+            }
+            Statement::WhileDo(while_do_stmt) => {
+                strip_unused_labels2(while_do_stmt.get_statements_mut(), used_labels);
+            }
+            Statement::For(for_stmt) => {
+                strip_unused_labels2(for_stmt.get_statements_mut(), used_labels);
             }
             _ => {}
         }
@@ -919,45 +950,50 @@ fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>) {
 
 fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, String>) {
     match stmt {
-        Statement::While(expr, stmt2) | Statement::If(expr, stmt2) => {
-            replace_in_expression(expr, rename_map);
-            replace_in_statement(stmt2, rename_map);
+        Statement::If(if_stmt) => {
+            replace_in_expression(if_stmt.get_condition_mut(), rename_map);
+            replace_in_statement(if_stmt.get_statement_mut(), rename_map);
         }
-
-        Statement::DoWhile(cond, stmts) => {
-            replace_in_expression(cond, rename_map);
-            for s in stmts {
+        Statement::While(while_stmt) => {
+            replace_in_expression(while_stmt.get_condition_mut(), rename_map);
+            replace_in_statement(while_stmt.get_statement_mut(), rename_map);
+        }
+        Statement::WhileDo(while_do_stmt) => {
+            replace_in_expression(while_do_stmt.get_condition_mut(), rename_map);
+            for s in while_do_stmt.get_statements_mut() {
                 replace_in_statement(s, rename_map);
             }
         }
-        Statement::Block(stmts) => {
-            for s in stmts {
+        Statement::Block(block_stmt) => {
+            for s in block_stmt.get_statements_mut() {
                 replace_in_statement(s, rename_map);
             }
         }
-        Statement::IfThen(cond, stmts, else_ifs, else_stmts) => {
-            replace_in_expression(cond, rename_map);
-            for s in stmts {
+        Statement::IfThen(if_then_stmt) => {
+            replace_in_expression(if_then_stmt.get_condition_mut(), rename_map);
+            for s in if_then_stmt.get_statements_mut() {
                 replace_in_statement(s, rename_map);
             }
-            for block in else_ifs {
-                for s in &mut block.block {
+            for else_if_block in if_then_stmt.get_else_if_blocks_mut() {
+                for s in else_if_block.get_statements_mut() {
                     replace_in_statement(s, rename_map);
                 }
             }
-            if let Some(stmts) = else_stmts {
-                for s in stmts {
+            if let Some(else_block) = if_then_stmt.get_else_block_mut() {
+                for s in else_block.get_statements_mut() {
                     replace_in_statement(s, rename_map);
                 }
             }
         }
 
-        Statement::For(expr1, expr2, expr3, _, stmts) => {
-            replace_in_expression(expr1, rename_map);
-            replace_in_expression(expr2, rename_map);
-            replace_in_expression(expr3, rename_map);
+        Statement::For(for_stmt) => {
+            if rename_map.contains_key(for_stmt.get_identifier()) {
+                for_stmt.set_identifier(rename_map.get(for_stmt.get_identifier()).unwrap());
+            }
+            replace_in_expression(for_stmt.get_start_expr_mut(), rename_map);
+            replace_in_expression(for_stmt.get_end_expr_mut(), rename_map);
 
-            for stmt in stmts {
+            for stmt in for_stmt.get_statements_mut() {
                 replace_in_statement(stmt, rename_map);
             }
         }
@@ -965,8 +1001,8 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             replace_in_varinfo(expr, rename_map);
             replace_in_expression(rvalue, rename_map);
         }
-        Statement::ProcedureCall(_, parameters) | Statement::Call(_, parameters) => {
-            for p in parameters {
+        Statement::Call(call_stmt) => {
+            for p in call_stmt.get_arguments_mut() {
                 replace_in_expression(p, rename_map);
             }
         }

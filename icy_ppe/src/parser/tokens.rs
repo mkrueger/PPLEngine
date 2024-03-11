@@ -33,6 +33,12 @@ impl SpannedToken {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CommentType {
+    SingleLineQuote,
+    SingleLineSemicolon,
+}
+
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(error = LexingErrorType)]
 #[logos(skip r"[ \t\f]+")] // Ignore this regex pattern between tokens
@@ -44,8 +50,16 @@ pub enum Token {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
 
-    #[regex(r"[';][^[\r\n]]*")]
-    Comment,
+    #[regex(r"[';][^[\r\n]]*", |lex| {
+        let ct = if lex.slice().starts_with(';') {
+            CommentType::SingleLineSemicolon
+        } else {
+            CommentType::SingleLineQuote
+        };
+
+        (ct, lex.slice()[1..].to_string())
+    })]
+    Comment((CommentType, String)),
 
     #[token(",")]
     Comma,
@@ -135,6 +149,10 @@ pub enum Token {
 
     #[token("for", ignore(case))]
     For,
+
+    #[token("next", ignore(case))]
+    Next,
+
     #[token("break", ignore(case))]
     Break,
     #[token("continue", ignore(case))]
@@ -231,14 +249,13 @@ pub enum Token {
         let slice = lex.slice();
         let len = if slice.ends_with('d') || slice.ends_with('D') { slice.len() - 1 } else {  slice.len() };
         let num = slice[..len].parse::<i32>();
-        match num {
-            Ok(num) => Ok(Constant::Integer(num)),
-            Err(_) => {
-                let num = slice[..len].parse::<u32>();
-                match num {
-                    Ok(num) => Ok(Constant::Unsigned(num)),
-                    Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
-                }
+        if let Ok(num) = num {
+            Ok(Constant::Integer(num))
+        } else {
+            let num = slice[..len].parse::<u32>();
+            match num {
+                Ok(num) => Ok(Constant::Unsigned(num)),
+                Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
             }
         }
     })]
@@ -404,6 +421,7 @@ impl fmt::Display for Token {
             Token::EndIf => write!(f, "ENDIF"),
 
             Token::For => write!(f, "FOR"),
+            Token::Next => write!(f, "NEXT"),
             Token::Break => write!(f, "BREAK"),
             Token::Continue => write!(f, "CONTINUE"),
             Token::Return => write!(f, "RETURN"),
@@ -414,7 +432,7 @@ impl fmt::Display for Token {
             Token::Case => write!(f, "CASE"),
             Token::EndSelect => write!(f, "ENDSELECT"),
 
-            Token::Comment => write!(f, ""),
+            Token::Comment(ct) => write!(f, ";{}", ct.1),
 
             Token::Eol => writeln!(f),
 
@@ -436,9 +454,9 @@ mod tests {
 
     #[test]
     fn test_comments() {
-        assert_eq!(Token::Comment, get_token("; COMMENT"));
-        assert_eq!(Token::Comment, get_token("' COMMENT"));
-        assert_eq!(Token::End, get_token("End ; COMMENT"));
+        assert!(matches!(get_token("; COMMENT"), Token::Comment(_)));
+        assert!(matches!(get_token("' COMMENT"), Token::Comment(_)));
+        assert!(matches!(get_token("End ; COMMENT"), Token::End));
     }
 
     fn get_token(src: &str) -> Token {

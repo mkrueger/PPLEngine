@@ -38,8 +38,29 @@ pub enum ParserErrorType {
     #[error("Invalid token {0}")]
     InvalidToken(Token),
 
+    #[error("Missing open '(' found: {0}")]
+    MissingOpenParens(Token),
+
     #[error("Missing close ')' found: {0}")]
     MissingCloseParens(Token),
+
+    #[error("Invalid token - label expected '{0}'")]
+    LabelExpected(Token),
+
+    #[error("Invalid token - 'END' expected")]
+    EndExpected,
+
+    #[error("Expected identifier, got '{0}'")]
+    IdentifierExpected(Token),
+
+    #[error("Expected '=', got '{0}'")]
+    EqTokenExpected(Token),
+
+    #[error("Expected 'TO', got '{0}'")]
+    ToExpected(Token),
+
+    #[error("Expected expression, got '{0}'")]
+    ExpressionExpected(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -440,7 +461,7 @@ pub fn parse_program(input: &str) -> Program {
             if stmt.is_some() {
                 statements.push(stmt);
             } else if let Some(t) = tok {
-                if !matches!(t.token, Token::Eol | Token::Comment) {
+                if !matches!(t.token, Token::Eol | Token::Comment(_)) {
                     tokenizer.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::InvalidToken(t.token),
                         range: t.span,

@@ -34,7 +34,7 @@ impl<'a> Tokenizer<'a> {
                 _ => {
                     self.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::UnexpectedError,
-                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                        range: self.save_token_span(),
                     }));
                     return None;
                 }
@@ -71,7 +71,7 @@ impl<'a> Tokenizer<'a> {
                 _ => {
                     self.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::UnexpectedError,
-                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                        range: self.save_token_span(),
                     }));
                     return None;
                 }
@@ -100,7 +100,7 @@ impl<'a> Tokenizer<'a> {
                 _ => {
                     self.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::UnexpectedError,
-                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                        range: self.save_token_span(),
                     }));
                     return None;
                 }
@@ -132,7 +132,7 @@ impl<'a> Tokenizer<'a> {
                 _ => {
                     self.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::UnexpectedError,
-                        range: self.cur_token.as_ref().unwrap().span.clone(),
+                        range: self.save_token_span(),
                     }));
                     return None;
                 }
@@ -218,7 +218,7 @@ impl<'a> Tokenizer<'a> {
                 )))
             }
             Token::Identifier(id) => {
-                let ct = self.cur_token.as_ref().unwrap().clone();
+                let ct = self.save_spannedtoken();
                 self.next_token();
                 if self.get_cur_token() == Some(Token::LPar) {
                     self.next_token();
@@ -227,10 +227,8 @@ impl<'a> Tokenizer<'a> {
                     while self.get_cur_token() != Some(Token::RPar) {
                         let Some(value) = self.parse_expression() else {
                             self.errors.push(Error::ParserError(ParserError {
-                                error: ParserErrorType::InvalidToken(
-                                    self.cur_token.as_ref().unwrap().token.clone(),
-                                ),
-                                range: self.cur_token.as_ref().unwrap().span.clone(),
+                                error: ParserErrorType::InvalidToken(self.save_token()),
+                                range: self.save_token_span(),
                             }));
                             return None;
                         };
@@ -249,10 +247,8 @@ impl<'a> Tokenizer<'a> {
 
                     if self.get_cur_token() != Some(Token::RPar) {
                         self.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(
-                                self.cur_token.as_ref().unwrap().token.clone(),
-                            ),
-                            range: self.cur_token.as_ref().unwrap().span.clone(),
+                            error: ParserErrorType::MissingCloseParens(self.save_token()),
+                            range: self.save_token_span(),
                         }));
                     }
 
@@ -268,13 +264,20 @@ impl<'a> Tokenizer<'a> {
             Token::LPar => {
                 self.next_token();
                 let Some(expr) = self.parse_expression() else {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::ExpressionExpected(self.save_token()),
+                        range: self.save_token_span(),
+                    }));
                     return None;
                 };
                 let ret = ParensExpression::create_empty_expression(Box::new(expr));
-                assert!(
-                    !(self.get_cur_token() != Some(Token::RPar)),
-                    "unclosed parens."
-                );
+                if self.get_cur_token() != Some(Token::RPar) {
+                    self.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingCloseParens(self.save_token()),
+                        range: self.save_token_span(),
+                    }));
+                    return None;
+                }
                 self.next_token();
                 Some(ret)
             }

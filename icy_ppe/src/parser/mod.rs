@@ -70,6 +70,9 @@ pub enum ParserErrorType {
 
     #[error("To many dimensions for variable '{0}' (max 3)")]
     TooManyDimensions(usize),
+
+    #[error("Invalid token '{0}' - 'CASE' expected")]
+    CaseExpected(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -122,6 +125,30 @@ impl<'a> Tokenizer<'a> {
             self.cur_token = None;
         }
         self.cur_token.clone()
+    }
+
+    fn save_token_span(&self) -> std::ops::Range<usize> {
+        if let Some(token) = &self.cur_token {
+            token.span.clone()
+        } else {
+            0..0
+        }
+    }
+
+    fn save_token(&self) -> Token {
+        if let Some(token) = &self.cur_token {
+            token.token.clone()
+        } else {
+            Token::Eol
+        }
+    }
+
+    fn save_spannedtoken(&self) -> SpannedToken {
+        if let Some(token) = &self.cur_token {
+            token.clone()
+        } else {
+            SpannedToken::new(Token::Eol, 0..0)
+        }
     }
 }
 

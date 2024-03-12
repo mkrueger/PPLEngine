@@ -1,6 +1,6 @@
 use icy_ppe::{
-    ast::{Constant, ParameterSpecifier, Program},
-    parser::tokens::Token,
+    ast::{ walk_binary_expression, walk_block_stmt, walk_for_stmt, walk_function_call_expression, walk_function_implementationt, walk_if_stmt, walk_if_then_stmt, walk_let_stmt, walk_predefined_call_statement, walk_procedure_call_statement, walk_procedure_implementationt, walk_select_stmt, walk_while_do_stmt, walk_while_stmt, AstVisitor, Constant, Expression, ParameterSpecifier, Program},
+    parser::tokens::SpannedToken,
 };
 use tower_lsp::lsp_types::SemanticTokenType;
 
@@ -19,546 +19,235 @@ pub const LEGEND_TYPE: &[SemanticTokenType] = &[
 ];
 
 pub fn semantic_token_from_ast(ast: &Program) -> Vec<ImCompleteSemanticToken> {
-    let mut semantic_tokens = vec![];
+    let mut visitor = SemanticTokenVisitor {
+        semantic_tokens: vec![],
+    };
 
-    ast.function_implementations.iter().for_each(|func_impl| {
-        semantic_tokens.push(ImCompleteSemanticToken {
-            start: func_impl.get_function_token().span.start,
-            length: func_impl.get_function_token().span.len(),
-            token_type: LEGEND_TYPE
-                .iter()
-                .position(|item| item == &SemanticTokenType::KEYWORD)
-                .unwrap(),
-        });
-
-        semantic_tokens.push(ImCompleteSemanticToken {
-            start: func_impl.get_return_type_token().span.start,
-            length: func_impl.get_return_type_token().span.len(),
-            token_type: LEGEND_TYPE
-                .iter()
-                .position(|item| item == &SemanticTokenType::TYPE)
-                .unwrap(),
-        });
-
-        semantic_tokens.push(ImCompleteSemanticToken {
-            start: func_impl.get_endfunc_token().span.start,
-            length: func_impl.get_endfunc_token().span.len(),
-            token_type: LEGEND_TYPE
-                .iter()
-                .position(|item| item == &SemanticTokenType::KEYWORD)
-                .unwrap(),
-        });
-        higlight_parameters(&mut semantic_tokens, &func_impl.get_parameters());
-
-        func_impl.get_statements().iter().for_each(|stmt| {
-            highlight_statements(&mut semantic_tokens, stmt);
-        });
-    });
-
-    ast.procedure_implementations.iter().for_each(|proc_impl| {
-        semantic_tokens.push(ImCompleteSemanticToken {
-            start: proc_impl.get_procedure_token().span.start,
-            length: proc_impl.get_procedure_token().span.len(),
-            token_type: LEGEND_TYPE
-                .iter()
-                .position(|item| item == &SemanticTokenType::KEYWORD)
-                .unwrap(),
-        });
-        semantic_tokens.push(ImCompleteSemanticToken {
-            start: proc_impl.get_endproc_token().span.start,
-            length: proc_impl.get_endproc_token().span.len(),
-            token_type: LEGEND_TYPE
-                .iter()
-                .position(|item| item == &SemanticTokenType::KEYWORD)
-                .unwrap(),
-        });
-
-        higlight_parameters(&mut semantic_tokens, &proc_impl.get_parameters());
-
-        proc_impl.get_statements().iter().for_each(|stmt| {
-            highlight_statements(&mut semantic_tokens, stmt);
-        });
-    });
-
-    ast.statements.iter().for_each(|stmt| {
-        highlight_statements(&mut semantic_tokens, stmt);
-    });
-    semantic_tokens
+    ast.visit(&mut visitor);
+    visitor.semantic_tokens
 }
 
-fn highlight_statements(
-    semantic_tokens: &mut Vec<ImCompleteSemanticToken>,
-    stmt: &icy_ppe::ast::Statement,
-) {
-    match stmt {
-        icy_ppe::ast::Statement::Comment(cmt_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: cmt_stmt.get_comment_token().span.start,
-                length: cmt_stmt.get_comment_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::COMMENT)
-                    .unwrap(),
-            });
-        }
 
-        icy_ppe::ast::Statement::Goto(goto_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: goto_stmt.get_goto_token().span.start,
-                length: goto_stmt.get_goto_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::End(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_end_token().span.start,
-                length: stmt.get_end_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Block(blk) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: blk.get_begin_token().span.start,
-                length: blk.get_begin_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            blk.get_statements().iter().for_each(|stmt| {
-                highlight_statements(semantic_tokens, stmt);
-            });
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: blk.get_end_token().span.start,
-                length: blk.get_end_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::If(if_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: if_stmt.get_if_token().span.start,
-                length: if_stmt.get_if_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, if_stmt.get_condition());
-            highlight_statements(semantic_tokens, if_stmt.get_statement());
-        }
-        icy_ppe::ast::Statement::IfThen(if_then_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: if_then_stmt.get_if_token().span.start,
-                length: if_then_stmt.get_if_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: if_then_stmt.get_then_token().span.start,
-                length: if_then_stmt.get_then_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, if_then_stmt.get_condition());
-            if_then_stmt.get_statements().iter().for_each(|stmt| {
-                highlight_statements(semantic_tokens, stmt);
-            });
+struct SemanticTokenVisitor {
+    pub semantic_tokens: Vec<ImCompleteSemanticToken>,
+}
+impl SemanticTokenVisitor {
+    fn highlight_token(&mut self, token: &SpannedToken, keyword: SemanticTokenType) {
+        self.semantic_tokens.push(ImCompleteSemanticToken {
+            start: token.span.start,
+            length: token.span.len(),
+            token_type: LEGEND_TYPE
+                .iter()
+                .position(|item| item == &keyword)
+                .unwrap(),
+        });
+    }
 
-            for else_if_block in if_then_stmt.get_else_if_blocks() {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: else_if_block.get_elseif_token().span.start,
-                    length: else_if_block.get_elseif_token().span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-                highlight_expressions(semantic_tokens, else_if_block.get_condition());
-                else_if_block.get_statements().iter().for_each(|stmt| {
-                    highlight_statements(semantic_tokens, stmt);
-                });
+    fn higlight_parameters(
+        &mut self, 
+        parameters: &[ParameterSpecifier],
+    ) {
+        for p in parameters {
+            if let Some(var) = p.get_var_token() {
+                self.highlight_token(var, SemanticTokenType::KEYWORD);
             }
-
-            if let Some(else_block) = if_then_stmt.get_else_block() {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: else_block.get_else_token().span.start,
-                    length: else_block.get_else_token().span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-                else_block.get_statements().iter().for_each(|stmt| {
-                    highlight_statements(semantic_tokens, stmt);
-                });
-            }
-
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: if_then_stmt.get_endif_token().span.start,
-                length: if_then_stmt.get_endif_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Select(select_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: select_stmt.get_select_token().span.start,
-                length: select_stmt.get_select_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: select_stmt.get_case_token().span.start,
-                length: select_stmt.get_case_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, select_stmt.get_expr());
-
-            select_stmt.get_case_blocks().iter().for_each(|case| {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: case.get_case_token().span.start,
-                    length: case.get_case_token().span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-                highlight_expressions(semantic_tokens, case.get_expr());
-
-                case.get_statements().iter().for_each(|stmt| {
-                    highlight_statements(semantic_tokens, stmt);
-                });
-            });
-
-            if let Some(case_else) = select_stmt.get_case_else_block() {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: case_else.get_case_token().span.start,
-                    length: case_else.get_case_token().span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-                // todo "else"
-                case_else.get_statements().iter().for_each(|stmt| {
-                    highlight_statements(semantic_tokens, stmt);
-                });
-            }
-
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: select_stmt.get_endselect_token().span.start,
-                length: select_stmt.get_endselect_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::While(while_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: while_stmt.get_while_token().span.start,
-                length: while_stmt.get_while_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, while_stmt.get_condition());
-            highlight_statements(semantic_tokens, while_stmt.get_statement());
-        }
-        icy_ppe::ast::Statement::WhileDo(while_do_stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: while_do_stmt.get_while_token().span.start,
-                length: while_do_stmt.get_while_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, while_do_stmt.get_condition());
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: while_do_stmt.get_do_token().span.start,
-                length: while_do_stmt.get_do_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-
-            while_do_stmt.get_statements().iter().for_each(|stmt| {
-                highlight_statements(semantic_tokens, stmt);
-            });
-
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: while_do_stmt.get_endwhile_token().span.start,
-                length: while_do_stmt.get_endwhile_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::For(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_for_token().span.start,
-                length: stmt.get_for_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_to_token().span.start,
-                length: stmt.get_to_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            highlight_expressions(semantic_tokens, stmt.get_start_expr());
-
-            if let Some(step) = stmt.get_step_token() {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: step.span.start,
-                    length: step.span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-                highlight_expressions(semantic_tokens, stmt.get_step_expr().as_ref().unwrap());
-            }
-            stmt.get_statements().iter().for_each(|stmt| {
-                highlight_statements(semantic_tokens, stmt);
-            });
-
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_next_token().span.start,
-                length: stmt.get_next_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-
-        icy_ppe::ast::Statement::Break(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_break_token().span.start,
-                length: stmt.get_break_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Continue(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_continue_token().span.start,
-                length: stmt.get_continue_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Gosub(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_gosub_token().span.start,
-                length: stmt.get_gosub_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Return(stmt) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: stmt.get_return_token().span.start,
-                length: stmt.get_return_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::Let(let_stmt) => {
-            if let Some(let_token) = let_stmt.get_let_token() {
-                semantic_tokens.push(ImCompleteSemanticToken {
-                    start: let_token.span.start,
-                    length: let_token.span.len(),
-                    token_type: LEGEND_TYPE
-                        .iter()
-                        .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap(),
-                });
-            }
-            highlight_expressions(semantic_tokens, let_stmt.get_value_expression());
-        }
-        icy_ppe::ast::Statement::Label(_) => {}
-        icy_ppe::ast::Statement::Call(call) => {
-            for arg in call.get_arguments() {
-                highlight_expressions(semantic_tokens, arg);
-            }
-        }
-        icy_ppe::ast::Statement::PredifinedCall(call) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: call.get_identifier_token().span.start,
-                length: call.get_identifier_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::FUNCTION)
-                    .unwrap(),
-            });
-            for arg in call.get_arguments() {
-                highlight_expressions(semantic_tokens, arg);
-            }
-        }
-        icy_ppe::ast::Statement::VariableDeclaration(var_decl) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: var_decl.get_type_token().span.start,
-                length: var_decl.get_type_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::TYPE)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::ProcedureDeclaration(proc_decl) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: proc_decl.get_declare_token().span.start,
-                length: proc_decl.get_declare_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            higlight_parameters(semantic_tokens, &proc_decl.get_parameters());
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: proc_decl.get_procedure_token().span.start,
-                length: proc_decl.get_procedure_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-        }
-        icy_ppe::ast::Statement::FunctionDeclaration(func_decl) => {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: func_decl.get_declare_token().span.start,
-                length: func_decl.get_declare_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: func_decl.get_function_token().span.start,
-                length: func_decl.get_function_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
-            higlight_parameters(semantic_tokens, &func_decl.get_parameters());
-
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: func_decl.get_return_type_token().span.start,
-                length: func_decl.get_return_type_token().span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::TYPE)
-                    .unwrap(),
-            });
         }
     }
+    
 }
 
-fn higlight_parameters(
-    semantic_tokens: &mut Vec<ImCompleteSemanticToken>,
-    parameters: &[ParameterSpecifier],
-) {
-    for p in parameters {
-        if let Some(var) = p.get_var_token() {
-            semantic_tokens.push(ImCompleteSemanticToken {
-                start: var.span.start,
-                length: var.span.len(),
-                token_type: LEGEND_TYPE
-                    .iter()
-                    .position(|item| item == &SemanticTokenType::KEYWORD)
-                    .unwrap(),
-            });
+impl AstVisitor<()> for SemanticTokenVisitor {
+    fn visit_identifier_expression(&mut self, _identifier: &icy_ppe::ast::IdentifierExpression) {
+    }
+
+    fn visit_constant_expression(&mut self, const_expr: &icy_ppe::ast::ConstantExpression)  {
+        match const_expr.get_constant_value() {
+            Constant::String(_) => {
+                self.highlight_token(const_expr.get_constant_token(), SemanticTokenType::STRING);
+            }
+            Constant::Integer(_) | Constant::Unsigned(_) | Constant::Real(_) => {
+                self.highlight_token(const_expr.get_constant_token(), SemanticTokenType::NUMBER);
+            }
+            _ => {}
         }
     }
-}
 
-fn highlight_expressions(
-    semantic_tokens: &mut Vec<ImCompleteSemanticToken>,
-    expr: &icy_ppe::ast::Expression,
-) {
-    match expr {
-        icy_ppe::ast::Expression::Identifier(_) => {}
-        icy_ppe::ast::Expression::Const(const_expr) => {
-            if let Token::Const(constant) = &const_expr.get_constant_token().token {
-                match constant {
-                    Constant::String(_) => {
-                        semantic_tokens.push(ImCompleteSemanticToken {
-                            start: const_expr.get_constant_token().span.start,
-                            length: const_expr.get_constant_token().span.len(),
-                            token_type: LEGEND_TYPE
-                                .iter()
-                                .position(|item| item == &SemanticTokenType::STRING)
-                                .unwrap(),
-                        });
-                    }
-                    Constant::Integer(_) | Constant::Unsigned(_) | Constant::Real(_) => {
-                        semantic_tokens.push(ImCompleteSemanticToken {
-                            start: const_expr.get_constant_token().span.start,
-                            length: const_expr.get_constant_token().span.len(),
-                            token_type: LEGEND_TYPE
-                                .iter()
-                                .position(|item| item == &SemanticTokenType::NUMBER)
-                                .unwrap(),
-                        });
-                    }
-                    _ => {}
-                }
+    fn visit_binary_expression(&mut self, binary: &icy_ppe::ast::BinaryExpression) {
+        walk_binary_expression(self, binary);
+        
+    }
+
+    fn visit_unary_expression(&mut self, unary: &icy_ppe::ast::UnaryExpression) {
+        unary.get_expression().visit(self)
+    }
+
+    fn visit_function_call_expression(&mut self, call: &icy_ppe::ast::FunctionCallExpression) {
+        walk_function_call_expression(self, call);
+        
+    }
+
+    fn visit_parens_expression(&mut self, parens: &icy_ppe::ast::ParensExpression) {
+        parens.get_expression().visit(self)
+    }
+
+    fn visit_comment_statement(&mut self, comment: &icy_ppe::ast::CommentStatement) {
+        self.highlight_token(comment.get_comment_token(), SemanticTokenType::COMMENT);
+    }
+
+    fn visit_end_statement(&mut self, end: &icy_ppe::ast::EndStatement) {
+        self.highlight_token(end.get_end_token(), SemanticTokenType::KEYWORD);
+    }
+
+    fn visit_block_statement(&mut self, block: &icy_ppe::ast::BlockStatement) {
+        self.highlight_token(block.get_begin_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(block.get_end_token(), SemanticTokenType::KEYWORD);
+
+        walk_block_stmt(self, block);
+    }
+
+    fn visit_if_statement(&mut self, if_stmt: &icy_ppe::ast::IfStatement) {
+        self.highlight_token(if_stmt.get_if_token(), SemanticTokenType::KEYWORD);
+
+        walk_if_stmt(self, if_stmt);
+    }
+
+    fn visit_if_then_statement(&mut self, if_then: &icy_ppe::ast::IfThenStatement) {
+        self.highlight_token(if_then.get_if_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(if_then.get_then_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(if_then.get_endif_token(), SemanticTokenType::KEYWORD);
+        for else_if_block in if_then.get_else_if_blocks() {
+            self.highlight_token(else_if_block.get_elseif_token(), SemanticTokenType::KEYWORD);
+        }
+        if let Some(else_block) = if_then.get_else_block() {
+            self.highlight_token(else_block.get_else_token(), SemanticTokenType::KEYWORD);
+        }
+        walk_if_then_stmt(self, if_then);
+    }
+
+    fn visit_gosub_statement(&mut self, gosub: &icy_ppe::ast::GosubStatement) {
+        self.highlight_token(gosub.get_gosub_token(), SemanticTokenType::KEYWORD);
+        
+    }
+
+    fn visit_return_statement(&mut self, return_stmt: &icy_ppe::ast::ReturnStatement) {
+        self.highlight_token(return_stmt.get_return_token(), SemanticTokenType::KEYWORD);
+    }
+
+    fn visit_let_statement(&mut self, let_stmt: &icy_ppe::ast::LetStatement) {
+        if let Some(let_token) = let_stmt.get_let_token() {
+            self.highlight_token(let_token, SemanticTokenType::KEYWORD);
+        }
+        walk_let_stmt(self, let_stmt);
+    }
+
+    fn visit_goto_statement(&mut self, goto: &icy_ppe::ast::GotoStatement) {
+        self.highlight_token(goto.get_goto_token(), SemanticTokenType::KEYWORD);
+    }
+
+    fn visit_label_statement(&mut self, _label: &icy_ppe::ast::LabelStatement) {
+        
+    }
+
+    fn visit_procedure_call_statement(&mut self, call: &icy_ppe::ast::ProcedureCallStatement) {
+        walk_procedure_call_statement(self, call);
+    }
+
+    fn visit_predefined_call_statement(&mut self, call: &icy_ppe::ast::PredefinedCallStatement) {
+        self.highlight_token(call.get_identifier_token(), SemanticTokenType::FUNCTION);
+
+        walk_predefined_call_statement(self, call);
+    }
+
+    fn visit_variable_declaration_statement(
+        &mut self,
+        var_decl: &icy_ppe::ast::VariableDeclarationStatement,
+    ) {
+        self.highlight_token(var_decl.get_type_token(), SemanticTokenType::TYPE);   
+    }
+
+    fn visit_procedure_declaration_statement(
+        &mut self,
+        proc_decl: &icy_ppe::ast::ProcedureDeclarationStatement,
+    ) {
+        self.highlight_token(proc_decl.get_declare_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(proc_decl.get_procedure_token(), SemanticTokenType::KEYWORD);
+        self.higlight_parameters(proc_decl.get_parameters());
+    }
+
+    fn visit_function_declaration_statement(
+        &mut self,
+        func_decl: &icy_ppe::ast::FunctionDeclarationStatement,
+    ) {
+        self.highlight_token(func_decl.get_declare_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(func_decl.get_function_token(), SemanticTokenType::KEYWORD);
+        self.higlight_parameters(func_decl.get_parameters());
+    }
+
+    fn visit_comment_implementation(&mut self, comment: &icy_ppe::parser::tokens::SpannedToken) {
+        self.highlight_token(comment, SemanticTokenType::COMMENT);
+    }
+
+    fn visit_function_implementation(&mut self, function: &icy_ppe::ast::FunctionImplementation) {
+        self.highlight_token(function.get_endfunc_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(function.get_function_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(function.get_return_type_token(), SemanticTokenType::TYPE);
+        self.higlight_parameters(function.get_parameters());
+        walk_function_implementationt(self, function);
+    }
+
+    fn visit_procedure_implementation(&mut self, procedure: &icy_ppe::ast::ProcedureImplementation) {
+        self.highlight_token(procedure.get_endproc_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(procedure.get_procedure_token(), SemanticTokenType::KEYWORD);
+        self.higlight_parameters(procedure.get_parameters());
+        walk_procedure_implementationt(self, procedure);
+    }
+    
+    fn visit_select_statement(&mut self, select_stmt: &icy_ppe::ast::SelectStatement) {
+        self.highlight_token(select_stmt.get_select_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(select_stmt.get_case_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(select_stmt.get_endselect_token(), SemanticTokenType::KEYWORD);
+
+        select_stmt.get_case_blocks().iter().for_each(|case| {
+            self.highlight_token(case.get_case_token(), SemanticTokenType::KEYWORD);
+        });
+        if let Some(case_else) = select_stmt.get_case_else_block() {
+            self.highlight_token(case_else.get_case_token(), SemanticTokenType::KEYWORD);
+            if let Expression::Identifier(id) = case_else.get_expr() {
+                self.highlight_token(id.get_identifier_token(), SemanticTokenType::KEYWORD);
             }
         }
-        icy_ppe::ast::Expression::Parens(expr) => {
-            highlight_expressions(semantic_tokens, expr.get_expression());
+        walk_select_stmt(self, select_stmt);
+    }
+    
+    fn visit_while_statement(&mut self, while_stmt: &icy_ppe::ast::WhileStatement) {
+        self.highlight_token(while_stmt.get_while_token(), SemanticTokenType::KEYWORD);
+
+        walk_while_stmt(self, while_stmt);
+    }
+    
+    fn visit_while_do_statement(&mut self, while_do: &icy_ppe::ast::WhileDoStatement) {
+        self.highlight_token(while_do.get_while_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(while_do.get_do_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(while_do.get_endwhile_token(), SemanticTokenType::KEYWORD);
+        walk_while_do_stmt(self, while_do);
+    }
+    
+    fn visit_for_statement(&mut self, for_stmt: &icy_ppe::ast::ForStatement) {
+        self.highlight_token(for_stmt.get_for_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(for_stmt.get_to_token(), SemanticTokenType::KEYWORD);
+        if let Some(step) = for_stmt.get_step_token() {
+            self.highlight_token(step, SemanticTokenType::KEYWORD);
         }
-        icy_ppe::ast::Expression::FunctionCall(call) => {
-            for arg in call.get_arguments() {
-                highlight_expressions(semantic_tokens, arg);
-            }
-        }
-        icy_ppe::ast::Expression::Unary(un_expr) => {
-            highlight_expressions(semantic_tokens, un_expr.get_expression());
-        }
-        icy_ppe::ast::Expression::Binary(bin_expr) => {
-            highlight_expressions(semantic_tokens, bin_expr.get_left_expression());
-            highlight_expressions(semantic_tokens, bin_expr.get_right_expression());
-        }
+        self.highlight_token(for_stmt.get_next_token(), SemanticTokenType::KEYWORD);
+
+        walk_for_stmt(self, for_stmt);
+    }
+    
+    fn visit_break_statement(&mut self, break_stmt: &icy_ppe::ast::BreakStatement) {
+        self.highlight_token(break_stmt.get_break_token(), SemanticTokenType::KEYWORD);
+    }
+    
+    fn visit_continue_statement(&mut self, continue_stmt: &icy_ppe::ast::ContinueStatement) {
+        self.highlight_token(continue_stmt.get_continue_token(), SemanticTokenType::KEYWORD);
     }
 }

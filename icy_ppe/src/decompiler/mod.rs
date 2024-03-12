@@ -88,20 +88,21 @@ impl Decompiler {
     }
 
     pub fn output_stmt(&mut self, prg: &mut Program, stmt: Statement) {
-        if self.func_flag > 0 {
-            for decl in &mut prg.function_implementations {
-                if decl.id == self.func_flag {
-                    decl.get_statements_mut().push(stmt);
-                    return;
+        for f in &mut prg.implementations {
+            match f {
+                crate::ast::Implementations::Function(decl) => {
+                    if self.func_flag > 0 && decl.id == self.func_flag {
+                        decl.get_statements_mut().push(stmt);
+                        return;
+                    }
                 }
-            }
-        }
-        if self.proc_flag > 0 {
-            for decl in &mut prg.procedure_implementations {
-                if decl.id == self.proc_flag {
-                    decl.get_statements_mut().push(stmt);
-                    return;
+                crate::ast::Implementations::Procedure(decl) => {
+                    if self.proc_flag > 0 && decl.id == self.proc_flag {
+                        decl.get_statements_mut().push(stmt);
+                        return;
+                    }
                 }
+                crate::ast::Implementations::Comment(_) => {}
             }
         }
         prg.statements.push(stmt);
@@ -567,14 +568,14 @@ impl Decompiler {
             .get(&j)
             .unwrap()
             .variable_type as usize];
-        prg.function_implementations
-            .push(FunctionImplementation::empty(
+        prg.implementations
+            .push(crate::ast::Implementations::Function(FunctionImplementation::empty(
                 func,
                 func_name,
                 func_parameters,
                 func_type,
                 Vec::new(),
-            ));
+            )));
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -626,13 +627,13 @@ impl Decompiler {
                 .function_id = proc;
             j += 1;
         }
-        prg.procedure_implementations
-            .push(ProcedureImplementation::empty(
+        prg.implementations
+            .push(crate::ast::Implementations::Procedure(ProcedureImplementation::empty(
                 proc,
                 proc_name,
                 proc_parameters,
                 Vec::new(),
-            ));
+            )));
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
@@ -663,16 +664,23 @@ impl Decompiler {
     }
 
     fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionImplementation> {
-        prg.function_implementations
-            .iter_mut()
-            .find(|f| f.id == func)
+        for f in &mut prg.implementations {
+            if let crate::ast::Implementations::Function(decl) = f {
+                if decl.id == func {
+                    return Some(decl);
+                }
+            }
+        }
+        None
     }
+    
+    /*
 
     fn get_procedure_mut(prg: &mut Program, func: i32) -> Option<&mut ProcedureImplementation> {
         prg.procedure_implementations
             .iter_mut()
             .find(|f| f.id == func)
-    }
+    }*/
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
         let mut i;

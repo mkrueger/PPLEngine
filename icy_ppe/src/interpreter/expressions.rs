@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{convert_to, BinOp, Constant, Expression, UnaryOp, VariableType, VariableValue},
+    ast::{convert_to, BinOp, Constant, Expression, Implementations, UnaryOp, VariableType, VariableValue},
     interpreter::{calc_table, errors::IcyError, execute_statement, StackFrame},
     tables::{FuncOpCode, FunctionDefinition, PPL_FALSE, PPL_TRUE},
     Res,
@@ -64,7 +64,11 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 );
             }
 
-            for f in &interpreter.prg.function_implementations {
+            for imp in &interpreter.prg.implementations {
+                let Implementations::Function(f) = imp else { 
+                    continue;
+                };
+
                 if expr.get_identifier() != f.get_identifier() {
                     continue;
                 }

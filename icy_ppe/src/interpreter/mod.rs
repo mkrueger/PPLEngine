@@ -5,6 +5,7 @@ pub mod expressions;
 use thiserror::Error;
 
 use crate::ast::convert_to;
+use crate::ast::Implementations;
 use crate::ast::Program;
 use crate::ast::Statement;
 use crate::ast::VariableType;
@@ -309,7 +310,11 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 }
             }
 
-            for f in &interpreter.prg.procedure_implementations {
+            for imp in &interpreter.prg.implementations {
+                let Implementations::Procedure(f) = imp else {
+                    continue;
+                };
+
                 if call_stmt.get_identifier() != f.get_identifier() {
                     continue;
                 }

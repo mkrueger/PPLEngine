@@ -1,11 +1,10 @@
-use super::{FunctionImplementation, ProcedureImplementation, Statement};
+use super::{ AstVisitor, Implementations, Statement};
 use std::{fmt, path::PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
-    pub function_implementations: Vec<FunctionImplementation>,
-    pub procedure_implementations: Vec<ProcedureImplementation>,
     pub statements: Vec<Statement>,
+    pub implementations: Vec<Implementations>,
     pub file_name: PathBuf,
     pub errors: Vec<crate::parser::Error>,
 }
@@ -56,10 +55,18 @@ impl Program {
     pub fn new() -> Self {
         Program {
             statements: vec![],
-            function_implementations: vec![],
-            procedure_implementations: vec![],
+            implementations: vec![],
             file_name: PathBuf::new(),
             errors: Vec::new(),
+        }
+    }
+
+    pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) {
+        for stmt in &self.statements {
+            stmt.visit(visitor);
+        }
+        for impls in &self.implementations {
+            impls.visit(visitor);
         }
     }
 }

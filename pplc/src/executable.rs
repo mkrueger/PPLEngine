@@ -268,33 +268,38 @@ impl Executable {
     pub fn compile(&mut self, prg: &Program) {
         self.initialize_variables();
 
-        for d in &prg.function_implementations {
-            self.procedure_declarations.insert(
-                d.get_identifier().to_uppercase().clone(),
-                Function {
-                    args: d.get_parameters().len() as i32,
-                    total_var: 0,
-                    start: 0,
-                    first_var: 0,
-                    return_var: *d.get_return_type() as i32,
-                    usages: Vec::new(),
+        for d in &prg.implementations {
+            match d {
+                icy_ppe::ast::Implementations::Comment(_) => {},
+                icy_ppe::ast::Implementations::Function(d) => {
+                    self.procedure_declarations.insert(
+                        d.get_identifier().to_uppercase().clone(),
+                        Function {
+                            args: d.get_parameters().len() as i32,
+                            total_var: 0,
+                            start: 0,
+                            first_var: 0,
+                            return_var: *d.get_return_type() as i32,
+                            usages: Vec::new(),
+                        },
+                    );
                 },
-            );
+                icy_ppe::ast::Implementations::Procedure(d) => {
+                    self.procedure_declarations.insert(
+                        d.get_identifier().to_uppercase().clone(),
+                        Function {
+                            args: d.get_parameters().len() as i32,
+                            total_var: 0,
+                            start: 0,
+                            first_var: 0,
+                            return_var: 0,
+                            usages: Vec::new(),
+                        },
+                    );
+                },
+            }
         }
 
-        for d in &prg.procedure_implementations {
-            self.procedure_declarations.insert(
-                d.get_identifier().to_uppercase().clone(),
-                Function {
-                    args: d.get_parameters().len() as i32,
-                    total_var: 0,
-                    start: 0,
-                    first_var: 0,
-                    return_var: 0,
-                    usages: Vec::new(),
-                },
-            );
-        }
 
         prg.statements.iter().for_each(|s| {
             self.compile_statement(s);
@@ -306,140 +311,97 @@ impl Executable {
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
             self.script_buffer.push(OpCode::END as u16);
         }
+        for imp in &prg.implementations {
+            match imp {
+                icy_ppe::ast::Implementations::Comment(_) => {},
+                icy_ppe::ast::Implementations::Procedure(p) => {
+                    {
+                        let decl = self
+                            .procedure_declarations
+                            .get_mut(p.get_identifier())
+                            .unwrap();
+                        decl.start = self.script_buffer.len() as i32 * 2;
+                        let id = self.variable_table.len() as i32 + 1;
+                        decl.first_var = id;
+                        self.variable_table.insert(
+                            p.get_identifier().to_ascii_uppercase().clone(),
+                            Variable {
+                                info: VarInfo {
+                                    id: id as usize,
+                                    var_type: VariableType::Procedure,
+                                    dims: 0,
+                                    vector_size: 0,
+                                    matrix_size: 0,
+                                    cube_size: 0,
+                                    flags: 0,
+                                },
+                                var_type: VariableType::Procedure,
+                                value: VariableValue::String(p.get_identifier().clone()),
+                            },
+                        );
+                    }
+        
+                    p.get_statements().iter().for_each(|s| {
+                        self.compile_statement(s);
+                    });
+                    self.fill_labels();
+        
+                    self.script_buffer.push(ENDPROC);
+        
+                    {
+                        let decl = self
+                            .procedure_declarations
+                            .get_mut(p.get_identifier())
+                            .unwrap();
+                        decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+                    }
+                },
+                icy_ppe::ast::Implementations::Function(p) => {
+                    {
+                        let decl = self
+                            .procedure_declarations
+                            .get_mut(p.get_identifier())
+                            .unwrap();
+                        decl.start = self.script_buffer.len() as i32 * 2;
+                        let id = self.variable_table.len() as i32 + 1;
+                        decl.first_var = id;
+                        self.variable_table.insert(
+                            p.get_identifier().to_ascii_uppercase().clone(),
+                            Variable {
+                                info: VarInfo {
+                                    id: id as usize,
+                                    var_type: VariableType::Function,
+                                    dims: 0,
+                                    vector_size: 0,
+                                    matrix_size: 0,
+                                    cube_size: 0,
+                                    flags: 0,
+                                },
+                                var_type: VariableType::Function,
+                                value: VariableValue::String(p.get_identifier().clone()),
+                            },
+                        );
+                        self.cur_function = p.get_identifier().to_ascii_uppercase().clone();
+                        self.cur_function_id = id;
+                    }
+                    p.get_statements().iter().for_each(|s| {
+                        self.compile_statement(s);
+                    });
+                    self.cur_function_id = -1;
 
-        for p in &prg.procedure_implementations {
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.start = self.script_buffer.len() as i32 * 2;
-                let id = self.variable_table.len() as i32 + 1;
-                decl.first_var = id;
-                self.variable_table.insert(
-                    p.get_identifier().to_ascii_uppercase().clone(),
-                    Variable {
-                        info: VarInfo {
-                            id: id as usize,
-                            var_type: VariableType::Procedure,
-                            dims: 0,
-                            vector_size: 0,
-                            matrix_size: 0,
-                            cube_size: 0,
-                            flags: 0,
-                        },
-                        var_type: VariableType::Procedure,
-                        value: VariableValue::String(p.get_identifier().clone()),
-                    },
-                );
-            }
-
-            p.get_statements().iter().for_each(|s| {
-                self.compile_statement(s);
-            });
-            self.fill_labels();
-
-            self.script_buffer.push(ENDPROC);
-
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
-            }
-        }
-
-        for p in &prg.function_implementations {
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.start = self.script_buffer.len() as i32 * 2;
-                let id = self.variable_table.len() as i32 + 1;
-                decl.first_var = id;
-                self.variable_table.insert(
-                    p.get_identifier().to_ascii_uppercase().clone(),
-                    Variable {
-                        info: VarInfo {
-                            id: id as usize,
-                            var_type: VariableType::Function,
-                            dims: 0,
-                            vector_size: 0,
-                            matrix_size: 0,
-                            cube_size: 0,
-                            flags: 0,
-                        },
-                        var_type: VariableType::Function,
-                        value: VariableValue::String(p.get_identifier().clone()),
-                    },
-                );
-            }
-
-            p.get_statements().iter().for_each(|s| {
-                self.compile_statement(s);
-            });
-            self.fill_labels();
-
-            self.script_buffer.push(ENDPROC);
-
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
-            }
-        }
-
-        for p in &prg.function_implementations {
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.start = self.script_buffer.len() as i32 * 2;
-                let id = self.variable_table.len() as i32 + 1;
-                decl.first_var = id;
-                decl.return_var = *p.get_return_type() as i32;
-
-                self.variable_table.insert(
-                    p.get_identifier().to_ascii_uppercase().clone(),
-                    Variable {
-                        info: VarInfo {
-                            id: id as usize,
-                            var_type: VariableType::Function,
-                            dims: 0,
-                            vector_size: 0,
-                            matrix_size: 0,
-                            cube_size: 0,
-                            flags: 0,
-                        },
-                        var_type: VariableType::Function,
-                        value: VariableValue::String(p.get_identifier().clone()),
-                    },
-                );
-                self.cur_function = p.get_identifier().to_ascii_uppercase().clone();
-                self.cur_function_id = id;
-            }
-
-            p.get_statements().iter().for_each(|s| {
-                self.compile_statement(s);
-            });
-            self.cur_function_id = -1;
-
-            self.fill_labels();
-            self.script_buffer.push(ENDFUNC);
-
-            {
-                let decl = self
-                    .procedure_declarations
-                    .get_mut(p.get_identifier())
-                    .unwrap();
-                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+                    self.fill_labels();
+                    self.script_buffer.push(ENDPROC);
+                    {
+                        let decl = self
+                            .procedure_declarations
+                            .get_mut(p.get_identifier())
+                            .unwrap();
+                        decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+                    }
+                },
             }
         }
+        
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
             self.script_buffer.push(OpCode::END as u16);
         }

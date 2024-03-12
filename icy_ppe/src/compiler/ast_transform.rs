@@ -5,11 +5,16 @@ use crate::ast::{
 };
 
 pub fn transform_ast(prg: &mut Program) {
-    for f in &mut prg.function_implementations {
-        transform_block(f.get_statements_mut());
-    }
-    for f in &mut prg.procedure_implementations {
-        transform_block(f.get_statements_mut());
+    for f in &mut prg.implementations {
+        match f {
+            crate::ast::Implementations::Function(f) => {
+                transform_block(f.get_statements_mut());
+            }
+            crate::ast::Implementations::Procedure(f) => {
+                transform_block(f.get_statements_mut());
+            }
+            crate::ast::Implementations::Comment(_) => {}
+        }
     }
     transform_block(&mut prg.statements);
 }

@@ -13,8 +13,8 @@ pub use self::declaration::*;
 pub mod program;
 pub use self::program::*;
 
-pub mod function_implementation;
-pub use self::function_implementation::*;
+pub mod implementations;
+pub use self::implementations::*;
 
 pub mod variable_type;
 pub use self::variable_type::*;

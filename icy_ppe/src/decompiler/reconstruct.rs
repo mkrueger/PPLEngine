@@ -1,18 +1,21 @@
 use crate::ast::{
-    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, SelectStatement, UnaryExpression,
-    WhileDoStatement,
+    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement, UnaryExpression, WhileDoStatement
 };
 
 use super::{Expression, HashMap, HashSet, Program, Statement};
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.statements);
-    for fd in &mut prg.function_implementations {
-        optimize_block(fd.get_statements_mut());
-    }
-    for pd in &mut prg.procedure_implementations {
-        optimize_block(pd.get_statements_mut());
+    for fd in &mut prg.implementations {
+        match fd {
+            Implementations::Function(fd) => {
+                optimize_block(fd.get_statements_mut());
+            }
+            Implementations::Procedure(pd) => {
+                optimize_block(pd.get_statements_mut());
+            }
+            Implementations::Comment(_) => {}
+        }
     }
 }
 
@@ -840,11 +843,16 @@ fn strip_unused_labels2(statements: &mut Vec<Statement>, used_labels: &HashSet<S
 
 pub fn do_pass4(prg: &mut Program) {
     rename_variables(&mut prg.statements);
-    for fd in &mut prg.function_implementations {
-        rename_variables(fd.get_statements_mut());
-    }
-    for pd in &mut prg.procedure_implementations {
-        rename_variables(pd.get_statements_mut());
+    for fd in &mut prg.implementations {
+        match fd {
+            Implementations::Function(fd) => {
+                rename_variables(fd.get_statements_mut());
+            }
+            Implementations::Procedure(pd) => {
+                rename_variables(pd.get_statements_mut());
+            }
+            Implementations::Comment(_) => {}
+        }
     }
 }
 

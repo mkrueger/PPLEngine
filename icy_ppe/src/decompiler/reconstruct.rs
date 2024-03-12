@@ -134,7 +134,9 @@ fn scan_select_statements(statements: &mut [Statement]) {
             }
             let case_else_block = if_then_stmt.get_else_block().as_ref().map(|else_block| {
                 CaseBlock::empty(
-                    Box::new(IdentifierExpression::create_empty_expression("Else")),
+                    Box::new(IdentifierExpression::create_empty_expression(
+                        unicase::Ascii::new("Else".to_string()),
+                    )),
                     else_block.get_statements().clone(),
                 )
             });
@@ -176,7 +178,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                         end_label.get_label(),
                     )
                 } else {
-                    endif_label = String::new();
+                    endif_label = unicase::Ascii::new(String::new());
                     None
                 };
 
@@ -327,7 +329,12 @@ fn scan_if(statements: &mut Vec<Statement>) {
 fn mach_for_construct(
     label: &Statement,
     if_statement: &Statement,
-) -> Option<(String, String, String, Expression)> // for_label, indexName, breakout_label, to_expr
+) -> Option<(
+    unicase::Ascii<String>,
+    String,
+    unicase::Ascii<String>,
+    Expression,
+)> // for_label, indexName, breakout_label, to_expr
 {
     let breakout_label;
     let Statement::Label(for_label) = label else {
@@ -497,12 +504,8 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 scan_possible_breaks(&mut statements2, &breakout_label);
                 // there needs to be a better way to handle that
                 if !statements2.is_empty() {
-                    let mut continue_label = String::new();
-                    if let Statement::Label(lbl) = &statements2.last().unwrap() {
-                        continue_label = lbl.get_label().clone();
-                    }
-                    if !continue_label.is_empty() {
-                        scan_possible_continues(&mut statements2, continue_label.as_str());
+                    if let Statement::Label(lbl) = statements2.last().unwrap().clone() {
+                        scan_possible_continues(&mut statements2, lbl.get_label());
                     }
                 }
                 optimize_ifs(&mut statements2);
@@ -531,7 +534,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
     }
 }
 
-fn scan_possible_breaks(block: &mut [Statement], break_label: &str) {
+fn scan_possible_breaks(block: &mut [Statement], break_label: &unicase::Ascii<String>) {
     for cur_stmt in block {
         match cur_stmt {
             Statement::If(if_stmt) => {
@@ -555,7 +558,7 @@ fn scan_possible_breaks(block: &mut [Statement], break_label: &str) {
 }
 
 #[allow(clippy::needless_range_loop)]
-fn scan_possible_continues(block: &mut [Statement], continue_label: &str) {
+fn scan_possible_continues(block: &mut [Statement], continue_label: &unicase::Ascii<String>) {
     for cur_stmt in block {
         match cur_stmt {
             Statement::If(if_stmt) => {
@@ -617,21 +620,17 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                         i += 1;
                         continue;
                     }
-                    let label_cp = break_label.get_label().clone();
+                    let label_cp = break_label.get_label();
 
                     let mut statements2 = statements
                         .drain((i + 1)..(matching_goto as usize))
                         .collect();
                     optimize_loops(&mut statements2);
 
-                    scan_possible_breaks(&mut statements2, label_cp.as_str());
+                    scan_possible_breaks(&mut statements2, label_cp);
                     // there needs to be a better way to handle that
-                    let mut continue_label = String::new();
-                    if let Statement::Label(lbl) = &statements2.last().unwrap() {
-                        continue_label = lbl.get_label().clone();
-                    }
-                    if !continue_label.is_empty() {
-                        scan_possible_continues(&mut statements2, continue_label.as_str());
+                    if let Statement::Label(lbl) = &statements2.last().unwrap().clone() {
+                        scan_possible_continues(&mut statements2, lbl.get_label());
                     }
                     optimize_ifs(&mut statements2);
 
@@ -730,7 +729,7 @@ fn scan_do_while2(_statements: &mut [Statement]) {
     */
 }
 
-fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<String>) {
+fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<unicase::Ascii<String>>) {
     match stmt {
         Statement::If(if_stmt) => {
             gather_labels(if_stmt.get_statement(), used_labels);
@@ -800,7 +799,10 @@ pub fn strip_unused_labels(statements: &mut Vec<Statement>) {
     strip_unused_labels2(statements, &used_labels);
 }
 
-fn strip_unused_labels2(statements: &mut Vec<Statement>, used_labels: &HashSet<String>) {
+fn strip_unused_labels2(
+    statements: &mut Vec<Statement>,
+    used_labels: &HashSet<unicase::Ascii<String>>,
+) {
     let mut i = 0;
     while i < statements.len() {
         if let Statement::Label(label) = &statements[i] {
@@ -862,7 +864,7 @@ const _INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];
 
 fn scan_replace_vars(
     _stmt: &Statement,
-    _rename_map: &mut HashMap<String, String>,
+    _rename_map: &mut HashMap<unicase::Ascii<String>, String>,
     _index: &mut i32,
     _file_names: &mut i32,
 ) {
@@ -947,7 +949,10 @@ fn rename_variables(block: &mut Vec<Statement>) {
     }
 }
 
-fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, String>) {
+fn replace_in_statement(
+    stmt: &mut Statement,
+    rename_map: &HashMap<unicase::Ascii<String>, String>,
+) {
     match stmt {
         Statement::If(if_stmt) => {
             replace_in_expression(if_stmt.get_condition_mut(), rename_map);
@@ -1014,11 +1019,16 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
     }
 }
 
-fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String, String>) {
+fn replace_in_expression(
+    repl_expr: &mut Expression,
+    rename_map: &HashMap<unicase::Ascii<String>, String>,
+) {
     match repl_expr {
         Expression::Identifier(id) => {
             if rename_map.contains_key(id.get_identifier()) {
-                *id = IdentifierExpression::empty(rename_map.get(id.get_identifier()).unwrap());
+                *id = IdentifierExpression::empty(unicase::Ascii::new(
+                    rename_map.get(id.get_identifier()).unwrap().clone(),
+                ));
             }
         }
         Expression::Parens(expr) => {

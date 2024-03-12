@@ -74,7 +74,10 @@ impl Variable {
             let VariableValue::String(s) = &self.value else {
                 panic!("Invalid value type {:?}", self.value);
             };
-            let proc = exe.procedure_declarations.get(s).unwrap();
+            let proc = exe
+                .procedure_declarations
+                .get(&unicase::Ascii::new(s.clone()))
+                .unwrap();
 
             buffer.push(0);
             buffer.push(0);
@@ -132,15 +135,15 @@ struct LabelInfo {
 }
 
 pub struct Executable {
-    procedure_declarations: HashMap<String, Function>,
+    procedure_declarations: HashMap<unicase::Ascii<String>, Function>,
 
-    variable_table: HashMap<String, Variable>,
+    variable_table: HashMap<unicase::Ascii<String>, Variable>,
     script_buffer: Vec<u16>,
 
-    label_table: HashMap<String, LabelInfo>,
+    label_table: HashMap<unicase::Ascii<String>, LabelInfo>,
     pub errors: Vec<CompilationError>,
 
-    cur_function: String,
+    cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
 }
 
@@ -156,7 +159,7 @@ impl Executable {
             script_buffer: Vec::new(),
             label_table: HashMap::new(),
             errors: Vec::new(),
-            cur_function: String::new(),
+            cur_function: unicase::Ascii::new(String::new()),
             cur_function_id: -1,
         }
     }
@@ -164,7 +167,7 @@ impl Executable {
     fn add_variable(
         &mut self,
         var_type: VariableType,
-        name: &str,
+        name: unicase::Ascii<String>,
         dims: u8,
         vector_size: usize,
         matrix_size: usize,
@@ -172,7 +175,7 @@ impl Executable {
     ) {
         let id = self.variable_table.len() + 1;
         self.variable_table.insert(
-            name.to_string(),
+            name,
             Variable {
                 info: VarInfo {
                     id,
@@ -192,7 +195,7 @@ impl Executable {
     fn add_predefined_variable(&mut self, name: &str, val: VariableValue) {
         let id = self.variable_table.len() + 1;
         self.variable_table.insert(
-            name.to_ascii_uppercase().to_string(),
+            unicase::Ascii::new(name.to_string()),
             Variable {
                 info: VarInfo {
                     id,
@@ -214,13 +217,10 @@ impl Executable {
         self.add_predefined_variable("U_FSE", VariableValue::Boolean(false));
         self.add_predefined_variable("U_FSEP", VariableValue::Boolean(false));
         self.add_predefined_variable("U_CLS", VariableValue::Boolean(false));
-
         self.add_predefined_variable("U_EXPDATE", VariableValue::Date(0));
-
         self.add_predefined_variable("U_SEC", VariableValue::Integer(0));
         self.add_predefined_variable("U_PAGELEN", VariableValue::Integer(0));
         self.add_predefined_variable("U_EXPSEC", VariableValue::Integer(0));
-
         self.add_predefined_variable("U_CITY", VariableValue::String(String::new()));
         self.add_predefined_variable("U_BDPHONE", VariableValue::String(String::new()));
         self.add_predefined_variable("U_HVPHONE", VariableValue::String(String::new()));
@@ -228,12 +228,10 @@ impl Executable {
         self.add_predefined_variable("U_CMNT1", VariableValue::String(String::new()));
         self.add_predefined_variable("U_CMNT2", VariableValue::String(String::new()));
         self.add_predefined_variable("U_PWD", VariableValue::String(String::new()));
-
         self.add_predefined_variable("U_SCROLL", VariableValue::Boolean(false));
         self.add_predefined_variable("U_LONGHDR", VariableValue::Boolean(false));
         self.add_predefined_variable("U_DEF79", VariableValue::Boolean(false));
 
-        self.add_predefined_variable("U_ALIAS", VariableValue::String(String::new()));
         self.add_predefined_variable("U_VER", VariableValue::String(String::new()));
         self.add_predefined_variable(
             "U_ADDR",
@@ -335,7 +333,7 @@ impl Executable {
                                     flags: 0,
                                 },
                                 var_type: VariableType::Procedure,
-                                value: VariableValue::String(p.get_identifier().clone()),
+                                value: VariableValue::String(p.get_identifier().to_string()),
                             },
                         );
                     }
@@ -377,7 +375,7 @@ impl Executable {
                                     flags: 0,
                                 },
                                 var_type: VariableType::Function,
-                                value: VariableValue::String(p.get_identifier().clone()),
+                                value: VariableValue::String(p.get_identifier().to_string()),
                             },
                         );
                         self.cur_function = p.get_identifier().clone();
@@ -462,7 +460,7 @@ impl Executable {
                     let Some(decl) = self.variable_table.get(var_name) else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::VariableNotFound(
-                                let_smt.get_identifier().clone(),
+                                let_smt.get_identifier().to_string(),
                             ),
                             range: let_smt.get_identifier_token().span.clone(),
                         });
@@ -530,7 +528,7 @@ impl Executable {
                 } else {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::ProcedureNotFound(
-                            call_stmt.get_identifier().clone(),
+                            call_stmt.get_identifier().to_string(),
                         ),
                         range: 0..0, // TODO :Range
                     });
@@ -540,7 +538,7 @@ impl Executable {
                 for v in var_decl.get_variables() {
                     self.add_variable(
                         var_decl.get_variable_type(),
-                        v.get_identifier(),
+                        v.get_identifier().clone(),
                         v.get_dimensions().len() as u8,
                         v.get_vector_size(),
                         v.get_matrix_size(),
@@ -635,7 +633,9 @@ impl Executable {
                     stack.push(0);
                 } else {
                     self.errors.push(CompilationError {
-                        error: CompilationErrorType::VariableNotFound(id.get_identifier().clone()),
+                        error: CompilationErrorType::VariableNotFound(
+                            id.get_identifier().to_string(),
+                        ),
                         range: id.get_identifier_token().span.clone(),
                     });
                 }
@@ -680,7 +680,7 @@ impl Executable {
                     } else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::VariableNotFound(
-                                expr.get_identifier().clone(),
+                                expr.get_identifier().to_string(),
                             ),
                             range: 0..0, // TODO :Range
                         });
@@ -708,7 +708,7 @@ impl Executable {
     fn lookup_constant(&mut self, constant: &icy_ppe::ast::Constant) -> u16 {
         let id = self.variable_table.len() as u16 + 1;
         self.variable_table.insert(
-            self.variable_table.len().to_string(),
+            unicase::Ascii::new(self.variable_table.len().to_string()),
             Variable {
                 info: VarInfo {
                     id: id as usize,
@@ -726,18 +726,18 @@ impl Executable {
         id
     }
 
-    fn add_label_address(&mut self, label: &str, len: usize) {
+    fn add_label_address(&mut self, label: &unicase::Ascii<String>, len: usize) {
         self.get_label_info(label).address = len;
     }
 
-    fn add_label_usage(&mut self, label: &str, len: usize) {
+    fn add_label_usage(&mut self, label: &unicase::Ascii<String>, len: usize) {
         self.get_label_info(label).usages.push(len);
     }
 
-    fn get_label_info(&mut self, label: &str) -> &mut LabelInfo {
+    fn get_label_info(&mut self, label: &unicase::Ascii<String>) -> &mut LabelInfo {
         if !self.label_table.contains_key(label) {
             self.label_table.insert(
-                label.to_string(),
+                label.clone(),
                 LabelInfo {
                     address: 0,
                     usages: Vec::new(),

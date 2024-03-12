@@ -2,6 +2,7 @@ use crate::ast::{constant::BuiltinConst, Constant};
 use core::fmt;
 use logos::Logos;
 use thiserror::Error;
+use unicase::Ascii;
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum LexingErrorType {
@@ -47,8 +48,8 @@ pub enum Token {
     #[token("\n")]
     Eol,
 
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
-    Identifier(String),
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| unicase::Ascii::new(lex.slice().to_string()))]
+    Identifier(Ascii<String>),
 
     #[regex(r"[';][^[\r\n]]*", |lex| {
         let ct = if lex.slice().starts_with(';') {
@@ -172,8 +173,8 @@ pub enum Token {
     #[token("endselect", ignore(case))]
     EndSelect,
 
-    #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
-    Label(String),
+    #[regex(r":\w+", |lex| unicase::Ascii::new(lex.slice()[1..].to_string()))]
+    Label(unicase::Ascii<String>),
 
     /*
     // Types
@@ -512,17 +513,20 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        assert_eq!(Token::Identifier("PRINT".to_string()), get_token("PRINT"));
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("PRINT".to_string())),
+            get_token("PRINT")
+        );
 
         let src = "Hello World";
         let mut lex = crate::parser::tokens::Token::lexer(src);
 
         assert_eq!(
-            Token::Identifier("Hello".to_string()),
+            Token::Identifier(unicase::Ascii::new("Hello".to_string())),
             lex.next().unwrap().unwrap()
         );
         assert_eq!(
-            Token::Identifier("World".to_string()),
+            Token::Identifier(unicase::Ascii::new("World".to_string())),
             lex.next().unwrap().unwrap()
         );
     }
@@ -564,17 +568,17 @@ mod tests {
         let mut lex = crate::parser::tokens::Token::lexer(src);
 
         assert_eq!(
-            Token::Identifier("A".to_string()),
+            Token::Identifier(unicase::Ascii::new("A".to_string())),
             lex.next().unwrap().unwrap()
         );
         assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
         assert_eq!(
-            Token::Identifier("B".to_string()),
+            Token::Identifier(unicase::Ascii::new("B".to_string())),
             lex.next().unwrap().unwrap()
         );
         assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
         assert_eq!(
-            Token::Identifier("C".to_string()),
+            Token::Identifier(unicase::Ascii::new("C".to_string())),
             lex.next().unwrap().unwrap()
         );
     }

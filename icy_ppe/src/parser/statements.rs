@@ -57,7 +57,7 @@ impl<'a> Tokenizer<'a> {
         let rightpar_token = self.save_spannedtoken();
         self.next_token();
 
-        if self.get_cur_token() == Some(Token::Identifier("DO".to_string())) {
+        if self.get_cur_token() == Some(Token::Identifier(unicase::Ascii::new("DO".to_string()))) {
             let do_token = self.save_spannedtoken();
             self.next_token();
 
@@ -192,14 +192,15 @@ impl<'a> Tokenizer<'a> {
             return None;
         };
 
-        let (step_expr, step_token) =
-            if self.get_cur_token() == Some(Token::Identifier("STEP".to_string())) {
-                let to_token = self.save_spannedtoken();
-                self.next_token();
-                (self.parse_expression().map(Box::new), Some(to_token))
-            } else {
-                (None, None)
-            };
+        let (step_expr, step_token) = if self.get_cur_token()
+            == Some(Token::Identifier(unicase::Ascii::new("STEP".to_string())))
+        {
+            let to_token = self.save_spannedtoken();
+            self.next_token();
+            (self.parse_expression().map(Box::new), Some(to_token))
+        } else {
+            (None, None)
+        };
 
         let mut statements = Vec::new();
         self.skip_eol();
@@ -686,7 +687,7 @@ impl<'a> Tokenizer<'a> {
 
         self.next_token();
         for def in &STATEMENT_DEFINITIONS {
-            if def.name.to_uppercase() == id {
+            if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
                 let mut params = Vec::new();
                 while self.get_cur_token() != Some(Token::Eol) && self.cur_token.is_some() {
                     if params.len() as i8 >= def.max_args {

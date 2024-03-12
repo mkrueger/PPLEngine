@@ -88,13 +88,15 @@ impl FunctionImplementation {
         Self {
             id,
             function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            return_type_token: SpannedToken::create_empty(Token::Identifier(
+            return_type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 return_type.to_string(),
-            )),
+            ))),
             return_type,
             statements,
             endfunc_token: SpannedToken::create_empty(Token::EndFunc),
@@ -114,7 +116,7 @@ impl FunctionImplementation {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -123,7 +125,7 @@ impl FunctionImplementation {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -250,7 +252,9 @@ impl ProcedureImplementation {
         Self {
             id,
             procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -272,7 +276,7 @@ impl ProcedureImplementation {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -281,7 +285,7 @@ impl ProcedureImplementation {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 

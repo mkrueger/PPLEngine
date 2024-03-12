@@ -1,4 +1,5 @@
 use crate::ast::AstVisitorMut;
+/*
 
 #[derive(Default)]
 pub struct RenameVarsVisitor {}
@@ -75,3 +76,4 @@ impl AstVisitorMut<()> for RenameVarsVisitor {
         crate::ast::walk_procedure_implementation_mut(self, procedure);
     }
 }
+*/

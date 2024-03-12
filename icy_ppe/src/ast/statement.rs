@@ -734,7 +734,9 @@ impl WhileDoStatement {
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             condition,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            do_token: SpannedToken::create_empty(Token::Identifier("Do".to_string())),
+            do_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                "Do".to_string(),
+            ))),
             statements,
             endwhile_token: SpannedToken::create_empty(Token::EndWhile),
         }
@@ -827,7 +829,7 @@ impl ForStatement {
     }
 
     pub fn empty(
-        variable_name: String,
+        variable_name: unicase::Ascii<String>,
         start_expr: Box<Expression>,
         end_expr: Box<Expression>,
         step_expr: Option<Box<Expression>>,
@@ -838,11 +840,15 @@ impl ForStatement {
             identifier_token: SpannedToken::create_empty(Token::Identifier(variable_name)),
             eq_token: SpannedToken::create_empty(Token::Eq),
             start_expr,
-            to_token: SpannedToken::create_empty(Token::Identifier("TO".to_string())),
+            to_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                "TO".to_string(),
+            ))),
             end_expr,
-            step_token: step_expr
-                .as_ref()
-                .map(|_| SpannedToken::create_empty(Token::Identifier("Step".to_string()))),
+            step_token: step_expr.as_ref().map(|_| {
+                SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                    "Step".to_string(),
+                )))
+            }),
             step_expr,
             statements,
             next_token: SpannedToken::create_empty(Token::Next),
@@ -862,7 +868,7 @@ impl ForStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -871,7 +877,7 @@ impl ForStatement {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -924,7 +930,7 @@ impl ForStatement {
     }
 
     pub fn create_empty_statement(
-        variable_name: String,
+        variable_name: unicase::Ascii<String>,
         start_expr: Box<Expression>,
         end_expr: Box<Expression>,
         step_expr: Option<Box<Expression>>,
@@ -1095,7 +1101,7 @@ impl GosubStatement {
         }
     }
 
-    pub fn empty(label: String) -> Self {
+    pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
             gosub_token: SpannedToken::create_empty(Token::Gosub),
             label_token: SpannedToken::create_empty(Token::Identifier(label)),
@@ -1115,20 +1121,20 @@ impl GosubStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_label(&self) -> &String {
+    pub fn get_label(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.label_token.token {
             return id;
         }
         panic!("Expected identifier token")
     }
 
-    pub fn set_label(&mut self, new_id: impl Into<String>) {
+    pub fn set_label(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.label_token.token {
-            *id = new_id.into();
+            *id = new_id;
         }
     }
 
-    pub fn create_empty_statement(label: String) -> Statement {
+    pub fn create_empty_statement(label: unicase::Ascii<String>) -> Statement {
         Statement::Gosub(GosubStatement::empty(label))
     }
 }
@@ -1147,7 +1153,7 @@ impl GotoStatement {
         }
     }
 
-    pub fn empty(label: String) -> Self {
+    pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
             goto_token: SpannedToken::create_empty(Token::Gosub),
             label_token: SpannedToken::create_empty(Token::Identifier(label)),
@@ -1167,20 +1173,20 @@ impl GotoStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_label(&self) -> &String {
+    pub fn get_label(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.label_token.token {
             return id;
         }
         panic!("Expected identifier token")
     }
 
-    pub fn set_label(&mut self, new_id: impl Into<String>) {
+    pub fn set_label(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.label_token.token {
-            *id = new_id.into();
+            *id = new_id;
         }
     }
 
-    pub fn create_empty_statement(label: String) -> Statement {
+    pub fn create_empty_statement(label: unicase::Ascii<String>) -> Statement {
         Statement::Goto(GotoStatement::empty(label))
     }
 }
@@ -1195,9 +1201,9 @@ impl LabelStatement {
         Self { label_token }
     }
 
-    pub fn empty(label: impl Into<String>) -> Self {
+    pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
-            label_token: SpannedToken::create_empty(Token::Label(label.into())),
+            label_token: SpannedToken::create_empty(Token::Label(label)),
         }
     }
 
@@ -1210,7 +1216,7 @@ impl LabelStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_label(&self) -> &String {
+    pub fn get_label(&self) -> &unicase::Ascii<String> {
         if let Token::Label(id) = &self.label_token.token {
             return id;
         }
@@ -1219,7 +1225,7 @@ impl LabelStatement {
 
     pub fn set_label(&mut self, new_id: impl Into<String>) {
         if let Token::Label(id) = &mut self.label_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -1233,7 +1239,7 @@ impl LabelStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn create_empty_statement(identifier: impl Into<String>) -> Statement {
+    pub fn create_empty_statement(identifier: unicase::Ascii<String>) -> Statement {
         Statement::Label(LabelStatement::empty(identifier))
     }
 }
@@ -1263,7 +1269,9 @@ impl ProcedureCallStatement {
 
     pub fn empty(identifier: impl Into<String>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             arguments,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -1294,7 +1302,7 @@ impl ProcedureCallStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -1303,7 +1311,7 @@ impl ProcedureCallStatement {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -1337,7 +1345,9 @@ impl PredefinedCallStatement {
 
     pub fn empty(func: &'static StatementDefinition<'static>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(func.name.to_string())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                func.name.to_string(),
+            ))),
             func,
             arguments,
         }
@@ -1352,7 +1362,7 @@ impl PredefinedCallStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -1412,13 +1422,13 @@ impl LetStatement {
     }
 
     pub fn empty(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
         value_expression: Box<Expression>,
     ) -> Self {
         Self {
             let_token: None,
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: None,
             arguments,
             rightpar_token: None,
@@ -1440,7 +1450,7 @@ impl LetStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -1449,7 +1459,7 @@ impl LetStatement {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -1477,7 +1487,7 @@ impl LetStatement {
         &mut self.value_expression
     }
     pub fn create_empty_statement(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
         value_expression: Box<Expression>,
     ) -> Statement {
@@ -1485,11 +1495,11 @@ impl LetStatement {
     }
 }
 
-pub fn get_var_name(expr: &Expression) -> String {
+pub fn get_var_name(expr: &Expression) -> unicase::Ascii<String> {
     if let Expression::FunctionCall(call_expr) = expr {
         call_expr.get_identifier().clone()
     } else {
-        expr.to_string()
+        unicase::Ascii::new(expr.to_string())
     }
 }
 

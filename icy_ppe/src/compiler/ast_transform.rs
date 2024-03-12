@@ -34,11 +34,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
             Statement::WhileDo(while_do_stmt) => {
                 statements.remove(i);
 
-                let break_label = format!("label{labels}");
+                let break_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
-                let continue_label = format!("label{labels}");
+                let continue_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
-                let loop_label = format!("label{labels}");
+                let loop_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
 
                 statements.insert(
@@ -77,11 +77,11 @@ fn transform_block(statements: &mut Vec<Statement>) {
             Statement::For(for_stmt) => {
                 statements.remove(i);
 
-                let break_label = format!("label{labels}");
+                let break_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
-                let continue_label = format!("label{labels}");
+                let continue_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
-                let loop_label = format!("label{labels}");
+                let loop_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
 
                 statements.insert(
@@ -190,9 +190,9 @@ fn transform_block(statements: &mut Vec<Statement>) {
 
             Statement::IfThen(if_then_stmt) => {
                 statements.remove(i);
-                let mut if_exit_label = format!("label{labels}");
+                let mut if_exit_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
-                let else_exit_label = format!("label{labels}");
+                let else_exit_label = unicase::Ascii::new(format!("label{labels}"));
                 labels += 1;
 
                 statements.insert(
@@ -243,7 +243,7 @@ fn transform_block(statements: &mut Vec<Statement>) {
                             ),
                         );
 
-                        if_exit_label = format!("label{labels}");
+                        if_exit_label = unicase::Ascii::new(format!("label{labels}"));
                         labels += 1;
                     }
                 }
@@ -320,8 +320,7 @@ fn translate_select_case(statements: &mut [Statement]) {
     }
 }
 
-fn scan_possible_breaks(block: &mut [Statement], break_label: impl Into<String>) {
-    let break_label = break_label.into();
+fn scan_possible_breaks(block: &mut [Statement], break_label: &unicase::Ascii<String>) {
     for cur_stmt in block {
         match cur_stmt {
             Statement::If(if_stmt) => {
@@ -339,8 +338,7 @@ fn scan_possible_breaks(block: &mut [Statement], break_label: impl Into<String>)
     }
 }
 
-fn scan_possible_continues(block: &mut [Statement], break_label: impl Into<String>) {
-    let break_label = break_label.into();
+fn scan_possible_continues(block: &mut [Statement], break_label: &unicase::Ascii<String>) {
     for cur_stmt in block {
         match cur_stmt {
             Statement::If(if_stmt) => {

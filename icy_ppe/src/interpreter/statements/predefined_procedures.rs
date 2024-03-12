@@ -295,7 +295,7 @@ pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let identifier = params[0].to_string();
+    let identifier = unicase::Ascii::new(params[0].to_string());
     let new_value = evaluate_exp(
         interpreter,
         &IdentifierExpression::create_empty_expression(identifier.clone()),
@@ -311,7 +311,7 @@ pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let identifier = params[0].to_string();
+    let identifier = unicase::Ascii::new(params[0].to_string());
     let new_value = evaluate_exp(
         interpreter,
         &IdentifierExpression::create_empty_expression(identifier.clone()),

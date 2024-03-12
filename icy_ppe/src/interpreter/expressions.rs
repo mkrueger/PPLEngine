@@ -43,7 +43,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
             }
             Err(Box::new(IcyError::VariableNotFound(
-                identifier_expr.get_identifier().clone(),
+                identifier_expr.get_identifier().to_string(),
             )))
         }
         Expression::Const(constant) => match constant.get_constant_value() {

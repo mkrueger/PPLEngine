@@ -53,6 +53,7 @@ impl SemanticTokenVisitor {
             if let Some(var) = p.get_var_token() {
                 self.highlight_token(var, SemanticTokenType::KEYWORD);
             }
+            self.highlight_token(p.get_type_token(), SemanticTokenType::TYPE);
         }
     }
 }

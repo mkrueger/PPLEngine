@@ -761,7 +761,9 @@ impl Decompiler {
 
     fn labelout(&mut self, prg: &mut Program, label: i32) {
         if let Some(x) = self.label_used.get(&label) {
-            let label_stmt = LabelStatement::create_empty_statement(format!("LABEL{x:>03}"));
+            let label_stmt = LabelStatement::create_empty_statement(unicase::Ascii::new(format!(
+                "LABEL{x:>03}"
+            )));
             self.output_stmt(prg, label_stmt);
         }
     }
@@ -918,30 +920,126 @@ impl Decompiler {
                 || self.executable.version >= 300 && var_nr < 0x18)
         {
             match var_nr {
-                0 => return IdentifierExpression::create_empty_expression("U_EXPERT"),
-                1 => return IdentifierExpression::create_empty_expression("U_FSE"),
-                2 => return IdentifierExpression::create_empty_expression("U_FSEP"),
-                3 => return IdentifierExpression::create_empty_expression("U_CLS"),
-                4 => return IdentifierExpression::create_empty_expression("U_EXPDATE"),
-                5 => return IdentifierExpression::create_empty_expression("U_SEC"),
-                6 => return IdentifierExpression::create_empty_expression("U_PAGELEN"),
-                7 => return IdentifierExpression::create_empty_expression("U_EXPSEC"),
-                8 => return IdentifierExpression::create_empty_expression("U_CITY"),
-                9 => return IdentifierExpression::create_empty_expression("U_BDPHONE"),
-                10 => return IdentifierExpression::create_empty_expression("U_HVPHONE"),
-                11 => return IdentifierExpression::create_empty_expression("U_TRANS"),
-                12 => return IdentifierExpression::create_empty_expression("U_CMNT1"),
-                13 => return IdentifierExpression::create_empty_expression("U_CMNT2"),
-                14 => return IdentifierExpression::create_empty_expression("U_PWD"),
-                15 => return IdentifierExpression::create_empty_expression("U_SCROLL"),
-                16 => return IdentifierExpression::create_empty_expression("U_LONGHDR"),
-                17 => return IdentifierExpression::create_empty_expression("U_DEF79"),
-                18 => return IdentifierExpression::create_empty_expression("U_ALIAS"),
-                19 => return IdentifierExpression::create_empty_expression("U_VER"),
-                20 => return IdentifierExpression::create_empty_expression("U_ADDR"),
-                21 => return IdentifierExpression::create_empty_expression("U_NOTES"),
-                22 => return IdentifierExpression::create_empty_expression("U_PWDEXP"),
-                23 => return IdentifierExpression::create_empty_expression("U_ACCOUNT"),
+                0 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_EXPERT".to_string(),
+                    ))
+                }
+                1 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_FSE".to_string(),
+                    ))
+                }
+                2 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_FSEP".to_string(),
+                    ))
+                }
+                3 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_CLS".to_string(),
+                    ))
+                }
+                4 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_EXPDATE".to_string(),
+                    ))
+                }
+                5 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_SEC".to_string(),
+                    ))
+                }
+                6 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_PAGELEN".to_string(),
+                    ))
+                }
+                7 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_EXPSEC".to_string(),
+                    ))
+                }
+                8 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_CITY".to_string(),
+                    ))
+                }
+                9 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_BDPHONE".to_string(),
+                    ))
+                }
+                10 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_HVPHONE".to_string(),
+                    ))
+                }
+                11 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_TRANS".to_string(),
+                    ))
+                }
+                12 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_CMNT1".to_string(),
+                    ))
+                }
+                13 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_CMNT2".to_string(),
+                    ))
+                }
+                14 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_PWD".to_string(),
+                    ))
+                }
+                15 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_SCROLL".to_string(),
+                    ))
+                }
+                16 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_LONGHDR".to_string(),
+                    ))
+                }
+                17 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_DEF79".to_string(),
+                    ))
+                }
+                18 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_ALIAS".to_string(),
+                    ))
+                }
+                19 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_VER".to_string(),
+                    ))
+                }
+                20 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_ADDR".to_string(),
+                    ))
+                }
+                21 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_NOTES".to_string(),
+                    ))
+                }
+                22 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_PWDEXP".to_string(),
+                    ))
+                }
+                23 => {
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        "U_ACCOUNT".to_string(),
+                    ))
+                }
 
                 // Added in 3.40
                 /*              24 => return IdentifierExpression::create_empty_expression("U_SHORTDESC"),
@@ -952,7 +1050,7 @@ impl Decompiler {
                 */
                 _ => {
                     return FunctionCallExpression::create_empty_expression(
-                        "????".to_string(),
+                        unicase::Ascii::new("????".to_string()),
                         vec![],
                     )
                 }
@@ -964,13 +1062,13 @@ impl Decompiler {
             match cur_var.variable_type {
                 VariableType::Function => {
                     return FunctionCallExpression::create_empty_expression(
-                        format!("FUNC{0:>03}", cur_var.number),
+                        unicase::Ascii::new(format!("FUNC{0:>03}", cur_var.number)),
                         vec![],
                     );
                 }
                 VariableType::Procedure => {
                     return FunctionCallExpression::create_empty_expression(
-                        format!("PROC{0:>03}", cur_var.number),
+                        unicase::Ascii::new(format!("PROC{0:>03}", cur_var.number)),
                         vec![],
                     );
                 }
@@ -983,9 +1081,8 @@ impl Decompiler {
                         .fflag
                         == 1
                     {
-                        return IdentifierExpression::create_empty_expression(format!(
-                            "FUNC{0:>03}",
-                            cur_var.number
+                        return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                            format!("FUNC{0:>03}", cur_var.number),
                         ));
                     }
                     if self
@@ -996,12 +1093,13 @@ impl Decompiler {
                         .lflag
                         == 1
                     {
-                        return IdentifierExpression::create_empty_expression(format!(
-                            "LOC{0:>03}",
-                            cur_var.number
+                        return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                            format!("LOC{0:>03}", cur_var.number),
                         ));
                     }
-                    return IdentifierExpression::create_empty_expression(cur_var.var_name.clone());
+                    return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
+                        cur_var.var_name.clone(),
+                    ));
                 }
             }
         }
@@ -1135,7 +1233,7 @@ impl Decompiler {
         }
         parameters.reverse();
         self.push_expr(FunctionCallExpression::create_empty_expression(
-            func_def.name,
+            unicase::Ascii::new(func_def.name.to_string()),
             parameters,
         ));
         0
@@ -1203,7 +1301,7 @@ impl Decompiler {
                                         )
                                     }
                                     _ => FunctionCallExpression::create_empty_expression(
-                                        e.to_string(),
+                                        unicase::Ascii::new(e.to_string()),
                                         vec![temp_str2],
                                     ),
                                 };
@@ -1290,7 +1388,7 @@ impl Decompiler {
                         }
 
                         self.push_expr(FunctionCallExpression::create_empty_expression(
-                            e.to_string(),
+                            unicase::Ascii::new(e.to_string()),
                             vec![temp_str2],
                         ));
                     }
@@ -1637,7 +1735,7 @@ impl Decompiler {
                 0xfd => { // label (Goto)
                     self.src_ptr += 1;
                     let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr as usize]);
-                    self.push_expr(IdentifierExpression::create_empty_expression(format!("LABEL{tmp:>03}")));
+                    self.push_expr(IdentifierExpression::create_empty_expression(unicase::Ascii::new(format!("LABEL{tmp:>03}"))));
                     self.src_ptr += 1;
                 }
                 _ => {
@@ -1669,7 +1767,7 @@ impl Decompiler {
                     self.outputpass2(
                         prg,
                         &mut if_while_stack,
-                        GotoStatement::create_empty_statement(label),
+                        GotoStatement::create_empty_statement(unicase::Ascii::new(label)),
                     );
                 }
                 OpCode::GOSUB => {
@@ -1677,7 +1775,7 @@ impl Decompiler {
                     self.outputpass2(
                         prg,
                         &mut if_while_stack,
-                        GosubStatement::create_empty_statement(label),
+                        GosubStatement::create_empty_statement(unicase::Ascii::new(label)),
                     );
                 }
                 OpCode::LET => {
@@ -1687,7 +1785,9 @@ impl Decompiler {
                         Expression::Identifier(name) => (name.get_identifier().clone(), vec![]),
                         Expression::Const(constant_expression) => {
                             match constant_expression.get_constant_value() {
-                                Constant::String(name) => (name.clone(), vec![]),
+                                Constant::String(name) => {
+                                    (unicase::Ascii::new(name.clone()), vec![])
+                                }
                                 _ => panic!("can't translate const to let "),
                             }
                         }

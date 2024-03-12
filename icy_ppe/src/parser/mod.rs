@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     ast::{
@@ -168,6 +168,53 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
+lazy_static::lazy_static! {
+    static ref TYPE_HASHES: HashMap<unicase::Ascii<String>, VariableType> = {
+        let mut m = HashMap::new();
+        m.insert(unicase::Ascii::new("INTEGER".to_string()), VariableType::Integer);
+        m.insert(unicase::Ascii::new("INT".to_string()), VariableType::Integer);
+        m.insert(unicase::Ascii::new("LONG".to_string()), VariableType::Integer);
+
+        m.insert(unicase::Ascii::new("STRING".to_string()), VariableType::String);
+        m.insert(unicase::Ascii::new("BIGSTR".to_string()), VariableType::String);
+
+        m.insert(unicase::Ascii::new("BOOLEAN".to_string()), VariableType::Boolean);
+
+        m.insert(unicase::Ascii::new("DATE".to_string()), VariableType::Date);
+        m.insert(unicase::Ascii::new("TIME".to_string()), VariableType::Time);
+
+        m.insert(unicase::Ascii::new("MONEY".to_string()), VariableType::Money);
+
+        m.insert(unicase::Ascii::new("WORD".to_string()), VariableType::Word);
+        m.insert(unicase::Ascii::new("UWORD".to_string()), VariableType::Word);
+
+        m.insert(unicase::Ascii::new("SWORD".to_string()), VariableType::SWord);
+
+        m.insert(unicase::Ascii::new("BYTE".to_string()), VariableType::Byte);
+        m.insert(unicase::Ascii::new("UBYTE".to_string()), VariableType::Byte);
+
+        m.insert(unicase::Ascii::new("EDATE".to_string()), VariableType::EDate);
+        m.insert(unicase::Ascii::new("DDATE".to_string()), VariableType::DDate);
+
+        m.insert(unicase::Ascii::new("UNSIGNED".to_string()), VariableType::Unsigned);
+        m.insert(unicase::Ascii::new("DWORD".to_string()), VariableType::Unsigned);
+        m.insert(unicase::Ascii::new("UDWORD".to_string()), VariableType::Unsigned);
+
+        m.insert(unicase::Ascii::new("SBYTE".to_string()), VariableType::SByte);
+        m.insert(unicase::Ascii::new("SHORT".to_string()), VariableType::SByte);
+
+        m.insert(unicase::Ascii::new("REAL".to_string()), VariableType::Real);
+        m.insert(unicase::Ascii::new("SHORT".to_string()), VariableType::Real);
+        m.insert(unicase::Ascii::new("FLOAT".to_string()), VariableType::Real);
+        m.insert(unicase::Ascii::new("DOUBLE".to_string()), VariableType::Real);
+        m.insert(unicase::Ascii::new("DREAL".to_string()), VariableType::Real);
+        m
+
+
+    };
+
+}
+
 impl<'a> Tokenizer<'a> {
     pub fn get_variable_type(&self) -> Option<VariableType> {
         let Some(token) = &self.cur_token else {
@@ -175,25 +222,10 @@ impl<'a> Tokenizer<'a> {
         };
 
         if let Token::Identifier(id) = &token.token {
-            match id.as_str() {
-                "INTEGER" | "INT" | "SDWORD" | "LONG" => Some(VariableType::Integer),
-                "STRING" | "BIGSTR" => Some(VariableType::String),
-                "BOOLEAN" => Some(VariableType::Boolean),
-                "DATE" => Some(VariableType::Date),
-                "TIME" => Some(VariableType::Time),
-                "MONEY" => Some(VariableType::Money),
-                "WORD" | "UWORD" => Some(VariableType::Word),
-                "SWORD" => Some(VariableType::SWord),
-                "BYTE" | "UBYTE" => Some(VariableType::Byte),
-
-                "EDATE" => Some(VariableType::EDate),
-                "DDATE" => Some(VariableType::DDate),
-
-                "DWORD" | "UDWORD" | "UNSIGNED" => Some(VariableType::Unsigned),
-                "SBYTE" | "SHORT" => Some(VariableType::SByte),
-                "REAL" | "DOUBLE" | "FLOAT" | "DREAL" => Some(VariableType::Real),
-                _ => None,
+            if let Some(vt) = TYPE_HASHES.get(id) {
+                return Some(*vt);
             }
+            None
         } else {
             None
         }

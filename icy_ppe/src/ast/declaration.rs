@@ -71,7 +71,9 @@ impl VariableSpecifier {
 
     pub fn empty(identifier: impl Into<String>, dimensions: Vec<i32>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: None,
             dimensions: dimensions
                 .into_iter()
@@ -90,7 +92,7 @@ impl VariableSpecifier {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -99,7 +101,7 @@ impl VariableSpecifier {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -191,7 +193,9 @@ impl VariableDeclarationStatement {
 
     pub fn empty(variable_type: VariableType, variables: Vec<VariableSpecifier>) -> Self {
         Self {
-            type_token: SpannedToken::create_empty(Token::Identifier(variable_type.to_string())),
+            type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                variable_type.to_string(),
+            ))),
             variable_type,
             variables,
         }
@@ -251,12 +255,14 @@ impl ParameterSpecifier {
         Self {
             var_token: if is_var {
                 Some(SpannedToken::create_empty(Token::Identifier(
-                    "VAR".to_string(),
+                    unicase::Ascii::new("VAR".to_string()),
                 )))
             } else {
                 None
             },
-            type_token: SpannedToken::create_empty(Token::Identifier(variable_type.to_string())),
+            type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                variable_type.to_string(),
+            ))),
             variable_type,
             variable,
         }
@@ -340,7 +346,9 @@ impl ProcedureDeclarationStatement {
         Self {
             declare_token: SpannedToken::create_empty(Token::Declare),
             procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -363,7 +371,7 @@ impl ProcedureDeclarationStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -372,7 +380,7 @@ impl ProcedureDeclarationStatement {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
@@ -445,13 +453,15 @@ impl FunctionDeclarationStatement {
         Self {
             declare_token: SpannedToken::create_empty(Token::Declare),
             function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                identifier.into(),
+            ))),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            return_type_token: SpannedToken::create_empty(Token::Identifier(
+            return_type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 return_type.to_string(),
-            )),
+            ))),
             return_type,
         }
     }
@@ -472,7 +482,7 @@ impl FunctionDeclarationStatement {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -481,7 +491,7 @@ impl FunctionDeclarationStatement {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 

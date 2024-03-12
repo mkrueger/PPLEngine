@@ -123,9 +123,9 @@ impl IdentifierExpression {
         Self { identifier_token }
     }
 
-    pub fn empty(identifier: impl Into<String>) -> Self {
+    pub fn empty(identifier: unicase::Ascii<String>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
         }
     }
 
@@ -138,7 +138,7 @@ impl IdentifierExpression {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -147,11 +147,11 @@ impl IdentifierExpression {
 
     pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.into();
+            *id = unicase::Ascii::new(new_id.into());
         }
     }
 
-    pub(crate) fn create_empty_expression(identifier: impl Into<String>) -> Expression {
+    pub(crate) fn create_empty_expression(identifier: unicase::Ascii<String>) -> Expression {
         Expression::Identifier(IdentifierExpression::empty(identifier))
     }
 }
@@ -178,7 +178,9 @@ impl ConstantExpression {
 
     pub fn empty(constant_value: Constant) -> Self {
         Self {
-            constant_token: SpannedToken::create_empty(Token::Identifier(String::new())),
+            constant_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                String::new(),
+            ))),
             constant_value,
         }
     }
@@ -280,9 +282,9 @@ impl FunctionCallExpression {
         }
     }
 
-    pub fn empty(identifier: impl Into<String>, arguments: Vec<Expression>) -> Self {
+    pub fn empty(identifier: unicase::Ascii<String>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             lpar_token: SpannedToken::create_empty(Token::LPar),
             arguments,
             rpar_token: SpannedToken::create_empty(Token::RPar),
@@ -313,7 +315,7 @@ impl FunctionCallExpression {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
         if let Token::Identifier(id) = &self.identifier_token.token {
             return id;
         }
@@ -321,7 +323,7 @@ impl FunctionCallExpression {
     }
 
     pub(crate) fn create_empty_expression(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
     ) -> Expression {
         let identifier = identifier.into();
@@ -329,7 +331,7 @@ impl FunctionCallExpression {
     }
 
     pub(crate) fn set_identifier(&mut self, identifier: String) {
-        self.identifier_token.token = Token::Identifier(identifier);
+        self.identifier_token.token = Token::Identifier(unicase::Ascii::new(identifier));
     }
 }
 

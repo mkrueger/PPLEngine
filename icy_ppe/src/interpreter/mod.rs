@@ -102,13 +102,13 @@ pub trait ExecutionContext {
 }
 
 pub struct StackFrame {
-    pub values: HashMap<String, VariableValue>,
+    pub values: HashMap<unicase::Ascii<String>, VariableValue>,
     pub gosub_stack: Vec<usize>,
     pub cur_ptr: usize,
-    pub label_table: HashMap<String, usize>,
+    pub label_table: HashMap<unicase::Ascii<String>, usize>,
 }
 
-pub fn calc_table(blk: &[Statement]) -> HashMap<String, usize> {
+pub fn calc_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usize> {
     let mut res = HashMap::new();
     for (i, stmt) in blk.iter().enumerate() {
         if let Statement::Label(label) = stmt {
@@ -137,31 +137,31 @@ pub struct Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     fn set_user_variables(&mut self, cur_user: &UserRecord) {
         self.cur_frame[0].values.insert(
-            "self".to_string(),
+            unicase::Ascii::new("self".to_string()),
             VariableValue::Integer(cur_user.page_len),
         );
         self.cur_frame[0].values.insert(
-            "U_PWD".to_string(),
+            unicase::Ascii::new("U_PWD".to_string()),
             VariableValue::String(cur_user.password.clone()),
         );
         self.cur_frame[0].values.insert(
-            "U_PWDEXP".to_string(),
+            unicase::Ascii::new("U_PWDEXP".to_string()),
             VariableValue::Date(0000), // TODO
         );
         self.cur_frame[0].values.insert(
-            "U_SCROLL".to_string(),
+            unicase::Ascii::new("U_SCROLL".to_string()),
             VariableValue::Boolean(cur_user.scroll_flag),
         );
         self.cur_frame[0].values.insert(
-            "U_SEC".to_string(),
+            unicase::Ascii::new("U_SEC".to_string()),
             VariableValue::Integer(cur_user.security_level),
         );
         self.cur_frame[0].values.insert(
-            "U_CITY".to_string(),
+            unicase::Ascii::new("U_CITY".to_string()),
             VariableValue::String(cur_user.city.clone()),
         );
         self.cur_frame[0].values.insert(
-            "U_ADDR".to_string(),
+            unicase::Ascii::new("U_ADDR".to_string()),
             VariableValue::Dim1(
                 VariableType::String,
                 vec![
@@ -176,7 +176,7 @@ impl<'a> Interpreter<'a> {
         );
     }
 
-    fn get_variable(&self, var_name: &str) -> Option<&VariableValue> {
+    fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&VariableValue> {
         if self.cur_frame.len() > 1 {
             let last = self.cur_frame.last().unwrap();
             if let Some(val) = last.values.get(var_name) {
@@ -435,7 +435,7 @@ pub fn run(
         label_table,
     };
 
-    prg.visit_mut(&mut rename_vars_visitor::RenameVarsVisitor::default());
+    //prg.visit_mut(&mut rename_vars_visitor::RenameVarsVisitor::default());
 
     let mut interpreter = Interpreter {
         prg,

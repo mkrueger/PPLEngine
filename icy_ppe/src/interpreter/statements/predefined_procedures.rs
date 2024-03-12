@@ -1,9 +1,7 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    ast::{
-        convert_to, get_var_name, Expression, IdentifierExpression, ProgramContext, VariableValue,
-    },
+    ast::{convert_to, get_var_name, Expression, IdentifierExpression, VariableValue},
     icy_board::text_messages,
     interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
     Res,
@@ -133,7 +131,7 @@ pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
     let value = VariableValue::String(interpreter.io.fget(channel));
     let var_name = get_var_name(&params[1]);
-    let var_type = interpreter.prg.get_var_type(&var_name);
+    let var_type = interpreter.get_variable(&var_name).unwrap().get_type();
     interpreter
         .cur_frame
         .last_mut()

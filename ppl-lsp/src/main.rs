@@ -272,7 +272,7 @@ impl LanguageServer for Backend {
                     let first = rope.try_line_to_char(line as usize).ok()? as u32;
                     let start = rope.try_byte_to_char(token.start).ok()? as u32 - first;
                     let ret = Some(SemanticToken {
-                        delta_line: line - pre_line,
+                        delta_line: line.saturating_sub(pre_line),
                         delta_start: if start >= pre_start {
                             start - pre_start
                         } else {
@@ -307,7 +307,7 @@ impl LanguageServer for Backend {
             .await;
         let uri = &params.text_document.uri;
         if let Some(_program) = self.ast_map.get(uri.as_str()) {}
-        let mut inlay_hint_list = Vec::new();
+        let inlay_hint_list = Vec::new();
         /*
                 let document = match self.document_map.get(uri.as_str()) {
                     Some(rope) => rope,
@@ -612,7 +612,7 @@ fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
 }
 
 fn get_tooltip(ast: &Program, offset: usize) -> Option<Hover> {
-    for stmt in &ast.main_block.statements {
+    for stmt in &ast.statements {
         let tt = get_tooltip_from_stmt(offset, stmt);
         if tt.is_some() {
             return tt;
@@ -622,13 +622,10 @@ fn get_tooltip(ast: &Program, offset: usize) -> Option<Hover> {
 }
 
 fn get_tooltip_from_stmt(offset: usize, stmt: &icy_ppe::ast::Statement) -> Option<Hover> {
-    match stmt {
-        icy_ppe::ast::Statement::PredifinedCall(call) => {
-            if call.get_identifier_token().span.contains(&offset) {
-                return get_statement_hover(call.get_func().opcode);
-            }
+    if let icy_ppe::ast::Statement::PredifinedCall(call) = stmt {
+        if call.get_identifier_token().span.contains(&offset) {
+            return get_statement_hover(call.get_func().opcode);
         }
-        _ => {}
     }
     None
 }

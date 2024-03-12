@@ -1,287 +1,523 @@
 use std::fmt;
 
-use super::{
-    Constant, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression,
-    VariableType,
-};
+use crate::parser::tokens::{SpannedToken, Token};
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum VarInfo {
-    Var0(String),
-    Var1(String, Expression),                         // vector
-    Var2(String, Expression, Expression),             // matrix
-    Var3(String, Expression, Expression, Expression), // cube
+use super::{Constant, Statement, VariableType, VariableValue};
+#[derive(Debug, PartialEq, Clone)]
+pub struct DimensionSpecifier {
+    dimension_token: SpannedToken,
 }
 
-impl VarInfo {
-    pub fn as_expr(&self) -> Expression {
-        match &self {
-            VarInfo::Var0(name) => IdentifierExpression::create_empty_expression(name),
-            VarInfo::Var1(name, vec) => {
-                FunctionCallExpression::create_empty_expression(name.clone(), vec![vec.clone()])
-            }
-            VarInfo::Var2(name, vec, mat) => FunctionCallExpression::create_empty_expression(
-                name.clone(),
-                vec![vec.clone(), mat.clone()],
-            ),
-            VarInfo::Var3(name, vec, mat, cube) => FunctionCallExpression::create_empty_expression(
-                name.clone(),
-                vec![vec.clone(), mat.clone(), cube.clone()],
-            ),
-        }
-    }
-
-    pub fn get_name(&self) -> &String {
-        match self {
-            VarInfo::Var0(name)
-            | VarInfo::Var1(name, _)
-            | VarInfo::Var2(name, _, _)
-            | VarInfo::Var3(name, _, _, _) => name,
-        }
-    }
-
-    pub fn get_dims(&self) -> u8 {
-        match self {
-            VarInfo::Var0(_) => 0,
-            VarInfo::Var1(_, _) => 1,
-            VarInfo::Var2(_, _, _) => 2,
-            VarInfo::Var3(_, _, _, _) => 3,
-        }
-    }
-
-    /// Returns the get vector size of this [`VarInfo`].
+impl DimensionSpecifier {
+    /// Creates a new [`DimensionSpecifier`].
     ///
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_vector_size(&self) -> usize {
-        match self {
-            VarInfo::Var0(_) => 0,
-            VarInfo::Var1(_, vec) | VarInfo::Var2(_, vec, _) | VarInfo::Var3(_, vec, _, _) => {
-                match vec {
-                    Expression::Const(constant_expression) => {
-                        match constant_expression.get_constant_value() {
-                            Constant::Integer(size) => *size as usize,
-                            _ => panic!("vector size not int {constant_expression:?}"),
-                        }
-                    }
-                    _ => panic!(""),
-                }
-            }
+    pub fn new(dimension_token: SpannedToken) -> Self {
+        #[allow(clippy::manual_assert)]
+        if !matches!(dimension_token.token, Token::Const(Constant::Integer(_))) {
+            panic!("DimensionSpecifier::new: invalid token {dimension_token:?}");
+        }
+        Self { dimension_token }
+    }
+
+    pub fn empty(dimension: i32) -> Self {
+        Self {
+            dimension_token: SpannedToken::create_empty(Token::Const(Constant::Integer(dimension))),
         }
     }
 
-    /// Returns the get matrix size of this [`VarInfo`].
+    pub fn get_dimension_token(&self) -> &SpannedToken {
+        &self.dimension_token
+    }
+
+    /// Returns the get dimension of this [`DimensionSpecifier`].
     ///
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_matrix_size(&self) -> usize {
-        match self {
-            VarInfo::Var0(_) | VarInfo::Var1(_, _) => 0,
-            VarInfo::Var2(_, _, mat) | VarInfo::Var3(_, _, mat, _) => match mat {
-                Expression::Const(constant_expression) => {
-                    match constant_expression.get_constant_value() {
-                        Constant::Integer(size) => *size as usize,
-                        _ => panic!("vector size not int {constant_expression:?}"),
-                    }
-                }
-                _ => panic!("matrix size not int"),
-            },
-        }
-    }
-
-    /// Returns the get cube size of this [`VarInfo`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn get_cube_size(&self) -> usize {
-        match self {
-            VarInfo::Var0(_) | VarInfo::Var1(_, _) | VarInfo::Var2(_, _, _) => 0,
-            VarInfo::Var3(_, _, _, cube) => match cube {
-                Expression::Const(constant_expression) => {
-                    match constant_expression.get_constant_value() {
-                        Constant::Integer(size) => *size as usize,
-                        _ => panic!("vector size not int {constant_expression:?}"),
-                    }
-                }
-                _ => panic!("cube size not int"),
-            },
-        }
-    }
-
-    pub fn is_array(&self) -> bool {
-        match self {
-            VarInfo::Var0(_) => false,
-            VarInfo::Var1(_, _) | VarInfo::Var2(_, _, _) | VarInfo::Var3(_, _, _, _) => true,
-        }
-    }
-
-    pub fn rename(&mut self, new_name: String) {
-        match self {
-            VarInfo::Var0(name)
-            | VarInfo::Var1(name, _)
-            | VarInfo::Var2(name, _, _)
-            | VarInfo::Var3(name, _, _, _) => *name = new_name,
+    pub fn get_dimension(&self) -> usize {
+        if let Token::Const(Constant::Integer(i)) = self.dimension_token.token {
+            i as usize
+        } else {
+            panic!("DimensionSpecifier::new: invalid token")
         }
     }
 }
 
-impl fmt::Display for VarInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            VarInfo::Var0(name) => write!(f, "{name}"),
-            VarInfo::Var1(name, vs) => write!(f, "{name}({vs})"),
-            VarInfo::Var2(name, vs, ms) => write!(f, "{name}({vs}, {ms})"),
-            VarInfo::Var3(name, vs, ms, cs) => write!(f, "{name}({vs}, {ms}, {cs})"),
-        }
-    }
+#[derive(Debug, PartialEq, Clone)]
+pub struct VariableSpecifier {
+    identifier_token: SpannedToken,
+    leftpar_token: Option<SpannedToken>,
+    dimensions: Vec<DimensionSpecifier>,
+    rightpar_token: Option<SpannedToken>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Declaration {
-    Variable(VariableType, Vec<VarInfo>),
-    Function(String, Vec<Declaration>, VariableType),
-    Procedure(String, Vec<Declaration>),
-}
-
-impl Declaration {
-    /// Returns a reference to the get name of this [`Declaration`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn get_name(&self) -> &String {
-        match self {
-            Declaration::Variable(_, _) => {
-                panic!("no name")
-            }
-            Declaration::Function(name, _, _) | Declaration::Procedure(name, _) => name,
-        }
-    }
-
-    /// Returns the get return vartype of this [`Declaration`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn get_return_vartype(&self) -> i32 {
-        match self {
-            Declaration::Variable(_, _) => {
-                panic!("no return type")
-            }
-            Declaration::Function(_, _, return_type) => *return_type as i32,
-            Declaration::Procedure(_, _) => 0,
-        }
-    }
-}
-
-fn var_infos_to_string(vars: &Vec<VarInfo>) -> String {
-    let mut result = String::new();
-
-    for v in vars {
-        if !result.is_empty() {
-            result.push_str(", ");
-        }
-        result.push_str(&v.to_string());
-    }
-
-    result
-}
-
-impl fmt::Display for Declaration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Declaration::Variable(var_type, name) => {
-                write!(f, "{} {}", var_type, var_infos_to_string(name))
-            }
-            Declaration::Procedure(name, parameters) => write!(
-                f,
-                "DECLARE PROCEDURE {}({})",
-                name,
-                Declaration::declr_vec_to_string(parameters)
-            ),
-            Declaration::Function(name, parameters, return_type) => write!(
-                f,
-                "DECLARE FUNCTION {}({}) {}",
-                name,
-                Declaration::declr_vec_to_string(parameters),
-                return_type
-            ),
-        }
-    }
-}
-
-impl Declaration {
-    fn declr_vec_to_string(list: &Vec<Declaration>) -> String {
-        let mut res = String::new();
-        for decl in list {
-            if !res.is_empty() {
-                res.push_str(", ");
-            }
-            res.push_str(decl.to_string().as_str());
-        }
-        res
-    }
-
-    pub fn create_variable(var_type: VariableType, name: String) -> Self {
-        Declaration::Variable(var_type, vec![VarInfo::Var0(name)])
-    }
-
-    pub fn create_variable1(var_type: VariableType, name: String, vs: i32) -> Self {
-        Declaration::Variable(
-            var_type,
-            vec![VarInfo::Var1(
-                name,
-                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
-            )],
-        )
-    }
-
-    pub fn create_variable2(var_type: VariableType, name: String, vs: i32, ms: i32) -> Self {
-        Declaration::Variable(
-            var_type,
-            vec![VarInfo::Var2(
-                name,
-                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
-                ConstantExpression::create_empty_expression(Constant::Integer(ms)),
-            )],
-        )
-    }
-
-    pub fn create_variable3(
-        var_type: VariableType,
-        name: String,
-        vs: i32,
-        ms: i32,
-        cs: i32,
+impl VariableSpecifier {
+    pub fn new(
+        identifier_token: SpannedToken,
+        leftpar_token: Option<SpannedToken>,
+        dimensions: Vec<DimensionSpecifier>,
+        rightpar_token: Option<SpannedToken>,
     ) -> Self {
-        Declaration::Variable(
-            var_type,
-            vec![VarInfo::Var3(
-                name,
-                ConstantExpression::create_empty_expression(Constant::Integer(vs)),
-                ConstantExpression::create_empty_expression(Constant::Integer(ms)),
-                ConstantExpression::create_empty_expression(Constant::Integer(cs)),
-            )],
-        )
+        Self {
+            identifier_token,
+            leftpar_token,
+            dimensions,
+            rightpar_token,
+        }
     }
 
-    pub fn print_header(&self) -> String {
-        match self {
-            Declaration::Procedure(name, parameters) => format!(
-                "PROCEDURE {}({})",
-                name,
-                Declaration::declr_vec_to_string(parameters)
-            ),
-            Declaration::Function(name, parameters, return_type) => format!(
-                "FUNCTION {}({}) {}",
-                name,
-                Declaration::declr_vec_to_string(parameters),
-                return_type
-            ),
-            Declaration::Variable(_, _) => "ERR".to_string(),
+    pub fn empty(identifier: impl Into<String>, dimensions: Vec<i32>) -> Self {
+        Self {
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            leftpar_token: None,
+            dimensions: dimensions
+                .into_iter()
+                .map(DimensionSpecifier::empty)
+                .collect(),
+            rightpar_token: None,
         }
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+
+    /// Returns a reference to the get identifier of this [`ForStatement`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
+    }
+
+    pub fn get_leftpar_token(&self) -> &Option<SpannedToken> {
+        &self.leftpar_token
+    }
+
+    pub fn get_dimensions(&self) -> &Vec<DimensionSpecifier> {
+        &self.dimensions
+    }
+
+    pub fn get_dimensions_mut(&mut self) -> &mut Vec<DimensionSpecifier> {
+        &mut self.dimensions
+    }
+
+    pub fn get_rightpar_token(&self) -> &Option<SpannedToken> {
+        &self.rightpar_token
+    }
+
+    pub fn create_empty_value(&self, variable_type: VariableType) -> VariableValue {
+        let var_value = variable_type.create_empty_value();
+        match self.dimensions.len() {
+            0 => var_value,
+            1 => VariableValue::Dim1(
+                variable_type,
+                vec![var_value; self.dimensions[0].get_dimension()],
+            ),
+            2 => VariableValue::Dim2(
+                variable_type,
+                vec![
+                    vec![var_value; self.dimensions[0].get_dimension()];
+                    self.dimensions[1].get_dimension()
+                ],
+            ),
+            _ => VariableValue::Dim3(
+                variable_type,
+                vec![
+                    vec![
+                        vec![var_value; self.dimensions[0].get_dimension()];
+                        self.dimensions[1].get_dimension()
+                    ];
+                    self.dimensions[2].get_dimension()
+                ],
+            ),
+        }
+    }
+
+    pub fn get_vector_size(&self) -> usize {
+        if self.dimensions.is_empty() {
+            return 0;
+        }
+        self.dimensions[0].get_dimension()
+    }
+
+    pub fn get_matrix_size(&self) -> usize {
+        if self.dimensions.len() < 2 {
+            return 0;
+        }
+        self.dimensions[1].get_dimension()
+    }
+
+    pub fn get_cube_size(&self) -> usize {
+        if self.dimensions.len() < 3 {
+            return 0;
+        }
+        self.dimensions[2].get_dimension()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VariableDeclarationStatement {
+    type_token: SpannedToken,
+    variable_type: VariableType,
+    variables: Vec<VariableSpecifier>,
+}
+
+impl VariableDeclarationStatement {
+    pub fn new(
+        type_token: SpannedToken,
+        variable_type: VariableType,
+        variables: Vec<VariableSpecifier>,
+    ) -> Self {
+        Self {
+            type_token,
+            variable_type,
+            variables,
+        }
+    }
+
+    pub fn empty(variable_type: VariableType, variables: Vec<VariableSpecifier>) -> Self {
+        Self {
+            type_token: SpannedToken::create_empty(Token::Identifier(variable_type.to_string())),
+            variable_type,
+            variables,
+        }
+    }
+
+    pub fn get_type_token(&self) -> &SpannedToken {
+        &self.type_token
+    }
+
+    pub fn get_variable_type(&self) -> VariableType {
+        self.variable_type
+    }
+
+    pub fn get_variables(&self) -> &Vec<VariableSpecifier> {
+        &self.variables
+    }
+
+    pub fn get_variables_mut(&mut self) -> &mut Vec<VariableSpecifier> {
+        &mut self.variables
+    }
+
+    pub fn create_empty_statement(
+        variable_type: VariableType,
+        variables: Vec<VariableSpecifier>,
+    ) -> Statement {
+        Statement::VariableDeclaration(VariableDeclarationStatement::empty(
+            variable_type,
+            variables,
+        ))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParameterSpecifier {
+    var_token: Option<SpannedToken>,
+    type_token: SpannedToken,
+    variable_type: VariableType,
+    variable: VariableSpecifier,
+}
+
+impl ParameterSpecifier {
+    pub fn new(
+        var_token: Option<SpannedToken>,
+        type_token: SpannedToken,
+        variable_type: VariableType,
+        variable: VariableSpecifier,
+    ) -> Self {
+        Self {
+            var_token,
+            type_token,
+            variable_type,
+            variable,
+        }
+    }
+
+    pub fn empty(is_var: bool, variable_type: VariableType, variable: VariableSpecifier) -> Self {
+        Self {
+            var_token: if is_var {
+                Some(SpannedToken::create_empty(Token::Identifier(
+                    "VAR".to_string(),
+                )))
+            } else {
+                None
+            },
+            type_token: SpannedToken::create_empty(Token::Identifier(variable_type.to_string())),
+            variable_type,
+            variable,
+        }
+    }
+
+    pub fn get_var_token(&self) -> &Option<SpannedToken> {
+        &self.var_token
+    }
+
+    pub fn is_var(&self) -> bool {
+        self.var_token.is_some()
+    }
+
+    pub fn get_type_token(&self) -> &SpannedToken {
+        &self.type_token
+    }
+
+    pub fn get_variable_type(&self) -> VariableType {
+        self.variable_type
+    }
+
+    pub fn get_variable(&self) -> &VariableSpecifier {
+        &self.variable
+    }
+
+    pub fn get_variable_mut(&mut self) -> &mut VariableSpecifier {
+        &mut self.variable
+    }
+
+    pub fn create_empty_statement(
+        variable_type: VariableType,
+        variables: Vec<VariableSpecifier>,
+    ) -> Statement {
+        Statement::VariableDeclaration(VariableDeclarationStatement::empty(
+            variable_type,
+            variables,
+        ))
+    }
+}
+
+impl fmt::Display for VariableDeclarationStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {}",
+            self.get_variable_type(),
+            Statement::variable_list_to_string(self.get_variables())
+        )
+    }
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct ProcedureDeclarationStatement {
+    declare_token: SpannedToken,
+    procedure_token: SpannedToken,
+    identifier_token: SpannedToken,
+    leftpar_token: SpannedToken,
+    parameters: Vec<ParameterSpecifier>,
+    rightpar_token: SpannedToken,
+}
+
+impl ProcedureDeclarationStatement {
+    pub fn new(
+        declare_token: SpannedToken,
+        procedure_token: SpannedToken,
+        identifier_token: SpannedToken,
+        leftpar_token: SpannedToken,
+        parameters: Vec<ParameterSpecifier>,
+        rightpar_token: SpannedToken,
+    ) -> Self {
+        Self {
+            declare_token,
+            procedure_token,
+            identifier_token,
+            leftpar_token,
+            parameters,
+            rightpar_token,
+        }
+    }
+
+    pub fn empty(identifier: impl Into<String>, parameters: Vec<ParameterSpecifier>) -> Self {
+        Self {
+            declare_token: SpannedToken::create_empty(Token::Declare),
+            procedure_token: SpannedToken::create_empty(Token::Procedure),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            parameters,
+            rightpar_token: SpannedToken::create_empty(Token::RPar),
+        }
+    }
+    pub fn get_declare_token(&self) -> &SpannedToken {
+        &self.declare_token
+    }
+
+    pub fn get_procedure_token(&self) -> &SpannedToken {
+        &self.procedure_token
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+
+    /// Returns a reference to the get identifier of this [`ForStatement`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
+    }
+
+    pub fn get_leftpar_token(&self) -> &SpannedToken {
+        &self.leftpar_token
+    }
+
+    pub fn get_parameters(&self) -> &Vec<ParameterSpecifier> {
+        &self.parameters
+    }
+
+    pub fn get_parameters_mut(&mut self) -> &mut Vec<ParameterSpecifier> {
+        &mut self.parameters
+    }
+
+    pub fn get_rightpar_token(&self) -> &SpannedToken {
+        &self.rightpar_token
+    }
+    pub fn create_empty_statement(
+        identifier: impl Into<String>,
+        parameters: Vec<ParameterSpecifier>,
+    ) -> Statement {
+        Statement::ProcedureDeclaration(ProcedureDeclarationStatement::empty(
+            identifier, parameters,
+        ))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunctionDeclarationStatement {
+    declare_token: SpannedToken,
+    function_token: SpannedToken,
+    identifier_token: SpannedToken,
+    leftpar_token: SpannedToken,
+    parameters: Vec<ParameterSpecifier>,
+    rightpar_token: SpannedToken,
+    return_type_token: SpannedToken,
+    return_type: VariableType,
+}
+
+impl FunctionDeclarationStatement {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        declare_token: SpannedToken,
+        function_token: SpannedToken,
+        identifier_token: SpannedToken,
+        leftpar_token: SpannedToken,
+        parameters: Vec<ParameterSpecifier>,
+        rightpar_token: SpannedToken,
+        return_type_token: SpannedToken,
+        return_type: VariableType,
+    ) -> Self {
+        Self {
+            declare_token,
+            function_token,
+            identifier_token,
+            leftpar_token,
+            parameters,
+            rightpar_token,
+            return_type_token,
+            return_type,
+        }
+    }
+
+    pub fn empty(
+        identifier: impl Into<String>,
+        parameters: Vec<ParameterSpecifier>,
+        return_type: VariableType,
+    ) -> Self {
+        Self {
+            declare_token: SpannedToken::create_empty(Token::Declare),
+            function_token: SpannedToken::create_empty(Token::Function),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            parameters,
+            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            return_type_token: SpannedToken::create_empty(Token::Identifier(
+                return_type.to_string(),
+            )),
+            return_type,
+        }
+    }
+    pub fn get_declare_token(&self) -> &SpannedToken {
+        &self.declare_token
+    }
+
+    pub fn get_function_token(&self) -> &SpannedToken {
+        &self.function_token
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+
+    /// Returns a reference to the get identifier of this [`ForStatement`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
+    }
+
+    pub fn get_leftpar_token(&self) -> &SpannedToken {
+        &self.leftpar_token
+    }
+
+    pub fn get_parameters(&self) -> &Vec<ParameterSpecifier> {
+        &self.parameters
+    }
+
+    pub fn get_parameters_mut(&mut self) -> &mut Vec<ParameterSpecifier> {
+        &mut self.parameters
+    }
+
+    pub fn get_rightpar_token(&self) -> &SpannedToken {
+        &self.rightpar_token
+    }
+
+    pub fn get_return_type_token(&self) -> &SpannedToken {
+        &self.return_type_token
+    }
+
+    pub fn get_return_type(&self) -> VariableType {
+        self.return_type
+    }
+
+    pub fn create_empty_statement(
+        identifier: impl Into<String>,
+        parameters: Vec<ParameterSpecifier>,
+        return_type: VariableType,
+    ) -> Statement {
+        Statement::FunctionDeclaration(FunctionDeclarationStatement::empty(
+            identifier,
+            parameters,
+            return_type,
+        ))
     }
 }

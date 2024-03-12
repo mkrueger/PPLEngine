@@ -1,10 +1,11 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    BinaryExpression, Block, CommentStatement, Constant, ConstantExpression, Declaration,
-    EndStatement, Expression, FunctionCallExpression, FunctionImplementation, GosubStatement,
-    GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
-    ParensExpression, PredefinedCallStatement, ProcedureCallStatement, Program, ReturnStatement,
-    Statement, UnaryExpression, UnaryOp, VariableType, WhileStatement,
+    BinaryExpression, CommentStatement, Constant, ConstantExpression, EndStatement, Expression,
+    FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
+    IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier,
+    ParensExpression, PredefinedCallStatement, ProcedureCallStatement, ProcedureImplementation,
+    Program, ReturnStatement, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
+    VariableSpecifier, VariableType, WhileStatement,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -14,6 +15,7 @@ use crate::tables::{
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use std::path::PathBuf;
+use std::vec;
 
 pub mod reconstruct;
 
@@ -89,7 +91,7 @@ impl Decompiler {
         if self.func_flag > 0 {
             for decl in &mut prg.function_implementations {
                 if decl.id == self.func_flag {
-                    decl.block.statements.push(stmt);
+                    decl.get_statements_mut().push(stmt);
                     return;
                 }
             }
@@ -97,12 +99,12 @@ impl Decompiler {
         if self.proc_flag > 0 {
             for decl in &mut prg.procedure_implementations {
                 if decl.id == self.proc_flag {
-                    decl.block.statements.push(stmt);
+                    decl.get_statements_mut().push(stmt);
                     return;
                 }
             }
         }
-        prg.main_block.statements.push(stmt);
+        prg.statements.push(stmt);
     }
 
     fn fill_valid(&mut self, i: i32, j: i32) {
@@ -439,10 +441,14 @@ impl Decompiler {
                             cur_var.number = c_vars;
                             if self.symbol == 0 {
                                 let var_type = TYPE_NAMES[cur_var.variable_type as usize];
-                                cur_var.var_name = match cur_var.variable_type {
+                                let var_name = match cur_var.variable_type {
                                     VariableType::String => {
                                         string_vars += 1;
                                         format!("STR{string_vars:>03}")
+                                    }
+                                    VariableType::BigStr => {
+                                        string_vars += 1;
+                                        format!("BSTR{string_vars:>03}")
                                     }
                                     VariableType::Integer => {
                                         int_vars += 1;
@@ -473,30 +479,25 @@ impl Decompiler {
                                         format!("VAR{generic_vars:>03}")
                                     }
                                 };
-                                match cur_var.dim {
-                                    1 => prg.declarations.push(Declaration::create_variable1(
-                                        var_type,
-                                        cur_var.var_name.clone(),
-                                        cur_var.vector_size,
-                                    )),
-                                    2 => prg.declarations.push(Declaration::create_variable2(
-                                        var_type,
-                                        cur_var.var_name.clone(),
-                                        cur_var.vector_size,
-                                        cur_var.matrix_size,
-                                    )),
-                                    3 => prg.declarations.push(Declaration::create_variable3(
-                                        var_type,
-                                        cur_var.var_name.clone(),
+                                cur_var.var_name = var_name.clone();
+                                let dims = match cur_var.dim {
+                                    1 => vec![cur_var.vector_size],
+                                    2 => vec![cur_var.vector_size, cur_var.matrix_size],
+                                    3 => vec![
                                         cur_var.vector_size,
                                         cur_var.matrix_size,
                                         cur_var.cube_size,
-                                    )),
-                                    _ => prg.declarations.push(Declaration::create_variable(
+                                    ],
+                                    _ => vec![],
+                                };
+
+                                self.output_stmt(
+                                    prg,
+                                    VariableDeclarationStatement::create_empty_statement(
                                         var_type,
-                                        cur_var.var_name.clone(),
-                                    )),
-                                }
+                                        vec![VariableSpecifier::empty(var_name, dims)],
+                                    ),
+                                );
                             }
                         }
                     }
@@ -548,7 +549,11 @@ impl Decompiler {
                 .get(&j)
                 .unwrap()
                 .variable_type as usize];
-            func_parameters.push(Declaration::create_variable(var_type, var_name));
+            func_parameters.push(ParameterSpecifier::empty(
+                false,
+                var_type,
+                VariableSpecifier::empty(var_name, vec![]),
+            ));
             self.executable
                 .variable_declarations
                 .get_mut(&j)
@@ -562,12 +567,14 @@ impl Decompiler {
             .get(&j)
             .unwrap()
             .variable_type as usize];
-        prg.function_implementations.push(FunctionImplementation {
-            id: func,
-            declaration: Declaration::Function(func_name, func_parameters, func_type),
-            block: Block::new(),
-            variable_declarations: Vec::new(),
-        });
+        prg.function_implementations
+            .push(FunctionImplementation::empty(
+                func,
+                func_name,
+                func_parameters,
+                func_type,
+                Vec::new(),
+            ));
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -607,7 +614,11 @@ impl Decompiler {
                 .get(&j)
                 .unwrap()
                 .variable_type as usize];
-            proc_parameters.push(Declaration::create_variable(var_type, var_name));
+            proc_parameters.push(ParameterSpecifier::empty(
+                false,
+                var_type,
+                VariableSpecifier::empty(var_name, vec![]),
+            ));
             self.executable
                 .variable_declarations
                 .get_mut(&j)
@@ -615,12 +626,13 @@ impl Decompiler {
                 .function_id = proc;
             j += 1;
         }
-        prg.procedure_implementations.push(FunctionImplementation {
-            id: proc,
-            declaration: Declaration::Procedure(proc_name, proc_parameters),
-            block: Block::new(),
-            variable_declarations: Vec::new(),
-        });
+        prg.procedure_implementations
+            .push(ProcedureImplementation::empty(
+                proc,
+                proc_name,
+                proc_parameters,
+                Vec::new(),
+            ));
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
@@ -651,11 +663,12 @@ impl Decompiler {
     }
 
     fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionImplementation> {
-        for f in &mut prg.function_implementations {
-            if f.id == func {
-                return Some(f);
-            }
-        }
+        prg.function_implementations
+            .iter_mut()
+            .find(|f| f.id == func)
+    }
+
+    fn get_procedure_mut(prg: &mut Program, func: i32) -> Option<&mut ProcedureImplementation> {
         prg.procedure_implementations
             .iter_mut()
             .find(|f| f.id == func)
@@ -702,35 +715,18 @@ impl Decompiler {
 
                     let func = Decompiler::get_function_mut(prg, func).unwrap();
 
-                    match cur_var.dim {
-                        1 => func
-                            .variable_declarations
-                            .push(Declaration::create_variable1(
-                                var_type,
-                                var_name,
-                                cur_var.vector_size,
-                            )),
-                        2 => func
-                            .variable_declarations
-                            .push(Declaration::create_variable2(
-                                var_type,
-                                var_name,
-                                cur_var.vector_size,
-                                cur_var.matrix_size,
-                            )),
-                        3 => func
-                            .variable_declarations
-                            .push(Declaration::create_variable3(
-                                var_type,
-                                var_name,
-                                cur_var.vector_size,
-                                cur_var.matrix_size,
-                                cur_var.cube_size,
-                            )),
-                        _ => func
-                            .variable_declarations
-                            .push(Declaration::create_variable(var_type, var_name)),
-                    }
+                    let dims = match cur_var.dim {
+                        1 => vec![cur_var.vector_size],
+                        2 => vec![cur_var.vector_size, cur_var.matrix_size],
+                        3 => vec![cur_var.vector_size, cur_var.matrix_size, cur_var.cube_size],
+                        _ => vec![],
+                    };
+                    func.get_statements_mut().push(
+                        VariableDeclarationStatement::create_empty_statement(
+                            var_type,
+                            vec![VariableSpecifier::empty(var_name, dims)],
+                        ),
+                    );
                 }
             }
             i += 1;

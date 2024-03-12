@@ -10,8 +10,6 @@
     clippy::struct_excessive_bools,
     clippy::module_name_repetitions
 )]
-use ast::Statement;
-
 extern crate core;
 extern crate lazy_static;
 
@@ -45,7 +43,7 @@ fn output_keyword(str: &str) -> String {
         }
     }
 }
-
+/*
 fn output_keyword_indented(indent: i32, str: &str) -> String {
     let mut indent = Statement::get_indent(indent);
 
@@ -61,4 +59,4 @@ fn output_keyword_indented(indent: i32, str: &str) -> String {
     }
 
     indent
-}
+}*/

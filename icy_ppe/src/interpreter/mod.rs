@@ -5,14 +5,8 @@ pub mod expressions;
 use thiserror::Error;
 
 use crate::ast::convert_to;
-use crate::ast::Block;
-use crate::ast::Constant;
-use crate::ast::Declaration;
-use crate::ast::Expression;
 use crate::ast::Program;
-use crate::ast::ProgramContext;
 use crate::ast::Statement;
-use crate::ast::VarInfo;
 use crate::ast::VariableType;
 use crate::ast::VariableValue;
 use crate::icy_board::data::IcyBoardData;
@@ -106,17 +100,16 @@ pub trait ExecutionContext {
 }
 
 pub struct StackFrame {
-    values: HashMap<String, VariableValue>,
-
-    gosub_stack: Vec<usize>,
-    cur_ptr: usize,
-    label_table: HashMap<String, usize>,
+    pub values: HashMap<String, VariableValue>,
+    pub gosub_stack: Vec<usize>,
+    pub cur_ptr: usize,
+    pub label_table: HashMap<String, usize>,
 }
 
-pub fn calc_table(blk: &Block) -> HashMap<String, usize> {
+pub fn calc_table(blk: &[Statement]) -> HashMap<String, usize> {
     let mut res = HashMap::new();
-    for i in 0..blk.statements.len() {
-        if let Statement::Label(label) = &blk.statements[i] {
+    for (i, stmt) in blk.iter().enumerate() {
+        if let Statement::Label(label) = stmt {
             res.insert(label.get_label().clone(), i);
         }
     }
@@ -180,31 +173,18 @@ impl<'a> Interpreter<'a> {
             ),
         );
     }
-}
 
-/// .
-///
-/// # Panics
-///
-/// Panics if .
-/// # Errors
-/// Errors if the variable is not found.
-pub fn create_array(
-    interpreter: &mut Interpreter,
-    var_type: VariableType,
-    var_info: &VarInfo,
-) -> Res<VariableValue> {
-    match var_info {
-        VarInfo::Var0(_) => panic!(""),
-        VarInfo::Var1(_, vec) => {
-            let dim = get_int(&evaluate_exp(interpreter, vec)?)?;
-            let mut v = Vec::new();
-            v.resize(dim as usize, VariableValue::Integer(0));
-            Ok(VariableValue::Dim1(var_type, v))
+    fn get_variable(&self, var_name: &str) -> Option<&VariableValue> {
+        if self.cur_frame.len() > 1 {
+            let last = self.cur_frame.last().unwrap();
+            if let Some(val) = last.values.get(var_name) {
+                return Some(val);
+            }
         }
-        VarInfo::Var2(_, _, _) => Ok(VariableValue::Dim2(var_type, Vec::new())),
-        VarInfo::Var3(_, _, _, _) => Ok(VariableValue::Dim3(var_type, Vec::new())),
+        self.get_variable(var_name)
     }
+    /*
+     */
 }
 
 /// .
@@ -239,72 +219,43 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
     match stmt {
         Statement::Let(let_stmt) => {
             let value = evaluate_exp(interpreter, let_stmt.get_value_expression())?;
-            let var_name = let_stmt.get_identifier().clone();
-            let var_type = interpreter.prg.get_var_type(&var_name);
+            let var_name = let_stmt.get_identifier().to_ascii_uppercase().clone();
 
-            if let Some(var_info) = interpreter.prg.get_var_info(&var_name) {
-                if var_info.is_array() {
-                    let dim1 = if !let_stmt.get_arguments().is_empty() {
+            if let Some(var_info) = interpreter.get_variable(&var_name) {
+                let var_type = var_info.get_type();
+                if var_info.get_dimensions() > 0 {
+                    let dim1 = if let_stmt.get_arguments().is_empty() {
+                        0
+                    } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[0])?;
                         get_int(v)? as usize - 1
-                    } else {
-                        0
                     };
 
-                    let dim2 = if let_stmt.get_arguments().len() > 1 {
+                    let dim2 = if let_stmt.get_arguments().len() <= 1 {
+                        0
+                    } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[1])?;
                         get_int(v)? as usize - 1
-                    } else {
-                        0
                     };
 
-                    let dim3 = if let_stmt.get_arguments().len() > 2 {
+                    let dim3 = if let_stmt.get_arguments().len() <= 2 {
+                        0
+                    } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[2])?;
                         get_int(v)? as usize - 1
-                    } else {
-                        0
                     };
 
-                    let val = match interpreter
+                    if let Some(val) = interpreter
                         .cur_frame
                         .last_mut()
                         .unwrap()
                         .values
                         .get_mut(&var_name)
                     {
-                        Some(val) => {
-                            // println!("found in local");
-                            val
-                        }
-                        None => {
-                            if let Some(val) = interpreter
-                                .cur_frame
-                                .first_mut()
-                                .unwrap()
-                                .values
-                                .get_mut(&var_name)
-                            {
-                                // println!("found in global");
-                                val
-                            } else {
-                                let arr = create_array(interpreter, var_type, var_info)?;
-                                interpreter
-                                    .cur_frame
-                                    .last_mut()
-                                    .unwrap()
-                                    .values
-                                    .insert(var_name.clone(), arr);
-                                interpreter
-                                    .cur_frame
-                                    .last_mut()
-                                    .unwrap()
-                                    .values
-                                    .get_mut(&var_name)
-                                    .unwrap()
-                            }
-                        }
-                    };
-                    set_array_value(val, value, dim1, dim2, dim3);
+                        set_array_value(val, value, dim1, dim2, dim3);
+                    } else {
+                        panic!("variable not found {var_name:?}");
+                    }
                 } else {
                     interpreter
                         .cur_frame
@@ -358,44 +309,39 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 }
             }
 
-            let mut found = false;
             for f in &interpreter.prg.procedure_implementations {
-                if let Declaration::Procedure(pname, params) = &f.declaration {
-                    if call_stmt.get_identifier() != pname {
-                        continue;
-                    }
-                    let label_table = calc_table(&f.block);
-                    let mut prg_frame = StackFrame {
-                        values: HashMap::new(),
-                        gosub_stack: Vec::new(),
-                        cur_ptr: 0,
-                        label_table,
-                    };
-
-                    for (i, param) in params.iter().enumerate() {
-                        if let Declaration::Variable(var_type, infos) = param {
-                            let value = evaluate_exp(interpreter, &call_stmt.get_arguments()[i])?;
-                            prg_frame
-                                .values
-                                .insert(infos[0].get_name().clone(), convert_to(*var_type, &value));
-                        } else {
-                            panic!("invalid parameter declaration {:?}", params[i]);
-                        }
-                    }
-                    interpreter.cur_frame.push(prg_frame);
-
-                    while interpreter.cur_frame.last().unwrap().cur_ptr < f.block.statements.len() {
-                        let stmt =
-                            &f.block.statements[interpreter.cur_frame.last().unwrap().cur_ptr];
-                        execute_statement(interpreter, stmt)?;
-                        interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
-                    }
-                    interpreter.cur_frame.pop();
-                    found = true;
-                    break;
+                if call_stmt.get_identifier() != f.get_identifier() {
+                    continue;
                 }
+                let label_table = calc_table(f.get_statements());
+                let mut prg_frame = StackFrame {
+                    values: HashMap::new(),
+                    gosub_stack: Vec::new(),
+                    cur_ptr: 0,
+                    label_table,
+                };
+
+                for (i, param) in f.get_parameters().iter().enumerate() {
+                    let value = evaluate_exp(interpreter, &call_stmt.get_arguments()[i])?;
+                    prg_frame.values.insert(
+                        param
+                            .get_variable()
+                            .get_identifier()
+                            .to_ascii_uppercase()
+                            .clone(),
+                        convert_to(param.get_variable_type(), &value),
+                    );
+                }
+                interpreter.cur_frame.push(prg_frame);
+
+                while interpreter.cur_frame.last().unwrap().cur_ptr < f.get_statements().len() {
+                    let stmt = &f.get_statements()[interpreter.cur_frame.last().unwrap().cur_ptr];
+                    execute_statement(interpreter, stmt)?;
+                    interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
+                }
+                interpreter.cur_frame.pop();
+                break;
             }
-            assert!(found, "procedure not found {}", call_stmt.get_identifier());
         }
 
         Statement::End(_) => {
@@ -413,6 +359,24 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 }
             } else {
                 panic!("no bool value {value:?}");
+            }
+        }
+
+        Statement::VariableDeclaration(var_decl) => {
+            for var in var_decl.get_variables() {
+                let id = var.get_identifier().to_ascii_uppercase();
+                if !interpreter
+                    .cur_frame
+                    .last()
+                    .unwrap()
+                    .values
+                    .contains_key(&id)
+                {
+                    interpreter.cur_frame.last_mut().unwrap().values.insert(
+                        var.get_identifier().clone(),
+                        var.create_empty_value(var_decl.get_variable_type()),
+                    );
+                }
             }
         }
 
@@ -458,53 +422,13 @@ pub fn run(
     io: &mut dyn PCBoardIO,
     icy_board_data: IcyBoardData,
 ) -> Res<bool> {
-    let label_table = calc_table(&prg.main_block);
-    let mut cur_frame = StackFrame {
+    let label_table = calc_table(&prg.statements);
+    let cur_frame = StackFrame {
         values: HashMap::new(),
         gosub_stack: Vec::new(),
         cur_ptr: 0,
         label_table,
     };
-
-    for decl in &prg.declarations {
-        if let Declaration::Variable(var_type, name) = decl {
-            let var = var_type.create_empty_value();
-            for name in name {
-                match name {
-                    VarInfo::Var0(name) => {
-                        cur_frame.values.insert(name.clone(), var.clone());
-                    }
-                    VarInfo::Var1(name, expression) => {
-                        let dim1 = evaluate_constant_int(expression) as usize;
-                        cur_frame.values.insert(
-                            name.clone(),
-                            VariableValue::Dim1(*var_type, vec![var.clone(); dim1]),
-                        );
-                    }
-                    VarInfo::Var2(name, expression1, expression2) => {
-                        let dim1 = evaluate_constant_int(expression1) as usize;
-                        let dim2 = evaluate_constant_int(expression2) as usize;
-                        cur_frame.values.insert(
-                            name.clone(),
-                            VariableValue::Dim2(*var_type, vec![vec![var.clone(); dim1]; dim2]),
-                        );
-                    }
-                    VarInfo::Var3(name, expression1, expression2, expression3) => {
-                        let dim1 = evaluate_constant_int(expression1) as usize;
-                        let dim2 = evaluate_constant_int(expression2) as usize;
-                        let dim3 = evaluate_constant_int(expression3) as usize;
-                        cur_frame.values.insert(
-                            name.clone(),
-                            VariableValue::Dim3(
-                                *var_type,
-                                vec![vec![vec![var.clone(); dim1]; dim2]; dim3],
-                            ),
-                        );
-                    }
-                }
-            }
-        }
-    }
 
     let mut interpreter = Interpreter {
         prg,
@@ -523,9 +447,9 @@ pub fn run(
     interpreter.set_user_variables(&UserRecord::default());
 
     while interpreter.is_running
-        && interpreter.cur_frame.last().unwrap().cur_ptr < prg.main_block.statements.len()
+        && interpreter.cur_frame.last().unwrap().cur_ptr < prg.statements.len()
     {
-        let stmt = &prg.main_block.statements[interpreter.cur_frame.last().unwrap().cur_ptr];
+        let stmt = &prg.statements[interpreter.cur_frame.last().unwrap().cur_ptr];
         match execute_statement(&mut interpreter, stmt) {
             Ok(()) => {}
             Err(err) => {
@@ -537,35 +461,4 @@ pub fn run(
         interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
     }
     Ok(true)
-}
-
-fn evaluate_constant_int(expression: &Expression) -> i32 {
-    match expression {
-        Expression::Const(c) => match c.get_constant_value() {
-            Constant::Integer(x) => *x,
-            _ => panic!("expected constant integer"),
-        },
-        _ => panic!("expected constant integer"),
-    }
-}
-
-pub mod constants {
-    pub const AUTO: i32 = 0x2000;
-    pub const BELL: i32 = 0x0800;
-    pub const DEFS: i32 = 0x0000;
-    pub const ECHODOTS: i32 = 0x0001;
-    pub const ERASELINE: i32 = 0x0020;
-    pub const FIELDLEN: i32 = 0x0002;
-    pub const GUIDE: i32 = 0x0004;
-    pub const HIGHASCII: i32 = 0x1000;
-    pub const LFAFTER: i32 = 0x0100;
-    pub const LFBEFORE: i32 = 0x0080;
-    pub const LOGIT: i32 = 0x8000;
-    pub const LOGITLEFT: i32 = 0x10000;
-    pub const NEWLINE: i32 = 0x0040;
-    pub const NOCLEAR: i32 = 0x0400;
-    pub const STACKED: i32 = 0x0010;
-    pub const UPCASE: i32 = 0x0008;
-    pub const WORDWRAP: i32 = 0x0200;
-    pub const YESNO: i32 = 0x4000;
 }

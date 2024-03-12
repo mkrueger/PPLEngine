@@ -268,50 +268,35 @@ impl Executable {
     pub fn compile(&mut self, prg: &Program) {
         self.initialize_variables();
 
-        for d in prg.declarations.iter() {
-            match d {
-                icy_ppe::ast::Declaration::Function(name, params, ret_value) => {
-                    self.procedure_declarations.insert(
-                        name.to_uppercase().clone(),
-                        Function {
-                            args: params.len() as i32,
-                            total_var: 0,
-                            start: 0,
-                            first_var: 0,
-                            return_var: *ret_value as i32,
-                            usages: Vec::new(),
-                        },
-                    );
-                }
-                icy_ppe::ast::Declaration::Procedure(name, params) => {
-                    self.procedure_declarations.insert(
-                        name.to_uppercase().clone(),
-                        Function {
-                            args: params.len() as i32,
-                            total_var: 0,
-                            start: 0,
-                            first_var: 0,
-                            return_var: 0,
-                            usages: Vec::new(),
-                        },
-                    );
-                }
-                icy_ppe::ast::Declaration::Variable(var_type, vars) => {
-                    for v in vars {
-                        self.add_variable(
-                            *var_type,
-                            v.get_name(),
-                            v.get_dims(),
-                            v.get_vector_size(),
-                            v.get_matrix_size(),
-                            v.get_cube_size(),
-                        );
-                    }
-                }
-            }
+        for d in &prg.function_implementations {
+            self.procedure_declarations.insert(
+                d.get_identifier().to_uppercase().clone(),
+                Function {
+                    args: d.get_parameters().len() as i32,
+                    total_var: 0,
+                    start: 0,
+                    first_var: 0,
+                    return_var: *d.get_return_type() as i32,
+                    usages: Vec::new(),
+                },
+            );
         }
 
-        prg.main_block.statements.iter().for_each(|s| {
+        for d in &prg.procedure_implementations {
+            self.procedure_declarations.insert(
+                d.get_identifier().to_uppercase().clone(),
+                Function {
+                    args: d.get_parameters().len() as i32,
+                    total_var: 0,
+                    start: 0,
+                    first_var: 0,
+                    return_var: 0,
+                    usages: Vec::new(),
+                },
+            );
+        }
+
+        prg.statements.iter().for_each(|s| {
             self.compile_statement(s);
         });
         self.script_buffer.push(END);
@@ -326,13 +311,13 @@ impl Executable {
             {
                 let decl = self
                     .procedure_declarations
-                    .get_mut(p.declaration.get_name())
+                    .get_mut(p.get_identifier())
                     .unwrap();
                 decl.start = self.script_buffer.len() as i32 * 2;
                 let id = self.variable_table.len() as i32 + 1;
                 decl.first_var = id;
                 self.variable_table.insert(
-                    p.declaration.get_name().to_ascii_uppercase().clone(),
+                    p.get_identifier().to_ascii_uppercase().clone(),
                     Variable {
                         info: VarInfo {
                             id: id as usize,
@@ -344,12 +329,12 @@ impl Executable {
                             flags: 0,
                         },
                         var_type: VariableType::Procedure,
-                        value: VariableValue::String(p.declaration.get_name().clone()),
+                        value: VariableValue::String(p.get_identifier().clone()),
                     },
                 );
             }
 
-            p.block.statements.iter().for_each(|s| {
+            p.get_statements().iter().for_each(|s| {
                 self.compile_statement(s);
             });
             self.fill_labels();
@@ -359,7 +344,7 @@ impl Executable {
             {
                 let decl = self
                     .procedure_declarations
-                    .get_mut(p.declaration.get_name())
+                    .get_mut(p.get_identifier())
                     .unwrap();
                 decl.total_var = self.variable_table.len() as i32 - decl.first_var;
             }
@@ -369,15 +354,13 @@ impl Executable {
             {
                 let decl = self
                     .procedure_declarations
-                    .get_mut(p.declaration.get_name())
+                    .get_mut(p.get_identifier())
                     .unwrap();
                 decl.start = self.script_buffer.len() as i32 * 2;
                 let id = self.variable_table.len() as i32 + 1;
                 decl.first_var = id;
-                decl.return_var = p.declaration.get_return_vartype();
-
                 self.variable_table.insert(
-                    p.declaration.get_name().to_ascii_uppercase().clone(),
+                    p.get_identifier().to_ascii_uppercase().clone(),
                     Variable {
                         info: VarInfo {
                             id: id as usize,
@@ -389,14 +372,59 @@ impl Executable {
                             flags: 0,
                         },
                         var_type: VariableType::Function,
-                        value: VariableValue::String(p.declaration.get_name().clone()),
+                        value: VariableValue::String(p.get_identifier().clone()),
                     },
                 );
-                self.cur_function = p.declaration.get_name().to_ascii_uppercase().clone();
+            }
+
+            p.get_statements().iter().for_each(|s| {
+                self.compile_statement(s);
+            });
+            self.fill_labels();
+
+            self.script_buffer.push(ENDPROC);
+
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.get_identifier())
+                    .unwrap();
+                decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+            }
+        }
+
+        for p in &prg.function_implementations {
+            {
+                let decl = self
+                    .procedure_declarations
+                    .get_mut(p.get_identifier())
+                    .unwrap();
+                decl.start = self.script_buffer.len() as i32 * 2;
+                let id = self.variable_table.len() as i32 + 1;
+                decl.first_var = id;
+                decl.return_var = *p.get_return_type() as i32;
+
+                self.variable_table.insert(
+                    p.get_identifier().to_ascii_uppercase().clone(),
+                    Variable {
+                        info: VarInfo {
+                            id: id as usize,
+                            var_type: VariableType::Function,
+                            dims: 0,
+                            vector_size: 0,
+                            matrix_size: 0,
+                            cube_size: 0,
+                            flags: 0,
+                        },
+                        var_type: VariableType::Function,
+                        value: VariableValue::String(p.get_identifier().clone()),
+                    },
+                );
+                self.cur_function = p.get_identifier().to_ascii_uppercase().clone();
                 self.cur_function_id = id;
             }
 
-            p.block.statements.iter().for_each(|s| {
+            p.get_statements().iter().for_each(|s| {
                 self.compile_statement(s);
             });
             self.cur_function_id = -1;
@@ -407,7 +435,7 @@ impl Executable {
             {
                 let decl = self
                     .procedure_declarations
-                    .get_mut(p.declaration.get_name())
+                    .get_mut(p.get_identifier())
                     .unwrap();
                 decl.total_var = self.variable_table.len() as i32 - decl.first_var;
             }
@@ -547,7 +575,21 @@ impl Executable {
                     });
                 }
             }
+            Statement::VariableDeclaration(var_decl) => {
+                for v in var_decl.get_variables() {
+                    self.add_variable(
+                        var_decl.get_variable_type(),
+                        v.get_identifier(),
+                        v.get_dimensions().len() as u8,
+                        v.get_vector_size(),
+                        v.get_matrix_size(),
+                        v.get_cube_size(),
+                    );
+                }
+            }
 
+            Statement::FunctionDeclaration(_) => {}
+            Statement::ProcedureDeclaration(_) => {}
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),
             Statement::Break(_) => panic!("Break not allowed in output AST."),
             Statement::IfThen(_) => panic!("if then not allowed in output AST."),

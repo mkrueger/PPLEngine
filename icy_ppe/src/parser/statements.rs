@@ -4,7 +4,7 @@ use crate::{
         ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
         LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
-        SelectStatement, Statement, VarInfo, WhileDoStatement, WhileStatement,
+        SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
     parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
@@ -380,7 +380,18 @@ impl<'a> Tokenizer<'a> {
             let mut statements = Vec::new();
             self.skip_eol();
             while self.get_cur_token() != Some(Token::EndIf) {
-                statements.push(self.parse_statement().unwrap());
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+
+                if let Some(stmt) = self.parse_statement() {
+                    statements.push(stmt);
+                }
                 self.next_token();
                 self.skip_eol();
             }
@@ -569,7 +580,7 @@ impl<'a> Tokenizer<'a> {
                         error: ParserErrorType::EqTokenExpected(self.save_token()),
                         range: self.lex.span(),
                     }));
-                return None;
+                None
             }
             Some(Token::Break) => Some(Statement::Break(BreakStatement::new(
                 self.save_spannedtoken(),
@@ -613,7 +624,7 @@ impl<'a> Tokenizer<'a> {
                 None
             }
             Some(Token::Const(Constant::Builtin(c))) => {
-                if let Some(value) = self.parse_call(c.name.to_string()) {
+                if let Some(value) = self.parse_call(c.name) {
                     return Some(value);
                 }
                 self.next_token();
@@ -621,7 +632,29 @@ impl<'a> Tokenizer<'a> {
             }
 
             Some(Token::Identifier(id)) => {
-                if let Some(value) = self.parse_call(id) {
+                if let Some(var_type) = self.get_variable_type() {
+                    let type_token = self.save_spannedtoken();
+                    self.next_token();
+                    let mut vars = Vec::new();
+                    if let Some(v) = self.parse_var_info() {
+                        vars.push(v);
+                    } else {
+                        return None;
+                    }
+                    while self.get_cur_token() == Some(Token::Comma) {
+                        self.next_token();
+                        if let Some(v) = self.parse_var_info() {
+                            vars.push(v);
+                        } else {
+                            return None;
+                        }
+                    }
+                    return Some(Statement::VariableDeclaration(
+                        VariableDeclarationStatement::new(type_token, var_type, vars),
+                    ));
+                }
+
+                if let Some(value) = self.parse_call(&id) {
                     return Some(value);
                 }
                 self.next_token();
@@ -634,15 +667,8 @@ impl<'a> Tokenizer<'a> {
                 Some(Statement::Label(LabelStatement::new(label_token)))
             }
 
-            Some(Token::Comment(_)) => {
-                self.next_token();
-                Some(Statement::Comment(CommentStatement::new(
-                    self.save_spannedtoken(),
-                )))
-            }
-
             Some(Token::Eol) | None => None,
-
+            Some(Token::Declare) => self.parse_declaration(),
             _ => {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
@@ -655,7 +681,8 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn parse_call(&mut self, id: String) -> Option<Statement> {
+    fn parse_call(&mut self, id: &str) -> Option<Statement> {
+        let id = id.to_ascii_uppercase();
         let id_token = self.save_spannedtoken();
 
         self.next_token();
@@ -780,7 +807,7 @@ impl<'a> Tokenizer<'a> {
                         }));
                     return None;
                 };
-                if params.len() >= 1 && params.len() <= 3 {
+                if !params.is_empty() && params.len() <= 3 {
                     return Some(Statement::Let(LetStatement::new(
                         None,
                         id_token,

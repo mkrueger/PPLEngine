@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{
-        convert_to, BinOp, Constant, Declaration, Expression, UnaryOp, VariableType, VariableValue,
-    },
+    ast::{convert_to, BinOp, Constant, Expression, UnaryOp, VariableType, VariableValue},
     interpreter::{calc_table, errors::IcyError, execute_statement, StackFrame},
     tables::{FuncOpCode, FunctionDefinition, PPL_FALSE, PPL_TRUE},
     Res,
@@ -67,46 +65,38 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             }
 
             for f in &interpreter.prg.function_implementations {
-                if let Declaration::Function(pname, params, _return_type) = &f.declaration {
-                    if expr.get_identifier() != pname {
-                        continue;
-                    }
-                    let label_table = calc_table(&f.block);
-
-                    let mut prg_frame = StackFrame {
-                        values: HashMap::new(),
-                        gosub_stack: vec![],
-                        cur_ptr: 0,
-                        label_table,
-                    };
-                    for (i, param) in params.iter().enumerate() {
-                        if let Declaration::Variable(var_type, infos) = &param {
-                            let value = evaluate_exp(interpreter, &expr.get_arguments()[i])?;
-                            for info in infos {
-                                prg_frame
-                                    .values
-                                    .insert(info.get_name().clone(), convert_to(*var_type, &value));
-                            }
-                        } else {
-                            panic!("invalid parameter declaration {:?}", params[i]);
-                        }
-                    }
-
-                    interpreter.cur_frame.push(prg_frame);
-
-                    while interpreter.cur_frame.last().unwrap().cur_ptr < f.block.statements.len() {
-                        let stmt =
-                            &f.block.statements[interpreter.cur_frame.last().unwrap().cur_ptr];
-                        execute_statement(interpreter, stmt)?;
-                        interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
-                    }
-                    let prg_frame = interpreter.cur_frame.pop().unwrap();
-
-                    if let Some(val) = prg_frame.values.get(expr.get_identifier()) {
-                        return Ok(val.clone());
-                    }
-                    panic!("function didn't return a value  {}", expr.get_identifier());
+                if expr.get_identifier() != f.get_identifier() {
+                    continue;
                 }
+                let label_table = calc_table(f.get_statements());
+
+                let mut prg_frame = StackFrame {
+                    values: HashMap::new(),
+                    gosub_stack: vec![],
+                    cur_ptr: 0,
+                    label_table,
+                };
+                for (i, param) in f.get_parameters().iter().enumerate() {
+                    let value = evaluate_exp(interpreter, &expr.get_arguments()[i])?;
+                    prg_frame.values.insert(
+                        param.get_variable().get_identifier().clone(),
+                        convert_to(param.get_variable_type(), &value),
+                    );
+                }
+
+                interpreter.cur_frame.push(prg_frame);
+
+                while interpreter.cur_frame.last().unwrap().cur_ptr < f.get_statements().len() {
+                    let stmt = &f.get_statements()[interpreter.cur_frame.last().unwrap().cur_ptr];
+                    execute_statement(interpreter, stmt)?;
+                    interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
+                }
+                let prg_frame = interpreter.cur_frame.pop().unwrap();
+
+                if let Some(val) = prg_frame.values.get(expr.get_identifier()) {
+                    return Ok(val.clone());
+                }
+                panic!("function didn't return a value  {}", expr.get_identifier());
             }
             let first_arg_expr = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 

@@ -6,12 +6,12 @@ use crate::ast::{
 
 pub fn transform_ast(prg: &mut Program) {
     for f in &mut prg.function_implementations {
-        transform_block(&mut f.block.statements);
+        transform_block(f.get_statements_mut());
     }
     for f in &mut prg.procedure_implementations {
-        transform_block(&mut f.block.statements);
+        transform_block(f.get_statements_mut());
     }
-    transform_block(&mut prg.main_block.statements);
+    transform_block(&mut prg.statements);
 }
 
 fn transform_block(statements: &mut Vec<Statement>) {

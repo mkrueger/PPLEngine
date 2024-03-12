@@ -4,15 +4,15 @@ use crate::ast::{
     WhileDoStatement,
 };
 
-use super::{Block, Declaration, Expression, HashMap, HashSet, Program, Statement};
+use super::{Expression, HashMap, HashSet, Program, Statement};
 
 pub fn do_pass3(prg: &mut Program) {
-    optimize_block(&mut prg.main_block.statements);
+    optimize_block(&mut prg.statements);
     for fd in &mut prg.function_implementations {
-        optimize_block(&mut fd.block.statements);
+        optimize_block(fd.get_statements_mut());
     }
     for pd in &mut prg.procedure_implementations {
-        optimize_block(&mut pd.block.statements);
+        optimize_block(pd.get_statements_mut());
     }
 }
 
@@ -839,12 +839,12 @@ fn strip_unused_labels2(statements: &mut Vec<Statement>, used_labels: &HashSet<S
 }
 
 pub fn do_pass4(prg: &mut Program) {
-    rename_variables(&mut prg.main_block, &mut prg.declarations);
+    rename_variables(&mut prg.statements);
     for fd in &mut prg.function_implementations {
-        rename_variables(&mut fd.block, &mut fd.variable_declarations);
+        rename_variables(fd.get_statements_mut());
     }
     for pd in &mut prg.procedure_implementations {
-        rename_variables(&mut pd.block, &mut pd.variable_declarations);
+        rename_variables(pd.get_statements_mut());
     }
 }
 
@@ -923,27 +923,16 @@ fn scan_replace_vars(
     */
 }
 
-fn rename_variables(block: &mut Block, declarations: &mut Vec<Declaration>) {
+fn rename_variables(block: &mut Vec<Statement>) {
     let mut rename_map = HashMap::new();
     let mut index = 0;
     let mut file_names = 0;
 
-    for stmt in &block.statements {
+    for stmt in block.iter() {
         scan_replace_vars(stmt, &mut rename_map, &mut index, &mut file_names);
     }
 
-    for decl in declarations {
-        if let Declaration::Variable(_, infos) = decl {
-            for info in infos {
-                let name = info.get_name();
-                if let Some(v) = rename_map.get(name) {
-                    info.rename(v.clone());
-                }
-            }
-        }
-    }
-
-    for stmt in &mut block.statements {
+    for stmt in block {
         replace_in_statement(stmt, &rename_map);
     }
 }

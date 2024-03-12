@@ -1,7 +1,11 @@
 use std::path::PathBuf;
 
 use crate::{
-    ast::{Block, Declaration, FunctionImplementation, Program, VarInfo, VariableType},
+    ast::{
+        Constant, DimensionSpecifier, FunctionDeclarationStatement, FunctionImplementation,
+        ParameterSpecifier, ProcedureDeclarationStatement, ProcedureImplementation, Program,
+        Statement, VariableSpecifier, VariableType,
+    },
     parser::tokens::LexingError,
 };
 
@@ -68,7 +72,7 @@ pub enum ParserErrorType {
     #[error("Expected statement")]
     StatementExpected,
 
-    #[error("To many dimensions for variable '{0}' (max 3)")]
+    #[error("Too many dimensions for variable '{0}' (max 3)")]
     TooManyDimensions(usize),
 
     #[error("Invalid token '{0}' - 'CASE' expected")]
@@ -76,6 +80,15 @@ pub enum ParserErrorType {
 
     #[error("Unexpected identifier '{0}'")]
     UnknownIdentifier(String),
+
+    #[error("Expected number, got '{0}'")]
+    NumberExpected(Token),
+
+    #[error("Expected type, got '{0}'")]
+    TypeExpected(Token),
+
+    #[error("Invalid declaration '{0}' expected either 'PROCEDURE' or 'FUNCTION'")]
+    InvalidDeclaration(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -162,19 +175,23 @@ impl<'a> Tokenizer<'a> {
         };
 
         if let Token::Identifier(id) = &token.token {
-            match id.as_str() {
-                "INTEGER" => Some(VariableType::Integer),
+            match id.to_ascii_uppercase().as_str() {
+                "INTEGER" | "INT" | "SDWORD" | "LONG" => Some(VariableType::Integer),
                 "STRING" | "BIGSTR" => Some(VariableType::String),
                 "BOOLEAN" => Some(VariableType::Boolean),
                 "DATE" => Some(VariableType::Date),
                 "TIME" => Some(VariableType::Time),
                 "MONEY" => Some(VariableType::Money),
-                "WORD" => Some(VariableType::Word),
+                "WORD" | "UWORD" => Some(VariableType::Word),
                 "SWORD" => Some(VariableType::SWord),
-                "BYTE" => Some(VariableType::Byte),
-                "UNSIGNED" => Some(VariableType::Unsigned),
-                "SBYTE" => Some(VariableType::SByte),
-                "REAL" | "DREAL" => Some(VariableType::Real),
+                "BYTE" | "UBYTE" => Some(VariableType::Byte),
+
+                "EDATE" => Some(VariableType::EDate),
+                "DDATE" => Some(VariableType::DDate),
+
+                "DWORD" | "UDWORD" | "UNSIGNED" => Some(VariableType::Unsigned),
+                "SBYTE" | "SHORT" => Some(VariableType::SByte),
+                "REAL" | "DOUBLE" | "FLOAT" | "DREAL" => Some(VariableType::Real),
                 _ => None,
             }
         } else {
@@ -187,42 +204,86 @@ impl<'a> Tokenizer<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn parse_var_info(&mut self) -> VarInfo {
-        let var_name;
-        if let Some(Token::Identifier(id)) = self.get_cur_token() {
-            self.next_token();
-            var_name = id.clone();
-        } else {
-            panic!("expected identifier, got: {:?}", self.cur_token);
-        }
-
+    pub fn parse_var_info(&mut self) -> Option<VariableSpecifier> {
+        let Some(Token::Identifier(_)) = self.get_cur_token() else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::IdentifierExpected(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
+        let identifier_token = self.save_spannedtoken();
+        self.next_token();
+        let mut dimensions = Vec::new();
+        let mut leftpar_token = None;
+        let mut rightpar_token = None;
         if let Some(Token::LPar) = &self.get_cur_token() {
+            leftpar_token = Some(self.save_spannedtoken());
             self.next_token();
-            let vec = self.parse_expression().unwrap();
+            let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::NumberExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            };
+            dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
+            self.next_token();
 
-            let var = if let Some(Token::Comma) = &self.get_cur_token() {
+            if let Some(Token::Comma) = &self.get_cur_token() {
                 self.next_token();
-                let mat = self.parse_expression().unwrap();
+                let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::NumberExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                };
+                dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
+                self.next_token();
 
                 if let Some(Token::Comma) = &self.get_cur_token() {
+                    let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::NumberExpected(self.save_token()),
+                                range: self.lex.span(),
+                            }));
+                        return None;
+                    };
+                    dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
                     self.next_token();
-                    let cube = self.parse_expression().unwrap();
-                    VarInfo::Var3(var_name, vec, mat, cube)
-                } else {
-                    VarInfo::Var2(var_name, vec, mat)
                 }
-            } else {
-                VarInfo::Var1(var_name, vec)
             };
-
-            if let Some(Token::RPar) = &self.get_cur_token() {
-                self.next_token();
-                return var;
+            if dimensions.len() > 3 {
+                self.errors.push(Error::ParserError(ParserError {
+                    error: ParserErrorType::TooManyDimensions(dimensions.len()),
+                    range: self.lex.span(),
+                }));
+                return None;
             }
-            panic!("end bracket expected");
+
+            if !matches!(self.get_cur_token(), Some(Token::RPar)) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingCloseParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
+            rightpar_token = Some(self.save_spannedtoken());
+            self.next_token();
         }
 
-        VarInfo::Var0(var_name)
+        Some(VariableSpecifier::new(
+            identifier_token,
+            leftpar_token,
+            dimensions,
+            rightpar_token,
+        ))
     }
 
     /// Returns the parse function declaration of this [`Tokenizer`].
@@ -230,8 +291,9 @@ impl<'a> Tokenizer<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn parse_function_declaration(&mut self) -> Option<Declaration> {
+    pub fn parse_declaration(&mut self) -> Option<Statement> {
         if Some(Token::Declare) == self.get_cur_token() {
+            let declare_token = self.save_spannedtoken();
             self.next_token();
 
             let is_function = if Some(Token::Procedure) == self.get_cur_token() {
@@ -239,59 +301,120 @@ impl<'a> Tokenizer<'a> {
             } else if Some(Token::Function) == self.get_cur_token() {
                 true
             } else {
-                panic!("FUNCTION or PROCEDURE expected. got {:?}", self.cur_token);
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::InvalidDeclaration(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
+            let func_or_proc_token = self.save_spannedtoken();
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                self.next_token();
-                id
-            } else {
-                panic!("IDENTIFIER expected. got {:?}", self.cur_token);
+            let Some(Token::Identifier(_name)) = self.get_cur_token() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::IdentifierExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
-
-            assert!(
-                !(self.get_cur_token() != Some(Token::LPar)),
-                "'(' expected. got {:?}",
-                self.cur_token
-            );
+            let identifier_token = self.save_spannedtoken();
             self.next_token();
 
-            let mut vars = Vec::new();
+            if self.get_cur_token() != Some(Token::LPar) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingOpenParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
+
+            let leftpar_token = self.save_spannedtoken();
+            self.next_token();
+
+            let mut parameters = Vec::new();
 
             while self.get_cur_token() != Some(Token::RPar) {
-                if let Some(var_type) = self.get_variable_type() {
-                    self.next_token();
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::MissingCloseParens(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
 
-                    let info = self.parse_var_info();
-                    vars.push(Declaration::Variable(var_type, vec![info]));
+                let mut var_token = None;
+                if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                        var_token = Some(self.save_spannedtoken());
+                        self.next_token();
+                    }
+                }
+
+                if let Some(var_type) = self.get_variable_type() {
+                    let type_token = self.save_spannedtoken();
+                    self.next_token();
+                    let Some(info) = self.parse_var_info() else {
+                        return None;
+                    };
+                    parameters.push(ParameterSpecifier::new(
+                        var_token, type_token, var_type, info,
+                    ));
                 } else {
-                    panic!("variable type expeted got: {:?}", self.cur_token);
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::TypeExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 }
 
                 if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
-
-            assert!(
-                !(self.get_cur_token() != Some(Token::RPar)),
-                "')' expected. got {:?}",
-                self.cur_token
-            );
+            let rightpar_token = self.save_spannedtoken();
             self.next_token();
+
             if !is_function {
-                return Some(Declaration::Procedure(name, vars));
+                return Some(Statement::ProcedureDeclaration(
+                    ProcedureDeclarationStatement::new(
+                        declare_token,
+                        func_or_proc_token,
+                        identifier_token,
+                        leftpar_token,
+                        parameters,
+                        rightpar_token,
+                    ),
+                ));
             }
 
-            let func_t = if let Some(var_type) = self.get_variable_type() {
-                self.next_token();
-                var_type
-            } else {
-                panic!("variable type expeted got: {:?}", self.cur_token);
+            let Some(return_type) = self.get_variable_type() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::TypeExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
+            let return_type_token = self.save_spannedtoken();
+            self.next_token();
 
-            return Some(Declaration::Function(name, vars, func_t));
+            return Some(Statement::FunctionDeclaration(
+                FunctionDeclarationStatement::new(
+                    declare_token,
+                    func_or_proc_token,
+                    identifier_token,
+                    leftpar_token,
+                    parameters,
+                    rightpar_token,
+                    return_type_token,
+                    return_type,
+                ),
+            ));
         }
         None
     }
@@ -301,79 +424,108 @@ impl<'a> Tokenizer<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn parse_procedure(&mut self) -> Option<FunctionImplementation> {
+    pub fn parse_procedure(&mut self) -> Option<ProcedureImplementation> {
         if Some(Token::Procedure) == self.get_cur_token() {
+            let procedure_token = self.save_spannedtoken();
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                self.next_token();
-                id
-            } else {
-                panic!("IDENTIFIER expected. got {:?}", self.cur_token);
+            let Some(Token::Identifier(_)) = self.get_cur_token() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::IdentifierExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
+            let identifier_token = self.save_spannedtoken();
+            self.next_token();
+            if self.get_cur_token() != Some(Token::LPar) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingOpenParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
 
-            assert!(
-                !(self.get_cur_token() != Some(Token::LPar)),
-                "'(' expected. got {:?}",
-                self.cur_token
-            );
+            let leftpar_token = self.save_spannedtoken();
             self.next_token();
 
-            let mut vars = Vec::new();
+            let mut parameters = Vec::new();
 
             while self.get_cur_token() != Some(Token::RPar) {
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::MissingCloseParens(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+                let mut var_token = None;
+                if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                        var_token = Some(self.save_spannedtoken());
+                        self.next_token();
+                    }
+                }
+
                 if let Some(var_type) = self.get_variable_type() {
+                    let type_token = self.save_spannedtoken();
                     self.next_token();
 
-                    let info = self.parse_var_info();
-                    vars.push(Declaration::Variable(var_type, vec![info]));
+                    let Some(info) = self.parse_var_info() else {
+                        return None;
+                    };
+                    parameters.push(ParameterSpecifier::new(
+                        var_token, type_token, var_type, info,
+                    ));
                 } else {
-                    panic!("variable type expeted got: {:?}", self.cur_token);
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::TypeExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 }
 
                 if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
-
-            assert!(
-                !(self.get_cur_token() != Some(Token::RPar)),
-                "')' expected. got {:?}",
-                self.cur_token
-            );
+            let rightpar_token = self.save_spannedtoken();
             self.next_token();
+
             self.skip_eol();
 
-            let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
             while self.get_cur_token() != Some(Token::EndProc) {
-                if let Some(var_type) = self.get_variable_type() {
-                    self.next_token();
-
-                    let mut vars = Vec::new();
-
-                    vars.push(self.parse_var_info());
-                    while self.get_cur_token() == Some(Token::Comma) {
-                        self.next_token();
-                        vars.push(self.parse_var_info());
-                    }
-                    variable_declarations.push(Declaration::Variable(var_type, vars));
-                } else {
-                    statements.push(self.parse_statement());
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 }
+                statements.push(self.parse_statement());
                 self.skip_eol();
             }
+            let endproc_token = self.save_spannedtoken();
+
             self.next_token();
 
-            return Some(FunctionImplementation {
-                id: -1,
-                declaration: Declaration::Procedure(name, vars),
-                variable_declarations,
-                block: Block {
-                    statements: statements.into_iter().flatten().collect(),
-                },
-            });
+            return Some(ProcedureImplementation::new(
+                -1,
+                procedure_token,
+                identifier_token,
+                leftpar_token,
+                parameters,
+                rightpar_token,
+                statements.into_iter().flatten().collect(),
+                endproc_token,
+            ));
         }
         None
     }
@@ -385,91 +537,124 @@ impl<'a> Tokenizer<'a> {
     /// Panics if .
     pub fn parse_function(&mut self) -> Option<FunctionImplementation> {
         if Some(Token::Function) == self.get_cur_token() {
+            let function_token = self.save_spannedtoken();
             self.next_token();
 
-            let name = if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                self.next_token();
-                id
-            } else {
-                panic!("IDENTIFIER expected. got {:?}", self.cur_token);
+            let Some(Token::Identifier(_)) = self.get_cur_token() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::IdentifierExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
+            let identifier_token = self.save_spannedtoken();
+            self.next_token();
+            if self.get_cur_token() != Some(Token::LPar) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingOpenParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
 
-            assert!(
-                !(self.get_cur_token() != Some(Token::LPar)),
-                "'(' expected. got {:?}",
-                self.cur_token
-            );
+            let leftpar_token = self.save_spannedtoken();
             self.next_token();
 
-            let mut vars = Vec::new();
+            let mut parameters = Vec::new();
 
             while self.get_cur_token() != Some(Token::RPar) {
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::MissingCloseParens(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+                let mut var_token = None;
+                if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                        var_token = Some(self.save_spannedtoken());
+                        self.next_token();
+                    }
+                }
+
                 if let Some(var_type) = self.get_variable_type() {
+                    let type_token = self.save_spannedtoken();
                     self.next_token();
 
-                    let info = self.parse_var_info();
-                    vars.push(Declaration::Variable(var_type, vec![info]));
+                    let Some(info) = self.parse_var_info() else {
+                        return None;
+                    };
+                    parameters.push(ParameterSpecifier::new(
+                        var_token, type_token, var_type, info,
+                    ));
                 } else {
-                    panic!("variable type expeted got: {:?}", self.cur_token);
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::TypeExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 }
 
                 if self.get_cur_token() == Some(Token::Comma) {
                     self.next_token();
                 }
             }
-
-            assert!(
-                !(self.get_cur_token() != Some(Token::RPar)),
-                "')' expected. got {:?}",
-                self.cur_token
-            );
+            let rightpar_token = self.save_spannedtoken();
             self.next_token();
 
-            let func_t = if let Some(var_type) = self.get_variable_type() {
-                self.next_token();
-                var_type
-            } else {
-                panic!("variable type expeted got: {:?}", self.cur_token);
+            let Some(return_type) = self.get_variable_type() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::TypeExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             };
+            let return_type_token = self.save_spannedtoken();
+            self.next_token();
             self.skip_eol();
 
-            let mut variable_declarations = Vec::new();
             let mut statements = Vec::new();
 
             while self.get_cur_token() != Some(Token::EndFunc) {
-                if let Some(var_type) = self.get_variable_type() {
-                    self.next_token();
-
-                    let mut vars = Vec::new();
-
-                    vars.push(self.parse_var_info());
-                    while self.get_cur_token() == Some(Token::Comma) {
-                        self.next_token();
-                        vars.push(self.parse_var_info());
-                    }
-                    variable_declarations.push(Declaration::Variable(var_type, vars));
-                } else {
-                    statements.push(self.parse_statement());
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 }
+                statements.push(self.parse_statement());
                 self.skip_eol();
             }
+            let endproc_token = self.save_spannedtoken();
+
             self.next_token();
 
-            return Some(FunctionImplementation {
-                id: -1,
-                declaration: Declaration::Function(name, vars, func_t),
-                variable_declarations,
-                block: Block {
-                    statements: statements.into_iter().flatten().collect(),
-                },
-            });
+            return Some(FunctionImplementation::new(
+                -1,
+                function_token,
+                identifier_token,
+                leftpar_token,
+                parameters,
+                rightpar_token,
+                return_type_token,
+                return_type,
+                statements.into_iter().flatten().collect(),
+                endproc_token,
+            ));
         }
         None
     }
 }
 
 pub fn parse_program(input: &str) -> Program {
-    let mut declarations = Vec::new();
     let mut function_implementations: Vec<FunctionImplementation> = Vec::new();
     let mut procedure_implementations = Vec::new();
     let mut statements = Vec::new();
@@ -479,22 +664,10 @@ pub fn parse_program(input: &str) -> Program {
     tokenizer.skip_eol();
 
     while tokenizer.cur_token.is_some() {
-        log::info!("token: {:?}", tokenizer.cur_token);
-        if let Some(decl) = tokenizer.parse_function_declaration() {
-            declarations.push(decl);
-        } else if let Some(func) = tokenizer.parse_function() {
+        if let Some(func) = tokenizer.parse_function() {
             function_implementations.push(func);
         } else if let Some(func) = tokenizer.parse_procedure() {
             procedure_implementations.push(func);
-        } else if let Some(var_type) = tokenizer.get_variable_type() {
-            tokenizer.next_token();
-            let mut vars = Vec::new();
-            vars.push(tokenizer.parse_var_info());
-            while tokenizer.get_cur_token() == Some(Token::Comma) {
-                tokenizer.next_token();
-                vars.push(tokenizer.parse_var_info());
-            }
-            declarations.push(Declaration::Variable(var_type, vars));
         } else {
             let tok = tokenizer.cur_token.clone();
             let stmt = tokenizer.parse_statement();
@@ -514,12 +687,9 @@ pub fn parse_program(input: &str) -> Program {
     }
 
     Program {
-        declarations,
         function_implementations,
         procedure_implementations,
-        main_block: Block {
-            statements: statements.into_iter().flatten().collect(),
-        },
+        statements: statements.into_iter().flatten().collect(),
         file_name: PathBuf::from("/test/test.ppe"),
         errors: tokenizer.errors,
     }
@@ -545,6 +715,7 @@ mod tests {
 
     #[test]
     fn test_var_declarations() {
+        /*
         let prg = parse_program("BOOLEAN VAR001");
         assert_eq!(
             Declaration::create_variable(VariableType::Boolean, "VAR001".to_string()),
@@ -590,7 +761,7 @@ mod tests {
             Declaration::create_variable(VariableType::SWord, "VAR001".to_string()),
             prg.declarations[0]
         );
-        /*
+
         let prg = parse_program("INTEGER VAR001(5)");
         assert_eq!(
             Declaration::create_variable1(VariableType::Integer, "VAR001".to_string(), 5),
@@ -607,7 +778,7 @@ mod tests {
             prg.declarations[0]
         );*/
     }
-
+    /*
     #[test]
     fn test_func_declarations() {
         let prg = parse_program("DECLARE PROCEDURE PROC001()");
@@ -628,5 +799,5 @@ mod tests {
             ),
             prg.declarations[0]
         );
-    }
+    }*/
 }

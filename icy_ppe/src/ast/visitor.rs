@@ -1,4 +1,12 @@
-use super::*;
+use super::{
+    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression,
+    ContinueStatement, EndStatement, ForStatement, FunctionCallExpression,
+    FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+    ParensExpression, PredefinedCallStatement, ProcedureCallStatement,
+    ProcedureDeclarationStatement, ProcedureImplementation, ReturnStatement, SelectStatement,
+    UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
+};
 
 #[allow(unused_variables)]
 pub trait AstVisitor<T: Default>: Sized {
@@ -16,12 +24,10 @@ pub trait AstVisitor<T: Default>: Sized {
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> T {
         unary.get_expression().visit(self)
     }
-
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> T {
         walk_function_call_expression(self, call);
         T::default()
     }
-
     fn visit_parens_expression(&mut self, parens: &ParensExpression) -> T {
         parens.get_expression().visit(self)
     }
@@ -33,12 +39,10 @@ pub trait AstVisitor<T: Default>: Sized {
     fn visit_end_statement(&mut self, end: &EndStatement) -> T {
         T::default()
     }
-
     fn visit_block_statement(&mut self, block: &BlockStatement) -> T {
         walk_block_stmt(self, block);
         T::default()
     }
-
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> T {
         walk_if_stmt(self, if_stmt);
         T::default()
@@ -76,6 +80,54 @@ pub trait AstVisitor<T: Default>: Sized {
     fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) -> T {
         walk_predefined_call_statement(self, call);
         T::default()
+    }
+
+    // visit declarations
+    fn visit_variable_declaration_statement(
+        &mut self,
+        var_decl: &VariableDeclarationStatement,
+    ) -> T {
+        T::default()
+    }
+    fn visit_procedure_declaration_statement(
+        &mut self,
+        proc_decl: &ProcedureDeclarationStatement,
+    ) -> T {
+        T::default()
+    }
+    fn visit_function_declaration_statement(
+        &mut self,
+        func_decl: &FunctionDeclarationStatement,
+    ) -> T {
+        T::default()
+    }
+
+    // visit implementations
+    fn visit_function_implementation(&mut self, function: &FunctionImplementation) -> T {
+        walk_function_implementationt(self, function);
+        T::default()
+    }
+    fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) -> T {
+        walk_procedure_implementationt(self, procedure);
+        T::default()
+    }
+}
+
+fn walk_function_implementationt<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    function: &FunctionImplementation,
+) {
+    for stmt in function.get_statements() {
+        stmt.visit(visitor);
+    }
+}
+
+fn walk_procedure_implementationt<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    procedure: &ProcedureImplementation,
+) {
+    for stmt in procedure.get_statements() {
+        stmt.visit(visitor);
     }
 }
 

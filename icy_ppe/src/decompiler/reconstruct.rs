@@ -1,5 +1,7 @@
 use crate::ast::{
-    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement, UnaryExpression, WhileDoStatement
+    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement,
+    UnaryExpression, WhileDoStatement,
 };
 
 use super::{Expression, HashMap, HashSet, Program, Statement};

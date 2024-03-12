@@ -270,7 +270,7 @@ impl Executable {
 
         for d in &prg.implementations {
             match d {
-                icy_ppe::ast::Implementations::Comment(_) => {},
+                icy_ppe::ast::Implementations::Comment(_) => {}
                 icy_ppe::ast::Implementations::Function(d) => {
                     self.procedure_declarations.insert(
                         d.get_identifier().to_uppercase().clone(),
@@ -283,7 +283,7 @@ impl Executable {
                             usages: Vec::new(),
                         },
                     );
-                },
+                }
                 icy_ppe::ast::Implementations::Procedure(d) => {
                     self.procedure_declarations.insert(
                         d.get_identifier().to_uppercase().clone(),
@@ -296,10 +296,9 @@ impl Executable {
                             usages: Vec::new(),
                         },
                     );
-                },
+                }
             }
         }
-
 
         prg.statements.iter().for_each(|s| {
             self.compile_statement(s);
@@ -313,7 +312,7 @@ impl Executable {
         }
         for imp in &prg.implementations {
             match imp {
-                icy_ppe::ast::Implementations::Comment(_) => {},
+                icy_ppe::ast::Implementations::Comment(_) => {}
                 icy_ppe::ast::Implementations::Procedure(p) => {
                     {
                         let decl = self
@@ -340,14 +339,14 @@ impl Executable {
                             },
                         );
                     }
-        
+
                     p.get_statements().iter().for_each(|s| {
                         self.compile_statement(s);
                     });
                     self.fill_labels();
-        
+
                     self.script_buffer.push(ENDPROC);
-        
+
                     {
                         let decl = self
                             .procedure_declarations
@@ -355,7 +354,7 @@ impl Executable {
                             .unwrap();
                         decl.total_var = self.variable_table.len() as i32 - decl.first_var;
                     }
-                },
+                }
                 icy_ppe::ast::Implementations::Function(p) => {
                     {
                         let decl = self
@@ -398,10 +397,10 @@ impl Executable {
                             .unwrap();
                         decl.total_var = self.variable_table.len() as i32 - decl.first_var;
                     }
-                },
+                }
             }
         }
-        
+
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
             self.script_buffer.push(OpCode::END as u16);
         }

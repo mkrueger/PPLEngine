@@ -296,8 +296,8 @@ fn translate_select_case(statements: &mut [Statement]) {
             statements[i] = IfThenStatement::create_empty_statement(
                 Box::new(BinaryExpression::create_empty_expression(
                     BinOp::Eq,
-                    Box::new(select_stmt.get_expr().clone()),
-                    Box::new(select_stmt.get_case_blocks()[0].get_expr().clone()),
+                    Box::new(select_stmt.get_expression().clone()),
+                    Box::new(select_stmt.get_case_blocks()[0].get_expression().clone()),
                 )),
                 select_stmt.get_case_blocks()[0].get_statements().clone(),
                 select_stmt.get_case_blocks()[1..]
@@ -306,8 +306,8 @@ fn translate_select_case(statements: &mut [Statement]) {
                         ElseIfBlock::empty(
                             Box::new(BinaryExpression::create_empty_expression(
                                 BinOp::Eq,
-                                Box::new(select_stmt.get_expr().clone()),
-                                Box::new(block.get_expr().clone()),
+                                Box::new(select_stmt.get_expression().clone()),
+                                Box::new(block.get_expression().clone()),
                             )),
                             block.get_statements().clone(),
                         )

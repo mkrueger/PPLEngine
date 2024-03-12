@@ -569,13 +569,15 @@ impl Decompiler {
             .unwrap()
             .variable_type as usize];
         prg.implementations
-            .push(crate::ast::Implementations::Function(FunctionImplementation::empty(
-                func,
-                func_name,
-                func_parameters,
-                func_type,
-                Vec::new(),
-            )));
+            .push(crate::ast::Implementations::Function(
+                FunctionImplementation::empty(
+                    func,
+                    func_name,
+                    func_parameters,
+                    func_type,
+                    Vec::new(),
+                ),
+            ));
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -628,12 +630,9 @@ impl Decompiler {
             j += 1;
         }
         prg.implementations
-            .push(crate::ast::Implementations::Procedure(ProcedureImplementation::empty(
-                proc,
-                proc_name,
-                proc_parameters,
-                Vec::new(),
-            )));
+            .push(crate::ast::Implementations::Procedure(
+                ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
+            ));
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
@@ -673,7 +672,7 @@ impl Decompiler {
         }
         None
     }
-    
+
     /*
 
     fn get_procedure_mut(prg: &mut Program, func: i32) -> Option<&mut ProcedureImplementation> {

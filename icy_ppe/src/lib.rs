@@ -25,24 +25,6 @@ pub mod tables;
 
 pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
-#[derive(PartialEq, Debug)]
-pub enum OutputFunc {
-    Upper,
-    Lower,
-    CamelCase,
-}
-
-pub static mut DEFAULT_OUTPUT_FUNC: OutputFunc = OutputFunc::Upper;
-
-fn output_keyword(str: &str) -> String {
-    unsafe {
-        match DEFAULT_OUTPUT_FUNC {
-            OutputFunc::Upper => str.to_uppercase(),
-            OutputFunc::Lower => str.to_lowercase(),
-            OutputFunc::CamelCase => str.to_string(),
-        }
-    }
-}
 /*
 fn output_keyword_indented(indent: i32, str: &str) -> String {
     let mut indent = Statement::get_indent(indent);

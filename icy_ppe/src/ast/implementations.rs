@@ -9,7 +9,6 @@ pub enum Implementations {
     Procedure(ProcedureImplementation),
 }
 
-
 impl Implementations {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
@@ -19,7 +18,6 @@ impl Implementations {
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImplementation {

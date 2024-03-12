@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use crate::{
     ast::{
-        Constant, DimensionSpecifier, FunctionDeclarationStatement, FunctionImplementation, Implementations, ParameterSpecifier, ProcedureDeclarationStatement, ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType
+        Constant, DimensionSpecifier, FunctionDeclarationStatement, FunctionImplementation,
+        Implementations, ParameterSpecifier, ProcedureDeclarationStatement,
+        ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType,
     },
     parser::tokens::LexingError,
 };
@@ -673,13 +675,13 @@ pub fn parse_program(input: &str) -> Program {
                     implementations.push(Implementations::Comment(cmt));
                     continue;
                 }
-                
+
                 if let Some(Token::Eol) = tokenizer.get_cur_token() {
                     tokenizer.next_token();
                     tokenizer.skip_eol();
                     continue;
                 }
-                
+
                 tokenizer.errors.push(Error::ParserError(ParserError {
                     error: ParserErrorType::InvalidToken(tokenizer.save_token()),
                     range: tokenizer.save_token_span(),
@@ -717,7 +719,7 @@ pub fn parse_program(input: &str) -> Program {
 
 #[cfg(test)]
 mod tests {
-   /*  use super::*;
+    /*  use super::*;
 
     #[test]
     fn test_procedure() {

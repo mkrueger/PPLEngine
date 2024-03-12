@@ -4,7 +4,9 @@ use crossterm::style::Print;
 use crossterm::style::ResetColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
+use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::CommentStatement;
+use icy_ppe::ast::OutputFunc;
 use icy_ppe::ast::Program;
 use icy_ppe::decompiler::reconstruct;
 use icy_ppe::decompiler::Decompiler;
@@ -43,6 +45,19 @@ lazy_static::lazy_static! {
 pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
+
+    prg.statements
+        .push(CommentStatement::create_empty_statement(
+            "-----------------------------------------",
+        ));
+    prg.statements
+        .push(CommentStatement::create_empty_statement(
+            " PCBoard programming language decompiler ",
+        ));
+    prg.statements
+        .push(CommentStatement::create_empty_statement(
+            "-----------------------------------------",
+        ));
 
     println!(
         "Format: {}.{:00} detected",
@@ -193,15 +208,13 @@ fn main() {
         *crate::VERSION
     );
     let mut arguments = Args::parse();
-
-    unsafe {
-        match arguments.style {
-            Some('u') => DEFAULT_OUTPUT_FUNC = OutputFunc::Upper,
-            Some('l') => DEFAULT_OUTPUT_FUNC = OutputFunc::Lower,
-            Some('c') => DEFAULT_OUTPUT_FUNC = OutputFunc::CamelCase,
-            Some(x) => panic!("unsupported keyword style {}", x),
-            None => {}
-        }
+    let mut output_func = OutputFunc::Upper;
+    match arguments.style {
+        Some('u') => output_func = OutputFunc::Upper,
+        Some('l') => output_func = OutputFunc::Lower,
+        Some('c') => output_func = OutputFunc::CamelCase,
+        Some(x) => panic!("unsupported keyword style {}", x),
+        None => {}
     }
 
     let file_name = &mut arguments.input;
@@ -214,11 +227,15 @@ fn main() {
     let out_file_name = Path::new(&file_name).with_extension("ppd");
     let decompilation = decompile(file_name, true, arguments.raw);
 
+    let mut output_visitor = output_visitor::OutputVisitor::default();
+    output_visitor.output_func = output_func;
+    decompilation.visit(&mut output_visitor);
+
     if arguments.output {
-        println!("{}", decompilation);
+        println!("{}", output_visitor.output);
     } else {
         let mut output = File::create(&out_file_name).unwrap();
-        if let Err(err) = write!(output, "{}", decompilation) {
+        if let Err(err) = write!(output, "{}", output_visitor.output) {
             stdout()
                 .execute(SetForegroundColor(Color::Red))
                 .unwrap()
@@ -238,3 +255,36 @@ fn main() {
         println!("'{}' decompiled to '{:?}'.", &file_name, &out_file_name);
     }
 }
+
+/*
+let mut res = String::new();
+if !self.function_implementations.is_empty() || !self.procedure_implementations.is_empty() {
+    res.push_str("; Function declarations\n");
+}
+for v in &self.function_implementations {
+    res.push_str(&v.to_string());
+    res.push('\n');
+}
+for v in &self.procedure_implementations {
+    res.push_str(&v.to_string());
+    res.push('\n');
+}
+for v in &self.declarations {
+    res.push_str(&v.to_string());
+    res.push('\n');
+}
+
+res.push_str(&self.block.to_string(self));
+
+if !self.function_implementations.is_empty() || !self.procedure_implementations.is_empty() {
+    res.push_str("; Function implementations\n");
+}
+for v in &self.function_implementations {
+    res.push_str(v.print_content().as_str());
+    res.push('\n');
+}
+
+for v in &self.procedure_implementations {
+    res.push_str(v.print_content().as_str());
+    res.push('\n');
+}*/

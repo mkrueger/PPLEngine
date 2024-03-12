@@ -1,7 +1,5 @@
 use std::fmt;
 
-use crate::output_keyword;
-
 use super::VariableType;
 
 #[allow(non_camel_case_types)]
@@ -166,15 +164,7 @@ impl fmt::Display for Constant {
             Constant::Unsigned(i) => write!(f, "{i}"),
             Constant::String(str) => write!(f, "\"{str}\""),
             Constant::Real(i) => write!(f, "{i}"),
-            Constant::Boolean(b) => write!(
-                f,
-                "{}",
-                if *b {
-                    output_keyword("True")
-                } else {
-                    output_keyword("False")
-                }
-            ),
+            Constant::Boolean(b) => write!(f, "{}", if *b { "TRUE" } else { "FALSE" }),
             Constant::Builtin(s) => write!(f, "{}", s.name),
         }
     }

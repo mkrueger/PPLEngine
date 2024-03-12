@@ -80,7 +80,7 @@ impl CommentStatement {
     pub fn empty(comment: impl Into<String>) -> Self {
         Self {
             comment_token: SpannedToken::create_empty(Token::Comment((
-                CommentType::SingleLineQuote,
+                CommentType::SingleLineSemicolon,
                 comment.into(),
             ))),
         }
@@ -917,7 +917,7 @@ impl ForStatement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaseBlock {
     case_token: SpannedToken,
-    expr: Box<Expression>,
+    expression: Box<Expression>,
     statements: Vec<Statement>,
 }
 
@@ -929,7 +929,7 @@ impl CaseBlock {
     ) -> Self {
         Self {
             case_token,
-            expr,
+            expression: expr,
             statements,
         }
     }
@@ -937,7 +937,7 @@ impl CaseBlock {
     pub fn empty(expr: Box<Expression>, statements: Vec<Statement>) -> Self {
         Self {
             case_token: SpannedToken::create_empty(Token::Case),
-            expr,
+            expression: expr,
             statements,
         }
     }
@@ -946,12 +946,12 @@ impl CaseBlock {
         &self.case_token
     }
 
-    pub fn get_expr(&self) -> &Expression {
-        &self.expr
+    pub fn get_expression(&self) -> &Expression {
+        &self.expression
     }
 
-    pub fn get_expr_mut(&mut self) -> &mut Expression {
-        &mut self.expr
+    pub fn get_expression_mut(&mut self) -> &mut Expression {
+        &mut self.expression
     }
 
     pub fn get_statements(&self) -> &Vec<Statement> {
@@ -967,7 +967,7 @@ impl CaseBlock {
 pub struct SelectStatement {
     select_token: SpannedToken,
     case_token: SpannedToken,
-    expr: Box<Expression>,
+    expression: Box<Expression>,
     case_blocks: Vec<CaseBlock>,
     case_else_block: Option<CaseBlock>,
     endselect_token: SpannedToken,
@@ -985,7 +985,7 @@ impl SelectStatement {
         Self {
             select_token,
             case_token,
-            expr,
+            expression: expr,
             case_blocks,
             case_else_block,
             endselect_token,
@@ -1000,7 +1000,7 @@ impl SelectStatement {
         Self {
             select_token: SpannedToken::create_empty(Token::Select),
             case_token: SpannedToken::create_empty(Token::Case),
-            expr,
+            expression: expr,
             case_blocks,
             case_else_block,
             endselect_token: SpannedToken::create_empty(Token::EndSelect),
@@ -1018,12 +1018,12 @@ impl SelectStatement {
         &self.case_token
     }
 
-    pub fn get_expr(&self) -> &Expression {
-        &self.expr
+    pub fn get_expression(&self) -> &Expression {
+        &self.expression
     }
 
-    pub fn get_expr_mut(&mut self) -> &mut Expression {
-        &mut self.expr
+    pub fn get_expression_mut(&mut self) -> &mut Expression {
+        &mut self.expression
     }
 
     pub fn get_case_blocks(&self) -> &Vec<CaseBlock> {
@@ -1524,301 +1524,4 @@ impl Statement {
         }
         res
     }
-    /*
-        fn output_stmts(prg: &dyn ProgramContext, stmts: &Vec<Statement>, indent: i32) -> String {
-            let mut res = String::new();
-            for stmt in stmts {
-                let (str, ind, modifier) = stmt.to_string(prg, indent);
-                res.push_str(Statement::get_indent(ind + modifier).as_str());
-                res.push_str(&str);
-                res.push('\n');
-            }
-            //   Statement::ElseIf(cond) => (format!("{} ({}) {}", output_keyword("ElseIf"), Statement::out_bool_func(cond), output_keyword("Then")), indent, -1),
-            res
-        }
-
-        fn output_if_stmts(
-            prg: &dyn ProgramContext,
-            stmts: &Vec<Statement>,
-            else_if_blocks: &Vec<ElseIfBlock>,
-            else_block: &Option<ElseBlock>,
-            indent: i32,
-        ) -> String {
-            let mut res = String::new();
-
-            res.push_str(&Statement::output_stmts(prg, stmts, indent));
-
-            for else_if_block in else_if_blocks {
-                res.push_str(&format!(
-                    "{} ({}) {}",
-                    output_keyword_indented(indent - 1, "ElseIf"),
-                    Statement::out_bool_func(&else_if_block.cond),
-                    output_keyword("Then")
-                ));
-                res.push('\n');
-                res.push_str(&Statement::output_stmts(
-                    prg,
-                    else_if_block.get_statements(),
-                    indent,
-                ));
-            }
-            if let Some(else_block) = else_block {
-                res.push_str(&output_keyword_indented(indent - 1, "Else"));
-                res.push('\n');
-                res.push_str(&Statement::output_stmts(
-                    prg,
-                    else_block.get_statements(),
-                    indent,
-                ));
-            }
-            res
-        }
-
-        fn output_case_blocks(
-            prg: &dyn ProgramContext,
-            case_blocks: &Vec<CaseBlock>,
-            else_block: &Option<CaseBlock>,
-            indent: i32,
-        ) -> String {
-            let mut res = String::new();
-
-            for case_block in case_blocks {
-                res.push_str(&format!(
-                    "{} {}",
-                    output_keyword_indented(indent - 1, "Case"),
-                    &case_block.expr
-                ));
-                res.push('\n');
-                res.push_str(&Statement::output_stmts(
-                    prg,
-                    case_block.get_statements(),
-                    indent,
-                ));
-            }
-
-            if let Some(else_block) = else_block {
-                res.push_str(&output_keyword_indented(indent - 1, "Case Else"));
-                res.push('\n');
-                res.push_str(&Statement::output_stmts(
-                    prg,
-                    else_block.get_statements(),
-                    indent,
-                ));
-            }
-            res
-        }
-
-        pub fn strip_outer_parens(exp: &Expression) -> &Expression {
-            if let Expression::Parens(pexpr) = exp {
-                pexpr.get_expression()
-            } else {
-                exp
-            }
-        }
-
-        pub fn out_bool_func(expr: &Expression) -> String {
-            Statement::strip_outer_parens(&Statement::try_boolean_conversion(
-                Statement::strip_outer_parens(expr),
-            ))
-            .to_string()
-        }
-
-        pub fn to_string(&self, prg: &dyn ProgramContext, indent: i32) -> (String, i32, i32) // (str, indent, cur_line_inden_tmodifier)
-        {
-            match self {
-                Statement::Comment(str) => (format!(";{str}"), indent, 0),
-                Statement::Block(block_stmt) => (
-                    format!(
-                        "{}\n{}{}",
-                        output_keyword("Begin"),
-                        Statement::output_stmts(prg, block_stmt.get_statements(), indent + 1),
-                        output_keyword_indented(indent, "End")
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::While(while_stmt) => (
-                    format!(
-                        "{} ({}) {}",
-                        output_keyword("While"),
-                        Statement::out_bool_func(while_stmt.get_condition()),
-                        while_stmt.get_statement().to_string(prg, 0).0
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::If(if_stmt) => (
-                    format!(
-                        "{} ({}) {}",
-                        output_keyword("If"),
-                        Statement::out_bool_func(if_stmt.get_condition()),
-                        if_stmt.get_statement().to_string(prg, 0).0
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::IfThen(if_then_stmt) => (
-                    format!(
-                        "{} ({}) {}\n{}{}",
-                        output_keyword("If"),
-                        Statement::out_bool_func(if_then_stmt.get_condition()),
-                        output_keyword("Then"),
-                        Statement::output_if_stmts(
-                            prg,
-                            if_then_stmt.get_statements(),
-                            if_then_stmt.get_else_if_blocks(),
-                            if_then_stmt.get_else_block(),
-                            indent + 1
-                        ),
-                        output_keyword_indented(indent, "EndIf")
-                    ),
-                    indent,
-                    0,
-                ),
-
-                Statement::Select(select_stmt) => (
-                    format!(
-                        "{} ({})\n{}{}",
-                        output_keyword("Select Case"),
-                        select_stmt.expr,
-                        Statement::output_case_blocks(
-                            prg,
-                            select_stmt.get_case_blocks(),
-                            select_stmt.get_case_else_block(),
-                            indent + 1
-                        ),
-                        output_keyword_indented(indent, "EndSelect")
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::WhileDo(while_do_stmt) => (
-                    format!(
-                        "{} ({}) {}\n{}{}",
-                        output_keyword("While"),
-                        Statement::out_bool_func(while_do_stmt.get_condition()),
-                        output_keyword("Do"),
-                        Statement::output_stmts(prg, while_do_stmt.get_statements(), indent + 1),
-                        output_keyword_indented(indent, "EndWhile")
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::Break(_) => (output_keyword("Break"), indent, 0),
-                Statement::Continue(_) => (output_keyword("Continue"), indent, 0),
-                Statement::End(_) => (output_keyword("End"), indent, 0),
-                Statement::Gosub(gosub_stmt) => (
-                    format!("{} {}", output_keyword("GoSub"), gosub_stmt.get_label()),
-                    indent,
-                    0,
-                ),
-                Statement::Return(_) => (output_keyword("Return"), indent, 0),
-                Statement::Let(let_stmt) => {
-                    let expected_type = prg.get_var_type(let_stmt.get_identifier());
-                    let expr2 = if expected_type == VariableType::Boolean {
-                        Statement::try_boolean_conversion(let_stmt.get_value_expression())
-                    } else {
-                        let_stmt.get_value_expression().clone()
-                    };
-                    if let_stmt.get_arguments().is_empty() {
-                        (
-                            format!("{} = {}", let_stmt.get_identifier(), expr2),
-                            indent,
-                            0,
-                        )
-                    } else {
-                        (
-                            format!(
-                                "{}({}) = {}",
-                                let_stmt.get_identifier(),
-                                Statement::param_list_to_string(let_stmt.get_arguments()),
-                                expr2
-                            ),
-                            indent,
-                            0,
-                        )
-                    }
-                }
-                Statement::Goto(goto_stmt) => (
-                    format!("{} {}", output_keyword("GoTo"), goto_stmt.get_label()),
-                    indent,
-                    0,
-                ),
-                Statement::For(for_stmt) => {
-                    let var_name = for_stmt.get_identifier();
-                    if let Some(step_expr) = for_stmt.get_step_expr() {
-                        (
-                            format!(
-                                "{} {} = {} {} {} {} {}\n{}{}",
-                                output_keyword("For"),
-                                var_name,
-                                for_stmt.get_start_expr(),
-                                output_keyword("To"),
-                                for_stmt.get_end_expr(),
-                                output_keyword("Step"),
-                                step_expr,
-                                Statement::output_stmts(prg, for_stmt.get_statements(), indent + 1),
-                                output_keyword_indented(indent, "Next")
-                            ),
-                            indent,
-                            0,
-                        )
-                    } else {
-                        (
-                            format!(
-                                "{} {} = {} {} {}\n{}{}",
-                                output_keyword("For"),
-                                var_name,
-                                for_stmt.get_start_expr(),
-                                output_keyword("To"),
-                                for_stmt.get_end_expr(),
-                                Statement::output_stmts(prg, for_stmt.get_statements(), indent + 1),
-                                output_keyword_indented(indent, "Next")
-                            ),
-                            indent,
-                            0,
-                        )
-                    }
-                }
-                Statement::Label(label_stmt) => (
-                    format!(
-                        "\n{}:{}",
-                        Statement::get_indent(indent - 1),
-                        label_stmt.get_label()
-                    ),
-                    indent,
-                    -1,
-                ),
-                Statement::PredifinedCall(call_stmt) => (
-                    format!(
-                        "{} {}",
-                        call_stmt.func.name,
-                        Statement::param_list_to_string(call_stmt.get_arguments())
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::Call(call_stmt) => (
-                    format!(
-                        "{}({})",
-                        call_stmt.get_identifier(),
-                        Statement::param_list_to_string(call_stmt.get_arguments())
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::VariableDeclaration(var_decl) => (
-                    format!(
-                        "{} {}",
-                        output_keyword(&var_decl.get_variable_type().to_string()),
-                        Statement::variable_list_to_string(var_decl.get_variables())
-                    ),
-                    indent,
-                    0,
-                ),
-                Statement::ProcedureDeclaration(_) => todo!(),
-                Statement::FunctionDeclaration(_) => todo!(),
-            }
-        }
-    */
 }

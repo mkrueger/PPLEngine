@@ -6,8 +6,9 @@ use super::{
     FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
     IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
     ParensExpression, PredefinedCallStatement, ProcedureCallStatement,
-    ProcedureDeclarationStatement, ProcedureImplementation, ReturnStatement, SelectStatement,
-    UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
+    ProcedureDeclarationStatement, ProcedureImplementation, Program, ReturnStatement,
+    SelectStatement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement,
+    WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -121,37 +122,50 @@ pub trait AstVisitor<T: Default>: Sized {
     }
 
     // visit implementations
-    
+
     fn visit_comment_implementation(&mut self, comment: &SpannedToken) -> T {
         T::default()
     }
 
     fn visit_function_implementation(&mut self, function: &FunctionImplementation) -> T {
-        walk_function_implementationt(self, function);
+        walk_function_implementation(self, function);
         T::default()
     }
 
     fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) -> T {
-        walk_procedure_implementationt(self, procedure);
+        walk_procedure_implementation(self, procedure);
+        T::default()
+    }
+
+    fn visit_program(&mut self, program: &Program) -> T {
+        walk_program(self, program);
         T::default()
     }
 }
 
+pub fn walk_program<T: Default, V: AstVisitor<T>>(visitor: &mut V, program: &Program) {
+    for stmt in &program.statements {
+        stmt.visit(visitor);
+    }
+    for impls in &program.implementations {
+        impls.visit(visitor);
+    }
+}
 
 pub fn walk_select_stmt<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     select_stmt: &SelectStatement,
 ) {
-    select_stmt.get_expr().visit(visitor);
+    select_stmt.get_expression().visit(visitor);
 
     for case_block in select_stmt.get_case_blocks() {
-        case_block.get_expr().visit(visitor);
+        case_block.get_expression().visit(visitor);
         for stmt in case_block.get_statements() {
             stmt.visit(visitor);
         }
     }
     if let Some(else_block) = select_stmt.get_case_else_block() {
-        else_block.get_expr().visit(visitor);
+        else_block.get_expression().visit(visitor);
 
         for stmt in else_block.get_statements() {
             stmt.visit(visitor);
@@ -177,10 +191,7 @@ pub fn walk_while_do_stmt<T: Default, V: AstVisitor<T>>(
     }
 }
 
-pub fn walk_for_stmt<T: Default, V: AstVisitor<T>>(
-    visitor: &mut V,
-    for_stmt: &ForStatement,
-) {
+pub fn walk_for_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, for_stmt: &ForStatement) {
     for_stmt.get_start_expr().visit(visitor);
     for_stmt.get_end_expr().visit(visitor);
     if let Some(step) = for_stmt.get_step_expr() {
@@ -191,8 +202,7 @@ pub fn walk_for_stmt<T: Default, V: AstVisitor<T>>(
     }
 }
 
-
-pub fn walk_function_implementationt<T: Default, V: AstVisitor<T>>(
+pub fn walk_function_implementation<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     function: &FunctionImplementation,
 ) {
@@ -201,7 +211,7 @@ pub fn walk_function_implementationt<T: Default, V: AstVisitor<T>>(
     }
 }
 
-pub fn walk_procedure_implementationt<T: Default, V: AstVisitor<T>>(
+pub fn walk_procedure_implementation<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     procedure: &ProcedureImplementation,
 ) {

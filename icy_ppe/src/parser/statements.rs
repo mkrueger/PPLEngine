@@ -3,8 +3,8 @@ use crate::{
         BlockStatement, BreakStatement, CaseBlock, CommentStatement, Constant, ContinueStatement,
         ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-        PredefinedCallStatement, ProcedureCallStatement, ReturnStatement, SelectStatement,
-        Statement, VarInfo, WhileDoStatement, WhileStatement,
+        LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
+        SelectStatement, Statement, VarInfo, WhileDoStatement, WhileStatement,
     },
     parser::{ParserError, ParserErrorType},
     tables::STATEMENT_DEFINITIONS,
@@ -528,21 +528,48 @@ impl<'a> Tokenizer<'a> {
             Some(Token::If) => self.parse_if(),
             Some(Token::For) => self.parse_for(),
             Some(Token::Let) => {
+                let let_token = self.save_spannedtoken();
                 self.next_token();
-                let id = if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                let identifier_token = self.save_spannedtoken();
+                let _id = if let Token::Identifier(id) = &identifier_token.token {
                     self.next_token();
                     id
                 } else {
-                    panic!("no id found");
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::IdentifierExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
                 };
                 if self.get_cur_token() == Some(Token::Eq) {
+                    let eq_token = self.save_spannedtoken();
                     self.next_token();
-                    let Some(right) = self.parse_expression() else {
+                    let Some(value_expression) = self.parse_expression() else {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::ExpressionExpected(self.save_token()),
+                                range: self.lex.span(),
+                            }));
                         return None;
                     };
-                    return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
+                    return Some(Statement::Let(LetStatement::new(
+                        Some(let_token),
+                        identifier_token,
+                        None,
+                        Vec::new(),
+                        None,
+                        eq_token,
+                        Box::new(value_expression),
+                    )));
                 }
-                panic!("error parsing let statement");
+
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::EqTokenExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             }
             Some(Token::Break) => Some(Statement::Break(BreakStatement::new(
                 self.save_spannedtoken(),
@@ -640,6 +667,11 @@ impl<'a> Tokenizer<'a> {
                         break;
                     }
                     let Some(value) = self.parse_expression() else {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::ExpressionExpected(self.save_token()),
+                                range: self.lex.span(),
+                            }));
                         return None;
                     };
                     params.push(value);
@@ -686,12 +718,25 @@ impl<'a> Tokenizer<'a> {
         }
 
         if self.get_cur_token() == Some(Token::Eq) {
+            let eq_token = self.save_spannedtoken();
             self.next_token();
-            let Some(right) = self.parse_expression() else {
+            let Some(value_expression) = self.parse_expression() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::ExpressionExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
                 return None;
             };
-
-            return Some(Statement::Let(Box::new(VarInfo::Var0(id)), Box::new(right)));
+            return Some(Statement::Let(LetStatement::new(
+                None,
+                id_token,
+                None,
+                Vec::new(),
+                None,
+                eq_token,
+                Box::new(value_expression),
+            )));
         }
 
         if self.get_cur_token() == Some(Token::LPar) {
@@ -702,6 +747,11 @@ impl<'a> Tokenizer<'a> {
 
             while self.get_cur_token() != Some(Token::RPar) {
                 let Some(right) = self.parse_expression() else {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::ExpressionExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
                     return None;
                 };
                 params.push(right);
@@ -714,39 +764,33 @@ impl<'a> Tokenizer<'a> {
                     error: ParserErrorType::MissingCloseParens(self.save_token()),
                     range: self.save_token_span(),
                 }));
+                return None;
             }
             let rightpar_token = self.save_spannedtoken();
 
             self.next_token();
             if self.get_cur_token() == Some(Token::Eq) {
+                let eq_token = self.save_spannedtoken();
                 self.next_token();
-                let Some(right) = self.parse_expression() else {
+                let Some(value_expression) = self.parse_expression() else {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::ExpressionExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
                     return None;
                 };
-                if params.len() == 1 {
-                    return Some(Statement::Let(
-                        Box::new(VarInfo::Var1(id, params[0].clone())),
-                        Box::new(right),
-                    ));
+                if params.len() >= 1 && params.len() <= 3 {
+                    return Some(Statement::Let(LetStatement::new(
+                        None,
+                        id_token,
+                        Some(lpar_token),
+                        params,
+                        Some(rightpar_token),
+                        eq_token,
+                        Box::new(value_expression),
+                    )));
                 }
-                if params.len() == 2 {
-                    return Some(Statement::Let(
-                        Box::new(VarInfo::Var2(id, params[0].clone(), params[1].clone())),
-                        Box::new(right),
-                    ));
-                }
-                if params.len() == 3 {
-                    return Some(Statement::Let(
-                        Box::new(VarInfo::Var3(
-                            id,
-                            params[0].clone(),
-                            params[1].clone(),
-                            params[2].clone(),
-                        )),
-                        Box::new(right),
-                    ));
-                }
-
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::TooManyDimensions(params.len()),

@@ -31,45 +31,6 @@ impl VarInfo {
         }
     }
 
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn from(expr: &Expression) -> Self {
-        match expr {
-            Expression::Identifier(name) => VarInfo::Var0(name.get_identifier().clone()),
-            Expression::Const(constant_expression) => {
-                match constant_expression.get_constant_value() {
-                    Constant::String(name) => VarInfo::Var0(name.clone()),
-                    _ => panic!("can't translate const to var info {expr:?}"),
-                }
-            }
-
-            Expression::FunctionCall(expr) => match expr.get_arguments().len() {
-                1 => VarInfo::Var1(
-                    expr.get_identifier().clone(),
-                    expr.get_arguments()[0].clone(),
-                ),
-                2 => VarInfo::Var2(
-                    expr.get_identifier().clone(),
-                    expr.get_arguments()[0].clone(),
-                    expr.get_arguments()[1].clone(),
-                ),
-                3 => VarInfo::Var3(
-                    expr.get_identifier().clone(),
-                    expr.get_arguments()[0].clone(),
-                    expr.get_arguments()[2].clone(),
-                    expr.get_arguments()[3].clone(),
-                ),
-                _ => panic!("can't translate func call t var info {expr:?}"),
-            },
-            Expression::Binary(expr) => Self::from(expr.get_left_expression()),
-            Expression::Parens(expr) => Self::from(expr.get_expression()),
-            Expression::Unary(expr) => Self::from(expr.get_expression()),
-        }
-    }
-
     pub fn get_name(&self) -> &String {
         match self {
             VarInfo::Var0(name)

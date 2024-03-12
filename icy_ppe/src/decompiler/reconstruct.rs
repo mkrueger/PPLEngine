@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, SelectStatement, UnaryExpression, VarInfo,
+    IdentifierExpression, IfStatement, IfThenStatement, SelectStatement, UnaryExpression,
     WhileDoStatement,
 };
 
@@ -418,7 +418,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
     }
     let mut i = 0;
     while i < statements.len() - 2 {
-        if let Statement::Let(var_name, expr) = &statements[i] {
+        if let Statement::Let(outer_let) = &statements[i] {
             let label = &statements[i + 1];
             let if_statement = &statements[i + 2];
             let m = mach_for_construct(label, if_statement);
@@ -450,14 +450,14 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                 }
 
                 let step_expr;
-                if let Statement::Let(var2, expr) = &statements[matching_goto as usize - 1] {
+                if let Statement::Let(inner_let) = &statements[matching_goto as usize - 1] {
                     // todo: match expression as string
-                    if var2 != var_name {
+                    if inner_let.get_identifier() != outer_let.get_identifier() {
                         i += 1;
                         continue;
                     }
 
-                    if let Expression::Binary(bin_expr) = &**expr {
+                    if let Expression::Binary(bin_expr) = inner_let.get_value_expression() {
                         if bin_expr.get_op() != BinOp::Add {
                             continue;
                         } // always add even if step is negative
@@ -477,8 +477,8 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                     continue;
                 }
 
-                let from_expr = Box::new(*expr.clone());
-                let var_name = (*var_name).clone().to_string();
+                let from_expr = Box::new(outer_let.get_value_expression().clone());
+                let var_name = outer_let.get_identifier().clone();
 
                 statements.remove((matching_goto - 1) as usize); // remove LET
                 statements.remove((matching_goto - 1) as usize); // remove matching goto
@@ -997,9 +997,14 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
                 replace_in_statement(stmt, rename_map);
             }
         }
-        Statement::Let(expr, rvalue) => {
-            replace_in_varinfo(expr, rename_map);
-            replace_in_expression(rvalue, rename_map);
+        Statement::Let(let_stmt) => {
+            if let Some(name) = rename_map.get(&let_stmt.get_identifier().to_ascii_uppercase()) {
+                let_stmt.set_identifier(name.clone());
+            }
+            for arg in let_stmt.get_arguments_mut() {
+                replace_in_expression(arg, rename_map);
+            }
+            replace_in_expression(let_stmt.get_value_expression_mut(), rename_map);
         }
         Statement::Call(call_stmt) => {
             for p in call_stmt.get_arguments_mut() {
@@ -1007,19 +1012,6 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             }
         }
         _ => {}
-    }
-}
-
-fn replace_in_varinfo(repl_expr: &mut VarInfo, rename_map: &HashMap<String, String>) {
-    match repl_expr {
-        VarInfo::Var0(name)
-        | VarInfo::Var1(name, _)
-        | VarInfo::Var2(name, _, _)
-        | VarInfo::Var3(name, _, _, _) => {
-            if rename_map.contains_key(name) {
-                *name = rename_map.get(name).unwrap().to_string();
-            }
-        }
     }
 }
 

@@ -2,9 +2,9 @@ use crate::ast::constant::BuiltinConst;
 use crate::ast::{
     BinaryExpression, Block, CommentStatement, Constant, ConstantExpression, Declaration,
     EndStatement, Expression, FunctionCallExpression, FunctionImplementation, GosubStatement,
-    GotoStatement, IdentifierExpression, IfStatement, LabelStatement, ParensExpression,
-    PredefinedCallStatement, ProcedureCallStatement, Program, ReturnStatement, Statement,
-    UnaryExpression, UnaryOp, VarInfo, VariableType, WhileStatement,
+    GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
+    ParensExpression, PredefinedCallStatement, ProcedureCallStatement, Program, ReturnStatement,
+    Statement, UnaryExpression, UnaryOp, VariableType, WhileStatement,
 };
 use crate::executable::{read_file, Executable};
 use crate::tables::{
@@ -1680,10 +1680,29 @@ impl Decompiler {
                 OpCode::LET => {
                     let value = self.pop_expr().unwrap();
                     let variable = self.pop_expr().unwrap();
+                    let (identifier, arguments) = match variable {
+                        Expression::Identifier(name) => (name.get_identifier().clone(), vec![]),
+                        Expression::Const(constant_expression) => {
+                            match constant_expression.get_constant_value() {
+                                Constant::String(name) => (name.clone(), vec![]),
+                                _ => panic!("can't translate const to let "),
+                            }
+                        }
+                        Expression::FunctionCall(expr) => match expr.get_arguments().len() {
+                            0..=3 => (expr.get_identifier().clone(), expr.get_arguments().clone()),
+                            _ => panic!("can't translate func call to let"),
+                        },
+                        _ => panic!("can't translate func call to let"),
+                    };
+
                     self.outputpass2(
                         prg,
                         &mut if_while_stack,
-                        Statement::Let(Box::new(VarInfo::from(&variable)), Box::new(value)),
+                        LetStatement::create_empty_statement(
+                            identifier,
+                            arguments,
+                            Box::new(value),
+                        ),
                     );
                 }
                 OpCode::WHILE | OpCode::IF => {

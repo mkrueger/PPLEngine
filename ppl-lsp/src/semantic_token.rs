@@ -342,8 +342,18 @@ fn highlight_statements(
                     .unwrap(),
             });
         }
-        icy_ppe::ast::Statement::Let(_, expr) => {
-            highlight_expressions(semantic_tokens, expr);
+        icy_ppe::ast::Statement::Let(let_stmt) => {
+            if let Some(let_token) = let_stmt.get_let_token() {
+                semantic_tokens.push(ImCompleteSemanticToken {
+                    start: let_token.span.start,
+                    length: let_token.span.len(),
+                    token_type: LEGEND_TYPE
+                        .iter()
+                        .position(|item| item == &SemanticTokenType::KEYWORD)
+                        .unwrap(),
+                });
+            }
+            highlight_expressions(semantic_tokens, let_stmt.get_value_expression());
         }
         icy_ppe::ast::Statement::Label(_) => {}
         icy_ppe::ast::Statement::Call(call) => {

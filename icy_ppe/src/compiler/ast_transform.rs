@@ -1,7 +1,7 @@
 use crate::ast::{
     BinOp, BinaryExpression, Constant, ConstantExpression, ElseBlock, ElseIfBlock, GotoStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, ParensExpression, Program,
-    Statement, UnaryExpression, VarInfo,
+    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+    ParensExpression, Program, Statement, UnaryExpression,
 };
 
 pub fn transform_ast(prg: &mut Program) {
@@ -89,8 +89,9 @@ fn transform_block(statements: &mut Vec<Statement>) {
                 ));
                 statements.insert(
                     i,
-                    Statement::Let(
-                        Box::new(VarInfo::Var0(for_stmt.get_identifier().clone())),
+                    LetStatement::create_empty_statement(
+                        for_stmt.get_identifier().clone(),
+                        Vec::new(),
                         Box::new(BinaryExpression::create_empty_expression(
                             BinOp::Add,
                             Box::new(IdentifierExpression::create_empty_expression(
@@ -174,8 +175,9 @@ fn transform_block(statements: &mut Vec<Statement>) {
 
                 statements.insert(
                     i,
-                    Statement::Let(
-                        Box::new(VarInfo::Var0(for_stmt.get_identifier().clone())),
+                    LetStatement::create_empty_statement(
+                        for_stmt.get_identifier().clone(),
+                        Vec::new(),
                         Box::new(for_stmt.get_start_expr().clone()),
                     ),
                 );

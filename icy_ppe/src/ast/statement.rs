@@ -7,7 +7,8 @@ use crate::{
 };
 
 use super::{
-    AstVisitor, Constant, ConstantExpression, Expression, ProgramContext, UnaryExpression, UnaryOp, VarInfo, VariableType
+    AstVisitor, Constant, ConstantExpression, Expression, ProgramContext, UnaryExpression, UnaryOp,
+    VariableType,
 };
 use crate::output_keyword;
 
@@ -28,7 +29,7 @@ pub enum Statement {
     Continue(ContinueStatement),
     Gosub(GosubStatement),
     Return(ReturnStatement),
-    Let(Box<VarInfo>, Box<Expression>),
+    Let(LetStatement),
     Goto(GotoStatement),
     Label(LabelStatement),
     Call(ProcedureCallStatement),
@@ -51,7 +52,7 @@ impl Statement {
             Statement::Continue(s) => visitor.visit_continue_statement(s),
             Statement::Gosub(s) => visitor.visit_gosub_statement(s),
             Statement::Return(s) => visitor.visit_return_statement(s),
-            Statement::Let(var, expr) => visitor.visit_let_statement(var, expr),
+            Statement::Let(s) => visitor.visit_let_statement(s),
             Statement::Goto(s) => visitor.visit_goto_statement(s),
             Statement::Label(s) => visitor.visit_label_statement(s),
             Statement::Call(s) => visitor.visit_procedure_call_statement(s),
@@ -836,9 +837,9 @@ impl ForStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: &str) {
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = new_id.to_string();
+            *id = new_id.into();
         }
     }
 
@@ -1290,8 +1291,20 @@ impl PredefinedCallStatement {
         &self.identifier_token
     }
 
+    /// Returns a reference to the get identifier of this [`IdentifierExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &String {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
     pub fn get_func(&self) -> &StatementDefinition {
-        &self.func
+        self.func
     }
 
     pub fn get_arguments(&self) -> &Vec<Expression> {
@@ -1300,6 +1313,70 @@ impl PredefinedCallStatement {
 
     pub fn get_arguments_mut(&mut self) -> &mut Vec<Expression> {
         &mut self.arguments
+    }
+
+    pub fn create_empty_statement(
+        func: &'static StatementDefinition<'static>,
+        arguments: Vec<Expression>,
+    ) -> Statement {
+        Statement::PredifinedCall(PredefinedCallStatement::empty(func, arguments))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LetStatement {
+    let_token: Option<SpannedToken>,
+    identifier_token: SpannedToken,
+    leftpar_token: Option<SpannedToken>,
+    arguments: Vec<Expression>,
+    rightpar_token: Option<SpannedToken>,
+    eq_token: SpannedToken,
+    value_expression: Box<Expression>,
+}
+
+impl LetStatement {
+    pub fn new(
+        let_token: Option<SpannedToken>,
+        identifier_token: SpannedToken,
+        leftpar_token: Option<SpannedToken>,
+        arguments: Vec<Expression>,
+        rightpar_token: Option<SpannedToken>,
+        eq_token: SpannedToken,
+        value_expression: Box<Expression>,
+    ) -> Self {
+        Self {
+            let_token,
+            identifier_token,
+            leftpar_token,
+            arguments,
+            rightpar_token,
+            eq_token,
+            value_expression,
+        }
+    }
+
+    pub fn empty(
+        identifier: impl Into<String>,
+        arguments: Vec<Expression>,
+        value_expression: Box<Expression>,
+    ) -> Self {
+        Self {
+            let_token: None,
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier.into())),
+            leftpar_token: None,
+            arguments,
+            rightpar_token: None,
+            eq_token: SpannedToken::create_empty(Token::Eq),
+            value_expression,
+        }
+    }
+
+    pub fn get_let_token(&self) -> &Option<SpannedToken> {
+        &self.let_token
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
     }
 
     /// Returns a reference to the get identifier of this [`IdentifierExpression`].
@@ -1314,11 +1391,41 @@ impl PredefinedCallStatement {
         panic!("Expected identifier token")
     }
 
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
+    }
+
+    pub fn get_lpar_token(&self) -> &Option<SpannedToken> {
+        &self.leftpar_token
+    }
+
+    pub fn get_arguments(&self) -> &Vec<Expression> {
+        &self.arguments
+    }
+
+    pub fn get_arguments_mut(&mut self) -> &mut Vec<Expression> {
+        &mut self.arguments
+    }
+
+    pub fn get_rpar_token_token(&self) -> &Option<SpannedToken> {
+        &self.rightpar_token
+    }
+
+    pub fn get_value_expression(&self) -> &Expression {
+        &self.value_expression
+    }
+
+    pub fn get_value_expression_mut(&mut self) -> &mut Expression {
+        &mut self.value_expression
+    }
     pub fn create_empty_statement(
-        func: &'static StatementDefinition<'static>,
+        identifier: impl Into<String>,
         arguments: Vec<Expression>,
+        value_expression: Box<Expression>,
     ) -> Statement {
-        Statement::PredifinedCall(PredefinedCallStatement::empty(func, arguments))
+        Statement::Let(LetStatement::empty(identifier, arguments, value_expression))
     }
 }
 
@@ -1581,14 +1688,31 @@ impl Statement {
                 0,
             ),
             Statement::Return(_) => (output_keyword("Return"), indent, 0),
-            Statement::Let(var, expr) => {
-                let expected_type = prg.get_var_type(var.get_name());
+            Statement::Let(let_stmt) => {
+                let expected_type = prg.get_var_type(let_stmt.get_identifier());
                 let expr2 = if expected_type == VariableType::Boolean {
-                    Statement::try_boolean_conversion(expr)
+                    Statement::try_boolean_conversion(let_stmt.get_value_expression())
                 } else {
-                    (**expr).clone()
+                    let_stmt.get_value_expression().clone()
                 };
-                (format!("{var} = {expr2}"), indent, 0)
+                if let_stmt.get_arguments().is_empty() {
+                    (
+                        format!("{} = {}", let_stmt.get_identifier(), expr2),
+                        indent,
+                        0,
+                    )
+                } else {
+                    (
+                        format!(
+                            "{}({}) = {}",
+                            let_stmt.get_identifier(),
+                            Statement::param_list_to_string(let_stmt.get_arguments()),
+                            expr2
+                        ),
+                        indent,
+                        0,
+                    )
+                }
             }
             Statement::Goto(goto_stmt) => (
                 format!("{} {}", output_keyword("GoTo"), goto_stmt.get_label()),

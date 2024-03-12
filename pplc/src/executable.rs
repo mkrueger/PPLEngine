@@ -1,7 +1,7 @@
 use icy_ppe::{
     ast::{Program, Statement, VariableType, VariableValue},
     crypt::{encode_rle, encrypt},
-    tables::{self, get_function_definition, OpCode, STATEMENT_DEFINITIONS},
+    tables::{self, get_function_definition, OpCode},
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -462,9 +462,9 @@ impl Executable {
             Statement::Return(_) => {
                 self.script_buffer.push(OpCode::RETURN as u16);
             }
-            Statement::Let(var, expr) => {
+            Statement::Let(let_smt) => {
                 self.script_buffer.push(OpCode::LET as u16);
-                let var_name = var.get_name().to_ascii_uppercase();
+                let var_name = let_smt.get_identifier().to_ascii_uppercase();
 
                 if self.cur_function_id >= 0 && self.cur_function == var_name {
                     self.script_buffer.push(self.cur_function_id as u16);
@@ -472,42 +472,23 @@ impl Executable {
                 } else {
                     let Some(decl) = self.variable_table.get(&var_name) else {
                         self.errors.push(CompilationError {
-                            error: CompilationErrorType::VariableNotFound(var.get_name().clone()),
-                            range: 0..0, // TODO :Range
+                            error: CompilationErrorType::VariableNotFound(
+                                let_smt.get_identifier().clone(),
+                            ),
+                            range: let_smt.get_identifier_token().span.clone(),
                         });
                         return;
                     };
                     self.script_buffer.push(decl.info.id as u16);
-
-                    match &**var {
-                        icy_ppe::ast::VarInfo::Var0(_) => {
-                            self.script_buffer.push(0);
-                        }
-                        icy_ppe::ast::VarInfo::Var1(_, expr) => {
-                            self.script_buffer.push(1);
-                            let expr_buffer = self.compile_expression(expr);
-                            self.script_buffer.extend(expr_buffer);
-                        }
-                        icy_ppe::ast::VarInfo::Var2(_, expr1, expr2) => {
-                            self.script_buffer.push(2);
-                            let expr_buffer = self.compile_expression(expr1);
-                            self.script_buffer.extend(expr_buffer);
-                            let expr_buffer = self.compile_expression(expr2);
-                            self.script_buffer.extend(expr_buffer);
-                        }
-                        icy_ppe::ast::VarInfo::Var3(_, expr1, expr2, expr3) => {
-                            self.script_buffer.push(3);
-                            let expr_buffer = self.compile_expression(expr1);
-                            self.script_buffer.extend(expr_buffer);
-                            let expr_buffer: Vec<u16> = self.compile_expression(expr2);
-                            self.script_buffer.extend(expr_buffer);
-                            let expr_buffer = self.compile_expression(expr3);
-                            self.script_buffer.extend(expr_buffer);
-                        }
+                    self.script_buffer
+                        .push(let_smt.get_arguments().len() as u16);
+                    for arg in let_smt.get_arguments() {
+                        let expr_buffer = self.compile_expression(arg);
+                        self.script_buffer.extend(expr_buffer);
                     }
                 }
 
-                let expr_buffer = self.compile_expression(expr);
+                let expr_buffer = self.compile_expression(let_smt.get_value_expression());
                 self.script_buffer.extend(expr_buffer);
             }
             Statement::Gosub(gosub_stmt) => {

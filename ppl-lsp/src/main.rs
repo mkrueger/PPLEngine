@@ -654,7 +654,6 @@ fn get_statement_hover(opcode: icy_ppe::tables::OpCode) -> Option<Hover> {
                     range: None,
                 }
             )
-        
         }
         OpCode::PRINT => {
             Some(

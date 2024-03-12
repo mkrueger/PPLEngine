@@ -235,63 +235,36 @@ pub fn set_array_value(
     }
 }
 
-/// .
-///
-/// # Panics
-///
-/// Panics if .
-/// # Errors
-/// Errors if the variable is not found.
-pub fn get_first_index(var_info: &VarInfo) -> &Expression {
-    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, v, _) | VarInfo::Var3(_, v, _, _) = var_info {
-        v
-    } else {
-        panic!("")
-    }
-}
-
-/// .
-///
-/// # Panics
-///
-/// Panics if .
-/// # Errors
-/// Errors if the variable is not found.
-pub fn get_second_index(var_info: &VarInfo) -> &Expression {
-    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, v, _) = var_info {
-        v
-    } else {
-        panic!("")
-    }
-}
-
-/// .
-///
-/// # Panics
-///
-/// Panics if .
-/// # Errors
-/// Errors if the variable is not found.
-pub fn get_third_index(var_info: &VarInfo) -> &Expression {
-    if let VarInfo::Var1(_, v) | VarInfo::Var2(_, _, v) | VarInfo::Var3(_, _, _, v) = var_info {
-        v
-    } else {
-        panic!("")
-    }
-}
-
 fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()> {
     match stmt {
-        Statement::Let(variable, expr) => {
-            let value: VariableValue = evaluate_exp(interpreter, expr)?;
-            let var_name = variable.get_name().clone();
+        Statement::Let(let_stmt) => {
+            let value = evaluate_exp(interpreter, let_stmt.get_value_expression())?;
+            let var_name = let_stmt.get_identifier().clone();
             let var_type = interpreter.prg.get_var_type(&var_name);
 
             if let Some(var_info) = interpreter.prg.get_var_info(&var_name) {
                 if var_info.is_array() {
-                    let dim1 = &evaluate_exp(interpreter, get_first_index(variable))?;
-                    let dim2 = &evaluate_exp(interpreter, get_second_index(variable))?;
-                    let dim3 = &evaluate_exp(interpreter, get_third_index(variable))?;
+                    let dim1 = if !let_stmt.get_arguments().is_empty() {
+                        let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[0])?;
+                        get_int(v)? as usize - 1
+                    } else {
+                        0
+                    };
+
+                    let dim2 = if let_stmt.get_arguments().len() > 1 {
+                        let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[1])?;
+                        get_int(v)? as usize - 1
+                    } else {
+                        0
+                    };
+
+                    let dim3 = if let_stmt.get_arguments().len() > 2 {
+                        let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[2])?;
+                        get_int(v)? as usize - 1
+                    } else {
+                        0
+                    };
+
                     let val = match interpreter
                         .cur_frame
                         .last_mut()
@@ -331,13 +304,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                             }
                         }
                     };
-                    set_array_value(
-                        val,
-                        value,
-                        get_int(dim1)? as usize - 1,
-                        get_int(dim2)? as usize - 1,
-                        get_int(dim3)? as usize - 1,
-                    );
+                    set_array_value(val, value, dim1, dim2, dim3);
                 } else {
                     interpreter
                         .cur_frame

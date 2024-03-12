@@ -1,9 +1,7 @@
-use crate::Res;
-
 use super::*;
 
 #[allow(unused_variables)]
-pub trait AstVisitor<T: Default> : Sized {
+pub trait AstVisitor<T: Default>: Sized {
     // visit expressions
     fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) -> T {
         T::default()
@@ -40,7 +38,7 @@ pub trait AstVisitor<T: Default> : Sized {
         walk_block_stmt(self, block);
         T::default()
     }
-    
+
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> T {
         walk_if_stmt(self, if_stmt);
         T::default()
@@ -61,8 +59,8 @@ pub trait AstVisitor<T: Default> : Sized {
     fn visit_return_statement(&mut self, return_stmt: &ReturnStatement) -> T {
         T::default()
     }
-    fn visit_let_statement(&mut self, var: &VarInfo, expr: &Expression) -> T {
-        expr.visit(self);
+    fn visit_let_statement(&mut self, let_stmt: &LetStatement) -> T {
+        walk_let_stmt(self, let_stmt);
         T::default()
     }
     fn visit_goto_statement(&mut self, goto: &GotoStatement) -> T {
@@ -81,24 +79,43 @@ pub trait AstVisitor<T: Default> : Sized {
     }
 }
 
-fn walk_binary_expression<T: Default, V: AstVisitor<T>>(visitor: &mut V, binary: &BinaryExpression) {
+fn walk_let_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, let_stmt: &LetStatement) {
+    for arg in let_stmt.get_arguments() {
+        arg.visit(visitor);
+    }
+    let_stmt.get_value_expression().visit(visitor);
+}
+
+fn walk_binary_expression<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    binary: &BinaryExpression,
+) {
     binary.get_left_expression().visit(visitor);
     binary.get_right_expression().visit(visitor);
 }
 
-fn walk_function_call_expression<T: Default, V: AstVisitor<T>>(visitor: &mut V, call: &FunctionCallExpression) {
+fn walk_function_call_expression<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    call: &FunctionCallExpression,
+) {
     for arg in call.get_arguments() {
         arg.visit(visitor);
     }
 }
 
-fn walk_predefined_call_statement<T: Default, V: AstVisitor<T>>(visitor: &mut V, call: &PredefinedCallStatement) {
+fn walk_predefined_call_statement<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    call: &PredefinedCallStatement,
+) {
     for arg in call.get_arguments() {
         arg.visit(visitor);
     }
 }
 
-fn walk_procedure_call_statement<T: Default, V: AstVisitor<T>>(visitor: &mut V, call: &ProcedureCallStatement) {
+fn walk_procedure_call_statement<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    call: &ProcedureCallStatement,
+) {
     for arg in call.get_arguments() {
         arg.visit(visitor);
     }
@@ -124,7 +141,7 @@ fn walk_if_then_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, if_then: &If
 
 fn walk_if_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, if_stmt: &IfStatement) {
     if_stmt.get_condition().visit(visitor);
-    if_stmt.get_statement().visit(visitor);    
+    if_stmt.get_statement().visit(visitor);
 }
 
 fn walk_block_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, block: &BlockStatement) {

@@ -11,7 +11,6 @@ use icy_ppe::ast::Program;
 use icy_ppe::decompiler::reconstruct;
 use icy_ppe::decompiler::Decompiler;
 use icy_ppe::executable::read_file;
-use icy_ppe::*;
 use semver::Version;
 use std::ffi::OsStr;
 use std::fs::*;

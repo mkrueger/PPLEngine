@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    AstVisitor, Constant, ConstantExpression, Expression, FunctionDeclarationStatement,
-    ProcedureDeclarationStatement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
-    VariableSpecifier,
+    AstVisitor, AstVisitorMut, Constant, ConstantExpression, Expression,
+    FunctionDeclarationStatement, ProcedureDeclarationStatement, UnaryExpression, UnaryOp,
+    VariableDeclarationStatement, VariableSpecifier,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +41,32 @@ pub enum Statement {
 
 impl Statement {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
+        match self {
+            Statement::Comment(s) => visitor.visit_comment_statement(s),
+            Statement::End(s) => visitor.visit_end_statement(s),
+            Statement::Block(s) => visitor.visit_block_statement(s),
+            Statement::If(s) => visitor.visit_if_statement(s),
+            Statement::IfThen(s) => visitor.visit_if_then_statement(s),
+            Statement::Select(s) => visitor.visit_select_statement(s),
+            Statement::While(s) => visitor.visit_while_statement(s),
+            Statement::WhileDo(s) => visitor.visit_while_do_statement(s),
+            Statement::For(s) => visitor.visit_for_statement(s),
+            Statement::Break(s) => visitor.visit_break_statement(s),
+            Statement::Continue(s) => visitor.visit_continue_statement(s),
+            Statement::Gosub(s) => visitor.visit_gosub_statement(s),
+            Statement::Return(s) => visitor.visit_return_statement(s),
+            Statement::Let(s) => visitor.visit_let_statement(s),
+            Statement::Goto(s) => visitor.visit_goto_statement(s),
+            Statement::Label(s) => visitor.visit_label_statement(s),
+            Statement::Call(s) => visitor.visit_procedure_call_statement(s),
+            Statement::PredifinedCall(s) => visitor.visit_predefined_call_statement(s),
+            Statement::VariableDeclaration(s) => visitor.visit_variable_declaration_statement(s),
+            Statement::ProcedureDeclaration(s) => visitor.visit_procedure_declaration_statement(s),
+            Statement::FunctionDeclaration(s) => visitor.visit_function_declaration_statement(s),
+        }
+    }
+
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) -> T {
         match self {
             Statement::Comment(s) => visitor.visit_comment_statement(s),
             Statement::End(s) => visitor.visit_end_statement(s),
@@ -1096,6 +1122,12 @@ impl GosubStatement {
         panic!("Expected identifier token")
     }
 
+    pub fn set_label(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.label_token.token {
+            *id = new_id.into();
+        }
+    }
+
     pub fn create_empty_statement(label: String) -> Statement {
         Statement::Gosub(GosubStatement::empty(label))
     }
@@ -1142,6 +1174,12 @@ impl GotoStatement {
         panic!("Expected identifier token")
     }
 
+    pub fn set_label(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.label_token.token {
+            *id = new_id.into();
+        }
+    }
+
     pub fn create_empty_statement(label: String) -> Statement {
         Statement::Goto(GotoStatement::empty(label))
     }
@@ -1177,6 +1215,12 @@ impl LabelStatement {
             return id;
         }
         panic!("Expected label token")
+    }
+
+    pub fn set_label(&mut self, new_id: impl Into<String>) {
+        if let Token::Label(id) = &mut self.label_token.token {
+            *id = new_id.into();
+        }
     }
 
     /// # Panics
@@ -1257,6 +1301,12 @@ impl ProcedureCallStatement {
         panic!("Expected identifier token")
     }
 
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
+    }
+
     pub fn create_empty_statement(
         identifier: impl Into<String>,
         arguments: Vec<Expression>,
@@ -1309,7 +1359,7 @@ impl PredefinedCallStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn get_func(&self) -> &StatementDefinition {
+    pub fn get_func(&self) -> &'static StatementDefinition<'static> {
         self.func
     }
 

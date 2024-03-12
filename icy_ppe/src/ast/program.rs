@@ -1,4 +1,4 @@
-use super::{AstVisitor, Implementations, Statement};
+use super::{AstVisitor, AstVisitorMut, Implementations, Statement};
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq)]
@@ -20,6 +20,10 @@ impl Program {
     }
 
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) {
+        visitor.visit_program(self);
+    }
+
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) {
         visitor.visit_program(self);
     }
 }

@@ -69,7 +69,7 @@ fn main() {
         no_char: 'N',
     };
 
-    let prg = icy_ppe::decompiler::load_file(&file_name);
+    let mut prg = icy_ppe::decompiler::load_file(&file_name);
     let mut io = DiskIO::new(".");
     let mut output = Output::default();
     output.is_sysop = arguments.sysop;
@@ -99,7 +99,7 @@ fn main() {
         .unwrap()
         .execute(MoveTo(0, 0))
         .unwrap();
-    run(&prg, &mut output, &mut io, icy_board_data).unwrap();
+    run(&mut prg, &mut output, &mut io, icy_board_data).unwrap();
 
     disable_raw_mode().unwrap();
 }

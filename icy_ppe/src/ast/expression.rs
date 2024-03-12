@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{AstVisitor, Constant};
+use super::{AstVisitor, AstVisitorMut, Constant};
 use crate::parser::tokens::{SpannedToken, Token};
 
 #[repr(i16)]
@@ -81,6 +81,17 @@ impl Expression {
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
         }
     }
+
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) -> T {
+        match self {
+            Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
+            Expression::Const(expr) => visitor.visit_constant_expression(expr),
+            Expression::Parens(expr) => visitor.visit_parens_expression(expr),
+            Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
+            Expression::Unary(expr) => visitor.visit_unary_expression(expr),
+            Expression::Binary(expr) => visitor.visit_binary_expression(expr),
+        }
+    }
 }
 
 impl fmt::Display for Expression {
@@ -132,6 +143,12 @@ impl IdentifierExpression {
             return id;
         }
         panic!("Expected identifier token")
+    }
+
+    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+        if let Token::Identifier(id) = &mut self.identifier_token.token {
+            *id = new_id.into();
+        }
     }
 
     pub(crate) fn create_empty_expression(identifier: impl Into<String>) -> Expression {
@@ -467,7 +484,7 @@ impl BinaryExpression {
         &self.left_expression
     }
 
-    pub fn get_left_expressionmut(&mut self) -> &mut Expression {
+    pub fn get_left_expression_mut(&mut self) -> &mut Expression {
         &mut self.left_expression
     }
 
@@ -479,7 +496,7 @@ impl BinaryExpression {
         &self.right_expression
     }
 
-    pub fn get_right_expressionmut(&mut self) -> &mut Expression {
+    pub fn get_right_expression_mut(&mut self) -> &mut Expression {
         &mut self.right_expression
     }
 

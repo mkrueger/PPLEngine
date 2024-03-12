@@ -175,7 +175,7 @@ impl<'a> Tokenizer<'a> {
         };
 
         if let Token::Identifier(id) = &token.token {
-            match id.to_ascii_uppercase().as_str() {
+            match id.as_str() {
                 "INTEGER" | "INT" | "SDWORD" | "LONG" => Some(VariableType::Integer),
                 "STRING" | "BIGSTR" => Some(VariableType::String),
                 "BOOLEAN" => Some(VariableType::Boolean),
@@ -348,7 +348,7 @@ impl<'a> Tokenizer<'a> {
 
                 let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                    if id.eq_ignore_ascii_case("VAR") {
                         var_token = Some(self.save_spannedtoken());
                         self.next_token();
                     }
@@ -464,7 +464,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                    if id.eq_ignore_ascii_case("VAR") {
                         var_token = Some(self.save_spannedtoken());
                         self.next_token();
                     }
@@ -575,7 +575,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id.to_ascii_uppercase().as_str() == "VAR" {
+                    if id.eq_ignore_ascii_case("VAR") {
                         var_token = Some(self.save_spannedtoken());
                         self.next_token();
                     }

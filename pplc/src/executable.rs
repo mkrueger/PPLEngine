@@ -172,7 +172,7 @@ impl Executable {
     ) {
         let id = self.variable_table.len() + 1;
         self.variable_table.insert(
-            name.to_ascii_uppercase().to_string(),
+            name.to_string(),
             Variable {
                 info: VarInfo {
                     id,
@@ -273,7 +273,7 @@ impl Executable {
                 icy_ppe::ast::Implementations::Comment(_) => {}
                 icy_ppe::ast::Implementations::Function(d) => {
                     self.procedure_declarations.insert(
-                        d.get_identifier().to_uppercase().clone(),
+                        d.get_identifier().clone(),
                         Function {
                             args: d.get_parameters().len() as i32,
                             total_var: 0,
@@ -286,7 +286,7 @@ impl Executable {
                 }
                 icy_ppe::ast::Implementations::Procedure(d) => {
                     self.procedure_declarations.insert(
-                        d.get_identifier().to_uppercase().clone(),
+                        d.get_identifier().clone(),
                         Function {
                             args: d.get_parameters().len() as i32,
                             total_var: 0,
@@ -323,7 +323,7 @@ impl Executable {
                         let id = self.variable_table.len() as i32 + 1;
                         decl.first_var = id;
                         self.variable_table.insert(
-                            p.get_identifier().to_ascii_uppercase().clone(),
+                            p.get_identifier().clone(),
                             Variable {
                                 info: VarInfo {
                                     id: id as usize,
@@ -365,7 +365,7 @@ impl Executable {
                         let id = self.variable_table.len() as i32 + 1;
                         decl.first_var = id;
                         self.variable_table.insert(
-                            p.get_identifier().to_ascii_uppercase().clone(),
+                            p.get_identifier().clone(),
                             Variable {
                                 info: VarInfo {
                                     id: id as usize,
@@ -380,7 +380,7 @@ impl Executable {
                                 value: VariableValue::String(p.get_identifier().clone()),
                             },
                         );
-                        self.cur_function = p.get_identifier().to_ascii_uppercase().clone();
+                        self.cur_function = p.get_identifier().clone();
                         self.cur_function_id = id;
                     }
                     p.get_statements().iter().for_each(|s| {
@@ -453,13 +453,13 @@ impl Executable {
             }
             Statement::Let(let_smt) => {
                 self.script_buffer.push(OpCode::LET as u16);
-                let var_name = let_smt.get_identifier().to_ascii_uppercase();
+                let var_name = let_smt.get_identifier();
 
-                if self.cur_function_id >= 0 && self.cur_function == var_name {
+                if self.cur_function_id >= 0 && self.cur_function == *var_name {
                     self.script_buffer.push(self.cur_function_id as u16);
                     self.script_buffer.push(0);
                 } else {
-                    let Some(decl) = self.variable_table.get(&var_name) else {
+                    let Some(decl) = self.variable_table.get(var_name) else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::VariableNotFound(
                                 let_smt.get_identifier().clone(),
@@ -630,10 +630,7 @@ impl Executable {
     fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &icy_ppe::ast::Expression) {
         match expr {
             icy_ppe::ast::Expression::Identifier(id) => {
-                if let Some(decl) = self
-                    .variable_table
-                    .get(&id.get_identifier().to_ascii_uppercase())
-                {
+                if let Some(decl) = self.variable_table.get(id.get_identifier()) {
                     stack.push(decl.info.id as u16);
                     stack.push(0);
                 } else {
@@ -665,25 +662,19 @@ impl Executable {
 
                 if self
                     .procedure_declarations
-                    .contains_key(&expr.get_identifier().to_uppercase())
+                    .contains_key(expr.get_identifier())
                 {
                     for p in expr.get_arguments() {
                         let expr_buffer = self.compile_expression(p);
                         stack.extend(expr_buffer);
                     }
-                    if let Some(decl) = self
-                        .procedure_declarations
-                        .get_mut(&expr.get_identifier().to_uppercase())
-                    {
+                    if let Some(decl) = self.procedure_declarations.get_mut(expr.get_identifier()) {
                         // will be filled later.
                         decl.add_usage(self.script_buffer.len());
                         stack.push(0);
                     }
                 } else {
-                    if let Some(var) = self
-                        .variable_table
-                        .get(&expr.get_identifier().to_uppercase())
-                    {
+                    if let Some(var) = self.variable_table.get(expr.get_identifier()) {
                         stack.push(var.info.id as u16);
                         stack.push(var.info.dims as u16);
                     } else {
@@ -744,17 +735,16 @@ impl Executable {
     }
 
     fn get_label_info(&mut self, label: &str) -> &mut LabelInfo {
-        let label = label.to_ascii_uppercase();
-        if !self.label_table.contains_key(&label) {
+        if !self.label_table.contains_key(label) {
             self.label_table.insert(
-                label.to_ascii_uppercase().clone(),
+                label.to_string(),
                 LabelInfo {
                     address: 0,
                     usages: Vec::new(),
                 },
             );
         }
-        self.label_table.get_mut(&label).unwrap()
+        self.label_table.get_mut(label).unwrap()
     }
 
     fn fill_labels(&mut self) {

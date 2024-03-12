@@ -35,6 +35,8 @@ fn main() {
     println!("Parsing...");
     let mut prg = parse_program(&src);
     println!("Compiling...");
+    prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
+
     transform_ast(&mut prg);
     let mut exec = executable::Executable::new();
     exec.compile(&prg);

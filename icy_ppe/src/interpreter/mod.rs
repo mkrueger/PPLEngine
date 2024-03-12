@@ -24,6 +24,7 @@ pub use self::statements::*;
 
 pub mod io;
 pub use self::io::*;
+pub mod rename_vars_visitor;
 
 pub mod errors;
 mod tests;
@@ -182,7 +183,7 @@ impl<'a> Interpreter<'a> {
                 return Some(val);
             }
         }
-        self.get_variable(var_name)
+        self.cur_frame.first().unwrap().values.get(var_name)
     }
     /*
      */
@@ -220,7 +221,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
     match stmt {
         Statement::Let(let_stmt) => {
             let value = evaluate_exp(interpreter, let_stmt.get_value_expression())?;
-            let var_name = let_stmt.get_identifier().to_ascii_uppercase().clone();
+            let var_name = let_stmt.get_identifier().clone();
 
             if let Some(var_info) = interpreter.get_variable(&var_name) {
                 let var_type = var_info.get_type();
@@ -302,14 +303,14 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 .pop()
                 .unwrap();
         }
-
+        Statement::PredifinedCall(call_stmt) => {
+            return call_predefined_procedure(
+                interpreter,
+                call_stmt.get_func(),
+                call_stmt.get_arguments(),
+            );
+        }
         Statement::Call(call_stmt) => {
-            for def in &crate::tables::STATEMENT_DEFINITIONS {
-                if def.name.to_uppercase() == call_stmt.get_identifier().to_uppercase() {
-                    return call_predefined_procedure(interpreter, def, call_stmt.get_arguments());
-                }
-            }
-
             for imp in &interpreter.prg.implementations {
                 let Implementations::Procedure(f) = imp else {
                     continue;
@@ -329,11 +330,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 for (i, param) in f.get_parameters().iter().enumerate() {
                     let value = evaluate_exp(interpreter, &call_stmt.get_arguments()[i])?;
                     prg_frame.values.insert(
-                        param
-                            .get_variable()
-                            .get_identifier()
-                            .to_ascii_uppercase()
-                            .clone(),
+                        param.get_variable().get_identifier().clone(),
                         convert_to(param.get_variable_type(), &value),
                     );
                 }
@@ -369,13 +366,12 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
 
         Statement::VariableDeclaration(var_decl) => {
             for var in var_decl.get_variables() {
-                let id = var.get_identifier().to_ascii_uppercase();
                 if !interpreter
                     .cur_frame
                     .last()
                     .unwrap()
                     .values
-                    .contains_key(&id)
+                    .contains_key(var.get_identifier())
                 {
                     interpreter.cur_frame.last_mut().unwrap().values.insert(
                         var.get_identifier().clone(),
@@ -383,6 +379,10 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                     );
                 }
             }
+        }
+
+        Statement::ProcedureDeclaration(_) | Statement::FunctionDeclaration(_) => {
+            // skip for now.
         }
 
         /* unsupported - the compiler does not generate them and ast transformation should remove them */
@@ -422,7 +422,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
 /// Panics if .
 /// # Errors
 pub fn run(
-    prg: &Program,
+    prg: &mut Program,
     ctx: &mut dyn ExecutionContext,
     io: &mut dyn PCBoardIO,
     icy_board_data: IcyBoardData,
@@ -434,6 +434,8 @@ pub fn run(
         cur_ptr: 0,
         label_table,
     };
+
+    prg.visit_mut(&mut rename_vars_visitor::RenameVarsVisitor::default());
 
     let mut interpreter = Interpreter {
         prg,

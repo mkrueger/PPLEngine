@@ -1,6 +1,6 @@
 use crate::parser::tokens::{SpannedToken, Token};
 
-use super::{AstVisitor, ParameterSpecifier, Statement, VariableType};
+use super::{AstVisitor, AstVisitorMut, ParameterSpecifier, Statement, VariableType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Implementations {
@@ -11,6 +11,14 @@ pub enum Implementations {
 
 impl Implementations {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
+        match self {
+            Implementations::Comment(c) => visitor.visit_comment_implementation(c),
+            Implementations::Function(f) => visitor.visit_function_implementation(f),
+            Implementations::Procedure(p) => visitor.visit_procedure_implementation(p),
+        }
+    }
+
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) -> T {
         match self {
             Implementations::Comment(c) => visitor.visit_comment_implementation(c),
             Implementations::Function(f) => visitor.visit_function_implementation(f),

@@ -997,7 +997,7 @@ fn replace_in_statement(stmt: &mut Statement, rename_map: &HashMap<String, Strin
             }
         }
         Statement::Let(let_stmt) => {
-            if let Some(name) = rename_map.get(&let_stmt.get_identifier().to_ascii_uppercase()) {
+            if let Some(name) = rename_map.get(let_stmt.get_identifier()) {
                 let_stmt.set_identifier(name.clone());
             }
             for arg in let_stmt.get_arguments_mut() {
@@ -1029,8 +1029,8 @@ fn replace_in_expression(repl_expr: &mut Expression, rename_map: &HashMap<String
         }
 
         Expression::Binary(expr) => {
-            replace_in_expression(expr.get_left_expressionmut(), rename_map);
-            replace_in_expression(expr.get_right_expressionmut(), rename_map);
+            replace_in_expression(expr.get_left_expression_mut(), rename_map);
+            replace_in_expression(expr.get_right_expression_mut(), rename_map);
         }
 
         Expression::FunctionCall(expr) => {

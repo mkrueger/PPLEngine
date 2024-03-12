@@ -24,21 +24,3 @@ pub mod parser;
 pub mod tables;
 
 pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
-
-/*
-fn output_keyword_indented(indent: i32, str: &str) -> String {
-    let mut indent = Statement::get_indent(indent);
-
-    unsafe {
-        indent.push_str(
-            match DEFAULT_OUTPUT_FUNC {
-                OutputFunc::Upper => str.to_uppercase(),
-                OutputFunc::Lower => str.to_lowercase(),
-                OutputFunc::CamelCase => str.to_string(),
-            }
-            .as_str(),
-        );
-    }
-
-    indent
-}*/

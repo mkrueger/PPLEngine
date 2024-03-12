@@ -28,15 +28,16 @@ use super::Interpreter;
 pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<VariableValue> {
     match expr {
         Expression::Identifier(identifier_expr) => {
+            let id = identifier_expr.get_identifier();
             for frame in &interpreter.cur_frame.last().unwrap().values {
-                if frame.0 == identifier_expr.get_identifier() {
+                if frame.0 == id {
                     return Ok(frame.1.clone());
                 }
             }
 
             if interpreter.cur_frame.len() > 1 {
                 for frame in &interpreter.cur_frame[0].values {
-                    if frame.0 == identifier_expr.get_identifier() {
+                    if frame.0 == id {
                         return Ok(frame.1.clone());
                     }
                 }
@@ -57,7 +58,9 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
         },
         Expression::Parens(expr) => evaluate_exp(interpreter, expr.get_expression()),
         Expression::FunctionCall(expr) => {
-            let predef = crate::tables::get_function_definition(expr.get_identifier());
+            let func_id = expr.get_identifier();
+
+            let predef = crate::tables::get_function_definition(func_id);
             // TODO: Check parameter signature
             if predef >= 0 {
                 return call_function(
@@ -72,7 +75,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     continue;
                 };
 
-                if expr.get_identifier() != f.get_identifier() {
+                if func_id != f.get_identifier() {
                     continue;
                 }
                 let label_table = calc_table(f.get_statements());
@@ -83,6 +86,11 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     cur_ptr: 0,
                     label_table,
                 };
+
+                // insert empty return value!
+                prg_frame
+                    .values
+                    .insert(func_id.clone(), f.get_return_type().create_empty_value());
                 for (i, param) in f.get_parameters().iter().enumerate() {
                     let value = evaluate_exp(interpreter, &expr.get_arguments()[i])?;
                     prg_frame.values.insert(
@@ -100,7 +108,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 }
                 let prg_frame = interpreter.cur_frame.pop().unwrap();
 
-                if let Some(val) = prg_frame.values.get(expr.get_identifier()) {
+                if let Some(val) = prg_frame.values.get(func_id) {
                     return Ok(val.clone());
                 }
                 panic!("function didn't return a value  {}", expr.get_identifier());

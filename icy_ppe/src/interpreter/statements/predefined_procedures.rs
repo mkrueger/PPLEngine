@@ -295,9 +295,10 @@ pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let identifier = params[0].to_string();
     let new_value = evaluate_exp(
         interpreter,
-        &IdentifierExpression::create_empty_expression(params[0].to_string()),
+        &IdentifierExpression::create_empty_expression(identifier.clone()),
     )? + VariableValue::Integer(1);
 
     interpreter
@@ -305,21 +306,22 @@ pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
         .last_mut()
         .unwrap()
         .values
-        .insert(params[0].to_string(), new_value);
+        .insert(identifier, new_value);
     Ok(())
 }
 
 pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let identifier = params[0].to_string();
     let new_value = evaluate_exp(
         interpreter,
-        &IdentifierExpression::create_empty_expression(params[0].to_string()),
+        &IdentifierExpression::create_empty_expression(identifier.clone()),
     )? - VariableValue::Integer(1);
     interpreter
         .cur_frame
         .last_mut()
         .unwrap()
         .values
-        .insert(params[0].to_string(), new_value);
+        .insert(identifier, new_value);
     Ok(())
 }
 

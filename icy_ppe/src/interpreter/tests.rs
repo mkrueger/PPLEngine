@@ -252,7 +252,13 @@ PRINT B
 
     fn check_output_withio(prg: &str, io: &mut dyn PCBoardIO, out: &str) {
         let mut ctx = TestContext::new();
-        run(&parse_program(prg), &mut ctx, io, IcyBoardData::default()).unwrap();
+        run(
+            &mut parse_program(prg),
+            &mut ctx,
+            io,
+            IcyBoardData::default(),
+        )
+        .unwrap();
         assert_eq!(out, ctx.output);
     }
 
@@ -262,7 +268,7 @@ PRINT B
         let mut io = MemoryIO::new();
 
         run(
-            &parse_program("PRINTLN 1, 2, 3, \"Hello World\""),
+            &mut parse_program("PRINTLN 1, 2, 3, \"Hello World\""),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -272,7 +278,7 @@ PRINT B
 
         ctx = TestContext::new();
         run(
-            &parse_program("PRINT TRUE, \",\", $41.43, \",\", 10h"),
+            &mut parse_program("PRINT TRUE, \",\", $41.43, \",\", 10h"),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -403,7 +409,7 @@ FCLOSE 1
         let mut io = MemoryIO::new();
         let mut ctx = TestContext::new();
         run(
-            &parse_program(prg),
+            &mut parse_program(prg),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -426,7 +432,7 @@ FCLOSE 1
         let mut io = MemoryIO::new();
         let mut ctx = TestContext::new();
         run(
-            &parse_program(prg),
+            &mut parse_program(prg),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),

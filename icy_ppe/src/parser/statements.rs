@@ -171,7 +171,7 @@ impl<'a> Tokenizer<'a> {
         };
 
         if let Some(Token::Identifier(id)) = self.get_cur_token() {
-            if id.to_uppercase() != "TO" {
+            if id != "TO" {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::ToExpected(self.save_token()),
@@ -682,7 +682,6 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_call(&mut self, id: &str) -> Option<Statement> {
-        let id = id.to_ascii_uppercase();
         let id_token = self.save_spannedtoken();
 
         self.next_token();

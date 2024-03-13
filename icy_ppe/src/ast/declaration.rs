@@ -69,11 +69,9 @@ impl VariableSpecifier {
         }
     }
 
-    pub fn empty(identifier: impl Into<String>, dimensions: Vec<i32>) -> Self {
+    pub fn empty(identifier: unicase::Ascii<String>, dimensions: Vec<i32>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                identifier.into(),
-            ))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: None,
             dimensions: dimensions
                 .into_iter()
@@ -342,13 +340,11 @@ impl ProcedureDeclarationStatement {
         }
     }
 
-    pub fn empty(identifier: impl Into<String>, parameters: Vec<ParameterSpecifier>) -> Self {
+    pub fn empty(identifier: unicase::Ascii<String>, parameters: Vec<ParameterSpecifier>) -> Self {
         Self {
             declare_token: SpannedToken::create_empty(Token::Declare),
             procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                identifier.into(),
-            ))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -400,7 +396,7 @@ impl ProcedureDeclarationStatement {
         &self.rightpar_token
     }
     pub fn create_empty_statement(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,
     ) -> Statement {
         Statement::ProcedureDeclaration(ProcedureDeclarationStatement::empty(
@@ -446,16 +442,14 @@ impl FunctionDeclarationStatement {
     }
 
     pub fn empty(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,
         return_type: VariableType,
     ) -> Self {
         Self {
             declare_token: SpannedToken::create_empty(Token::Declare),
             function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                identifier.into(),
-            ))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -520,7 +514,7 @@ impl FunctionDeclarationStatement {
     }
 
     pub fn create_empty_statement(
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,
         return_type: VariableType,
     ) -> Statement {

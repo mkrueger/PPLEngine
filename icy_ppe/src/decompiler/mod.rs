@@ -174,13 +174,15 @@ impl Decompiler {
                             .variable_declarations
                             .get(&self.akt_proc)
                             .unwrap()
-                            .function_header.start;
+                            .function_header
+                            .start;
                         let act_dec_args = self
                             .executable
                             .variable_declarations
                             .get(&self.akt_proc)
                             .unwrap()
-                            .function_header.args;
+                            .function_header
+                            .args;
 
                         self.funcin(act_dec_start, self.akt_proc);
                         self.pushlabel(act_dec_start);
@@ -325,36 +327,113 @@ impl Decompiler {
     ///
     /// Panics if .
     pub fn dump_vars(&mut self, prg: &mut Program) {
-        self.uvar_flag = self.executable.variable_declarations[&0].header.variable_type
+        self.uvar_flag = self.executable.variable_declarations[&0]
+            .header
+            .variable_type
             == VariableType::Boolean
-            && (self.executable.variable_declarations[&1].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&2].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&3].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&4].header.variable_type == VariableType::Date)
-            && (self.executable.variable_declarations[&5].header.variable_type == VariableType::Integer)
-            && (self.executable.variable_declarations[&6].header.variable_type == VariableType::Integer)
-            && (self.executable.variable_declarations[&7].header.variable_type == VariableType::Integer)
-            && (self.executable.variable_declarations[&8].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&9].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&10].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&11].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&12].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&13].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&14].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&15].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&16].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&17].header.variable_type == VariableType::Boolean)
-            && (self.executable.variable_declarations[&18].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&19].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&20].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&21].header.variable_type == VariableType::String)
-            && (self.executable.variable_declarations[&22].header.variable_type == VariableType::Date)
-            && (self.executable.variable_declarations[&20].header.vector_size == 5);
+            && (self.executable.variable_declarations[&1]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&2]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&3]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&4]
+                .header
+                .variable_type
+                == VariableType::Date)
+            && (self.executable.variable_declarations[&5]
+                .header
+                .variable_type
+                == VariableType::Integer)
+            && (self.executable.variable_declarations[&6]
+                .header
+                .variable_type
+                == VariableType::Integer)
+            && (self.executable.variable_declarations[&7]
+                .header
+                .variable_type
+                == VariableType::Integer)
+            && (self.executable.variable_declarations[&8]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&9]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&10]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&11]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&12]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&13]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&14]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&15]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&16]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&17]
+                .header
+                .variable_type
+                == VariableType::Boolean)
+            && (self.executable.variable_declarations[&18]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&19]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&20]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&21]
+                .header
+                .variable_type
+                == VariableType::String)
+            && (self.executable.variable_declarations[&22]
+                .header
+                .variable_type
+                == VariableType::Date)
+            && (self.executable.variable_declarations[&20]
+                .header
+                .vector_size
+                == 5);
 
         if self.uvar_flag
             && self.executable.version >= 300
-            && !(self.executable.variable_declarations[&23].header.variable_type == VariableType::Integer
-                && self.executable.variable_declarations[&23].header.vector_size == 16)
+            && !(self.executable.variable_declarations[&23]
+                .header
+                .variable_type
+                == VariableType::Integer
+                && self.executable.variable_declarations[&23]
+                    .header
+                    .vector_size
+                    == 16)
         {
             self.uvar_flag = false;
         }
@@ -394,7 +473,8 @@ impl Decompiler {
                     .variable_declarations
                     .get_mut(&i)
                     .unwrap()
-                    .header.variable_type
+                    .header
+                    .variable_type
                 {
                     VariableType::Function => {
                         if self
@@ -416,7 +496,8 @@ impl Decompiler {
                                 .variable_declarations
                                 .get_mut(&i)
                                 .unwrap()
-                                .function_header.return_var
+                                .function_header
+                                .return_var
                                 - 1);
                             self.executable
                                 .variable_declarations
@@ -483,7 +564,9 @@ impl Decompiler {
                                 cur_var.var_name = var_name.clone();
                                 let dims = match cur_var.header.dim {
                                     1 => vec![cur_var.header.vector_size],
-                                    2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
+                                    2 => {
+                                        vec![cur_var.header.vector_size, cur_var.header.matrix_size]
+                                    }
                                     3 => vec![
                                         cur_var.header.vector_size,
                                         cur_var.header.matrix_size,
@@ -496,7 +579,10 @@ impl Decompiler {
                                     prg,
                                     VariableDeclarationStatement::create_empty_statement(
                                         var_type,
-                                        vec![VariableSpecifier::empty(var_name, dims)],
+                                        vec![VariableSpecifier::empty(
+                                            unicase::Ascii::new(var_name),
+                                            dims,
+                                        )],
                                     ),
                                 );
                             }
@@ -528,13 +614,15 @@ impl Decompiler {
             .variable_declarations
             .get(&func)
             .unwrap()
-            .function_header.first_var;
+            .function_header
+            .first_var;
         for _ in 0..self
             .executable
             .variable_declarations
             .get(&func)
             .unwrap()
-            .function_header.args
+            .function_header
+            .args
         {
             let var_name = format!(
                 "LOC{0:>03}",
@@ -549,11 +637,12 @@ impl Decompiler {
                 .variable_declarations
                 .get(&j)
                 .unwrap()
-                .header.variable_type as usize];
+                .header
+                .variable_type as usize];
             func_parameters.push(ParameterSpecifier::empty(
                 false,
                 var_type,
-                VariableSpecifier::empty(var_name, vec![]),
+                VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
             ));
             self.executable
                 .variable_declarations
@@ -567,7 +656,8 @@ impl Decompiler {
             .variable_declarations
             .get(&j)
             .unwrap()
-            .header.variable_type as usize];
+            .header
+            .variable_type as usize];
         prg.implementations
             .push(crate::ast::Implementations::Function(
                 FunctionImplementation::empty(
@@ -584,16 +674,18 @@ impl Decompiler {
         let proc_name = format!(
             "PROC{0:>03}",
             self.executable
+                .variable_declarations
+                .get(&proc)
+                .unwrap()
+                .number
+        );
+        let param_flags = self
+            .executable
             .variable_declarations
             .get(&proc)
             .unwrap()
-                .number
-        );
-        let param_flags = self.executable
-        .variable_declarations
-        .get(&proc)
-        .unwrap()
-        .function_header.return_var;
+            .function_header
+            .return_var;
 
         let mut proc_parameters = vec![];
         let mut j = self
@@ -601,13 +693,15 @@ impl Decompiler {
             .variable_declarations
             .get(&proc)
             .unwrap()
-            .function_header.first_var;
+            .function_header
+            .first_var;
         for n in 0..self
             .executable
             .variable_declarations
             .get(&proc)
             .unwrap()
-            .function_header.args
+            .function_header
+            .args
         {
             let var_name = format!(
                 "LOC{0:>03}",
@@ -622,13 +716,14 @@ impl Decompiler {
                 .variable_declarations
                 .get(&j)
                 .unwrap()
-                .header.variable_type as usize];
+                .header
+                .variable_type as usize];
             let is_var = (1 << n) & param_flags != 0;
 
             proc_parameters.push(ParameterSpecifier::empty(
                 is_var,
                 var_type,
-                VariableSpecifier::empty(var_name, vec![]),
+                VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
             ));
             self.executable
                 .variable_declarations
@@ -657,7 +752,8 @@ impl Decompiler {
                 .variable_declarations
                 .get(&func)
                 .unwrap()
-                .header.variable_type
+                .header
+                .variable_type
                 == VariableType::Function
             {
                 self.output_func(prg, func);
@@ -700,7 +796,8 @@ impl Decompiler {
             mx_var = cur_var.function_header.return_var + cur_var.function_header.total_var;
         } else {
             i = cur_var.function_header.first_var + cur_var.function_header.args;
-            mx_var = cur_var.function_header.first_var + cur_var.function_header.total_var; //+1;
+            mx_var = cur_var.function_header.first_var + cur_var.function_header.total_var;
+            //+1;
         }
 
         while i < mx_var {
@@ -716,7 +813,8 @@ impl Decompiler {
                         .variable_declarations
                         .get(&i)
                         .unwrap()
-                        .header.variable_type
+                        .header
+                        .variable_type
                         as usize];
                     let var_name = format!(
                         "LOC{0:>03}",
@@ -733,13 +831,20 @@ impl Decompiler {
                     let dims = match cur_var.header.dim {
                         1 => vec![cur_var.header.vector_size],
                         2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
-                        3 => vec![cur_var.header.vector_size, cur_var.header.matrix_size, cur_var.header.cube_size],
+                        3 => vec![
+                            cur_var.header.vector_size,
+                            cur_var.header.matrix_size,
+                            cur_var.header.cube_size,
+                        ],
                         _ => vec![],
                     };
                     func.get_statements_mut().push(
                         VariableDeclarationStatement::create_empty_statement(
                             var_type,
-                            vec![VariableSpecifier::empty(var_name, dims)],
+                            vec![VariableSpecifier::empty(
+                                unicase::Ascii::new(var_name),
+                                dims,
+                            )],
                         ),
                     );
                 }
@@ -1272,7 +1377,8 @@ impl Decompiler {
                         .variable_declarations
                         .get(var_idx)
                         .unwrap()
-                        .header.variable_type
+                        .header
+                        .variable_type
                         == VariableType::Function
                     {
                         self.pushlabel(
@@ -1280,7 +1386,8 @@ impl Decompiler {
                                 .variable_declarations
                                 .get(var_idx)
                                 .unwrap()
-                                .function_header.start,
+                                .function_header
+                                .start,
                         );
                         self.executable
                             .variable_declarations
@@ -1292,7 +1399,8 @@ impl Decompiler {
                                 .variable_declarations
                                 .get(var_idx)
                                 .unwrap()
-                                .function_header.start,
+                                .function_header
+                                .start,
                             *var_idx,
                         );
                         if self.pass == 1 {
@@ -1326,7 +1434,8 @@ impl Decompiler {
                                     &(self.executable.source_buffer[self.src_ptr as usize - 1] - 1),
                                 )
                                 .unwrap()
-                                .function_header.args,
+                                .function_header
+                                .args,
                             1,
                         ) {
                             return 1;
@@ -1460,7 +1569,8 @@ impl Decompiler {
                                 .variable_declarations
                                 .get(&self.akt_proc)
                                 .unwrap()
-                                .function_header.return_var
+                                .function_header
+                                .return_var
                                 >> (cur_expr - 1))
                                 & 1)
                                 != 0
@@ -1479,7 +1589,8 @@ impl Decompiler {
                             .variable_declarations
                             .get(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
                             .unwrap()
-                            .header.variable_type
+                            .header
+                            .variable_type
                             == VariableType::Function
                         {
                             self.pushlabel(
@@ -1489,7 +1600,8 @@ impl Decompiler {
                                         &(self.executable.source_buffer[self.src_ptr as usize] - 1),
                                     )
                                     .unwrap()
-                                    .function_header.start,
+                                    .function_header
+                                    .start,
                             );
                             self.executable
                                 .variable_declarations
@@ -1505,7 +1617,8 @@ impl Decompiler {
                                         &(self.executable.source_buffer[self.src_ptr as usize] - 1),
                                     )
                                     .unwrap()
-                                    .function_header.start,
+                                    .function_header
+                                    .start,
                                 self.executable.source_buffer[self.src_ptr as usize] - 1,
                             );
                             let mut stack_len = 0;
@@ -1530,7 +1643,8 @@ impl Decompiler {
                                             - 1),
                                     )
                                     .unwrap()
-                                    .function_header.args,
+                                    .function_header
+                                    .args,
                                 1,
                             ) {
                                 return false;
@@ -1847,7 +1961,8 @@ impl Decompiler {
                             .variable_declarations
                             .get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1))
                             .unwrap()
-                            .function_header.args,
+                            .function_header
+                            .args,
                         0,
                     ) {
                         self.output_stmt(

@@ -6,7 +6,9 @@ use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::CommentStatement;
+use icy_ppe::ast::FunctionDeclarationStatement;
 use icy_ppe::ast::OutputFunc;
+use icy_ppe::ast::ProcedureDeclarationStatement;
 use icy_ppe::ast::Program;
 use icy_ppe::decompiler::reconstruct;
 use icy_ppe::decompiler::Decompiler;
@@ -73,6 +75,32 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         println!("Pass 2 ...");
     }
     d.do_pass2(&mut prg);
+
+    if !prg.implementations.is_empty() {
+        // res.push_str("; Function declarations\n");
+    }
+    for v in &prg.implementations {
+        let declaration = match v {
+            icy_ppe::ast::Implementations::Comment(_) => {
+                continue;
+            }
+            icy_ppe::ast::Implementations::Function(f) => {
+                FunctionDeclarationStatement::create_empty_statement(
+                    f.get_identifier().clone(),
+                    f.get_parameters().clone(),
+                    *f.get_return_type(),
+                )
+            }
+            icy_ppe::ast::Implementations::Procedure(p) => {
+                ProcedureDeclarationStatement::create_empty_statement(
+                    p.get_identifier().clone(),
+                    p.get_parameters().clone(),
+                )
+            }
+        };
+        prg.statements.insert(0, declaration);
+    }
+
     if !raw {
         if to_file {
             println!("Pass 3 ...");
@@ -257,21 +285,6 @@ fn main() {
 
 /*
 let mut res = String::new();
-if !self.function_implementations.is_empty() || !self.procedure_implementations.is_empty() {
-    res.push_str("; Function declarations\n");
-}
-for v in &self.function_implementations {
-    res.push_str(&v.to_string());
-    res.push('\n');
-}
-for v in &self.procedure_implementations {
-    res.push_str(&v.to_string());
-    res.push('\n');
-}
-for v in &self.declarations {
-    res.push_str(&v.to_string());
-    res.push('\n');
-}
 
 res.push_str(&self.block.to_string(self));
 

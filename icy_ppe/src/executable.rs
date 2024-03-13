@@ -7,7 +7,7 @@ use crate::crypt::{decode_rle, decrypt};
 
 #[derive(Clone, Debug)]
 pub struct VarHeader {
-    pub id : usize,
+    pub id: usize,
     pub dim: u8,
     pub vector_size: i32,
     pub matrix_size: i32,
@@ -24,10 +24,8 @@ impl VarHeader {
     /// Panics if .
     pub fn from_bytes(cur_block: &[u8]) -> VarHeader {
         let dim = cur_block[2];
-        if dim > 3 {
-            panic!("Invalid dimension: {}", dim);
-        }
-        
+        assert!(dim <= 3, "Invalid dimension: {dim}");
+
         Self {
             id: u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize,
             dim,
@@ -35,7 +33,7 @@ impl VarHeader {
             matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
             cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as i32,
             variable_type: unsafe { ::std::mem::transmute(cur_block[9]) },
-            flags: cur_block[10]
+            flags: cur_block[10],
         }
     }
 }
@@ -56,7 +54,6 @@ impl FunctionHeader {
     ///
     /// Panics if .
     pub fn from_bytes(cur_buf: &[u8]) -> FunctionHeader {
- 
         Self {
             args: cur_buf[4] as i32,
             total_var: cur_buf[5] as i32,
@@ -66,7 +63,6 @@ impl FunctionHeader {
         }
     }
 }
-
 
 #[derive(Clone)]
 pub struct VarDecl {
@@ -282,10 +278,10 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
-                    i+=2;
+                    i += 2;
                     i += 2; // what's stored here ?
                     var_decl.content =
-                    u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
+                        u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                     var_decl.content2 =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
@@ -315,12 +311,16 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     }
                 }
 
-                let next = result.get_mut(&(cur.function_header.return_var - 1)).unwrap();
+                let next = result
+                    .get_mut(&(cur.function_header.return_var - 1))
+                    .unwrap();
                 next.fflag = 1;
             }
             VariableType::Procedure => {
                 let mut j = 0;
-                let last = cur.function_header.total_var + cur.function_header.args + cur.function_header.first_var;
+                let last = cur.function_header.total_var
+                    + cur.function_header.args
+                    + cur.function_header.first_var;
 
                 for i in cur.function_header.first_var..last {
                     let fvar = &mut **result.get_mut(&i).unwrap();

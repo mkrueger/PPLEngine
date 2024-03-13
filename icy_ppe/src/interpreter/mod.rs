@@ -186,8 +186,63 @@ impl<'a> Interpreter<'a> {
         }
         self.cur_frame.first().unwrap().values.get(var_name)
     }
-    /*
-     */
+
+    fn set_default_variables(&mut self) {
+        self.add_predefined_variable("U_EXPERT", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_FSE", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_FSEP", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_CLS", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_EXPDATE", VariableValue::Date(0));
+        self.add_predefined_variable("U_SEC", VariableValue::Integer(0));
+        self.add_predefined_variable("U_PAGELEN", VariableValue::Integer(0));
+        self.add_predefined_variable("U_EXPSEC", VariableValue::Integer(0));
+        self.add_predefined_variable("U_CITY", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_BDPHONE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_HVPHONE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_TRANS", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_CMNT1", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_CMNT2", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_PWD", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_SCROLL", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_LONGHDR", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_DEF79", VariableValue::Boolean(false));
+
+        self.add_predefined_variable("U_VER", VariableValue::String(String::new()));
+        self.add_predefined_variable(
+            "U_ADDR",
+            VariableValue::Dim1(
+                VariableType::String,
+                vec![VariableValue::String(String::new()); 5],
+            ),
+        );
+        self.add_predefined_variable(
+            "U_NOTES",
+            VariableValue::Dim1(
+                VariableType::String,
+                vec![VariableValue::String(String::new()); 4],
+            ),
+        );
+
+        self.add_predefined_variable("U_PWDEXP", VariableValue::Date(0));
+
+        self.add_predefined_variable(
+            "U_ACCOUNT",
+            VariableValue::Dim1(VariableType::Integer, vec![VariableValue::Integer(0); 16]),
+        );
+
+        // 3.40 variables
+        self.add_predefined_variable("U_SHORTDESC", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_GENDER", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_BIRTHDATE", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_EMAIL", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_WEB", VariableValue::String(String::new()));
+    }
+
+    fn add_predefined_variable(&mut self, arg: &str, val: VariableValue) {
+        self.cur_frame[0]
+            .values
+            .insert(unicase::Ascii::new(arg.to_string()), val);
+    }
 }
 
 /// .
@@ -498,6 +553,7 @@ pub fn run(
         pcb_node: None,
         //  stack_frames: vec![]
     };
+    interpreter.set_default_variables();
     interpreter.set_user_variables(&UserRecord::default());
 
     while interpreter.is_running

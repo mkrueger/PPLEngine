@@ -12,6 +12,7 @@ use crate::{
 use self::tokens::{SpannedToken, Token};
 use logos::Logos;
 use thiserror::Error;
+use unicase::Ascii;
 
 mod expression;
 mod statements;
@@ -89,6 +90,9 @@ pub enum ParserErrorType {
 
     #[error("Invalid declaration '{0}' expected either 'PROCEDURE' or 'FUNCTION'")]
     InvalidDeclaration(Token),
+
+    #[error("VAR parameters are not allowed in functions")]
+    VarNotAllowedInFunctions,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -380,8 +384,16 @@ impl<'a> Tokenizer<'a> {
 
                 let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id.eq_ignore_ascii_case("VAR") {
-                        var_token = Some(self.save_spannedtoken());
+                    if id == Ascii::new("VAR".to_string()) {
+                        if is_function {
+                            self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::VarNotAllowedInFunctions,
+                                range: self.lex.span(),
+                            }));
+                        } else {
+                            var_token = Some(self.save_spannedtoken());
+                        }
                         self.next_token();
                     }
                 }
@@ -605,10 +617,13 @@ impl<'a> Tokenizer<'a> {
                         }));
                     return None;
                 }
-                let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id.eq_ignore_ascii_case("VAR") {
-                        var_token = Some(self.save_spannedtoken());
+                    if id == Ascii::new("VAR".to_string()) {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::VarNotAllowedInFunctions,
+                                range: self.lex.span(),
+                            }));
                         self.next_token();
                     }
                 }
@@ -621,7 +636,7 @@ impl<'a> Tokenizer<'a> {
                         return None;
                     };
                     parameters.push(ParameterSpecifier::new(
-                        var_token, type_token, var_type, info,
+                        None, type_token, var_type, info,
                     ));
                 } else {
                     self.errors

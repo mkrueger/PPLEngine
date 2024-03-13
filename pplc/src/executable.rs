@@ -547,8 +547,13 @@ impl Executable {
                 }
             }
 
-            Statement::FunctionDeclaration(_) => {}
-            Statement::ProcedureDeclaration(_) => {}
+            Statement::FunctionDeclaration(decl) => {
+
+            }
+            Statement::ProcedureDeclaration(decl) => {
+                
+            }
+
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),
             Statement::Break(_) => panic!("Break not allowed in output AST."),
             Statement::IfThen(_) => panic!("if then not allowed in output AST."),

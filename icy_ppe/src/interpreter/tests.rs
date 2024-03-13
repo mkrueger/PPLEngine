@@ -537,4 +537,30 @@ ENDPROC
             "9",
         );
     }
+
+    #[test]
+    fn test_parameter_writeback() {
+        check_output(
+            r"
+DECLARE PROCEDURE FOO(BYTE X) INT
+DECLARE PROCEDURE BAR(VAR BYTE X) INT
+BYTE C
+
+BAR(C)
+PRINT C
+
+FOO(C)
+PRINT C
+
+PROCEDURE BAR(VAR BYTE X)
+    X = X + 1
+ENDPROC
+
+PROCEDURE FOO(BYTE X)
+    X = X + 2
+ENDPROC	
+",
+            "13",
+        );
+    }
 }

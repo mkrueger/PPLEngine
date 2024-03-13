@@ -5,6 +5,7 @@ pub mod expressions;
 use thiserror::Error;
 
 use crate::ast::convert_to;
+use crate::ast::Expression;
 use crate::ast::Implementations;
 use crate::ast::Program;
 use crate::ast::Statement;
@@ -341,7 +342,45 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                     execute_statement(interpreter, stmt)?;
                     interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
                 }
-                interpreter.cur_frame.pop();
+                let prg_frame = interpreter.cur_frame.pop().unwrap();
+
+                for (i, param) in f.get_parameters().iter().enumerate() {
+                    let expr = &call_stmt.get_arguments()[i];
+
+                    if let Expression::Identifier(ident) = expr {
+                        if let Some(value) = prg_frame.values.get(param.get_variable().get_identifier()) {
+                            if interpreter
+                            .cur_frame
+                            .last_mut()
+                            .unwrap()
+                            .values.contains_key(ident.get_identifier()) {
+                                interpreter
+                                    .cur_frame
+                                    .last_mut()
+                                    .unwrap()
+                                    .values
+                                    .insert(ident.get_identifier().clone(), value.clone());
+                            } else  if interpreter
+                                .cur_frame
+                                .first_mut()
+                                .unwrap()
+                                .values.contains_key(ident.get_identifier()) {
+                                    interpreter
+                                    .cur_frame
+                                        .first_mut()
+                                        .unwrap()
+                                        .values
+                                        .insert(ident.get_identifier().clone(), value.clone());
+                            } else {
+                                log::warn!("variable not found {} for parameter write back.", ident.get_identifier());
+                            }
+                        }
+                    }
+
+                    // TODO: Array values.
+                }
+
+
                 break;
             }
         }

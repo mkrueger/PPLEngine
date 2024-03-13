@@ -421,12 +421,16 @@ pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
 pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtron(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn dtron(interpreter: &Interpreter) -> Res<()> {
+    // IGNORE
+    Ok(())
 }
-pub fn dtroff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn dtroff(interpreter: &mut Interpreter) -> Res<()> {
+    interpreter.ctx.hangup(crate::interpreter::HangupType::Hangup)?;
+    Ok(())
 }
+
 pub fn cdchkon(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }

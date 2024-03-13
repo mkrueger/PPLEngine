@@ -177,7 +177,7 @@ impl<'a> Interpreter<'a> {
         );
     }
 
-    fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&VariableValue> {
+    pub fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&VariableValue> {
         if self.cur_frame.len() > 1 {
             let last = self.cur_frame.last().unwrap();
             if let Some(val) = last.values.get(var_name) {
@@ -186,6 +186,21 @@ impl<'a> Interpreter<'a> {
         }
         self.cur_frame.first().unwrap().values.get(var_name)
     }
+
+    pub fn get_variable_mut(&mut self, var_name: &unicase::Ascii<String>) -> Option<&mut VariableValue> {
+        let cf = &mut self.cur_frame;
+        if cf.len() > 1 && cf.last().unwrap().values.contains_key(var_name) {
+            if let Some(last) = cf.last_mut() {
+                if let Some(val) = last.values.get_mut(var_name) {
+                    return Some(val);
+                } 
+            }
+        } else if let Some(first) = cf.first_mut() {
+            return first.values.get_mut(var_name);
+        }
+        None
+    }
+
 
     fn set_default_variables(&mut self) {
         self.add_predefined_variable("U_EXPERT", VariableValue::Boolean(false));
@@ -261,13 +276,19 @@ pub fn set_array_value(
 ) {
     match arr {
         VariableValue::Dim1(_, data) => {
-            data[dim1] = val;
+            if dim1 < data.len() {
+                data[dim1] = val;
+            }
         }
         VariableValue::Dim2(_, data) => {
-            data[dim2][dim1] = val;
+            if dim1 < data.len() && dim2 < data[dim1].len(){
+                data[dim2][dim1] = val;
+            }
         }
         VariableValue::Dim3(_, data) => {
-            data[dim3][dim2][dim1] = val;
+            if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len(){
+                data[dim3][dim2][dim1] = val;
+            }
         }
         _ => panic!("no array variable: {arr}"),
     }
@@ -282,47 +303,39 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
             if let Some(var_info) = interpreter.get_variable(&var_name) {
                 let var_type = var_info.get_type();
                 if var_info.get_dimensions() > 0 {
-                    let dim1 = if let_stmt.get_arguments().is_empty() {
+                    let dim1: usize = if let_stmt.get_arguments().is_empty() {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[0])?;
-                        get_int(v)? as usize - 1
+                        get_int(v)? as usize
                     };
 
                     let dim2 = if let_stmt.get_arguments().len() <= 1 {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[1])?;
-                        get_int(v)? as usize - 1
+                        get_int(v)? as usize
                     };
 
                     let dim3 = if let_stmt.get_arguments().len() <= 2 {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[2])?;
-                        get_int(v)? as usize - 1
+                        get_int(v)? as usize
                     };
 
-                    if let Some(val) = interpreter
-                        .cur_frame
-                        .last_mut()
-                        .unwrap()
-                        .values
-                        .get_mut(&var_name)
-                    {
+                    if let Some(val) = interpreter.get_variable_mut(&var_name) {
                         set_array_value(val, value, dim1, dim2, dim3);
                     } else {
                         panic!("variable not found {var_name:?}");
                     }
+                } else if let Some(val) = interpreter.get_variable_mut(&var_name) {
+                    *val = convert_to(var_type, &value);
                 } else {
-                    interpreter
-                        .cur_frame
-                        .last_mut()
-                        .unwrap()
-                        .values
-                        .insert(var_name, convert_to(var_type, &value));
+                    panic!("variable not found {var_name:?}");
                 }
             } else {
+                log::error!("variable not found {var_name:?}, creating.");
                 interpreter
                     .cur_frame
                     .last_mut()
@@ -465,6 +478,28 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                 panic!("no bool value {value:?}");
             }
         }
+
+        Statement::While(while_statement) => {
+            loop {
+                let value = evaluate_exp(interpreter, while_statement.get_condition())?;
+                if let VariableValue::Integer(x) = value {
+                    if x == PPL_TRUE {
+                        execute_statement(interpreter, while_statement.get_statement())?;
+                    } else {
+                        break;
+                    }
+                } else if let VariableValue::Boolean(x) = value {
+                    if x {
+                        execute_statement(interpreter, while_statement.get_statement())?;
+                    } else {
+                        break;
+                    }
+                } else {
+                    panic!("no bool value {value:?}");
+                }
+            }
+        }
+
 
         Statement::VariableDeclaration(var_decl) => {
             for var in var_decl.get_variables() {

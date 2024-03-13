@@ -1748,19 +1748,26 @@ impl Decompiler {
             self.output_stmt(prg, stmt);
         } else {
             let op = if_while_stack.pop().unwrap();
-            let expr = self.pop_expr().unwrap();
-            match op {
-                OpCode::WHILE => {
-                    self.output_stmt(
+            if let Some(expr) = self.pop_expr() {
+                match op {
+                    OpCode::WHILE => {
+                        self.output_stmt(
+                            prg,
+                            WhileStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
+                        );
+                    }
+                    OpCode::IF => self.output_stmt(
                         prg,
-                        WhileStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
-                    );
+                        IfStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
+                    ),
+                    _ => {}
                 }
-                OpCode::IF => self.output_stmt(
-                    prg,
-                    IfStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
-                ),
-                _ => {}
+            } else {
+                self.errors.push(format!(
+                    "Error: Missing expression for {} at {}",
+                    op,
+                    self.src_ptr
+                ));
             }
         }
     }

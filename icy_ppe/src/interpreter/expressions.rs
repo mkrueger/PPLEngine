@@ -147,48 +147,56 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 panic!("function not found {}", expr.get_identifier());
             };
             if let Some(var_value) = var_value {
-                if expr.get_arguments().len() == 1 {
-                    let vector = get_int(first_arg_expr)?;
-                    if let VariableValue::Dim1(var_type, data) = var_value {
-                        if vector < 0 || vector >= data.len() as i32 {
-                            return Ok(var_type.create_empty_value());
+                match expr.get_arguments().len() {
+                    1 => {
+                        let vector = get_int(first_arg_expr)?;
+                        if let VariableValue::Dim1(var_type, data) = var_value {
+                            if vector < 0 || vector >= data.len() as i32 {
+                                return Ok(var_type.create_empty_value());
+                            }
+                            return Ok(data[vector as usize].clone());
                         }
-                        return Ok(data[vector as usize].clone());
+                        panic!("unsupported for {expr:?} value {var_value:?}");
+                    }
+                    2 => {
+                        let vector = get_int(first_arg_expr)?;
+                        let matrix = get_int(first_arg_expr)?;
+                        if let VariableValue::Dim2(var_type, data) = var_value {
+                            if vector < 0
+                                || vector >= data.len() as i32
+                                || matrix < 0
+                                || matrix >= data[0].len() as i32
+                            {
+                                return Ok(var_type.create_empty_value());
+                            }
+                            return Ok(data[vector as usize][matrix as usize].clone());
+                        }
+                        panic!("unsupported for {expr:?} value {var_value:?}");
+                    }
+                    3 => {
+                        let vector = get_int(first_arg_expr)?;
+                        let matrix = get_int(first_arg_expr)?;
+                        let cube = get_int(first_arg_expr)?;
+                        if let VariableValue::Dim3(var_type, data) = var_value {
+                            if vector < 0
+                                || vector >= data.len() as i32
+                                || matrix < 0
+                                || matrix >= data[0].len() as i32
+                                || cube < 0
+                                || cube >= data[0][0].len() as i32
+                            {
+                                return Ok(var_type.create_empty_value());
+                            }
+                            return Ok(
+                                data[vector as usize][matrix as usize][cube as usize].clone()
+                            );
+                        }
+                        panic!("unsupported for {expr:?} value {var_value:?}");
+                    }
+                    len => {
+                        panic!("unsupported parameter length {len}");
                     }
                 }
-                if expr.get_arguments().len() == 2 {
-                    let vector = get_int(first_arg_expr)?;
-                    let matrix = get_int(first_arg_expr)?;
-                    if let VariableValue::Dim2(var_type, data) = var_value {
-                        if vector < 0
-                            || vector >= data.len() as i32
-                            || matrix < 0
-                            || matrix >= data[0].len() as i32
-                        {
-                            return Ok(var_type.create_empty_value());
-                        }
-                        return Ok(data[vector as usize][matrix as usize].clone());
-                    }
-                }
-
-                if expr.get_arguments().len() == 3 {
-                    let vector = get_int(first_arg_expr)?;
-                    let matrix = get_int(first_arg_expr)?;
-                    let cube = get_int(first_arg_expr)?;
-                    if let VariableValue::Dim3(var_type, data) = var_value {
-                        if vector < 0
-                            || vector >= data.len() as i32
-                            || matrix < 0
-                            || matrix >= data[0].len() as i32
-                            || cube < 0
-                            || cube >= data[0][0].len() as i32
-                        {
-                            return Ok(var_type.create_empty_value());
-                        }
-                        return Ok(data[vector as usize][matrix as usize][cube as usize].clone());
-                    }
-                }
-                panic!("unsupported parameter length");
             }
             panic!("function/array not found {}", expr.get_identifier());
 
@@ -492,9 +500,7 @@ fn call_function(
             let base = get_int(&evaluate_exp(interpreter, &params[1])?)?;
             predefined_functions::s2i(&s, base)?
         }
-        FuncOpCode::CARRIER => {
-            predefined_functions::carrier(evaluate_exp(interpreter, &params[0])?)
-        }
+        FuncOpCode::CARRIER => predefined_functions::carrier(interpreter),
         FuncOpCode::TOKENSTR => {
             predefined_functions::tokenstr(evaluate_exp(interpreter, &params[0])?)
         }
@@ -531,7 +537,9 @@ fn call_function(
         }
         FuncOpCode::PSA => predefined_functions::psa(evaluate_exp(interpreter, &params[0])?),
         FuncOpCode::FILEINF => {
-            predefined_functions::fileinf(evaluate_exp(interpreter, &params[0])?)
+            let file = get_string(&evaluate_exp(interpreter, &params[0])?);
+            let item = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+            predefined_functions::fileinf(interpreter, &file, item)?
         }
         FuncOpCode::PPENAME => predefined_functions::ppename(interpreter),
         FuncOpCode::MKDATE => predefined_functions::mkdate(evaluate_exp(interpreter, &params[0])?),

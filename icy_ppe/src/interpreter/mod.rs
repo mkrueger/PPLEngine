@@ -55,6 +55,10 @@ pub enum HangupType {
 pub trait ExecutionContext {
     fn has_sysop(&self) -> bool;
 
+    fn get_bps(&self) -> i32 {
+        115_200
+    }
+
     /// .
     ///
     /// # Errors
@@ -269,6 +273,101 @@ impl<'a> Interpreter<'a> {
         self.cur_frame[0]
             .values
             .insert(unicase::Ascii::new(arg.to_string()), val);
+    }
+
+    fn set_variable_value(&mut self, params: &Expression, value: VariableValue) -> Res<()> {
+        match params {
+            Expression::Identifier(ident) => {
+                if let Some(val) = self.get_variable_mut(&ident.get_identifier()) {
+                    *val = convert_to(val.get_type(), &value);
+                } else {
+                    panic!("variable not found {}", ident.get_identifier());
+                }
+            }
+            Expression::FunctionCall(func_call) => {
+                let val = if let Some(val) = self.get_variable(&func_call.get_identifier()) {
+                    val.clone()
+                } else {
+                    panic!("variable not found {}", func_call.get_identifier());
+                };
+
+                match val {
+                    VariableValue::Dim1(var_type, args) => {
+                        if func_call.get_arguments().len() == 1 {
+                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                                as usize;
+                            if dim1 < args.len() {
+                                if let Some(val) =
+                                    self.get_variable_mut(&func_call.get_identifier())
+                                {
+                                    if let VariableValue::Dim1(var_type, args) = val {
+                                        args[dim1] = convert_to(*var_type, &value);
+                                    }
+                                }
+                            }
+                        } else {
+                            panic!("incompatible variable {}", func_call.get_identifier());
+                        }
+                    }
+                    VariableValue::Dim2(var_type, args) => {
+                        if func_call.get_arguments().len() == 2 {
+                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                                as usize;
+                            if dim1 < args.len() {
+                                let dim2 =
+                                    get_int(&evaluate_exp(self, &func_call.get_arguments()[1])?)?
+                                        as usize;
+                                if dim2 < args[dim1].len() {
+                                    if let Some(val) =
+                                        self.get_variable_mut(&func_call.get_identifier())
+                                    {
+                                        if let VariableValue::Dim2(var_type, args) = val {
+                                            args[dim1][dim2] = convert_to(*var_type, &value);
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            panic!("incompatible variable {}", func_call.get_identifier());
+                        }
+                    }
+                    VariableValue::Dim3(var_type, args) => {
+                        if func_call.get_arguments().len() == 2 {
+                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                                as usize;
+                            if dim1 < args.len() {
+                                let dim2 =
+                                    get_int(&evaluate_exp(self, &func_call.get_arguments()[1])?)?
+                                        as usize;
+                                if dim2 < args[dim1].len() {
+                                    let dim3 = get_int(&evaluate_exp(
+                                        self,
+                                        &func_call.get_arguments()[2],
+                                    )?)? as usize;
+                                    if dim3 < args[dim1][dim2].len() {
+                                        if let Some(val) =
+                                            self.get_variable_mut(&func_call.get_identifier())
+                                        {
+                                            if let VariableValue::Dim3(var_type, args) = val {
+                                                args[dim1][dim2][dim3] =
+                                                    convert_to(*var_type, &value);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            panic!("incompatible variable {}", func_call.get_identifier());
+                        }
+                    }
+                    _ => {
+                        panic!("incompatible variable {}", func_call.get_identifier());
+                    }
+                }
+            }
+            _ => panic!("unsupported expression {params:?}"),
+        }
+        Ok(())
     }
 }
 

@@ -229,6 +229,7 @@ impl ExecutionContext for Output {
             return Ok(());
         }
         let mut state = PcbState::Default;
+        disable_raw_mode().unwrap();
         for c in str.chars() {
             if c == '\x1A' {
                 break;
@@ -242,9 +243,7 @@ impl ExecutionContext for Output {
                         print!("\x1B");
                         enable_raw_mode().unwrap();
                     } else if c == '\n' || c == '\r' || c == '\x08' || c == '\x1B' {
-                        disable_raw_mode().unwrap();
                         print!("{}", c);
-                        enable_raw_mode().unwrap();
                     } else {
                         print!("{}", c);
                     }
@@ -300,6 +299,8 @@ impl ExecutionContext for Output {
             }
         }
         stdout().flush().unwrap();
+        enable_raw_mode().unwrap();
+
         Ok(())
     }
 
@@ -308,6 +309,8 @@ impl ExecutionContext for Output {
             return Ok(());
         }
         let mut state = PcbState::Default;
+        disable_raw_mode().unwrap();
+
         for c in data {
             let c = *c;
             if c == 0x1A {
@@ -318,9 +321,7 @@ impl ExecutionContext for Output {
                     if c == b'@' {
                         state = PcbState::GotAt;
                     } else if c == b'\n' || c == b'\r' || c == 0x08 || c == b'\x1B' {
-                        disable_raw_mode().unwrap();
                         print!("{}", c as char);
-                        enable_raw_mode().unwrap();
                     } else {
                         print!("{}", CP437_TO_UNICODE[c as usize]);
                     }
@@ -376,6 +377,8 @@ impl ExecutionContext for Output {
             }
         }
         stdout().flush().unwrap();
+        enable_raw_mode().unwrap();
+
         Ok(())
     }
 

@@ -369,7 +369,7 @@ impl Mul<VariableValue> for VariableValue {
                 }
             }
 
-            _ => panic!("unsupported lvalue for sub {self:?}"),
+            _ => panic!("unsupported lvalue {other} for mul {self:?}"),
         }
     }
 }

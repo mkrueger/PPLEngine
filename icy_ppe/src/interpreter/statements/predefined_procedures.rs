@@ -130,14 +130,7 @@ pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
     let value = VariableValue::String(interpreter.io.fget(channel));
-    let var_name = get_var_name(&params[1]);
-    let var_type = interpreter.get_variable(&var_name).unwrap().get_type();
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(var_name, convert_to(var_type, &value));
+    interpreter.set_variable_value(&params[1], value);
     Ok(())
 }
 
@@ -253,14 +246,7 @@ pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     let valid = get_string(&evaluate_exp(interpreter, &params[4])?);
     let flags = get_int(&evaluate_exp(interpreter, &params[5])?)?;
     let output = internal_input_string(interpreter, color, prompt, len, &valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, VariableValue::String(output));
-
+    interpreter.set_variable_value(&params[1], VariableValue::String(output));
     Ok(())
 }
 
@@ -311,12 +297,10 @@ pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     let len = 1;
     let valid = "YyNn";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
-    interpreter.cur_frame.last_mut().unwrap().values.insert(
-        identifier,
+    interpreter.set_variable_value(
+        &params[1],
         VariableValue::String(output.to_ascii_uppercase()),
     );
-
     Ok(())
 }
 
@@ -330,14 +314,8 @@ pub fn inputmoney(interpreter: &mut Interpreter, params: &[Expression]) -> Res<(
     let len = 13;
     let valid = "01234567890+-$.";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
     // TODO: Money conversion.
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, VariableValue::String(output));
+    interpreter.set_variable_value(&params[1], VariableValue::String(output));
     Ok(())
 }
 
@@ -351,9 +329,8 @@ pub fn inputint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     let len = 11;
     let valid = "01234567890+-";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
-    interpreter.cur_frame.last_mut().unwrap().values.insert(
-        identifier,
+    interpreter.set_variable_value(
+        &params[1],
         VariableValue::Integer(output.parse::<i32>().unwrap()),
     );
     Ok(())
@@ -368,13 +345,7 @@ pub fn inputcc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     let len = 16;
     let valid = "01234567890";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, VariableValue::String(output));
+    interpreter.set_variable_value(&params[1], VariableValue::String(output));
     Ok(())
 }
 pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
@@ -387,14 +358,8 @@ pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     let len = 8;
     let valid = "01234567890-/";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
     // TODO: Date conversion
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, VariableValue::String(output));
+    interpreter.set_variable_value(&params[1], VariableValue::String(output));
     Ok(())
 }
 pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
@@ -407,14 +372,8 @@ pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     let len = 8;
     let valid = "01234567890:";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    let identifier = unicase::Ascii::new(params[1].to_string());
     // TODO: Time conversion
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, VariableValue::String(output));
+    interpreter.set_variable_value(&params[1], VariableValue::String(output));
     Ok(())
 }
 pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
@@ -452,33 +411,16 @@ pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let identifier = unicase::Ascii::new(params[0].to_string());
-    let new_value = evaluate_exp(
-        interpreter,
-        &IdentifierExpression::create_empty_expression(identifier.clone()),
-    )? + VariableValue::Integer(1);
-
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, new_value);
+    let cur_value = evaluate_exp(interpreter, &params[0])?;
+    let new_value = cur_value + VariableValue::Integer(1);
+    interpreter.set_variable_value(&params[0], new_value);
     Ok(())
 }
 
 pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let identifier = unicase::Ascii::new(params[0].to_string());
-    let new_value = evaluate_exp(
-        interpreter,
-        &IdentifierExpression::create_empty_expression(identifier.clone()),
-    )? - VariableValue::Integer(1);
-    interpreter
-        .cur_frame
-        .last_mut()
-        .unwrap()
-        .values
-        .insert(identifier, new_value);
+    let cur_value = evaluate_exp(interpreter, &params[0])?;
+    let new_value = cur_value - VariableValue::Integer(1);
+    interpreter.set_variable_value(&params[0], new_value);
     Ok(())
 }
 
@@ -655,8 +597,9 @@ pub fn varaddr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn ansipos(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let x = get_int(&evaluate_exp(interpreter, &params[0])?)? - 1;
-    let y = get_int(&evaluate_exp(interpreter, &params[1])?)? - 1;
+    let x = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let y = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+
     interpreter.ctx.gotoxy(TerminalTarget::Both, x, y)
 }
 

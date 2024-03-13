@@ -1,10 +1,13 @@
 #![allow(clippy::needless_pass_by_value)]
-use std::fs::File;
+use std::fs::{self, File};
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use super::super::errors::IcyError;
 use super::{get_int, get_string};
 use crate::ast::{convert_to, VariableType, VariableValue};
 use crate::interpreter::Interpreter;
+use crate::tables::{PPL_FALSE, PPL_TRUE};
 use crate::Res;
 use easy_reader::EasyReader;
 use radix_fmt::radix;
@@ -735,8 +738,8 @@ pub fn s2i(src: &str, base: i32) -> Res<VariableValue> {
     let i = i32::from_str_radix(src, base as u32)?;
     Ok(VariableValue::Integer(i))
 }
-pub fn carrier(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn carrier(interpreter: &mut Interpreter) -> VariableValue {
+    VariableValue::Integer(interpreter.ctx.get_bps())
 }
 pub fn tokenstr(_x: VariableValue) -> VariableValue {
     panic!("TODO")
@@ -827,8 +830,51 @@ pub fn psa(_x: VariableValue) -> VariableValue {
     panic!("TODO")
 }
 
-pub fn fileinf(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn fileinf(interpreter: &Interpreter, file: &str, item: i32) -> Res<VariableValue> {
+    match item {
+        1 => {
+            if interpreter.io.file_exists(file) {
+                Ok(VariableValue::Integer(PPL_TRUE))
+            } else {
+                Ok(VariableValue::Integer(PPL_FALSE))
+            }
+        }
+        2 => Ok(VariableValue::Date(0)), // TODO: File date
+        3 => Ok(VariableValue::Time(0)), // TODO: File time
+        4 => Ok(VariableValue::Integer(
+            interpreter.io.get_file_size(file) as i32
+        )),
+        5 => Ok(VariableValue::Integer(0)), // TODO: File attributes
+        6 => Ok(VariableValue::String("C:".to_string())), // Drive
+        7 => Ok(VariableValue::String(
+            PathBuf::from_str(file)
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+        )),
+        8 => Ok(VariableValue::String(
+            PathBuf::from_str(file)
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+        )),
+        9 => Ok(VariableValue::String(
+            PathBuf::from_str(file)
+                .unwrap()
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+        )),
+        _ => {
+            log::error!("Unknown fileinf item: {}", item);
+            Ok(VariableValue::Integer(0))
+        }
+    }
 }
 
 pub fn ppename(interpreter: &Interpreter) -> VariableValue {

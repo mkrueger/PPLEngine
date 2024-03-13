@@ -1,11 +1,14 @@
 use crate::ast::{
-    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut, walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement, UnaryExpression, WhileDoStatement
+    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut,
+    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut,
+    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement,
+    UnaryExpression, WhileDoStatement,
 };
 
 use super::{Expression, HashMap, HashSet, Program, Statement};
 
 pub fn do_pass3(prg: &mut Program) {
-
     optimize_block(&mut prg.statements);
     for fd in &mut prg.implementations {
         match fd {
@@ -22,7 +25,7 @@ pub fn do_pass3(prg: &mut Program) {
     prg.visit_mut(&mut RemoveNotNotVisitor {});
 }
 
-struct RemoveNotNotVisitor {} 
+struct RemoveNotNotVisitor {}
 impl AstVisitorMut<()> for RemoveNotNotVisitor {
     fn visit_function_call_expression(&mut self, call: &mut crate::ast::FunctionCallExpression) {
         for arg in call.get_arguments_mut() {
@@ -102,7 +105,7 @@ impl AstVisitorMut<()> for RemoveNotNotVisitor {
     }
 }
 
-fn optimize_argument(arg: &mut Expression)  {
+fn optimize_argument(arg: &mut Expression) {
     if let Expression::Parens(expr) = arg {
         *arg = expr.get_expression().clone();
     }

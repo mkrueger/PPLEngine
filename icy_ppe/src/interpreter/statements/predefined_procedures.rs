@@ -247,41 +247,13 @@ pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 const TXT_STOPCHAR: char = '_';
 
 pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
-    if prompt.ends_with(TXT_STOPCHAR) {
-        prompt.pop();
-    }
-
+    let prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
     // 1 Output Variable
     let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
     let len = get_int(&evaluate_exp(interpreter, &params[3])?)?;
     let valid = get_string(&evaluate_exp(interpreter, &params[4])?);
     let flags = get_int(&evaluate_exp(interpreter, &params[5])?)?;
-
-    interpreter.ctx.set_color(color as u8);
-    interpreter.ctx.print(TerminalTarget::Both, &prompt)?;
-    let mut output = String::new();
-    loop {
-        let Some(ch) = interpreter.ctx.get_char()? else {
-            continue;
-        };
-        if ch == '\n' || ch == '\r' {
-            break;
-        }
-        if ch == '\x08' && !output.is_empty() {
-            output.pop();
-            interpreter.ctx.print(TerminalTarget::Both, "\x08 \x08")?;
-            continue;
-        }
-
-        if (output.len() as i32) < len && valid.contains(ch) {
-            output.push(ch);
-            interpreter
-                .ctx
-                .print(TerminalTarget::Both, &ch.to_string())?;
-        }
-    }
-
+    let output = internal_input_string(interpreter, color, prompt, len, &valid)?;
     let identifier = unicase::Ascii::new(params[1].to_string());
     interpreter
         .cur_frame
@@ -293,16 +265,17 @@ pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     Ok(())
 }
 
-pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+fn internal_input_string(
+    interpreter: &mut Interpreter,
+    color: i32,
+    prompt: String,
+    len: i32,
+    valid: &str,
+) -> Res<String> {
+    let mut prompt = prompt;
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
-
-    // 1 Output Variable
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
-    let len = 1;
-    let valid = "YyNn";
     interpreter.ctx.set_color(color as u8);
     interpreter.ctx.print(TerminalTarget::Both, &prompt)?;
     let mut output = String::new();
@@ -326,29 +299,124 @@ pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
                 .print(TerminalTarget::Both, &ch.to_string())?;
         }
     }
-    let isyes = output == "Y" || output == "y";
+    Ok(output)
+}
+
+pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 1;
+    let valid = "YyNn";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     let identifier = unicase::Ascii::new(params[1].to_string());
     interpreter.cur_frame.last_mut().unwrap().values.insert(
         identifier,
-        VariableValue::Integer(if isyes { PPL_TRUE } else { PPL_FALSE }),
+        VariableValue::String(output.to_ascii_uppercase()),
     );
 
     Ok(())
 }
-pub fn inputmoney(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn inputmoney(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 13;
+    let valid = "01234567890+-$.";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    // TODO: Money conversion.
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(identifier, VariableValue::String(output));
+    Ok(())
 }
-pub fn inputint(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+
+pub fn inputint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 11;
+    let valid = "01234567890+-";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    interpreter.cur_frame.last_mut().unwrap().values.insert(
+        identifier,
+        VariableValue::Integer(output.parse::<i32>().unwrap()),
+    );
+    Ok(())
 }
-pub fn inputcc(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn inputcc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 16;
+    let valid = "01234567890";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(identifier, VariableValue::String(output));
+    Ok(())
 }
-pub fn inputdate(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 8;
+    let valid = "01234567890-/";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    // TODO: Date conversion
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(identifier, VariableValue::String(output));
+    Ok(())
 }
-pub fn inputtime(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 8;
+    let valid = "01234567890:";
+    let output = internal_input_string(interpreter, color, prompt, len, valid)?;
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    // TODO: Time conversion
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(identifier, VariableValue::String(output));
+    Ok(())
 }
 pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")

@@ -22,6 +22,7 @@ pub const LEGEND_TYPE: &[SemanticTokenType] = &[
     SemanticTokenType::OPERATOR,
     SemanticTokenType::PARAMETER,
     SemanticTokenType::TYPE,
+    SemanticTokenType::ENUM_MEMBER,
 ];
 
 pub fn semantic_token_from_ast(ast: &Program) -> Vec<ImCompleteSemanticToken> {
@@ -68,6 +69,12 @@ impl AstVisitor<()> for SemanticTokenVisitor {
             }
             Constant::Integer(_) | Constant::Unsigned(_) | Constant::Real(_) => {
                 self.highlight_token(const_expr.get_constant_token(), SemanticTokenType::NUMBER);
+            }
+            Constant::Builtin(_) => {
+                self.highlight_token(
+                    const_expr.get_constant_token(),
+                    SemanticTokenType::ENUM_MEMBER,
+                );
             }
             _ => {}
         }

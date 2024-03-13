@@ -63,6 +63,7 @@ impl<'a> Tokenizer<'a> {
 
             let mut statements = Vec::new();
             self.skip_eol();
+            let mut end_while_token = None;
             while self.get_cur_token() != Some(Token::EndWhile) {
                 if self.get_cur_token().is_none() {
                     self.errors
@@ -72,12 +73,30 @@ impl<'a> Tokenizer<'a> {
                         }));
                     return None;
                 }
+                if let Some(Token::End) = self.get_cur_token() {
+                    let ct = self.save_spannedtoken();
+                    self.next_token();
+                    if let Some(Token::While) = self.get_cur_token() {
+                        end_while_token = Some(SpannedToken {
+                            token: Token::EndWhile,
+                            span: ct.span.start..self.lex.span().end,
+                        });
+                        break;
+                    }
+                    self.skip_eol();
+
+                    statements.push(Some(Statement::End(EndStatement::new(ct))));
+                    continue;
+                }
                 statements.push(self.parse_statement());
                 self.next_token();
                 self.skip_eol();
             }
-            let end_while_token = self.save_spannedtoken();
+            if end_while_token.is_none() {
+                end_while_token = Some(self.save_spannedtoken());
+            }
             self.next_token(); // skip ENDWHILE
+
             Some(Statement::WhileDo(WhileDoStatement::new(
                 while_token,
                 lpar_token,
@@ -85,7 +104,7 @@ impl<'a> Tokenizer<'a> {
                 rightpar_token,
                 do_token,
                 statements.into_iter().flatten().collect(),
-                end_while_token,
+                end_while_token.unwrap(),
             )))
         } else {
             self.skip_eol();
@@ -292,6 +311,8 @@ impl<'a> Tokenizer<'a> {
         self.next_token();
         let mut statements = Vec::new();
         self.skip_eol();
+        let mut end_if_token = None;
+
         while self.get_cur_token() != Some(Token::EndIf)
             && self.get_cur_token() != Some(Token::Else)
             && self.get_cur_token() != Some(Token::ElseIf)
@@ -303,6 +324,20 @@ impl<'a> Tokenizer<'a> {
                         range: self.lex.span(),
                     }));
                 return None;
+            }
+            if let Some(Token::End) = self.get_cur_token() {
+                let ct = self.save_spannedtoken();
+                self.next_token();
+                if let Some(Token::If) = self.get_cur_token() {
+                    end_if_token = Some(SpannedToken {
+                        token: Token::EndSelect,
+                        span: ct.span.start..self.lex.span().end,
+                    });
+                    break;
+                }
+                self.skip_eol();
+                statements.push(Some(Statement::End(EndStatement::new(ct))));
+                continue;
             }
             statements.push(self.parse_statement());
             self.next_token();
@@ -347,23 +382,37 @@ impl<'a> Tokenizer<'a> {
                 self.next_token();
 
                 let mut statements = Vec::new();
-                if self.get_cur_token() == Some(Token::Then) {
-                    self.next_token();
-                    self.skip_eol();
-                    while self.get_cur_token() != Some(Token::ElseIf)
-                        && self.get_cur_token() != Some(Token::Else)
-                        && self.get_cur_token() != Some(Token::EndIf)
-                    {
-                        statements.push(self.parse_statement());
-                        self.next_token();
-                        self.skip_eol();
+                while self.get_cur_token() != Some(Token::EndIf)
+                    && self.get_cur_token() != Some(Token::Else)
+                    && self.get_cur_token() != Some(Token::ElseIf)
+                {
+                    if self.get_cur_token().is_none() {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::EndExpected,
+                                range: self.lex.span(),
+                            }));
+                        return None;
                     }
-                } else {
+
+                    if let Some(Token::End) = self.get_cur_token() {
+                        let ct = self.save_spannedtoken();
+                        self.next_token();
+                        if let Some(Token::If) = self.get_cur_token() {
+                            end_if_token = Some(SpannedToken {
+                                token: Token::EndIf,
+                                span: ct.span.start..self.lex.span().end,
+                            });
+                            break;
+                        }
+                        self.skip_eol();
+                        statements.push(Some(Statement::End(EndStatement::new(ct))));
+                        continue;
+                    }
                     statements.push(self.parse_statement());
                     self.next_token();
                     self.skip_eol();
                 }
-
                 else_if_blocks.push(ElseIfBlock::new(
                     else_if_token,
                     else_if_lpar_token,
@@ -390,6 +439,21 @@ impl<'a> Tokenizer<'a> {
                     return None;
                 }
 
+                if let Some(Token::End) = self.get_cur_token() {
+                    let ct = self.save_spannedtoken();
+                    self.next_token();
+                    if let Some(Token::If) = self.get_cur_token() {
+                        end_if_token = Some(SpannedToken {
+                            token: Token::EndIf,
+                            span: ct.span.start..self.lex.span().end,
+                        });
+                        break;
+                    }
+                    self.skip_eol();
+                    statements.push(Statement::End(EndStatement::new(ct)));
+                    continue;
+                }
+
                 if let Some(stmt) = self.parse_statement() {
                     statements.push(stmt);
                 }
@@ -401,7 +465,7 @@ impl<'a> Tokenizer<'a> {
             None
         };
 
-        if self.get_cur_token() != Some(Token::EndIf) {
+        if self.get_cur_token() != Some(Token::EndIf) && self.get_cur_token() != Some(Token::If) {
             self.errors
                 .push(crate::parser::Error::ParserError(ParserError {
                     error: ParserErrorType::InvalidToken(self.save_token()),
@@ -409,8 +473,9 @@ impl<'a> Tokenizer<'a> {
                 }));
             return None;
         }
-        let endif_token = self.save_spannedtoken();
-
+        if end_if_token.is_none() {
+            end_if_token = Some(self.save_spannedtoken());
+        }
         self.next_token();
 
         Some(Statement::IfThen(IfThenStatement::new(
@@ -422,7 +487,7 @@ impl<'a> Tokenizer<'a> {
             statements.into_iter().flatten().collect(),
             else_if_blocks,
             else_block,
-            endif_token,
+            end_if_token.unwrap(),
         )))
     }
 
@@ -442,12 +507,20 @@ impl<'a> Tokenizer<'a> {
 
         let case_token = self.save_spannedtoken();
         self.next_token();
-        let case_expr = self.parse_expression().unwrap();
+        let Some(case_expr) = self.parse_expression() else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::ExpressionExpected(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
         self.next_token();
         self.skip_eol();
 
         let mut case_blocks = Vec::new();
         let mut else_block = None;
+        let mut end_select_token = None;
 
         while self.get_cur_token() == Some(Token::Case) {
             let inner_case_token = self.save_spannedtoken();
@@ -458,6 +531,20 @@ impl<'a> Tokenizer<'a> {
                 let mut statements = Vec::new();
                 self.skip_eol();
                 while self.get_cur_token() != Some(Token::EndSelect) {
+                    if let Some(Token::End) = self.get_cur_token() {
+                        let ct = self.save_spannedtoken();
+                        self.next_token();
+                        if let Some(Token::Select) = self.get_cur_token() {
+                            end_select_token = Some(SpannedToken {
+                                token: Token::EndSelect,
+                                span: ct.span.start..self.lex.span().end,
+                            });
+                            break;
+                        }
+                        self.skip_eol();
+                        statements.push(Some(Statement::End(EndStatement::new(ct))));
+                        continue;
+                    }
                     statements.push(self.parse_statement());
                     self.next_token();
                     self.skip_eol();
@@ -487,6 +574,21 @@ impl<'a> Tokenizer<'a> {
             while self.get_cur_token() != Some(Token::Case)
                 && self.get_cur_token() != Some(Token::EndSelect)
             {
+                if let Some(Token::End) = self.get_cur_token() {
+                    let ct = self.save_spannedtoken();
+                    self.next_token();
+                    if let Some(Token::Select) = self.get_cur_token() {
+                        end_select_token = Some(SpannedToken {
+                            token: Token::EndSelect,
+                            span: ct.span.start..self.lex.span().end,
+                        });
+                        break;
+                    }
+                    self.skip_eol();
+                    statements.push(Some(Statement::End(EndStatement::new(ct))));
+                    continue;
+                }
+
                 statements.push(self.parse_statement());
                 self.next_token();
                 self.skip_eol();
@@ -497,8 +599,9 @@ impl<'a> Tokenizer<'a> {
                 statements.into_iter().flatten().collect(),
             ));
         }
-
-        let end_select_token = self.save_spannedtoken();
+        if end_select_token.is_none() {
+            end_select_token = Some(self.save_spannedtoken());
+        }
 
         self.next_token();
         self.skip_eol();
@@ -509,7 +612,7 @@ impl<'a> Tokenizer<'a> {
             Box::new(case_expr),
             case_blocks,
             else_block,
-            end_select_token,
+            end_select_token.unwrap(),
         )))
     }
 

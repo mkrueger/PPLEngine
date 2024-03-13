@@ -258,8 +258,10 @@ impl Executable {
         self.add_predefined_variable("U_WEB", VariableValue::String(String::new()));
     }
 
-    pub fn compile(&mut self, prg: &Program) {
-        self.initialize_variables();
+    pub fn compile(&mut self, prg: &Program, no_user_vars: bool) {
+        if !no_user_vars {
+            self.initialize_variables();
+        }
 
         for d in &prg.implementations {
             match d {

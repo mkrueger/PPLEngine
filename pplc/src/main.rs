@@ -7,9 +7,13 @@ mod executable;
 pub mod parser;
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
 struct Args {
-    /// file[.pps] to compile
+    /// Disable automatic user variable generation
+    #[arg(long = "nouvar")]
+    no_user_variables: bool,
+
+    /// file[.pps] to compile (extension defaults to .pps if not specified)
     input: String,
 }
 
@@ -39,7 +43,7 @@ fn main() {
 
     transform_ast(&mut prg);
     let mut exec = executable::Executable::new();
-    exec.compile(&prg);
+    exec.compile(&prg, arguments.no_user_variables);
 
     if !prg.errors.is_empty() || !exec.errors.is_empty() {
         let mut errors = 0;

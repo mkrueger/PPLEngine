@@ -1765,8 +1765,7 @@ impl Decompiler {
             } else {
                 self.errors.push(format!(
                     "Error: Missing expression for {} at {}",
-                    op,
-                    self.src_ptr
+                    op, self.src_ptr
                 ));
             }
         }

@@ -160,7 +160,11 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     let vector = get_int(first_arg_expr)?;
                     let matrix = get_int(first_arg_expr)?;
                     if let VariableValue::Dim2(var_type, data) = var_value {
-                        if vector < 0 || vector >= data.len() as i32 || matrix < 0 || matrix >= data[0].len() as i32 {
+                        if vector < 0
+                            || vector >= data.len() as i32
+                            || matrix < 0
+                            || matrix >= data[0].len() as i32
+                        {
                             return Ok(var_type.create_empty_value());
                         }
                         return Ok(data[vector as usize][matrix as usize].clone());
@@ -172,7 +176,13 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                     let matrix = get_int(first_arg_expr)?;
                     let cube = get_int(first_arg_expr)?;
                     if let VariableValue::Dim3(var_type, data) = var_value {
-                        if vector < 0 || vector >= data.len() as i32 || matrix < 0 || matrix >= data[0].len() as i32 || cube < 0 || cube >= data[0][0].len() as i32{
+                        if vector < 0
+                            || vector >= data.len() as i32
+                            || matrix < 0
+                            || matrix >= data[0].len() as i32
+                            || cube < 0
+                            || cube >= data[0][0].len() as i32
+                        {
                             return Ok(var_type.create_empty_value());
                         }
                         return Ok(data[vector as usize][matrix as usize][cube as usize].clone());

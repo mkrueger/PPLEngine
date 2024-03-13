@@ -427,7 +427,9 @@ pub fn dtron(interpreter: &Interpreter) -> Res<()> {
 }
 
 pub fn dtroff(interpreter: &mut Interpreter) -> Res<()> {
-    interpreter.ctx.hangup(crate::interpreter::HangupType::Hangup)?;
+    interpreter
+        .ctx
+        .hangup(crate::interpreter::HangupType::Hangup)?;
     Ok(())
 }
 

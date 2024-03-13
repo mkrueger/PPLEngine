@@ -483,10 +483,6 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
             }
         }
 
-        Statement::ProcedureDeclaration(_) | Statement::FunctionDeclaration(_) => {
-            // skip for now.
-        }
-
         /* unsupported - the compiler does not generate them and ast transformation should remove them */
         Statement::Continue(_) => {
             panic!("unsupported statement Continue")
@@ -508,7 +504,10 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         }
 
         // nop statements
-        Statement::Label(_) | Statement::Comment(_) => { /* skip */ }
+        Statement::ProcedureDeclaration(_)
+        | Statement::FunctionDeclaration(_)
+        | Statement::Label(_)
+        | Statement::Comment(_) => { /* skip */ }
 
         _ => {
             panic!("unsupported statement {stmt:?}");

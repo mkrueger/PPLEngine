@@ -451,11 +451,11 @@ pub fn timeap(_x: VariableValue) -> VariableValue {
 pub fn ver(_x: VariableValue) -> VariableValue {
     panic!("TODO")
 }
-pub fn nochar(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn nochar(interpreter: &mut Interpreter) -> VariableValue {
+    VariableValue::String(interpreter.icy_board_data.no_char.to_string())
 }
-pub fn yeschar(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn yeschar(interpreter: &mut Interpreter) -> VariableValue {
+    VariableValue::String(interpreter.icy_board_data.yes_char.to_string())
 }
 
 pub fn inkey(interpreter: &mut Interpreter) -> Res<VariableValue> {
@@ -499,27 +499,44 @@ pub fn tostring(x: VariableValue) -> VariableValue {
     VariableValue::String(x.to_string())
 }
 
-pub fn mask_pwd(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_pwd() -> VariableValue {
+    VariableValue::String((' '..='~').collect::<String>())
 }
-pub fn mask_alpha(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_alpha() -> VariableValue {
+    VariableValue::String(
+        ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str(),
+    )
 }
-pub fn mask_num(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_num() -> VariableValue {
+    VariableValue::String(('0'..='9').collect::<String>())
 }
-pub fn mask_alnum(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_alnum() -> VariableValue {
+    VariableValue::String(
+        ('A'..='Z').collect::<String>()
+            + ('a'..='z').collect::<String>().as_str()
+            + ('0'..='9').collect::<String>().as_str(),
+    )
 }
-pub fn mask_file(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_file() -> VariableValue {
+    VariableValue::String(
+        ('A'..='Z').collect::<String>()
+            + ('a'..='z').collect::<String>().as_str()
+            + ('0'..='9').collect::<String>().as_str()
+            + "!#$%&'()-.:[\\]^_`~",
+    )
 }
-pub fn mask_path(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_path() -> VariableValue {
+    VariableValue::String(
+        ('A'..='Z').collect::<String>()
+            + ('a'..='z').collect::<String>().as_str()
+            + ('0'..='9').collect::<String>().as_str()
+            + "!#$%&'()-.:[\\]^_`~",
+    )
 }
-pub fn mask_ascii(_x: VariableValue) -> VariableValue {
-    panic!("TODO")
+pub fn mask_ascii() -> VariableValue {
+    VariableValue::String((' '..='~').collect::<String>())
 }
+
 pub fn curconf(_x: VariableValue) -> VariableValue {
     panic!("TODO")
 }

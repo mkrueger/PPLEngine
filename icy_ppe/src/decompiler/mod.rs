@@ -1662,8 +1662,7 @@ impl Decompiler {
                                     self.push_expr(Expression::FunctionCall(expr));
                                 } else {
                                     self.warnings.push(format!(
-                                        "function call expected but got {:?}",
-                                        func_expr
+                                        "function call expected but got {func_expr:?}"
                                     ));
                                     self.push_expr(func_expr);
                                 }

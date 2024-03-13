@@ -376,10 +376,8 @@ fn call_function(
         FuncOpCode::TIMEAP => predefined_functions::timeap(evaluate_exp(interpreter, &params[0])?),
 
         FuncOpCode::VER => predefined_functions::ver(evaluate_exp(interpreter, &params[0])?),
-        FuncOpCode::NOCHAR => predefined_functions::nochar(evaluate_exp(interpreter, &params[0])?),
-        FuncOpCode::YESCHAR => {
-            predefined_functions::yeschar(evaluate_exp(interpreter, &params[0])?)
-        }
+        FuncOpCode::NOCHAR => predefined_functions::nochar(interpreter),
+        FuncOpCode::YESCHAR => predefined_functions::yeschar(interpreter),
         FuncOpCode::STRIPATX => {
             predefined_functions::strip_atx(evaluate_exp(interpreter, &params[0])?)
         }
@@ -387,27 +385,14 @@ fn call_function(
         FuncOpCode::TOSTRING => {
             predefined_functions::tostring(evaluate_exp(interpreter, &params[0])?)
         }
-        FuncOpCode::MASK_PWD => {
-            predefined_functions::mask_pwd(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_ALPHA => {
-            predefined_functions::mask_alpha(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_NUM => {
-            predefined_functions::mask_num(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_ALNUM => {
-            predefined_functions::mask_alnum(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_FILE => {
-            predefined_functions::mask_file(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_PATH => {
-            predefined_functions::mask_path(evaluate_exp(interpreter, &params[0])?)
-        }
-        FuncOpCode::MASK_ASCII => {
-            predefined_functions::mask_ascii(evaluate_exp(interpreter, &params[0])?)
-        }
+        FuncOpCode::MASK_PWD => predefined_functions::mask_pwd(),
+        FuncOpCode::MASK_ALPHA => predefined_functions::mask_alpha(),
+        FuncOpCode::MASK_NUM => predefined_functions::mask_num(),
+        FuncOpCode::MASK_ALNUM => predefined_functions::mask_alnum(),
+        FuncOpCode::MASK_FILE => predefined_functions::mask_file(),
+        FuncOpCode::MASK_PATH => predefined_functions::mask_path(),
+        FuncOpCode::MASK_ASCII => predefined_functions::mask_ascii(),
+
         FuncOpCode::CURCONF => {
             predefined_functions::curconf(evaluate_exp(interpreter, &params[0])?)
         }

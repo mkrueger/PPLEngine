@@ -1,5 +1,5 @@
 use icy_ppe::{
-    ast::{declaration, Program, Statement, VariableType, VariableValue},
+    ast::{Program, Statement, VariableType, VariableValue},
     crypt::{encode_rle, encrypt},
     executable::FunctionHeader,
     tables::{self, get_function_definition, OpCode},
@@ -593,10 +593,10 @@ impl Executable {
                 }
             }
 
-            Statement::FunctionDeclaration(decl) => {
+            Statement::FunctionDeclaration(_decl) => {
                 // Ignore: Taken from implementations.
             }
-            Statement::ProcedureDeclaration(decl) => {
+            Statement::ProcedureDeclaration(_decl) => {
                 // Ignore: Taken from implementations.
             }
 

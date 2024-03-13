@@ -1,6 +1,5 @@
-use crate::ast::AstVisitorMut;
 /*
-
+use crate::ast::AstVisitorMut;
 #[derive(Default)]
 pub struct RenameVarsVisitor {}
 

@@ -326,7 +326,6 @@ impl FunctionCallExpression {
         identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
     ) -> Expression {
-        let identifier = identifier.into();
         Expression::FunctionCall(FunctionCallExpression::empty(identifier, arguments))
     }
 

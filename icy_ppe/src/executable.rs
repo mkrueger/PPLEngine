@@ -5,14 +5,72 @@ use std::io::Read;
 use crate::ast::VariableType;
 use crate::crypt::{decode_rle, decrypt};
 
-#[derive(Clone)]
-pub struct VarDecl {
+#[derive(Clone, Debug)]
+pub struct VarHeader {
+    pub id : usize,
     pub dim: u8,
     pub vector_size: i32,
     pub matrix_size: i32,
     pub cube_size: i32,
-
     pub variable_type: VariableType,
+    pub flags: u8,
+}
+
+impl VarHeader {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn from_bytes(cur_block: &[u8]) -> VarHeader {
+        let dim = cur_block[2];
+        if dim > 3 {
+            panic!("Invalid dimension: {}", dim);
+        }
+        
+        Self {
+            id: u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize,
+            dim,
+            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
+            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
+            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as i32,
+            variable_type: unsafe { ::std::mem::transmute(cur_block[9]) },
+            flags: cur_block[10]
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FunctionHeader {
+    pub args: i32,
+    pub total_var: i32,
+    pub start: i32,
+    pub first_var: i32,
+    pub return_var: i32,
+}
+
+impl FunctionHeader {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn from_bytes(cur_buf: &[u8]) -> FunctionHeader {
+ 
+        Self {
+            args: cur_buf[4] as i32,
+            total_var: cur_buf[5] as i32,
+            start: u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32,
+            first_var: u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32,
+            return_var: u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32,
+        }
+    }
+}
+
+
+#[derive(Clone)]
+pub struct VarDecl {
+    pub header: VarHeader,
     pub var_name: String,
 
     pub content: u64,
@@ -23,11 +81,7 @@ pub struct VarDecl {
     pub lflag: u8,
     pub fflag: u8,
     pub number: i32,
-    pub args: i32,
-    pub total_var: i32,
-    pub start: i32,
-    pub first_var: i32,
-    pub return_var: i32,
+    pub function_header: FunctionHeader,
     pub function_id: i32,
 }
 
@@ -173,32 +227,23 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
 
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as i32;
 
-        let variable_type = unsafe { ::std::mem::transmute(cur_block[9]) };
         let mut var_decl = VarDecl {
+            header: VarHeader::from_bytes(cur_block),
             number: 0,
-            args: 0,
-            total_var: 0,
-            start: 0,
-            first_var: 0,
             function_id: 0,
-            variable_type,
             var_name: String::new(),
-            dim: cur_block[2],
-            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
-            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
-            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as i32,
             content: 0,
             content2: 0,
             string_value: String::new(),
             flag: 0,
             lflag: 0,
             fflag: 0,
-            return_var: 0,
+            function_header: FunctionHeader::default(),
         };
-        // println!("read var {:?} type:{:?}", cur_block, var_decl.variable_type);
         i += 11;
+        println!("{:?}", var_decl.header);
 
-        match var_decl.variable_type {
+        match var_decl.header.variable_type {
             VariableType::String => {
                 let string_length =
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
@@ -214,25 +259,15 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             VariableType::Function => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.args = cur_buf[4] as i32;
-                var_decl.total_var = cur_buf[5] as i32 - 1;
-                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
-                var_decl.first_var =
-                    u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32;
-                var_decl.return_var =
-                    u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
+                var_decl.function_header = FunctionHeader::from_bytes(cur_buf);
+                var_decl.function_header.total_var -= 1;
                 i += 12;
             }
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.args = cur_buf[4] as i32;
-                var_decl.total_var = cur_buf[5] as i32;
-                var_decl.start = u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32;
-                var_decl.first_var =
-                    u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32;
-                var_decl.return_var =
-                    u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32;
+                var_decl.function_header = FunctionHeader::from_bytes(cur_buf);
+                println!("{:?}", var_decl.function_header);
                 i += 12;
             }
             _ => {
@@ -247,9 +282,10 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
-                    i += 4; // what's stored here ?
+                    i+=2;
+                    i += 2; // what's stored here ?
                     var_decl.content =
-                        u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
+                    u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
                     i += 4;
                     var_decl.content2 =
                         u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
@@ -263,33 +299,33 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
     let mut k = (result.len() - 1) as i32;
     while k >= 0 {
         let cur = result.get(&k).unwrap().clone();
-        match cur.variable_type {
+        match cur.header.variable_type {
             VariableType::Function => {
                 let mut j = 0;
-                let last = cur.total_var + cur.return_var;
-                for i in cur.first_var..last {
+                let last = cur.function_header.total_var + cur.function_header.return_var;
+                for i in cur.function_header.first_var..last {
                     let fvar = result.get_mut(&i).unwrap();
                     fvar.lflag = 1;
-                    if j < cur.args {
+                    if j < cur.function_header.args {
                         fvar.flag = 1;
                     }
-                    if i != cur.return_var - 1 {
+                    if i != cur.function_header.return_var - 1 {
                         j += 1;
                         fvar.number = j;
                     }
                 }
 
-                let next = result.get_mut(&(cur.return_var - 1)).unwrap();
+                let next = result.get_mut(&(cur.function_header.return_var - 1)).unwrap();
                 next.fflag = 1;
             }
             VariableType::Procedure => {
                 let mut j = 0;
-                let last = cur.total_var + cur.args + cur.first_var;
+                let last = cur.function_header.total_var + cur.function_header.args + cur.function_header.first_var;
 
-                for i in cur.first_var..last {
+                for i in cur.function_header.first_var..last {
                     let fvar = &mut **result.get_mut(&i).unwrap();
                     fvar.lflag = 1;
-                    if j < cur.args {
+                    if j < cur.function_header.args {
                         fvar.flag = 1;
                     }
                     j += 1;

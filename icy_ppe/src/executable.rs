@@ -62,6 +62,14 @@ impl FunctionHeader {
             return_var: u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32,
         }
     }
+    
+    pub fn append(&self, buffer: &mut Vec<u8>) {
+        buffer.push(self.args as u8);
+        buffer.push(self.total_var as u8);
+        buffer.extend(u16::to_le_bytes(self.start as u16));
+        buffer.extend(u16::to_le_bytes(self.first_var as u16));
+        buffer.extend(u16::to_le_bytes(self.return_var as u16));
+    }
 }
 
 #[derive(Clone)]

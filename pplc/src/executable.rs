@@ -1,7 +1,5 @@
 use icy_ppe::{
-    ast::{Program, Statement, VariableType, VariableValue},
-    crypt::{encode_rle, encrypt},
-    tables::{self, get_function_definition, OpCode},
+    ast::{Program, Statement, VariableType, VariableValue}, crypt::{encode_rle, encrypt}, executable::FunctionHeader, tables::{self, get_function_definition, OpCode}
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -42,11 +40,7 @@ struct Variable {
 
 #[derive(Debug)]
 struct Function {
-    pub args: i32,
-    pub total_var: i32,
-    pub start: i32,
-    pub first_var: i32,
-    pub return_var: i32,
+    pub header: FunctionHeader,
 
     pub usages: Vec<usize>,
 }
@@ -83,12 +77,7 @@ impl Variable {
             buffer.push(0);
             buffer.push(0);
             buffer.push(0);
-
-            buffer.push(proc.args as u8);
-            buffer.push(proc.total_var as u8);
-            buffer.extend(u16::to_le_bytes(proc.start as u16));
-            buffer.extend(u16::to_le_bytes(proc.first_var as u16));
-            buffer.extend(u16::to_le_bytes(proc.return_var as u16));
+            proc.header.append(&mut buffer);
         } else if self.var_type == VariableType::String {
             let s = if self.info.dims == 0 {
                 let VariableValue::String(s) = &self.value else {
@@ -269,28 +258,40 @@ impl Executable {
         for d in &prg.implementations {
             match d {
                 icy_ppe::ast::Implementations::Comment(_) => {}
-                icy_ppe::ast::Implementations::Function(d) => {
+                icy_ppe::ast::Implementations::Function(func) => {
                     self.procedure_declarations.insert(
-                        d.get_identifier().clone(),
+                        func.get_identifier().clone(),
                         Function {
-                            args: d.get_parameters().len() as i32,
-                            total_var: 0,
-                            start: 0,
-                            first_var: 0,
-                            return_var: *d.get_return_type() as i32,
+                            header: FunctionHeader {
+                                args: func.get_parameters().len() as i32,
+                                total_var: 0,
+                                start: 0,
+                                first_var: 0,
+                                return_var: *func.get_return_type() as i32,
+                            },
                             usages: Vec::new(),
                         },
                     );
                 }
-                icy_ppe::ast::Implementations::Procedure(d) => {
+                
+
+                icy_ppe::ast::Implementations::Procedure(proc) => {
+                    let mut var_params = 0;
+                    for (i, p) in proc.get_parameters().iter().enumerate() {
+                        if p.is_var() {
+                            var_params |= 1 << i;
+                        }
+                    }
                     self.procedure_declarations.insert(
-                        d.get_identifier().clone(),
+                        proc.get_identifier().clone(),
                         Function {
-                            args: d.get_parameters().len() as i32,
-                            total_var: 0,
-                            start: 0,
-                            first_var: 0,
-                            return_var: 0,
+                            header: FunctionHeader {
+                                args: proc.get_parameters().len() as i32,
+                                total_var: 0,
+                                start: 0,
+                                first_var: 0,
+                                return_var: var_params,
+                            },
                             usages: Vec::new(),
                         },
                     );
@@ -317,9 +318,9 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.start = self.script_buffer.len() as i32 * 2;
+                        decl.header.start = self.script_buffer.len() as i32 * 2;
                         let id = self.variable_table.len() as i32 + 1;
-                        decl.first_var = id;
+                        decl.header.first_var = id;
                         self.variable_table.insert(
                             p.get_identifier().clone(),
                             Variable {
@@ -350,7 +351,7 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+                        decl.header.total_var = self.variable_table.len() as i32 - decl.header.first_var;
                     }
                 }
                 icy_ppe::ast::Implementations::Function(p) => {
@@ -359,9 +360,9 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.start = self.script_buffer.len() as i32 * 2;
+                        decl.header.start = self.script_buffer.len() as i32 * 2;
                         let id = self.variable_table.len() as i32 + 1;
-                        decl.first_var = id;
+                        decl.header.first_var = id;
                         self.variable_table.insert(
                             p.get_identifier().clone(),
                             Variable {
@@ -387,13 +388,13 @@ impl Executable {
                     self.cur_function_id = -1;
 
                     self.fill_labels();
-                    self.script_buffer.push(ENDPROC);
+                    self.script_buffer.push(ENDFUNC);
                     {
                         let decl = self
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.total_var = self.variable_table.len() as i32 - decl.first_var;
+                        decl.header.total_var = self.variable_table.len() as i32 - decl.header.first_var;
                     }
                 }
             }
@@ -405,7 +406,7 @@ impl Executable {
 
         for decl in &self.procedure_declarations {
             for idx in &decl.1.usages {
-                self.script_buffer[*idx] = decl.1.first_var as u16;
+                self.script_buffer[*idx] = decl.1.header.first_var as u16;
             }
         }
     }
@@ -548,10 +549,10 @@ impl Executable {
             }
 
             Statement::FunctionDeclaration(decl) => {
-
+                // Ignore: Taken from implementations.
             }
             Statement::ProcedureDeclaration(decl) => {
-                
+                // Ignore: Taken from implementations.
             }
 
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),

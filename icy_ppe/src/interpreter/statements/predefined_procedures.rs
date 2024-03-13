@@ -4,6 +4,7 @@ use crate::{
     ast::{convert_to, get_var_name, Expression, IdentifierExpression, VariableValue},
     icy_board::text_messages,
     interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
+    tables::{PPL_FALSE, PPL_TRUE},
     Res,
 };
 
@@ -209,8 +210,8 @@ pub fn getuser(interpreter: &mut Interpreter) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(interpreter: &mut Interpreter) -> Res<()> {
-    if let Some(user) = interpreter.current_user.take() {
-        interpreter.icy_board_data.users[interpreter.cur_user] = user;
+    if let Some(user) = &interpreter.current_user {
+        interpreter.icy_board_data.users[interpreter.cur_user] = user.clone();
         Ok(())
     } else {
         Err(Box::new(IcyError::UserNotSet))
@@ -243,12 +244,96 @@ pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn inputstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO inputstr")
+const TXT_STOPCHAR: char = '_';
+
+pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    // 1 Output Variable
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = get_int(&evaluate_exp(interpreter, &params[3])?)?;
+    let valid = get_string(&evaluate_exp(interpreter, &params[4])?);
+    let flags = get_int(&evaluate_exp(interpreter, &params[5])?)?;
+
+    interpreter.ctx.set_color(color as u8);
+    interpreter.ctx.print(TerminalTarget::Both, &prompt)?;
+    let mut output = String::new();
+    loop {
+        let Some(ch) = interpreter.ctx.get_char()? else {
+            continue;
+        };
+        if ch == '\n' || ch == '\r' {
+            break;
+        }
+        if ch == '\x08' && !output.is_empty() {
+            output.pop();
+            interpreter.ctx.print(TerminalTarget::Both, "\x08 \x08")?;
+            continue;
+        }
+
+        if (output.len() as i32) < len && valid.contains(ch) {
+            output.push(ch);
+            interpreter
+                .ctx
+                .print(TerminalTarget::Both, &ch.to_string())?;
+        }
+    }
+
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    interpreter
+        .cur_frame
+        .last_mut()
+        .unwrap()
+        .values
+        .insert(identifier, VariableValue::String(output));
+
+    Ok(())
 }
 
-pub fn inputyn(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
-    panic!("TODO")
+pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    if prompt.ends_with(TXT_STOPCHAR) {
+        prompt.pop();
+    }
+
+    // 1 Output Variable
+    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let len = 1;
+    let valid = "YyNn";
+    interpreter.ctx.set_color(color as u8);
+    interpreter.ctx.print(TerminalTarget::Both, &prompt)?;
+    let mut output = String::new();
+    loop {
+        let Some(ch) = interpreter.ctx.get_char()? else {
+            continue;
+        };
+        if ch == '\n' || ch == '\r' {
+            break;
+        }
+        if ch == '\x08' && !output.is_empty() {
+            output.pop();
+            interpreter.ctx.print(TerminalTarget::Both, "\x08 \x08")?;
+            continue;
+        }
+
+        if (output.len() as i32) < len && valid.contains(ch) {
+            output.push(ch);
+            interpreter
+                .ctx
+                .print(TerminalTarget::Both, &ch.to_string())?;
+        }
+    }
+    let isyes = output == "Y" || output == "y";
+    let identifier = unicase::Ascii::new(params[1].to_string());
+    interpreter.cur_frame.last_mut().unwrap().values.insert(
+        identifier,
+        VariableValue::Integer(if isyes { PPL_TRUE } else { PPL_FALSE }),
+    );
+
+    Ok(())
 }
 pub fn inputmoney(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")

@@ -62,7 +62,7 @@ impl FunctionHeader {
             return_var: u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32,
         }
     }
-    
+
     pub fn append(&self, buffer: &mut Vec<u8>) {
         buffer.push(self.args as u8);
         buffer.push(self.total_var as u8);
@@ -224,7 +224,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
         return (i, result);
     }
     let mut var_count = max_var + 1;
-
+    println!("Read {max_var} entries from variable table");
     while var_count > 1 {
         decrypt(&mut (buf[i..(i + 11)]), version);
         let cur_block = &buf[i..(i + 11)];
@@ -245,7 +245,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             function_header: FunctionHeader::default(),
         };
         i += 11;
-
+        // println!("var_decl: {:?}", var_decl.header);
         match var_decl.header.variable_type {
             VariableType::String => {
                 let string_length =
@@ -329,13 +329,19 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     + cur.function_header.first_var;
 
                 for i in cur.function_header.first_var..last {
-                    let fvar = &mut **result.get_mut(&i).unwrap();
-                    fvar.lflag = 1;
-                    if j < cur.function_header.args {
-                        fvar.flag = 1;
+                    if let Some(fvar) = result.get_mut(&i) {
+                        fvar.lflag = 1;
+                        if j < cur.function_header.args {
+                            fvar.flag = 1;
+                        }
+                        j += 1;
+                        fvar.number = j;
+                    } else {
+                        panic!(
+                            "Variable {i} not found. Invalid function header {:?}",
+                            cur.function_header
+                        );
                     }
-                    j += 1;
-                    fvar.number = j;
                 }
             }
             _ => {}

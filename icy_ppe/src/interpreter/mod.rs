@@ -348,38 +348,46 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                     let expr = &call_stmt.get_arguments()[i];
 
                     if let Expression::Identifier(ident) = expr {
-                        if let Some(value) = prg_frame.values.get(param.get_variable().get_identifier()) {
+                        if let Some(value) =
+                            prg_frame.values.get(param.get_variable().get_identifier())
+                        {
                             if interpreter
-                            .cur_frame
-                            .last_mut()
-                            .unwrap()
-                            .values.contains_key(ident.get_identifier()) {
+                                .cur_frame
+                                .last_mut()
+                                .unwrap()
+                                .values
+                                .contains_key(ident.get_identifier())
+                            {
                                 interpreter
                                     .cur_frame
                                     .last_mut()
                                     .unwrap()
                                     .values
                                     .insert(ident.get_identifier().clone(), value.clone());
-                            } else  if interpreter
+                            } else if interpreter
                                 .cur_frame
                                 .first_mut()
                                 .unwrap()
-                                .values.contains_key(ident.get_identifier()) {
-                                    interpreter
+                                .values
+                                .contains_key(ident.get_identifier())
+                            {
+                                interpreter
                                     .cur_frame
-                                        .first_mut()
-                                        .unwrap()
-                                        .values
-                                        .insert(ident.get_identifier().clone(), value.clone());
+                                    .first_mut()
+                                    .unwrap()
+                                    .values
+                                    .insert(ident.get_identifier().clone(), value.clone());
                             } else {
-                                log::warn!("variable not found {} for parameter write back.", ident.get_identifier());
+                                log::warn!(
+                                    "variable not found {} for parameter write back.",
+                                    ident.get_identifier()
+                                );
                             }
                         }
                     }
 
                     // TODO: Array values.
                 }
-
 
                 break;
             }

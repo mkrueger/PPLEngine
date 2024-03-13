@@ -387,10 +387,10 @@ impl<'a> Tokenizer<'a> {
                     if id == Ascii::new("VAR".to_string()) {
                         if is_function {
                             self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::VarNotAllowedInFunctions,
-                                range: self.lex.span(),
-                            }));
+                                .push(crate::parser::Error::ParserError(ParserError {
+                                    error: ParserErrorType::VarNotAllowedInFunctions,
+                                    range: self.lex.span(),
+                                }));
                         } else {
                             var_token = Some(self.save_spannedtoken());
                         }
@@ -635,9 +635,7 @@ impl<'a> Tokenizer<'a> {
                     let Some(info) = self.parse_var_info() else {
                         return None;
                     };
-                    parameters.push(ParameterSpecifier::new(
-                        None, type_token, var_type, info,
-                    ));
+                    parameters.push(ParameterSpecifier::new(None, type_token, var_type, info));
                 } else {
                     self.errors
                         .push(crate::parser::Error::ParserError(ParserError {

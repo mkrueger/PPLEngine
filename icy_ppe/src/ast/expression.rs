@@ -95,21 +95,10 @@ impl Expression {
 }
 
 impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Expression::Identifier(id) => write!(f, "{id}"),
-            Expression::Const(c) => write!(f, "{c}"),
-            Expression::Parens(expr) => write!(f, "{expr}"),
-            Expression::Unary(expr) => {
-                write!(f, "{expr}")
-            }
-            Expression::Binary(expr) => {
-                write!(f, "{expr}")
-            }
-            Expression::FunctionCall(expr) => {
-                write!(f, "{expr}")
-            }
-        }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut output_visitor = crate::ast::output_visitor::OutputVisitor::default();
+        self.visit(&mut output_visitor);
+        write!(f, "{}", output_visitor.output)
     }
 }
 

@@ -43,6 +43,8 @@ pub enum CommentType {
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(error = LexingErrorType)]
 #[logos(skip r"[ \t\f]+")] // Ignore this regex pattern between tokens
+#[logos(skip r"_\r\n")]
+#[logos(skip r"_\n")]
 pub enum Token {
     #[token("\r\n")]
     #[token("\n")]
@@ -66,8 +68,13 @@ pub enum Token {
     Comma,
 
     #[token("(")]
+    #[token("[")]
+    #[token("{")]
     LPar,
+
     #[token(")")]
+    #[token("]")]
+    #[token("}")]
     RPar,
 
     #[token("^")]
@@ -154,8 +161,11 @@ pub enum Token {
     #[token("next", ignore(case))]
     Next,
 
+    #[token("quit", ignore(case))]
     #[token("break", ignore(case))]
     Break,
+
+    #[token("loop", ignore(case))]
     #[token("continue", ignore(case))]
     Continue,
     #[token("return", ignore(case))]
@@ -211,8 +221,22 @@ pub enum Token {
     #[token("end", ignore(case))]
     End,
 
-    #[regex(r#""[^"]*""#, |lex| {
-        Constant::String(lex.slice()[1..lex.slice().len() - 1].to_string())
+    #[regex(r#""(?:[^"]|"")*""#, |lex| {
+        let mut s = String::new();
+        let mut got_quote = false;
+        for c in lex.slice()[1..lex.slice().len() - 1].chars() {
+            if c == '"' {
+                if got_quote {
+                    got_quote = false;
+                } else {
+                    s.push(c);
+                    got_quote = true;
+                }
+            } else {
+                s.push(c);
+            }
+        }
+        Constant::String(s)
     })]
     #[regex(r"@[xX][0-9a-fA-F][0-9a-fA-F]", |lex| {
         let slice = lex.slice();
@@ -457,12 +481,19 @@ mod tests {
     fn test_comments() {
         assert!(matches!(get_token("; COMMENT"), Token::Comment(_)));
         assert!(matches!(get_token("' COMMENT"), Token::Comment(_)));
+        // assert!(matches!(get_token("\n\r* COMMENT"), Token::Comment(_)));
         assert!(matches!(get_token("End ; COMMENT"), Token::End));
     }
 
     fn get_token(src: &str) -> Token {
         let mut lex = crate::parser::tokens::Token::lexer(src);
-        lex.next().unwrap().unwrap()
+        match lex.next().unwrap() {
+            Ok(t) => t,
+            Err(e) => {
+                println!("error parsing '{src}'");
+                panic!("Error: {e:?}")
+            }
+        }
     }
 
     #[test]
@@ -476,7 +507,12 @@ mod tests {
             get_token("\"\\\"")
         );
 
-        let src = "\"Hello World\"\"foo\"";
+        assert_eq!(
+            Token::Const(Constant::String("\"foo\"".to_string())),
+            get_token("\"\"\"foo\"\"\"")
+        );
+
+        let src = "\"Hello World\" \"foo\"";
         let mut lex: logos::Lexer<'_, Token> = crate::parser::tokens::Token::lexer(src);
         assert_eq!(
             Token::Const(Constant::String("Hello World".to_string())),
@@ -499,6 +535,11 @@ mod tests {
         assert_eq!(Token::Not, get_token("!"));
         assert_eq!(Token::PoW, get_token("**"));
         assert_eq!(Token::PoW, get_token("^"));
+
+        assert_eq!(Token::Mul, get_token("*"));
+        assert_eq!(Token::Div, get_token("/"));
+        assert_eq!(Token::Add, get_token("+"));
+        assert_eq!(Token::Sub, get_token("-"));
 
         assert_eq!(Token::NotEq, get_token("<>"));
         assert_eq!(Token::NotEq, get_token("><"));
@@ -594,6 +635,33 @@ mod tests {
     fn test_while() {
         assert_eq!(Token::While, get_token("WHILE"));
         assert_eq!(Token::EndWhile, get_token("ENDWHILE"));
+    }
+
+    #[test]
+    fn test_break() {
+        assert_eq!(Token::Break, get_token("break"));
+        assert_eq!(Token::Break, get_token("quit"));
+    }
+
+    #[test]
+    fn test_continue() {
+        assert_eq!(Token::Continue, get_token("continue"));
+        assert_eq!(Token::Continue, get_token("loop"));
+    }
+
+    #[test]
+    fn test_skip() {
+        let src = "Hello _\n World";
+        let mut lex = crate::parser::tokens::Token::lexer(src);
+
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("Hello".to_string())),
+            lex.next().unwrap().unwrap()
+        );
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("World".to_string())),
+            lex.next().unwrap().unwrap()
+        );
     }
     #[test]
     fn test_if_then() {

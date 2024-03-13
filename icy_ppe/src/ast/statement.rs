@@ -93,6 +93,14 @@ impl Statement {
     }
 }
 
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut output_visitor = crate::ast::output_visitor::OutputVisitor::default();
+        self.visit(&mut output_visitor);
+        write!(f, "{}", output_visitor.output)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct CommentStatement {
     comment_token: SpannedToken,

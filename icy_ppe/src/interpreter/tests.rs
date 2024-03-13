@@ -455,13 +455,13 @@ FCLOSE 1
 
 FOPEN 1,"FILE.DAT", O_RD, S_DW
 FGET 1, s
-:LOOP
-IF (FERR(1)) GOTO SKIP
+:LOOPME
+IF (FERR(1)) GOTO SKIPL
    INC i
    PRINTLN "Line ", RIGHT(i, 2), ": ", s
    FGET 1, s
-GOTO LOOP
-:SKIP
+GOTO LOOPME
+:SKIPL
 FCLOSE 1
 "#;
         let mut io = MemoryIO::new();
@@ -506,9 +506,9 @@ ENDFUNC
         check_output(
             r"
 INTEGER ARR(2)
-ARR(1) = 2
-ARR(2) = 3
-PRINT ARR(1) + ARR(2)
+ARR(0) = 2
+ARR(1) = 3
+PRINT ARR(0) + ARR(1)
 ",
             "5",
         );

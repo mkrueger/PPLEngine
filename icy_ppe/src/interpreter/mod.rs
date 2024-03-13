@@ -177,6 +177,11 @@ impl<'a> Interpreter<'a> {
         );
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&VariableValue> {
         if self.cur_frame.len() > 1 {
             let last = self.cur_frame.last().unwrap();
@@ -187,6 +192,11 @@ impl<'a> Interpreter<'a> {
         self.cur_frame.first().unwrap().values.get(var_name)
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn get_variable_mut(
         &mut self,
         var_name: &unicase::Ascii<String>,
@@ -536,16 +546,15 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         Statement::Block(_) => {
             panic!("unsupported statement Begin…End block")
         }
+        Statement::Select(_) => {
+            panic!("unsupported statement Select")
+        }
 
         // nop statements
         Statement::ProcedureDeclaration(_)
         | Statement::FunctionDeclaration(_)
         | Statement::Label(_)
         | Statement::Comment(_) => { /* skip */ }
-
-        _ => {
-            panic!("unsupported statement {stmt:?}");
-        }
     }
     Ok(())
 }
@@ -569,8 +578,6 @@ pub fn run(
         cur_ptr: 0,
         label_table,
     };
-
-    //prg.visit_mut(&mut rename_vars_visitor::RenameVarsVisitor::default());
 
     let mut interpreter = Interpreter {
         prg,

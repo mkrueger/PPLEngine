@@ -57,7 +57,8 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_constant_expression(&mut self, constant: &super::ConstantExpression) {
-        self.output_keyword(&format!("{}", constant.get_constant_value()));
+        self.output
+            .push_str(&format!("{}", constant.get_constant_value()));
     }
 
     fn visit_binary_expression(&mut self, binary: &super::BinaryExpression) {
@@ -272,6 +273,10 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_let_statement(&mut self, let_stmt: &super::LetStatement) {
+        if let_stmt.get_let_token().is_some() {
+            self.output_keyword("Let ");
+        }
+
         self.output(let_stmt.get_identifier());
         if !let_stmt.get_arguments().is_empty() {
             self.output.push('(');

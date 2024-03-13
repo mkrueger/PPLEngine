@@ -1,5 +1,5 @@
 use super::{AstVisitor, AstVisitorMut, Implementations, Statement};
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
@@ -25,6 +25,15 @@ impl Program {
 
     pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) {
         visitor.visit_program(self);
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut output_visitor = crate::ast::output_visitor::OutputVisitor::default();
+        self.visit(&mut output_visitor);
+
+        write!(f, "{}", output_visitor.output)
     }
 }
 

@@ -4,7 +4,6 @@ use crate::{
     ast::{convert_to, get_var_name, Expression, IdentifierExpression, VariableValue},
     icy_board::text_messages,
     interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
-    tables::{PPL_FALSE, PPL_TRUE},
     Res,
 };
 
@@ -421,9 +420,8 @@ pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
 pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtron(interpreter: &Interpreter) -> Res<()> {
+pub fn dtron(interpreter: &Interpreter) {
     // IGNORE
-    Ok(())
 }
 
 pub fn dtroff(interpreter: &mut Interpreter) -> Res<()> {

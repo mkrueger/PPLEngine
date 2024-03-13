@@ -94,7 +94,10 @@ pub fn call_predefined_procedure(
         OpCode::INPUTDATE => predefined_procedures::inputdate(interpreter, params),
         OpCode::INPUTTIME => predefined_procedures::inputtime(interpreter, params),
         OpCode::PROMPTSTR => predefined_procedures::promptstr(interpreter, params),
-        OpCode::DTRON => predefined_procedures::dtron(interpreter),
+        OpCode::DTRON => {
+            predefined_procedures::dtron(interpreter);
+            Ok(())
+        }
         OpCode::DTROFF => predefined_procedures::dtroff(interpreter),
         OpCode::CDCHKON => predefined_procedures::cdchkon(interpreter, params),
         OpCode::CDCHKOFF => predefined_procedures::cdchkoff(interpreter, params),

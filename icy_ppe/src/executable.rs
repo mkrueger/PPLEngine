@@ -237,7 +237,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             function_header: FunctionHeader::default(),
         };
         i += 11;
-        println!("{:?}", var_decl.header);
 
         match var_decl.header.variable_type {
             VariableType::String => {
@@ -263,7 +262,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
                 var_decl.function_header = FunctionHeader::from_bytes(cur_buf);
-                println!("{:?}", var_decl.function_header);
                 i += 12;
             }
             _ => {

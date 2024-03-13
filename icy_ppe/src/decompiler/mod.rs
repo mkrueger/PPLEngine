@@ -1656,15 +1656,16 @@ impl Decompiler {
                                     params.push(self.pop_expr().unwrap());
                                 }
 
-                                let func_name = self.pop_expr().unwrap();
-
-                                match func_name {
-                                    Expression::FunctionCall(expr) => {
-                                        self.push_expr(Expression::FunctionCall(expr));
-                                    }
-                                    _ => {
-                                        self.push_expr(func_name);
-                                    }
+                                let func_expr = self.pop_expr().unwrap();
+                                if let Expression::FunctionCall(mut expr) = func_expr {
+                                    expr.set_arguments(params);
+                                    self.push_expr(Expression::FunctionCall(expr));
+                                } else {
+                                    self.warnings.push(format!(
+                                        "function call expected but got {:?}",
+                                        func_expr
+                                    ));
+                                    self.push_expr(func_expr);
                                 }
                             }
                         } else {

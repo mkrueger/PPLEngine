@@ -306,6 +306,10 @@ impl FunctionCallExpression {
         &mut self.arguments
     }
 
+    pub(crate) fn set_arguments(&mut self, arguments: Vec<Expression>) {
+        self.arguments = arguments;
+    }
+
     pub fn get_rpar_token_token(&self) -> &SpannedToken {
         &self.rpar_token
     }

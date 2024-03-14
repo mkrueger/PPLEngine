@@ -1,12 +1,12 @@
 INTEGER INT001
 INT001=1
 
-Select Case (INT001)
-  Case 1
+SELECT CASE INT001
+  CASE 1
     PRINT "1"
-  Case 2
+  CASE 2
     PRINT "2"
-  Case Else
+  CASE ELSE
     PRINT "ELSE"
-EndSelect
+ENDSELECT
 

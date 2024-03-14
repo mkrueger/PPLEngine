@@ -13,6 +13,7 @@ pub static mut DEFAULT_OUTPUT_FUNC: OutputFunc = OutputFunc::Upper;
 #[derive(Default)]
 pub struct OutputVisitor {
     pub output_func: OutputFunc,
+    pub skip_comments: bool,
     pub output: String,
     indent: i32,
 }
@@ -56,7 +57,7 @@ impl AstVisitor<()> for OutputVisitor {
 
     fn visit_constant_expression(&mut self, constant: &super::ConstantExpression) {
         self.output
-            .push_str(&format!("{}", constant.get_constant_value()));
+            .push_str(&format!("{}", constant.get_constant_value().get_value()));
     }
 
     fn visit_binary_expression(&mut self, binary: &super::BinaryExpression) {
@@ -71,7 +72,8 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_function_call_expression(&mut self, call: &super::FunctionCallExpression) {
-        self.output(&format!("{}(", call.get_identifier()));
+        self.output_keyword(call.get_identifier());
+        self.output.push('(');
         for (i, arg) in call.get_arguments().iter().enumerate() {
             arg.visit(self);
             if i < call.get_arguments().len() - 1 {
@@ -88,6 +90,9 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_comment_statement(&mut self, comment: &super::CommentStatement) {
+        if self.skip_comments {
+            return;
+        }
         self.output
             .push_str(&comment.get_comment_type().to_string());
         self.output.push_str(comment.get_comment());
@@ -226,6 +231,10 @@ impl AstVisitor<()> for OutputVisitor {
 
     fn visit_for_statement(&mut self, for_stmt: &super::ForStatement) {
         self.output_keyword("For");
+        self.output.push(' ');
+        self.output_keyword(for_stmt.get_identifier());
+        self.output.push(' ');
+        self.output.push('=');
         self.output.push(' ');
         for_stmt.get_start_expr().visit(self);
         self.output.push(' ');
@@ -418,6 +427,9 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_comment_implementation(&mut self, comment: &crate::parser::lexer::SpannedToken) {
+        if self.skip_comments {
+            return;
+        }
         self.output.push_str(comment.token.to_string().as_str());
     }
 

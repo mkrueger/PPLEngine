@@ -455,10 +455,6 @@ fn mach_for_construct(
                                         {
                                             // TODO: Check _op
 
-                                            /*     if *opl != BinOp::Add || *opr != BinOp::Add {
-                                                return None;
-                                            }*/
-
                                             if let Expression::Parens(left_binop) =
                                                 lbin_op.get_right_expression()
                                             {
@@ -472,7 +468,7 @@ fn mach_for_construct(
                                                             right_binop.get_expression()
                                                         {
                                                             // TODO: Check _op
-                                                            if bin_op1.get_left_expression() != bin_op2.get_right_expression()/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| bin_op1.get_right_expression() != bin_op2.get_right_expression()
+                                                            if bin_op1.get_left_expression() != bin_op2.get_left_expression()/*|| *opl != BinOp::Greater || *opr != BinOp::LowerEq */|| bin_op1.get_right_expression() != bin_op2.get_right_expression()
                                                             {
                                                                 return None;
                                                             }
@@ -524,7 +520,6 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
             let label = &statements[i + 1];
             let if_statement = &statements[i + 2];
             let m = mach_for_construct(label, if_statement);
-
             if let Some((for_label, index_label, breakout_label, to_expr)) = m {
                 let mut j = i + 1;
                 let mut matching_goto = -1;

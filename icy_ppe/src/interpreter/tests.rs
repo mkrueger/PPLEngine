@@ -577,4 +577,16 @@ ENDPROC
             "13",
         );
     }
+
+    #[test]
+    fn equaltest() {
+        check_output(
+            r#"
+STRING S
+S = CHR(13)
+PRINT S <> CHR(13)
+"#,
+            "0",
+        );
+    }
 }

@@ -103,10 +103,31 @@ impl fmt::Display for Variable {
 
 impl PartialEq for Variable {
     fn eq(&self, other: &Self) -> bool {
+        let dest_type: VariableType = promote_to(self.vtype, other.vtype);
         unsafe {
-            self.vtype == other.vtype
-                && self.data.u64_value == other.data.u64_value
-                && self.generic_data == other.generic_data
+            match dest_type {
+                VariableType::Boolean => self.data.bool_value == other.data.bool_value,
+                VariableType::Unsigned => self.data.unsigned_value == other.data.unsigned_value,
+                VariableType::Date => self.data.date_value == other.data.date_value,
+                VariableType::DDate => self.data.ddate_value == other.data.ddate_value,
+                VariableType::EDate => self.data.edate_value == other.data.edate_value,
+
+                VariableType::Integer => self.data.int_value == other.data.int_value,
+                VariableType::Money => self.data.money_value == other.data.money_value,
+                VariableType::String | VariableType::BigStr => {
+                    self.as_string() == other.as_string()
+                }
+
+                VariableType::Time => self.data.time_value == other.data.time_value,
+                VariableType::Real => self.data.real_value == other.data.real_value,
+                VariableType::DoubleReal => self.data.dreal_value == other.data.dreal_value,
+                VariableType::Byte => self.data.byte_value == other.data.byte_value,
+                VariableType::SByte => self.data.sbyte_value == other.data.sbyte_value,
+                VariableType::Word => self.data.word_value == other.data.word_value,
+                VariableType::SWord => self.data.sword_value == other.data.sword_value,
+
+                _ => false,
+            }
         }
     }
 }
@@ -209,8 +230,8 @@ impl Sub<Variable> for Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
-                let r = other.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
+                let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData {
@@ -280,8 +301,8 @@ impl Mul<Variable> for Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
-                let r = other.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
+                let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData {
@@ -351,8 +372,8 @@ impl Div<Variable> for Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
-                let r = other.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
+                let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData {
@@ -426,8 +447,8 @@ impl Rem<Variable> for Variable {
             }
 
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
-                let r = other.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
+                let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData {
@@ -492,7 +513,7 @@ impl PartialOrd for Variable {
                 VariableType::Integer => Some(self.data.int_value.cmp(&other.data.int_value)),
                 VariableType::Money => Some(self.data.money_value.cmp(&other.data.money_value)),
                 VariableType::String | VariableType::BigStr => {
-                    Some(self.to_string().cmp(&other.to_string()))
+                    Some(self.as_string().cmp(&other.as_string()))
                 }
 
                 VariableType::Time => Some(self.data.time_value.cmp(&other.data.time_value)),
@@ -529,7 +550,7 @@ impl Neg for Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData { int_value: -l },
@@ -721,8 +742,8 @@ impl Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
-                let r = other.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
+                let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData {
@@ -812,7 +833,7 @@ impl Variable {
                 dest_type = VariableType::Integer;
             }
             VariableType::String | VariableType::BigStr => {
-                let l = self.to_string().parse::<i32>().unwrap_or_default();
+                let l = self.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData { int_value: l.abs() },

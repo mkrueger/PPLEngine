@@ -471,7 +471,6 @@ pub fn inkey(interpreter: &mut Interpreter) -> Res<Variable> {
             }
             return Ok(Variable::new_string("\x1B".to_string()));
         }
-
         Ok(Variable::new_string(ch.to_string()))
     } else {
         Ok(Variable::new_string(String::new()))

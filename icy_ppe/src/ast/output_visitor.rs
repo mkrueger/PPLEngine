@@ -1,5 +1,3 @@
-use crate::parser::tokens::CommentType;
-
 use super::{AstVisitor, Statement};
 
 #[derive(PartialEq, Debug, Default)]
@@ -90,10 +88,8 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_comment_statement(&mut self, comment: &super::CommentStatement) {
-        match comment.get_comment_type() {
-            CommentType::SingleLineSemicolon => self.output.push(';'),
-            CommentType::SingleLineQuote => self.output.push('\''),
-        }
+        self.output
+            .push_str(&comment.get_comment_type().to_string());
         self.output.push_str(comment.get_comment());
     }
 
@@ -421,7 +417,7 @@ impl AstVisitor<()> for OutputVisitor {
         self.output_keyword(func_decl.get_return_type().to_string().as_str());
     }
 
-    fn visit_comment_implementation(&mut self, comment: &crate::parser::tokens::SpannedToken) {
+    fn visit_comment_implementation(&mut self, comment: &crate::parser::lexer::SpannedToken) {
         self.output.push_str(comment.token.to_string().as_str());
     }
 

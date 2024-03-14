@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    parser::tokens::{CommentType, SpannedToken, Token},
+    parser::lexer::{CommentType, SpannedToken, Token},
     tables::StatementDefinition,
 };
 
@@ -153,11 +153,7 @@ impl CommentStatement {
 
 impl fmt::Display for CommentStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.get_comment_type() {
-            CommentType::SingleLineSemicolon => write!(f, ";")?,
-            CommentType::SingleLineQuote => write!(f, "'")?,
-        }
-        write!(f, "{}", self.get_comment())
+        write!(f, "{}{}", self.get_comment_type(), self.get_comment())
     }
 }
 

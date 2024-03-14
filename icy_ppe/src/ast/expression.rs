@@ -1,7 +1,7 @@
 use std::fmt;
 
 use super::{AstVisitor, AstVisitorMut, Constant};
-use crate::parser::tokens::{SpannedToken, Token};
+use crate::parser::lexer::{SpannedToken, Token};
 
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]

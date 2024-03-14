@@ -1,4 +1,4 @@
-use crate::parser::tokens::{SpannedToken, Token};
+use crate::parser::lexer::{SpannedToken, Token};
 
 use super::{AstVisitor, AstVisitorMut, ParameterSpecifier, Statement, VariableType};
 

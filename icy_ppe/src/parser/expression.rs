@@ -1,4 +1,4 @@
-use super::{tokens::Token, Tokenizer};
+use super::{lexer::Token, Tokenizer};
 use crate::{
     ast::{
         BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
@@ -7,7 +7,7 @@ use crate::{
     parser::{Error, ParserError, ParserErrorType},
 };
 
-impl<'a> Tokenizer<'a> {
+impl Tokenizer {
     pub fn parse_expression(&mut self) -> Option<Expression> {
         self.parse_bool()
     }

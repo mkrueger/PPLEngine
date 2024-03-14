@@ -6,7 +6,7 @@ use icy_ppe::{
         walk_procedure_implementation, walk_select_stmt, walk_while_do_stmt, walk_while_stmt,
         AstVisitor, Constant, Expression, ParameterSpecifier, Program,
     },
-    parser::tokens::SpannedToken,
+    parser::lexer::SpannedToken,
 };
 use tower_lsp::lsp_types::SemanticTokenType;
 
@@ -186,7 +186,7 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         self.higlight_parameters(func_decl.get_parameters());
     }
 
-    fn visit_comment_implementation(&mut self, comment: &icy_ppe::parser::tokens::SpannedToken) {
+    fn visit_comment_implementation(&mut self, comment: &icy_ppe::parser::lexer::SpannedToken) {
         self.highlight_token(comment, SemanticTokenType::COMMENT);
     }
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::parser::tokens::{SpannedToken, Token};
+use crate::parser::lexer::{SpannedToken, Token};
 
 use super::{Constant, Statement, Variable, VariableType};
 #[derive(Debug, PartialEq, Clone)]

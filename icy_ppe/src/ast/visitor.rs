@@ -1,4 +1,4 @@
-use crate::parser::tokens::SpannedToken;
+use crate::parser::lexer::SpannedToken;
 
 use super::{
     BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression,

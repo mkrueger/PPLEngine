@@ -6,17 +6,18 @@ use crate::{
         Implementations, ParameterSpecifier, ProcedureDeclarationStatement,
         ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType,
     },
-    parser::tokens::LexingError,
+    parser::lexer::LexingError,
 };
 
-use self::tokens::{SpannedToken, Token};
-use logos::Logos;
+use self::lexer::{Lexer, SpannedToken, Token};
 use thiserror::Error;
 use unicase::Ascii;
 
 mod expression;
+pub mod lexer;
+#[cfg(test)]
+mod lexer_tests;
 mod statements;
-pub mod tokens;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
@@ -101,15 +102,15 @@ pub struct ParserError {
     pub range: core::ops::Range<usize>,
 }
 
-pub struct Tokenizer<'a> {
+pub struct Tokenizer {
     pub errors: Vec<Error>,
     pub cur_token: Option<SpannedToken>,
-    lex: logos::Lexer<'a, Token>,
+    lex: Lexer,
 }
 
-impl<'a> Tokenizer<'a> {
-    pub fn new(text: &'a str) -> Self {
-        let lex = crate::parser::tokens::Token::lexer(text);
+impl Tokenizer {
+    pub fn new(text: &str) -> Self {
+        let lex = Lexer::new(text);
         Tokenizer {
             errors: Vec::new(),
             cur_token: None,
@@ -127,16 +128,12 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Panics if .
     pub fn next_token(&mut self) -> Option<SpannedToken> {
-        if let Some(token) = self.lex.next() {
+        if let Some(token) = self.lex.next_token() {
             match token {
                 Ok(token) => {
                     self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
                 }
-                Err(error) => {
-                    let err = LexingError {
-                        error,
-                        range: self.lex.span(),
-                    };
+                Err(err) => {
                     self.errors.push(Error::TokenizerError(err));
                     self.next_token();
                 }
@@ -219,7 +216,7 @@ lazy_static::lazy_static! {
 
 }
 
-impl<'a> Tokenizer<'a> {
+impl Tokenizer {
     pub fn get_variable_type(&self) -> Option<VariableType> {
         let Some(token) = &self.cur_token else {
             return None;

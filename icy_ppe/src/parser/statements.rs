@@ -11,11 +11,11 @@ use crate::{
 };
 
 use super::{
-    tokens::{SpannedToken, Token},
+    lexer::{SpannedToken, Token},
     Error, Tokenizer,
 };
 
-impl<'a> Tokenizer<'a> {
+impl Tokenizer {
     pub fn skip_eol(&mut self) {
         while self.get_cur_token() == Some(Token::Eol) {
             self.next_token();

@@ -1,9 +1,8 @@
-#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 use std::fs::File;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use super::super::errors::IcyError;
 use crate::ast::{Variable, VariableData};
 use crate::interpreter::Interpreter;
 use crate::Res;

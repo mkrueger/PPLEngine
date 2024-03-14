@@ -73,11 +73,11 @@ impl FunctionValue {
     }
 
     pub fn append(&self, buffer: &mut Vec<u8>) {
-        buffer.push(self.parameters as u8);
-        buffer.push(self.local_variables as u8);
-        buffer.extend(u16::to_le_bytes(self.start_offset as u16));
-        buffer.extend(u16::to_le_bytes(self.first_var_id as u16));
-        buffer.extend(u16::to_le_bytes(self.return_var as u16));
+        buffer.push(self.parameters);
+        buffer.push(self.local_variables);
+        buffer.extend(u16::to_le_bytes(self.start_offset));
+        buffer.extend(i16::to_le_bytes(self.first_var_id));
+        buffer.extend(i16::to_le_bytes(self.return_var));
     }
 }
 

@@ -48,9 +48,10 @@ pub enum CommentType {
 pub enum Token {
     #[token("\r\n")]
     #[token("\n")]
+    #[token(":")]
     Eol,
 
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| unicase::Ascii::new(lex.slice().to_string()))]
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_@#$¢£¥€]*", |lex| unicase::Ascii::new(lex.slice().to_string()))]
     Identifier(Ascii<String>),
 
     #[regex(r"[';][^[\r\n]]*", |lex| {
@@ -606,6 +607,27 @@ mod tests {
     #[test]
     fn test_eol() {
         let src = "A\nB\r\nC";
+        let mut lex = crate::parser::tokens::Token::lexer(src);
+
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("A".to_string())),
+            lex.next().unwrap().unwrap()
+        );
+        assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("B".to_string())),
+            lex.next().unwrap().unwrap()
+        );
+        assert_eq!(Token::Eol, lex.next().unwrap().unwrap());
+        assert_eq!(
+            Token::Identifier(unicase::Ascii::new("C".to_string())),
+            lex.next().unwrap().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_colon_eol() {
+        let src = "A:B:C";
         let mut lex = crate::parser::tokens::Token::lexer(src);
 
         assert_eq!(

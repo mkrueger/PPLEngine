@@ -1,47 +1,45 @@
 # PPLEngine
 
 An engine for PPL/PPE PCBoard handling - just for fun.
-Based on the great PPLD decompiler https://github.com/astuder/ppld
-But the goal is to have an engine that can run .PPE files.
-Extra goal would be a PPL compiler.
 
-## What does PPLD do?
+Features:
 
-It decompiles [PCBoard](https://en.wikipedia.org/wiki/PCBoard) PPL files. PPL was a basic written for
-this BBS system.
+* A decompiler (ppld) based on PPLD <https://github.com/astuder/ppld>
+* A compiler (pplc) that compiles UTF-8 files to output CP437 PPEs
+* A runtime (pplx) that runs .PPE files on console
+* A language server that provides developer functionality in any editor that supports lsp
 
 ## Why are you doing this?
 
-Basically to learn the rust programming language. I still have much to do and I needed something
-and the chance that anyone else is wasting time on that is basically 0. It may be useful for getting the old
-BBS software running under modern telnet bases BBSes.
-I still have to learn a lot of the rust programming language but it was worth every second. Now I realize that I basically wasted years not writing programs in rust :)
+Just for fun. Started this project initially to learn rust.
 
 ## What works
 
 * Decompiler is pretty complete (report bugs!). I would say it's better than everything we had back in the 90'.
 * Compiler should be able to parse a PPS and generate running PPE files
-* Runner should basically work but most pre defined functions are not implemented
-* Started to implement a LSP to provide syntax highlighting and tooltips 
-
-For my purposes this project is "completed" - up to the point I'll decide to write my own PCBoard like BBS :).
+* Runner should basically work.
+* Started to implement a LSP to provide syntax highlighting and tooltips.
 
 ### Decompiler
+
 Basically it's the PPLD from DOS in an enchanced version.
 It adds:
 
- * PPE 3.30 Support
- * Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue, select case support
- * It tries to do some name guessing based on variable usage.
- * It's possible to see the raw output with the -r option
- * A bit more control over the output keyword style with the -s option
+* PPE 3.30 Support
+* Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue, select case support
+* It tries to do some name guessing based on variable usage.
+* It's possible to see the raw output with the -r option
+* A bit more control over the output keyword style with the -s option
 
 ### Compiler
-  * Compiles to .ppe but is probably full of bugs due to current AST refactorings
+
+* Supports --nouvar Disable automatic user variable generation
+* Supports 15.4 PPL extensions but not the container format
 
 ### Runner
-  * pplx is able to run 99bottles.ppe and surely some more complex PPEs (agsenter and agslogin work)
-  * But probably ~95% won't run but feel free to request some - it's easy to get one specific to run.
+
+* pplx is able to run several PPEs on command line still has many limits but it's usable
+* Feel free to request support for missing PPEs there are still bugs
 
 ## TODO
 
@@ -52,11 +50,44 @@ It adds:
 
 ## Building & Running
 
-* Get rust
-* cargo build -r
-* cd target/release
-* ./ppld [PPEFILE]
-* ./pplrun [PPEFILE] - it's likely to crash not many instructions are implemented
-* ./pplc - doesn't do anything yet
+* Get rust on your system <https://www.rust-lang.org/tools/install>
+
+```bash
+cd PPLEngine
+cargo build -r
+```
+
+running in release mode:
+
+```bash
+cd target/release
+./ppld [PPEFILE]
+./pplx [PPEFILE]
+./pplc [PPLFILE]
+```
 
 Result is printed to stdout
+
+Testing the lsp using vs code:
+
+```bash
+cd ppl-lsp
+pnpm i
+cargo build 
+```
+
+then start vs code with
+
+```bash
+code .
+```
+
+And run from inside vs code the project with F5. A new vs code opens with PPL support.
+(Still need to figure out how to plug in the lsp for other editors)
+
+## PPL differences
+
+The aim is to be 100% compatible.
+
+* Added € as valid identifier character.
+  

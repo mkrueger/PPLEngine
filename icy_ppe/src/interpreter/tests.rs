@@ -581,11 +581,11 @@ ENDPROC
     #[test]
     fn equaltest() {
         check_output(
-            r#"
+            r"
 STRING S
 S = CHR(13)
 PRINT S <> CHR(13)
-"#,
+",
             "0",
         );
     }

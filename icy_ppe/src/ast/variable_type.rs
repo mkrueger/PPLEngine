@@ -31,7 +31,7 @@ impl VariableType {
     pub fn create_empty_value(&self) -> Variable {
         match self {
             VariableType::String | VariableType::BigStr => Variable::new_string(String::new()),
-            val => Variable::new(*self, VariableData { unsigned_value: 0 }),
+            _ => Variable::new(*self, VariableData { unsigned_value: 0 }),
         }
     }
 }

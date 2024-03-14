@@ -11,8 +11,8 @@ use crate::{
 
 #[derive(Clone, Copy, Debug)]
 pub struct StdStruct {
-    lo: u32,
-    hi: u32,
+    pub lo: u32,
+    pub hi: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -88,7 +88,7 @@ impl fmt::Display for Variable {
 
                 VariableType::String | VariableType::BigStr => {
                     if let VariableValue::String(s) = &self.generic_data {
-                        write!(f, "{}", s)
+                        write!(f, "{s}")
                     } else {
                         write!(f, "")
                     }
@@ -173,33 +173,33 @@ impl Add<Variable> for Variable {
                     data.unsigned_value = self
                         .data
                         .unsigned_value
-                        .wrapping_add(other.data.unsigned_value)
+                        .wrapping_add(other.data.unsigned_value);
                 }
                 VariableType::Integer => {
-                    data.int_value = self.data.int_value.wrapping_add(other.data.int_value)
+                    data.int_value = self.data.int_value.wrapping_add(other.data.int_value);
                 }
                 VariableType::Real => {
-                    data.real_value = self.data.real_value + other.data.real_value
+                    data.real_value = self.data.real_value + other.data.real_value;
                 }
                 VariableType::DoubleReal => {
-                    data.dreal_value = self.data.dreal_value + other.data.dreal_value
+                    data.dreal_value = self.data.dreal_value + other.data.dreal_value;
                 }
 
                 VariableType::String | VariableType::BigStr => {
-                    generic_data = VariableValue::String(format!("{}{}", self, other))
+                    generic_data = VariableValue::String(format!("{self}{other}"));
                 }
 
                 VariableType::Byte => {
-                    data.byte_value = self.data.byte_value.wrapping_add(other.data.byte_value)
+                    data.byte_value = self.data.byte_value.wrapping_add(other.data.byte_value);
                 }
                 VariableType::SByte => {
-                    data.sbyte_value = self.data.sbyte_value.wrapping_add(other.data.sbyte_value)
+                    data.sbyte_value = self.data.sbyte_value.wrapping_add(other.data.sbyte_value);
                 }
                 VariableType::Word => {
-                    data.word_value = self.data.word_value.wrapping_add(other.data.word_value)
+                    data.word_value = self.data.word_value.wrapping_add(other.data.word_value);
                 }
                 VariableType::SWord => {
-                    data.sword_value = self.data.sword_value.wrapping_add(other.data.sword_value)
+                    data.sword_value = self.data.sword_value.wrapping_add(other.data.sword_value);
                 }
 
                 _ => {
@@ -250,28 +250,28 @@ impl Sub<Variable> for Variable {
                     data.unsigned_value = self
                         .data
                         .unsigned_value
-                        .wrapping_sub(other.data.unsigned_value)
+                        .wrapping_sub(other.data.unsigned_value);
                 }
                 VariableType::Integer => {
-                    data.int_value = self.data.int_value.wrapping_sub(other.data.int_value)
+                    data.int_value = self.data.int_value.wrapping_sub(other.data.int_value);
                 }
                 VariableType::Real => {
-                    data.real_value = self.data.real_value - other.data.real_value
+                    data.real_value = self.data.real_value - other.data.real_value;
                 }
                 VariableType::DoubleReal => {
-                    data.dreal_value = self.data.dreal_value - other.data.dreal_value
+                    data.dreal_value = self.data.dreal_value - other.data.dreal_value;
                 }
                 VariableType::Byte => {
-                    data.byte_value = self.data.byte_value.wrapping_sub(other.data.byte_value)
+                    data.byte_value = self.data.byte_value.wrapping_sub(other.data.byte_value);
                 }
                 VariableType::SByte => {
-                    data.sbyte_value = self.data.sbyte_value.wrapping_sub(other.data.sbyte_value)
+                    data.sbyte_value = self.data.sbyte_value.wrapping_sub(other.data.sbyte_value);
                 }
                 VariableType::Word => {
-                    data.word_value = self.data.word_value.wrapping_sub(other.data.word_value)
+                    data.word_value = self.data.word_value.wrapping_sub(other.data.word_value);
                 }
                 VariableType::SWord => {
-                    data.sword_value = self.data.sword_value.wrapping_sub(other.data.sword_value)
+                    data.sword_value = self.data.sword_value.wrapping_sub(other.data.sword_value);
                 }
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
@@ -321,28 +321,28 @@ impl Mul<Variable> for Variable {
                     data.unsigned_value = self
                         .data
                         .unsigned_value
-                        .wrapping_mul(other.data.unsigned_value)
+                        .wrapping_mul(other.data.unsigned_value);
                 }
                 VariableType::Integer => {
-                    data.int_value = self.data.int_value.wrapping_mul(other.data.int_value)
+                    data.int_value = self.data.int_value.wrapping_mul(other.data.int_value);
                 }
                 VariableType::Real => {
-                    data.real_value = self.data.real_value * other.data.real_value
+                    data.real_value = self.data.real_value * other.data.real_value;
                 }
                 VariableType::DoubleReal => {
-                    data.dreal_value = self.data.dreal_value * other.data.dreal_value
+                    data.dreal_value = self.data.dreal_value * other.data.dreal_value;
                 }
                 VariableType::Byte => {
-                    data.byte_value = self.data.byte_value.wrapping_mul(other.data.byte_value)
+                    data.byte_value = self.data.byte_value.wrapping_mul(other.data.byte_value);
                 }
                 VariableType::SByte => {
-                    data.sbyte_value = self.data.sbyte_value.wrapping_mul(other.data.sbyte_value)
+                    data.sbyte_value = self.data.sbyte_value.wrapping_mul(other.data.sbyte_value);
                 }
                 VariableType::Word => {
-                    data.word_value = self.data.word_value.wrapping_mul(other.data.word_value)
+                    data.word_value = self.data.word_value.wrapping_mul(other.data.word_value);
                 }
                 VariableType::SWord => {
-                    data.sword_value = self.data.sword_value.wrapping_mul(other.data.sword_value)
+                    data.sword_value = self.data.sword_value.wrapping_mul(other.data.sword_value);
                 }
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
@@ -392,28 +392,28 @@ impl Div<Variable> for Variable {
                     data.unsigned_value = self
                         .data
                         .unsigned_value
-                        .wrapping_div(other.data.unsigned_value)
+                        .wrapping_div(other.data.unsigned_value);
                 }
                 VariableType::Integer => {
-                    data.int_value = self.data.int_value.wrapping_div(other.data.int_value)
+                    data.int_value = self.data.int_value.wrapping_div(other.data.int_value);
                 }
                 VariableType::Real => {
-                    data.real_value = self.data.real_value / other.data.real_value
+                    data.real_value = self.data.real_value / other.data.real_value;
                 }
                 VariableType::DoubleReal => {
-                    data.dreal_value = self.data.dreal_value / other.data.dreal_value
+                    data.dreal_value = self.data.dreal_value / other.data.dreal_value;
                 }
                 VariableType::Byte => {
-                    data.byte_value = self.data.byte_value.wrapping_div(other.data.byte_value)
+                    data.byte_value = self.data.byte_value.wrapping_div(other.data.byte_value);
                 }
                 VariableType::SByte => {
-                    data.sbyte_value = self.data.sbyte_value.wrapping_div(other.data.sbyte_value)
+                    data.sbyte_value = self.data.sbyte_value.wrapping_div(other.data.sbyte_value);
                 }
                 VariableType::Word => {
-                    data.word_value = self.data.word_value.wrapping_div(other.data.word_value)
+                    data.word_value = self.data.word_value.wrapping_div(other.data.word_value);
                 }
                 VariableType::SWord => {
-                    data.sword_value = self.data.sword_value.wrapping_div(other.data.sword_value)
+                    data.sword_value = self.data.sword_value.wrapping_div(other.data.sword_value);
                 }
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
@@ -439,10 +439,9 @@ impl Rem<Variable> for Variable {
             | VariableType::EDate
             | VariableType::Money
             | VariableType::Time
-            | VariableType::DDate => {
-                dest_type = VariableType::Integer;
-            }
-            VariableType::Real | VariableType::DoubleReal => {
+            | VariableType::DDate
+            | VariableType::Real
+            | VariableType::DoubleReal => {
                 dest_type = VariableType::Integer;
             }
 
@@ -467,22 +466,22 @@ impl Rem<Variable> for Variable {
                     data.unsigned_value = self
                         .data
                         .unsigned_value
-                        .wrapping_rem(other.data.unsigned_value)
+                        .wrapping_rem(other.data.unsigned_value);
                 }
                 VariableType::Integer => {
-                    data.int_value = self.data.int_value.wrapping_rem(other.data.int_value)
+                    data.int_value = self.data.int_value.wrapping_rem(other.data.int_value);
                 }
                 VariableType::Byte => {
-                    data.byte_value = self.data.byte_value.wrapping_rem(other.data.byte_value)
+                    data.byte_value = self.data.byte_value.wrapping_rem(other.data.byte_value);
                 }
                 VariableType::SByte => {
-                    data.sbyte_value = self.data.sbyte_value.wrapping_rem(other.data.sbyte_value)
+                    data.sbyte_value = self.data.sbyte_value.wrapping_rem(other.data.sbyte_value);
                 }
                 VariableType::Word => {
-                    data.word_value = self.data.word_value.wrapping_rem(other.data.word_value)
+                    data.word_value = self.data.word_value.wrapping_rem(other.data.word_value);
                 }
                 VariableType::SWord => {
-                    data.sword_value = self.data.sword_value.wrapping_rem(other.data.sword_value)
+                    data.sword_value = self.data.sword_value.wrapping_rem(other.data.sword_value);
                 }
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
@@ -727,6 +726,7 @@ impl Variable {
     /// # Panics
     ///
     /// Panics if .
+    #[must_use]
     pub fn pow(&self, other: Variable) -> Variable {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
@@ -762,25 +762,25 @@ impl Variable {
                     data.int_value = self
                         .data
                         .int_value
-                        .wrapping_pow(other.data.int_value as u32)
+                        .wrapping_pow(other.data.int_value as u32);
                 }
                 VariableType::Real => {
-                    data.real_value = self.data.real_value.powf(other.data.real_value)
+                    data.real_value = self.data.real_value.powf(other.data.real_value);
                 }
                 VariableType::DoubleReal => {
-                    data.dreal_value = self.data.dreal_value.powf(other.data.dreal_value)
+                    data.dreal_value = self.data.dreal_value.powf(other.data.dreal_value);
                 }
                 VariableType::SByte => {
                     data.sbyte_value = self
                         .data
                         .sbyte_value
-                        .wrapping_pow(other.data.sbyte_value as u32)
+                        .wrapping_pow(other.data.sbyte_value as u32);
                 }
                 VariableType::SWord => {
                     data.sword_value = self
                         .data
                         .sword_value
-                        .wrapping_pow(other.data.sword_value as u32)
+                        .wrapping_pow(other.data.sword_value as u32);
                 }
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
@@ -800,6 +800,7 @@ impl Variable {
     /// # Panics
     ///
     /// Panics if .
+    #[must_use]
     pub fn not(&self) -> Variable {
         unsafe {
             Self {
@@ -818,6 +819,7 @@ impl Variable {
     /// # Panics
     ///
     /// Panics if .
+    #[must_use]
     pub fn abs(&self) -> Variable {
         let mut dest_type: VariableType = self.vtype;
         match dest_type {
@@ -910,7 +912,7 @@ impl Variable {
                     VariableType::Word => self.data.word_value.to_string(),
                     VariableType::SByte => self.data.sbyte_value.to_string(),
                     VariableType::SWord => self.data.sword_value.to_string(),
-                    _ => "".to_string(),
+                    _ => String::new(),
                 },
             }
         }

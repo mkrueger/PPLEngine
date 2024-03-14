@@ -1266,7 +1266,7 @@ impl Decompiler {
                     cur_var.variable.as_string(),
                 ))
             }
-            VariableType::DoubleReal | VariableType::Real => {
+            VariableType::Double | VariableType::Float => {
                 ConstantExpression::create_empty_expression(Constant::Real(cur_var.content as f64))
             }
             _ => ConstantExpression::create_empty_expression(Constant::Integer(0)),

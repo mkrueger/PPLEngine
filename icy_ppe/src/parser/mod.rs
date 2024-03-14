@@ -173,15 +173,20 @@ lazy_static::lazy_static! {
     static ref TYPE_HASHES: HashMap<unicase::Ascii<String>, VariableType> = {
         let mut m = HashMap::new();
         m.insert(unicase::Ascii::new("INTEGER".to_string()), VariableType::Integer);
-        m.insert(unicase::Ascii::new("INT".to_string()), VariableType::Integer);
+        m.insert(unicase::Ascii::new("SDWORD".to_string()), VariableType::Integer);
         m.insert(unicase::Ascii::new("LONG".to_string()), VariableType::Integer);
 
         m.insert(unicase::Ascii::new("STRING".to_string()), VariableType::String);
-        m.insert(unicase::Ascii::new("BIGSTR".to_string()), VariableType::String);
+        m.insert(unicase::Ascii::new("BIGSTR".to_string()), VariableType::BigStr);
 
         m.insert(unicase::Ascii::new("BOOLEAN".to_string()), VariableType::Boolean);
 
         m.insert(unicase::Ascii::new("DATE".to_string()), VariableType::Date);
+
+        m.insert(unicase::Ascii::new("DDATE".to_string()), VariableType::DDate);
+
+        m.insert(unicase::Ascii::new("EDATE".to_string()), VariableType::EDate);
+
         m.insert(unicase::Ascii::new("TIME".to_string()), VariableType::Time);
 
         m.insert(unicase::Ascii::new("MONEY".to_string()), VariableType::Money);
@@ -190,12 +195,10 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("UWORD".to_string()), VariableType::Word);
 
         m.insert(unicase::Ascii::new("SWORD".to_string()), VariableType::SWord);
+        m.insert(unicase::Ascii::new("INT".to_string()), VariableType::SWord);
 
         m.insert(unicase::Ascii::new("BYTE".to_string()), VariableType::Byte);
         m.insert(unicase::Ascii::new("UBYTE".to_string()), VariableType::Byte);
-
-        m.insert(unicase::Ascii::new("EDATE".to_string()), VariableType::EDate);
-        m.insert(unicase::Ascii::new("DDATE".to_string()), VariableType::DDate);
 
         m.insert(unicase::Ascii::new("UNSIGNED".to_string()), VariableType::Unsigned);
         m.insert(unicase::Ascii::new("DWORD".to_string()), VariableType::Unsigned);
@@ -204,11 +207,11 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("SBYTE".to_string()), VariableType::SByte);
         m.insert(unicase::Ascii::new("SHORT".to_string()), VariableType::SByte);
 
-        m.insert(unicase::Ascii::new("REAL".to_string()), VariableType::Real);
-        m.insert(unicase::Ascii::new("SHORT".to_string()), VariableType::Real);
-        m.insert(unicase::Ascii::new("FLOAT".to_string()), VariableType::Real);
-        m.insert(unicase::Ascii::new("DOUBLE".to_string()), VariableType::Real);
-        m.insert(unicase::Ascii::new("DREAL".to_string()), VariableType::Real);
+        m.insert(unicase::Ascii::new("REAL".to_string()), VariableType::Float);
+        m.insert(unicase::Ascii::new("FLOAT".to_string()), VariableType::Float);
+
+        m.insert(unicase::Ascii::new("DOUBLE".to_string()), VariableType::Double);
+        m.insert(unicase::Ascii::new("DREAL".to_string()), VariableType::Double);
         m
 
 

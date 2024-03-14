@@ -137,7 +137,7 @@ impl Constant {
             Constant::Money(_) => VariableType::Money,
             Constant::Unsigned(_) => VariableType::Unsigned,
             Constant::String(_) => VariableType::String,
-            Constant::Real(_) => VariableType::Real,
+            Constant::Real(_) => VariableType::Float,
             Constant::Boolean(_) => VariableType::Boolean,
             Constant::Integer(_) | Constant::Builtin(_) => VariableType::Integer,
         }
@@ -156,7 +156,7 @@ impl Constant {
             }
             Constant::String(s) => super::Variable::new_string(s.clone()),
             Constant::Real(i) => {
-                super::Variable::new(VariableType::DoubleReal, VariableData { dreal_value: *i })
+                super::Variable::new(VariableType::Double, VariableData { dreal_value: *i })
             }
             Constant::Boolean(b) => {
                 super::Variable::new(VariableType::Boolean, VariableData { bool_value: *b })

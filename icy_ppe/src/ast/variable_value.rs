@@ -24,8 +24,8 @@ pub union VariableData {
     pub edate_value: u32,
     pub int_value: i32,
     pub money_value: i32,
-    pub real_value: f32,
-    pub dreal_value: f64,
+    pub float_value: f32,
+    pub double_value: f64,
     pub time_value: i32,
     pub byte_value: u8,
     pub word_value: u16,
@@ -78,8 +78,8 @@ impl fmt::Display for Variable {
                 VariableType::EDate => write!(f, "{}", self.data.edate_value),
                 VariableType::Integer => write!(f, "{}", self.data.int_value),
                 VariableType::Money => write!(f, "{}", self.data.money_value),
-                VariableType::Float => write!(f, "{}", self.data.real_value),
-                VariableType::Double => write!(f, "{}", self.data.dreal_value),
+                VariableType::Float => write!(f, "{}", self.data.float_value),
+                VariableType::Double => write!(f, "{}", self.data.double_value),
                 VariableType::Time => write!(f, "{}", self.data.time_value),
                 VariableType::Byte => write!(f, "{}", self.data.byte_value),
                 VariableType::Word => write!(f, "{}", self.data.word_value),
@@ -119,8 +119,8 @@ impl PartialEq for Variable {
                 }
 
                 VariableType::Time => self.data.time_value == other.data.time_value,
-                VariableType::Float => self.data.real_value == other.data.real_value,
-                VariableType::Double => self.data.dreal_value == other.data.dreal_value,
+                VariableType::Float => self.data.float_value == other.data.float_value,
+                VariableType::Double => self.data.double_value == other.data.double_value,
                 VariableType::Byte => self.data.byte_value == other.data.byte_value,
                 VariableType::SByte => self.data.sbyte_value == other.data.sbyte_value,
                 VariableType::Word => self.data.word_value == other.data.word_value,
@@ -179,10 +179,10 @@ impl Add<Variable> for Variable {
                     data.int_value = self.data.int_value.wrapping_add(other.data.int_value);
                 }
                 VariableType::Float => {
-                    data.real_value = self.data.real_value + other.data.real_value;
+                    data.float_value = self.data.float_value + other.data.float_value;
                 }
                 VariableType::Double => {
-                    data.dreal_value = self.data.dreal_value + other.data.dreal_value;
+                    data.double_value = self.data.double_value + other.data.double_value;
                 }
 
                 VariableType::String | VariableType::BigStr => {
@@ -256,10 +256,10 @@ impl Sub<Variable> for Variable {
                     data.int_value = self.data.int_value.wrapping_sub(other.data.int_value);
                 }
                 VariableType::Float => {
-                    data.real_value = self.data.real_value - other.data.real_value;
+                    data.float_value = self.data.float_value - other.data.float_value;
                 }
                 VariableType::Double => {
-                    data.dreal_value = self.data.dreal_value - other.data.dreal_value;
+                    data.double_value = self.data.double_value - other.data.double_value;
                 }
                 VariableType::Byte => {
                     data.byte_value = self.data.byte_value.wrapping_sub(other.data.byte_value);
@@ -327,10 +327,10 @@ impl Mul<Variable> for Variable {
                     data.int_value = self.data.int_value.wrapping_mul(other.data.int_value);
                 }
                 VariableType::Float => {
-                    data.real_value = self.data.real_value * other.data.real_value;
+                    data.float_value = self.data.float_value * other.data.float_value;
                 }
                 VariableType::Double => {
-                    data.dreal_value = self.data.dreal_value * other.data.dreal_value;
+                    data.double_value = self.data.double_value * other.data.double_value;
                 }
                 VariableType::Byte => {
                     data.byte_value = self.data.byte_value.wrapping_mul(other.data.byte_value);
@@ -398,10 +398,10 @@ impl Div<Variable> for Variable {
                     data.int_value = self.data.int_value.wrapping_div(other.data.int_value);
                 }
                 VariableType::Float => {
-                    data.real_value = self.data.real_value / other.data.real_value;
+                    data.float_value = self.data.float_value / other.data.float_value;
                 }
                 VariableType::Double => {
-                    data.dreal_value = self.data.dreal_value / other.data.dreal_value;
+                    data.double_value = self.data.double_value / other.data.double_value;
                 }
                 VariableType::Byte => {
                     data.byte_value = self.data.byte_value.wrapping_div(other.data.byte_value);
@@ -516,8 +516,10 @@ impl PartialOrd for Variable {
                 }
 
                 VariableType::Time => Some(self.data.time_value.cmp(&other.data.time_value)),
-                VariableType::Float => self.data.real_value.partial_cmp(&other.data.real_value),
-                VariableType::Double => self.data.dreal_value.partial_cmp(&other.data.dreal_value),
+                VariableType::Float => self.data.float_value.partial_cmp(&other.data.float_value),
+                VariableType::Double => {
+                    self.data.double_value.partial_cmp(&other.data.double_value)
+                }
                 VariableType::Byte => Some(self.data.byte_value.cmp(&other.data.byte_value)),
                 VariableType::SByte => Some(self.data.sbyte_value.cmp(&other.data.sbyte_value)),
                 VariableType::Word => Some(self.data.word_value.cmp(&other.data.word_value)),
@@ -563,8 +565,8 @@ impl Neg for Variable {
                 VariableType::Integer => data.int_value = -self.data.int_value,
                 VariableType::SByte => data.sbyte_value = -self.data.sbyte_value,
                 VariableType::SWord => data.sword_value = -self.data.sword_value,
-                VariableType::Float => data.real_value = -self.data.real_value,
-                VariableType::Double => data.dreal_value = -self.data.dreal_value,
+                VariableType::Float => data.float_value = -self.data.float_value,
+                VariableType::Double => data.double_value = -self.data.double_value,
                 _ => {
                     panic!("unsupported lvalue for add {self:?}");
                 }
@@ -763,10 +765,10 @@ impl Variable {
                         .wrapping_pow(other.data.int_value as u32);
                 }
                 VariableType::Float => {
-                    data.real_value = self.data.real_value.powf(other.data.real_value);
+                    data.float_value = self.data.float_value.powf(other.data.float_value);
                 }
                 VariableType::Double => {
-                    data.dreal_value = self.data.dreal_value.powf(other.data.dreal_value);
+                    data.double_value = self.data.double_value.powf(other.data.double_value);
                 }
                 VariableType::SByte => {
                     data.sbyte_value = self
@@ -847,8 +849,8 @@ impl Variable {
         unsafe {
             match dest_type {
                 VariableType::Integer => data.int_value = self.data.int_value.abs(),
-                VariableType::Float => data.real_value = self.data.real_value.abs(),
-                VariableType::Double => data.dreal_value = self.data.dreal_value.abs(),
+                VariableType::Float => data.float_value = self.data.float_value.abs(),
+                VariableType::Double => data.double_value = self.data.double_value.abs(),
                 VariableType::SByte => data.sbyte_value = self.data.sbyte_value.abs(),
                 VariableType::SWord => data.sword_value = self.data.sword_value.abs(),
                 _ => {
@@ -903,8 +905,8 @@ impl Variable {
                     VariableType::EDate => self.data.edate_value.to_string(),
                     VariableType::Integer => self.data.int_value.to_string(),
                     VariableType::Money => self.data.money_value.to_string(),
-                    VariableType::Float => self.data.real_value.to_string(),
-                    VariableType::Double => self.data.dreal_value.to_string(),
+                    VariableType::Float => self.data.float_value.to_string(),
+                    VariableType::Double => self.data.double_value.to_string(),
                     VariableType::Time => self.data.time_value.to_string(),
                     VariableType::Byte => self.data.byte_value.to_string(),
                     VariableType::Word => self.data.word_value.to_string(),

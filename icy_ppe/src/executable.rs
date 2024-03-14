@@ -86,9 +86,6 @@ pub struct VarDecl {
     pub header: VarHeader,
     pub var_name: String,
 
-    pub content: u64,
-    pub content2: u64,
-
     pub flag: u8,
     pub lflag: u8,
     pub fflag: u8,
@@ -244,8 +241,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             number: 0,
             function_id: 0,
             var_name: String::new(),
-            content: 0,
-            content2: 0,
             flag: 0,
             lflag: 0,
             fflag: 0,

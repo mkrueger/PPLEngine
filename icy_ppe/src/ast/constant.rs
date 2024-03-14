@@ -9,7 +9,7 @@ pub enum Constant {
     Integer(i32),
     Unsigned(u32),
     String(String),
-    Real(f64),
+    Double(f64),
     Boolean(bool),
     Builtin(&'static BuiltinConst),
 }
@@ -137,7 +137,7 @@ impl Constant {
             Constant::Money(_) => VariableType::Money,
             Constant::Unsigned(_) => VariableType::Unsigned,
             Constant::String(_) => VariableType::String,
-            Constant::Real(_) => VariableType::Float,
+            Constant::Double(_) => VariableType::Float,
             Constant::Boolean(_) => VariableType::Boolean,
             Constant::Integer(_) | Constant::Builtin(_) => VariableType::Integer,
         }
@@ -155,8 +155,8 @@ impl Constant {
                 super::Variable::new(VariableType::Unsigned, VariableData { unsigned_value: *i })
             }
             Constant::String(s) => super::Variable::new_string(s.clone()),
-            Constant::Real(i) => {
-                super::Variable::new(VariableType::Double, VariableData { dreal_value: *i })
+            Constant::Double(i) => {
+                super::Variable::new(VariableType::Double, VariableData { double_value: *i })
             }
             Constant::Boolean(b) => {
                 super::Variable::new(VariableType::Boolean, VariableData { bool_value: *b })
@@ -175,7 +175,7 @@ impl fmt::Display for Constant {
             Constant::Integer(i) => write!(f, "{i}"),
             Constant::Unsigned(i) => write!(f, "{i}"),
             Constant::String(str) => write!(f, "\"{str}\""),
-            Constant::Real(i) => write!(f, "{i}"),
+            Constant::Double(i) => write!(f, "{i}"),
             Constant::Boolean(b) => write!(f, "{}", if *b { "TRUE" } else { "FALSE" }),
             Constant::Builtin(s) => write!(f, "{}", s.name),
         }

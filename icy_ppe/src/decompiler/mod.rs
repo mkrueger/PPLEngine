@@ -1240,36 +1240,39 @@ impl Decompiler {
                 }
             }
         }
-        match cur_var.header.variable_type {
-            VariableType::Boolean => {
-                if cur_var.content == 0 {
-                    ConstantExpression::create_empty_expression(Constant::Boolean(false))
-                } else {
-                    ConstantExpression::create_empty_expression(Constant::Boolean(true))
+        unsafe {
+            match cur_var.header.variable_type {
+                VariableType::Boolean => ConstantExpression::create_empty_expression(
+                    Constant::Boolean(cur_var.variable.data.bool_value),
+                ),
+                VariableType::Integer
+                | VariableType::Unsigned
+                | VariableType::Byte
+                | VariableType::SByte
+                | VariableType::Word
+                | VariableType::SWord
+                | VariableType::Date
+                | VariableType::EDate
+                | VariableType::DDate
+                | VariableType::Money
+                | VariableType::Time => ConstantExpression::create_empty_expression(
+                    Constant::Integer(cur_var.variable.data.int_value),
+                ),
+                VariableType::BigStr | VariableType::String => {
+                    ConstantExpression::create_empty_expression(Constant::String(
+                        cur_var.variable.as_string(),
+                    ))
                 }
+                VariableType::Double => ConstantExpression::create_empty_expression(
+                    Constant::Double(cur_var.variable.data.double_value),
+                ),
+                VariableType::Float => ConstantExpression::create_empty_expression(
+                    Constant::Double(cur_var.variable.data.float_value as f64),
+                ),
+                _ => ConstantExpression::create_empty_expression(Constant::Integer(
+                    cur_var.variable.data.int_value,
+                )),
             }
-            VariableType::Integer
-            | VariableType::Unsigned
-            | VariableType::Byte
-            | VariableType::SByte
-            | VariableType::Word
-            | VariableType::SWord
-            | VariableType::Date
-            | VariableType::EDate
-            | VariableType::DDate
-            | VariableType::Money
-            | VariableType::Time => ConstantExpression::create_empty_expression(Constant::Integer(
-                cur_var.content as i32,
-            )),
-            VariableType::BigStr | VariableType::String => {
-                ConstantExpression::create_empty_expression(Constant::String(
-                    cur_var.variable.as_string(),
-                ))
-            }
-            VariableType::Double | VariableType::Float => {
-                ConstantExpression::create_empty_expression(Constant::Real(cur_var.content as f64))
-            }
-            _ => ConstantExpression::create_empty_expression(Constant::Integer(0)),
         }
     }
 

@@ -67,7 +67,7 @@ impl AstVisitor<()> for SemanticTokenVisitor {
             Constant::String(_) => {
                 self.highlight_token(const_expr.get_constant_token(), SemanticTokenType::STRING);
             }
-            Constant::Integer(_) | Constant::Unsigned(_) | Constant::Real(_) => {
+            Constant::Integer(_) | Constant::Unsigned(_) | Constant::Double(_) => {
                 self.highlight_token(const_expr.get_constant_token(), SemanticTokenType::NUMBER);
             }
             Constant::Builtin(_) => {

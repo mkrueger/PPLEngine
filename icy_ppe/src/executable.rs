@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
-use crate::ast::VariableType;
+use crate::ast::{Variable, VariableData, VariableType, VariableValue};
 use crate::crypt::{decode_rle, decrypt};
 
 #[derive(Clone, Debug)]
@@ -88,13 +88,12 @@ pub struct VarDecl {
 
     pub content: u64,
     pub content2: u64,
-    pub string_value: String,
 
     pub flag: u8,
     pub lflag: u8,
     pub fflag: u8,
     pub number: i32,
-    pub function_header: FunctionValue,
+    pub variable: Variable,
     pub function_id: i32,
 }
 
@@ -247,11 +246,10 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             var_name: String::new(),
             content: 0,
             content2: 0,
-            string_value: String::new(),
             flag: 0,
             lflag: 0,
             fflag: 0,
-            function_header: FunctionValue::default(),
+            variable: Variable::default(),
         };
         i += 11;
         // println!("var_decl: {:?}", var_decl.header);
@@ -265,42 +263,76 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 for c in &buf[i..(i + string_length - 1)] {
                     str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
                 }
-                var_decl.string_value = str; // C strings always end with \0
+                var_decl.variable = Variable {
+                    vtype: VariableType::String,
+                    generic_data: VariableValue::String(str),
+                    ..Default::default()
+                };
                 i += string_length;
             }
-            VariableType::Function => {
+            VariableType::Function => unsafe {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.function_header = FunctionValue::from_bytes(cur_buf);
-                var_decl.function_header.local_variables -= 1;
-                i += 12;
-            }
+                let function_value = FunctionValue::from_bytes(cur_buf);
+                i += 4; // skip vtable + type
+                var_decl.variable = Variable {
+                    vtype: VariableType::Function,
+                    data: VariableData { function_value },
+                    ..Default::default()
+                };
+                var_decl.variable.data.function_value.local_variables -= 1;
+                i += 8;
+            },
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.function_header = FunctionValue::from_bytes(cur_buf);
-                i += 12;
+                let function_value = FunctionValue::from_bytes(cur_buf);
+                i += 4; // skip vtable + type
+                var_decl.variable = Variable {
+                    vtype: VariableType::Procedure,
+                    data: VariableData { function_value },
+                    ..Default::default()
+                };
+                i += 8;
             }
             _ => {
                 if version <= 100 {
-                    i += 4; // what's stored here ?
-                    var_decl.content =
-                        u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
+                    i += 2; // SKIP VTABLE - seems to get stored by accident.
+                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                    i += 2; // what's stored here ?
+                    var_decl.variable = Variable {
+                        vtype,
+                        data: VariableData {
+                            unsigned_value: u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()),
+                        },
+                        ..Default::default()
+                    };
                     i += 4;
                 } else if version < 300 {
-                    i += 4; // what's stored here ?
-                    var_decl.content = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
+                    i += 2; // SKIP VTABLE - seems to get stored by accident.
+                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                    i += 2; // what's stored here ?
+                    var_decl.variable = Variable {
+                        vtype,
+                        data: VariableData {
+                            u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
+                        },
+                        ..Default::default()
+                    };
                     i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
-                    i += 2;
+                    i += 2; // SKIP VTABLE - seems to get stored by accident.
+                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
                     i += 2; // what's stored here ?
-                    var_decl.content =
-                        u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
-                    i += 4;
-                    var_decl.content2 =
-                        u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()) as u64;
-                    i += 4;
+                    var_decl.variable = Variable {
+                        vtype,
+                        data: VariableData {
+                            u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
+                        },
+                        ..Default::default()
+                    };
+                    i += 8;
                 }
             } // B9 4b
         }
@@ -311,37 +343,37 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
     while k >= 0 {
         let cur = result.get(&k).unwrap().clone();
         match cur.header.variable_type {
-            VariableType::Function => {
+            VariableType::Function => unsafe {
                 let mut j = 0;
-                let last = cur.function_header.local_variables as i32
-                    + cur.function_header.return_var as i32;
-                for i in cur.function_header.first_var_id as i32..last {
+                let last = cur.variable.data.function_value.local_variables as i32
+                    + cur.variable.data.function_value.return_var as i32;
+                for i in cur.variable.data.function_value.first_var_id as i32..last {
                     let fvar = result.get_mut(&i).unwrap();
                     fvar.lflag = 1;
-                    if j < cur.function_header.parameters as i32 {
+                    if j < cur.variable.data.function_value.parameters as i32 {
                         fvar.flag = 1;
                     }
-                    if i != cur.function_header.return_var as i32 - 1 {
+                    if i != cur.variable.data.function_value.return_var as i32 - 1 {
                         j += 1;
                         fvar.number = j;
                     }
                 }
 
                 let next = result
-                    .get_mut(&(cur.function_header.return_var as i32 - 1))
+                    .get_mut(&(cur.variable.data.function_value.return_var as i32 - 1))
                     .unwrap();
                 next.fflag = 1;
-            }
-            VariableType::Procedure => {
+            },
+            VariableType::Procedure => unsafe {
                 let mut j = 0;
-                let last = cur.function_header.local_variables as i32
-                    + cur.function_header.parameters as i32
-                    + cur.function_header.first_var_id as i32;
+                let last = cur.variable.data.procedure_value.local_variables as i32
+                    + cur.variable.data.procedure_value.parameters as i32
+                    + cur.variable.data.procedure_value.first_var_id as i32;
 
-                for i in cur.function_header.first_var_id as i32..last {
+                for i in cur.variable.data.procedure_value.first_var_id as i32..last {
                     if let Some(fvar) = result.get_mut(&i) {
                         fvar.lflag = 1;
-                        if j < cur.function_header.parameters as i32 {
+                        if j < cur.variable.data.procedure_value.parameters as i32 {
                             fvar.flag = 1;
                         }
                         j += 1;
@@ -349,11 +381,11 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     } else {
                         panic!(
                             "Variable {i} not found. Invalid function header {:?}",
-                            cur.function_header
+                            cur.variable.data.procedure_value
                         );
                     }
                 }
-            }
+            },
             _ => {}
         }
 

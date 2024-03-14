@@ -61,10 +61,10 @@ pub enum VariableValue {
     Dim3(Vec<Vec<Vec<Variable>>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Variable {
-    vtype: VariableType,
-    data: VariableData,
+    pub vtype: VariableType,
+    pub data: VariableData,
     pub generic_data: VariableValue,
 }
 

@@ -3,13 +3,14 @@ use std::fmt;
 use super::{Variable, VariableData};
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 #[allow(dead_code)]
 pub enum VariableType {
     Boolean = 0,
     Unsigned = 1,
     Date = 2,
     EDate = 3,
+    #[default]
     Integer = 4,
     Money = 5,
     Real = 6,

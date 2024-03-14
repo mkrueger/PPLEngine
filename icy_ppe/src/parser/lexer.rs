@@ -707,6 +707,7 @@ impl Lexer {
         state
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn read_identifier(&mut self) -> Result<Token, LexingError> {
         self.lexer_state = LexerState::BeyondEOL;
         loop {
@@ -730,6 +731,7 @@ impl Lexer {
         Ok(Token::Identifier(identifier))
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn read_comment(&mut self, ch: char) -> Result<Token, LexingError> {
         let cmt_type = match ch {
             ';' => CommentType::SingleLineSemicolon,

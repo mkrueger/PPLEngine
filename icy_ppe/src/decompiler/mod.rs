@@ -160,7 +160,7 @@ impl Decompiler {
 
                 let mut trap = false;
                 match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
-                    0xf6 => {
+                    0xf6 => unsafe {
                         self.src_ptr += 2;
                         self.akt_proc =
                             self.executable.source_buffer[(self.src_ptr - 1) as usize] - 1;
@@ -174,20 +174,24 @@ impl Decompiler {
                             .variable_declarations
                             .get(&self.akt_proc)
                             .unwrap()
-                            .function_header
+                            .variable
+                            .data
+                            .function_value
                             .start_offset as i32;
                         let act_dec_args = self
                             .executable
                             .variable_declarations
                             .get(&self.akt_proc)
                             .unwrap()
-                            .function_header
+                            .variable
+                            .data
+                            .function_value
                             .parameters;
 
                         self.funcin(act_dec_start, self.akt_proc);
                         self.pushlabel(act_dec_start);
                         trap = !self.parse_expr(act_dec_args as i32, 0);
-                    }
+                    },
                     0xf7 => {
                         if self.parse_expr(0x01, 0) {
                             self.executable
@@ -476,7 +480,7 @@ impl Decompiler {
                     .header
                     .variable_type
                 {
-                    VariableType::Function => {
+                    VariableType::Function => unsafe {
                         if self
                             .executable
                             .variable_declarations
@@ -496,7 +500,9 @@ impl Decompiler {
                                 .variable_declarations
                                 .get_mut(&i)
                                 .unwrap()
-                                .function_header
+                                .variable
+                                .data
+                                .function_value
                                 .return_var
                                 - 1) as i32;
                             self.executable
@@ -505,7 +511,7 @@ impl Decompiler {
                                 .unwrap()
                                 .number = c_func;
                         }
-                    }
+                    },
                     VariableType::Procedure => {
                         let cur_var = self.executable.variable_declarations.get_mut(&i).unwrap();
                         if cur_var.flag == 1 {
@@ -608,66 +614,71 @@ impl Decompiler {
                 .number
         );
         let mut func_parameters = vec![];
-
-        let mut j = self
-            .executable
-            .variable_declarations
-            .get(&func)
-            .unwrap()
-            .function_header
-            .first_var_id as i32;
-        for _ in 0..self
-            .executable
-            .variable_declarations
-            .get(&func)
-            .unwrap()
-            .function_header
-            .parameters
-        {
-            let var_name = format!(
-                "LOC{0:>03}",
-                self.executable
+        unsafe {
+            let mut j = self
+                .executable
+                .variable_declarations
+                .get(&func)
+                .unwrap()
+                .variable
+                .data
+                .function_value
+                .first_var_id as i32;
+            for _ in 0..self
+                .executable
+                .variable_declarations
+                .get(&func)
+                .unwrap()
+                .variable
+                .data
+                .function_value
+                .parameters
+            {
+                let var_name = format!(
+                    "LOC{0:>03}",
+                    self.executable
+                        .variable_declarations
+                        .get(&j)
+                        .unwrap()
+                        .number
+                );
+                let var_type = TYPE_NAMES[self
+                    .executable
                     .variable_declarations
                     .get(&j)
                     .unwrap()
-                    .number
-            );
-            let var_type = TYPE_NAMES[self
+                    .header
+                    .variable_type as usize];
+                func_parameters.push(ParameterSpecifier::empty(
+                    false,
+                    var_type,
+                    VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
+                ));
+                self.executable
+                    .variable_declarations
+                    .get_mut(&j)
+                    .unwrap()
+                    .function_id = func;
+                j += 1;
+            }
+            let func_type = TYPE_NAMES[self
                 .executable
                 .variable_declarations
                 .get(&j)
                 .unwrap()
                 .header
                 .variable_type as usize];
-            func_parameters.push(ParameterSpecifier::empty(
-                false,
-                var_type,
-                VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
-            ));
-            self.executable
-                .variable_declarations
-                .get_mut(&j)
-                .unwrap()
-                .function_id = func;
-            j += 1;
+            prg.implementations
+                .push(crate::ast::Implementations::Function(
+                    FunctionImplementation::empty(
+                        func,
+                        func_name,
+                        func_parameters,
+                        func_type,
+                        Vec::new(),
+                    ),
+                ));
         }
-        let func_type = TYPE_NAMES[self
-            .executable
-            .variable_declarations
-            .get(&j)
-            .unwrap()
-            .header
-            .variable_type as usize];
-        prg.implementations
-            .push(crate::ast::Implementations::Function(
-                FunctionImplementation::empty(
-                    func,
-                    func_name,
-                    func_parameters,
-                    func_type,
-                    Vec::new(),
-                ),
-            ));
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
@@ -679,63 +690,71 @@ impl Decompiler {
                 .unwrap()
                 .number
         );
-        let param_flags = self
-            .executable
-            .variable_declarations
-            .get(&proc)
-            .unwrap()
-            .function_header
-            .return_var;
+        unsafe {
+            let param_flags = self
+                .executable
+                .variable_declarations
+                .get(&proc)
+                .unwrap()
+                .variable
+                .data
+                .procedure_value
+                .pass_flags;
 
-        let mut proc_parameters = vec![];
-        let mut j = self
-            .executable
-            .variable_declarations
-            .get(&proc)
-            .unwrap()
-            .function_header
-            .first_var_id as i32;
-        for n in 0..self
-            .executable
-            .variable_declarations
-            .get(&proc)
-            .unwrap()
-            .function_header
-            .parameters
-        {
-            let var_name = format!(
-                "LOC{0:>03}",
-                self.executable
+            let mut proc_parameters = vec![];
+            let mut j = self
+                .executable
+                .variable_declarations
+                .get(&proc)
+                .unwrap()
+                .variable
+                .data
+                .procedure_value
+                .first_var_id as i32;
+            for n in 0..self
+                .executable
+                .variable_declarations
+                .get(&proc)
+                .unwrap()
+                .variable
+                .data
+                .procedure_value
+                .parameters
+            {
+                let var_name = format!(
+                    "LOC{0:>03}",
+                    self.executable
+                        .variable_declarations
+                        .get(&j)
+                        .unwrap()
+                        .number
+                );
+                let var_type = TYPE_NAMES[self
+                    .executable
                     .variable_declarations
                     .get(&j)
                     .unwrap()
-                    .number
-            );
-            let var_type = TYPE_NAMES[self
-                .executable
-                .variable_declarations
-                .get(&j)
-                .unwrap()
-                .header
-                .variable_type as usize];
-            let is_var = (1 << n) & param_flags != 0;
+                    .header
+                    .variable_type as usize];
+                let is_var = (1 << n) & param_flags != 0;
 
-            proc_parameters.push(ParameterSpecifier::empty(
-                is_var,
-                var_type,
-                VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
-            ));
-            self.executable
-                .variable_declarations
-                .get_mut(&j)
-                .unwrap()
-                .function_id = proc;
-            j += 1;
+                proc_parameters.push(ParameterSpecifier::empty(
+                    is_var,
+                    var_type,
+                    VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
+                ));
+                self.executable
+                    .variable_declarations
+                    .get_mut(&j)
+                    .unwrap()
+                    .function_id = proc;
+                j += 1;
+            }
+            prg.implementations
+                .push(crate::ast::Implementations::Procedure(
+                    ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
+                ));
         }
-        prg.implementations
-            .push(crate::ast::Implementations::Procedure(
-                ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
-            ));
     }
 
     fn funcin(&mut self, label: i32, func: i32) {
@@ -789,74 +808,76 @@ impl Decompiler {
         let mut i;
         let mx_var;
         let mut j = 0;
-        // StackPtr = 0;
-        let cur_var = self.executable.variable_declarations.get(&func).unwrap();
-        if cur_var.header.variable_type == VariableType::Function {
-            i = cur_var.function_header.return_var as i32;
-            mx_var = cur_var.function_header.return_var as i32
-                + cur_var.function_header.local_variables as i32;
-        } else {
-            i = cur_var.function_header.first_var_id as i32
-                + cur_var.function_header.parameters as i32;
-            mx_var = cur_var.function_header.first_var_id as i32
-                + cur_var.function_header.local_variables as i32;
-            //+1;
-        }
+        unsafe {
+            // StackPtr = 0;
+            let cur_var = self.executable.variable_declarations.get(&func).unwrap();
+            if cur_var.header.variable_type == VariableType::Function {
+                i = cur_var.variable.data.function_value.return_var as i32;
+                mx_var = cur_var.variable.data.function_value.return_var as i32
+                    + cur_var.variable.data.function_value.local_variables as i32;
+            } else {
+                i = cur_var.variable.data.procedure_value.first_var_id as i32
+                    + cur_var.variable.data.procedure_value.parameters as i32;
+                mx_var = cur_var.variable.data.procedure_value.first_var_id as i32
+                    + cur_var.variable.data.procedure_value.local_variables as i32;
+                //+1;
+            }
 
-        while i < mx_var {
-            if self.executable.variable_declarations.get(&i).unwrap().flag == 1 {
-                self.executable
-                    .variable_declarations
-                    .get_mut(&i)
-                    .unwrap()
-                    .function_id = func;
-                if self.symbol == 0 {
-                    let var_type = crate::tables::TYPE_NAMES[self
-                        .executable
+            while i < mx_var {
+                if self.executable.variable_declarations.get(&i).unwrap().flag == 1 {
+                    self.executable
                         .variable_declarations
-                        .get(&i)
+                        .get_mut(&i)
                         .unwrap()
-                        .header
-                        .variable_type
-                        as usize];
-                    let var_name = format!(
-                        "LOC{0:>03}",
-                        self.executable
+                        .function_id = func;
+                    if self.symbol == 0 {
+                        let var_type = crate::tables::TYPE_NAMES[self
+                            .executable
                             .variable_declarations
                             .get(&i)
                             .unwrap()
-                            .number
-                    );
-                    let cur_var = &self.executable.variable_declarations[&i];
+                            .header
+                            .variable_type
+                            as usize];
+                        let var_name = format!(
+                            "LOC{0:>03}",
+                            self.executable
+                                .variable_declarations
+                                .get(&i)
+                                .unwrap()
+                                .number
+                        );
+                        let cur_var = &self.executable.variable_declarations[&i];
 
-                    let func = Decompiler::get_function_mut(prg, func).unwrap();
+                        let func = Decompiler::get_function_mut(prg, func).unwrap();
 
-                    let dims = match cur_var.header.dim {
-                        1 => vec![cur_var.header.vector_size],
-                        2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
-                        3 => vec![
-                            cur_var.header.vector_size,
-                            cur_var.header.matrix_size,
-                            cur_var.header.cube_size,
-                        ],
-                        _ => vec![],
-                    };
-                    func.get_statements_mut().push(
-                        VariableDeclarationStatement::create_empty_statement(
-                            var_type,
-                            vec![VariableSpecifier::empty(
-                                unicase::Ascii::new(var_name),
-                                dims,
-                            )],
-                        ),
-                    );
+                        let dims = match cur_var.header.dim {
+                            1 => vec![cur_var.header.vector_size],
+                            2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
+                            3 => vec![
+                                cur_var.header.vector_size,
+                                cur_var.header.matrix_size,
+                                cur_var.header.cube_size,
+                            ],
+                            _ => vec![],
+                        };
+                        func.get_statements_mut().push(
+                            VariableDeclarationStatement::create_empty_statement(
+                                var_type,
+                                vec![VariableSpecifier::empty(
+                                    unicase::Ascii::new(var_name),
+                                    dims,
+                                )],
+                            ),
+                        );
+                    }
                 }
+                i += 1;
+                j += 1;
             }
-            i += 1;
-            j += 1;
-        }
-        if j > 0 {
-            // self.output.push_str("\n");
+            if j > 0 {
+                // self.output.push_str("\n");
+            }
         }
     }
 
@@ -1242,7 +1263,7 @@ impl Decompiler {
             )),
             VariableType::BigStr | VariableType::String => {
                 ConstantExpression::create_empty_expression(Constant::String(
-                    cur_var.string_value.clone(),
+                    cur_var.variable.as_string(),
                 ))
             }
             VariableType::DoubleReal | VariableType::Real => {
@@ -1372,122 +1393,135 @@ impl Decompiler {
             while (self.src_ptr as usize) < self.executable.source_buffer.len()
                 && self.executable.source_buffer[self.src_ptr as usize] != 0
             {
-                let curvar = self.executable.source_buffer[self.src_ptr as usize];
-                if curvar >= 0 && curvar <= self.executable.max_var {
-                    let var_idx = &(curvar - 1);
-                    if self
-                        .executable
-                        .variable_declarations
-                        .get(var_idx)
-                        .unwrap()
-                        .header
-                        .variable_type
-                        == VariableType::Function
-                    {
-                        self.pushlabel(
-                            self.executable
-                                .variable_declarations
-                                .get(var_idx)
-                                .unwrap()
-                                .function_header
-                                .start_offset as i32,
-                        );
-                        self.executable
+                unsafe {
+                    let curvar = self.executable.source_buffer[self.src_ptr as usize];
+                    if curvar >= 0 && curvar <= self.executable.max_var {
+                        let var_idx = &(curvar - 1);
+                        if self
+                            .executable
                             .variable_declarations
-                            .get_mut(&(self.executable.source_buffer[self.src_ptr as usize - 1]))
+                            .get(var_idx)
                             .unwrap()
-                            .flag = 1;
-                        self.funcin(
-                            self.executable
-                                .variable_declarations
-                                .get(var_idx)
-                                .unwrap()
-                                .function_header
-                                .start_offset as i32,
-                            *var_idx,
-                        );
-                        if self.pass == 1 {
-                            let temp_str2 = self.pop_expr().unwrap();
-                            let tmp = self.pop_expr();
-                            if let Some(e) = tmp {
-                                let new_expr = match e {
-                                    Expression::FunctionCall(expr) => {
-                                        let mut v = expr.get_arguments().clone();
-                                        v.push(temp_str2);
-                                        FunctionCallExpression::create_empty_expression(
-                                            expr.get_identifier().clone(),
-                                            v,
-                                        )
-                                    }
-                                    _ => FunctionCallExpression::create_empty_expression(
-                                        unicase::Ascii::new(e.to_string()),
-                                        vec![temp_str2],
-                                    ),
-                                };
-                                self.push_expr(new_expr);
-                            } else {
-                                self.push_expr(temp_str2);
-                            }
-                        }
-                        self.src_ptr += 1;
-                        if !self.parse_expr(
-                            self.executable
-                                .variable_declarations
-                                .get(
-                                    &(self.executable.source_buffer[self.src_ptr as usize - 1] - 1),
-                                )
-                                .unwrap()
-                                .function_header
-                                .parameters as i32,
-                            1,
-                        ) {
-                            return 1;
-                        }
-                        self.src_ptr -= 1;
-                    } else {
-                        if self.pass == 1 {
-                            let tmp =
-                                self.varout(self.executable.source_buffer[self.src_ptr as usize]);
-                            self.push_expr(tmp);
-                        }
-                        self.src_ptr += 1;
-                        if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                            .header
+                            .variable_type
+                            == VariableType::Function
+                        {
+                            self.pushlabel(
+                                self.executable
+                                    .variable_declarations
+                                    .get(var_idx)
+                                    .unwrap()
+                                    .variable
+                                    .data
+                                    .function_value
+                                    .start_offset as i32,
+                            );
                             self.executable
                                 .variable_declarations
                                 .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize - 1] - 1),
+                                    &(self.executable.source_buffer[self.src_ptr as usize - 1]),
                                 )
                                 .unwrap()
                                 .flag = 1;
-                            if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize])
-                                != 0
-                            {
+                            self.funcin(
+                                self.executable
+                                    .variable_declarations
+                                    .get(var_idx)
+                                    .unwrap()
+                                    .variable
+                                    .data
+                                    .function_value
+                                    .start_offset as i32,
+                                *var_idx,
+                            );
+                            if self.pass == 1 {
+                                let temp_str2 = self.pop_expr().unwrap();
+                                let tmp = self.pop_expr();
+                                if let Some(e) = tmp {
+                                    let new_expr = match e {
+                                        Expression::FunctionCall(expr) => {
+                                            let mut v = expr.get_arguments().clone();
+                                            v.push(temp_str2);
+                                            FunctionCallExpression::create_empty_expression(
+                                                expr.get_identifier().clone(),
+                                                v,
+                                            )
+                                        }
+                                        _ => FunctionCallExpression::create_empty_expression(
+                                            unicase::Ascii::new(e.to_string()),
+                                            vec![temp_str2],
+                                        ),
+                                    };
+                                    self.push_expr(new_expr);
+                                } else {
+                                    self.push_expr(temp_str2);
+                                }
+                            }
+                            self.src_ptr += 1;
+                            if !self.parse_expr(
+                                self.executable
+                                    .variable_declarations
+                                    .get(
+                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
+                                            - 1),
+                                    )
+                                    .unwrap()
+                                    .variable
+                                    .data
+                                    .function_value
+                                    .parameters as i32,
+                                1,
+                            ) {
                                 return 1;
+                            }
+                            self.src_ptr -= 1;
+                        } else {
+                            if self.pass == 1 {
+                                let tmp = self
+                                    .varout(self.executable.source_buffer[self.src_ptr as usize]);
+                                self.push_expr(tmp);
+                            }
+                            self.src_ptr += 1;
+                            if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                                self.executable
+                                    .variable_declarations
+                                    .get_mut(
+                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
+                                            - 1),
+                                    )
+                                    .unwrap()
+                                    .flag = 1;
+                                if self
+                                    .dimexpr(self.executable.source_buffer[self.src_ptr as usize])
+                                    != 0
+                                {
+                                    return 1;
+                                }
+                            }
+                        }
+                    } else {
+                        let x = self.executable.source_buffer[self.src_ptr as usize];
+
+                        if self.executable.source_buffer[self.src_ptr as usize]
+                            < crate::tables::LAST_FUNC
+                        {
+                            log::error!(
+                                "Error: Unknown function {} at {} avoiding...",
+                                self.executable.source_buffer[self.src_ptr as usize],
+                                self.src_ptr
+                            );
+                            return 1;
+                        }
+                        if self.pass == 1 {
+                            if self.fnktout(x) != 0 {
+                                tmp_func = self.executable.source_buffer[self.src_ptr as usize];
+                            } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
+                                tmp_func = 0;
                             }
                         }
                     }
-                } else {
-                    let x = self.executable.source_buffer[self.src_ptr as usize];
-
-                    if self.executable.source_buffer[self.src_ptr as usize]
-                        < crate::tables::LAST_FUNC
-                    {
-                        log::error!(
-                            "Error: Unknown function {} at {} avoiding...",
-                            self.executable.source_buffer[self.src_ptr as usize],
-                            self.src_ptr
-                        );
-                        return 1;
-                    }
-                    if self.pass == 1 {
-                        if self.fnktout(x) != 0 {
-                            tmp_func = self.executable.source_buffer[self.src_ptr as usize];
-                        } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
-                            tmp_func = 0;
-                        }
-                    }
+                    self.src_ptr += 1;
                 }
-                self.src_ptr += 1;
             }
 
             if self.pass == 1 {
@@ -1566,135 +1600,151 @@ impl Decompiler {
                             }
                         }
                     } else {
-                        if self.cur_stmt == 0xa8
-                            && ((self
-                                .executable
-                                .variable_declarations
-                                .get(&self.akt_proc)
-                                .unwrap()
-                                .function_header
-                                .return_var
-                                >> (cur_expr - 1))
-                                & 1)
-                                != 0
-                        {
-                            self.executable
-                                .variable_declarations
-                                .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize] - 1),
-                                )
-                                .unwrap()
-                                .flag = 1;
-                        }
-
-                        if self
-                            .executable
-                            .variable_declarations
-                            .get(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
-                            .unwrap()
-                            .header
-                            .variable_type
-                            == VariableType::Function
-                        {
-                            self.pushlabel(
-                                self.executable
+                        unsafe {
+                            if self.cur_stmt == 0xa8
+                                && ((self
+                                    .executable
                                     .variable_declarations
-                                    .get(
-                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
-                                    )
+                                    .get(&self.akt_proc)
                                     .unwrap()
-                                    .function_header
-                                    .start_offset as i32,
-                            );
-                            self.executable
-                                .variable_declarations
-                                .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize] - 1),
-                                )
-                                .unwrap()
-                                .flag = 1;
-                            self.funcin(
-                                self.executable
-                                    .variable_declarations
-                                    .get(
-                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
-                                    )
-                                    .unwrap()
-                                    .function_header
-                                    .start_offset as i32,
-                                self.executable.source_buffer[self.src_ptr as usize] - 1,
-                            );
-                            let mut stack_len = 0;
-                            if self.pass == 1 {
-                                let tmp2 = self
-                                    .varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                let tmp3 = self.pop_expr();
-                                if let Some(t) = tmp3 {
-                                    self.push_expr(t);
-                                }
-                                self.push_expr(tmp2);
-                                stack_len = self.expr_stack.len();
-                            }
-
-                            self.src_ptr += 1;
-
-                            if !self.parse_expr(
-                                self.executable
-                                    .variable_declarations
-                                    .get(
-                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
-                                            - 1),
-                                    )
-                                    .unwrap()
-                                    .function_header
-                                    .parameters as i32,
-                                1,
-                            ) {
-                                return false;
-                            }
-
-                            if self.pass == 1 {
-                                let mut params = Vec::new();
-                                while stack_len < self.expr_stack.len() {
-                                    params.push(self.pop_expr().unwrap());
-                                }
-
-                                let func_expr = self.pop_expr().unwrap();
-                                if let Expression::FunctionCall(mut expr) = func_expr {
-                                    expr.set_arguments(params);
-                                    self.push_expr(Expression::FunctionCall(expr));
-                                } else {
-                                    self.warnings.push(format!(
-                                        "function call expected but got {func_expr:?}"
-                                    ));
-                                    self.push_expr(func_expr);
-                                }
-                            }
-                        } else {
-                            if self.pass == 1 {
-                                let tmp = self
-                                    .varout(self.executable.source_buffer[self.src_ptr as usize]);
-                                self.push_expr(tmp);
-                            }
-                            self.src_ptr += 1;
-
-                            if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                                    .variable
+                                    .data
+                                    .function_value
+                                    .return_var
+                                    >> (cur_expr - 1))
+                                    & 1)
+                                    != 0
+                            {
                                 self.executable
                                     .variable_declarations
                                     .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
-                                            - 1),
+                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
                                     )
                                     .unwrap()
                                     .flag = 1;
-                                if self
-                                    .dimexpr(self.executable.source_buffer[self.src_ptr as usize])
-                                    != 0
-                                {
+                            }
+
+                            if self
+                                .executable
+                                .variable_declarations
+                                .get(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
+                                .unwrap()
+                                .header
+                                .variable_type
+                                == VariableType::Function
+                            {
+                                self.pushlabel(
+                                    self.executable
+                                        .variable_declarations
+                                        .get(
+                                            &(self.executable.source_buffer[self.src_ptr as usize]
+                                                - 1),
+                                        )
+                                        .unwrap()
+                                        .variable
+                                        .data
+                                        .function_value
+                                        .start_offset as i32,
+                                );
+                                self.executable
+                                    .variable_declarations
+                                    .get_mut(
+                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
+                                    )
+                                    .unwrap()
+                                    .flag = 1;
+                                self.funcin(
+                                    self.executable
+                                        .variable_declarations
+                                        .get(
+                                            &(self.executable.source_buffer[self.src_ptr as usize]
+                                                - 1),
+                                        )
+                                        .unwrap()
+                                        .variable
+                                        .data
+                                        .function_value
+                                        .start_offset as i32,
+                                    self.executable.source_buffer[self.src_ptr as usize] - 1,
+                                );
+                                let mut stack_len = 0;
+                                if self.pass == 1 {
+                                    let tmp2 = self.varout(
+                                        self.executable.source_buffer[self.src_ptr as usize],
+                                    );
+                                    let tmp3 = self.pop_expr();
+                                    if let Some(t) = tmp3 {
+                                        self.push_expr(t);
+                                    }
+                                    self.push_expr(tmp2);
+                                    stack_len = self.expr_stack.len();
+                                }
+
+                                self.src_ptr += 1;
+
+                                if !self.parse_expr(
+                                    self.executable
+                                        .variable_declarations
+                                        .get(
+                                            &(self.executable.source_buffer
+                                                [self.src_ptr as usize - 1]
+                                                - 1),
+                                        )
+                                        .unwrap()
+                                        .variable
+                                        .data
+                                        .function_value
+                                        .parameters as i32,
+                                    1,
+                                ) {
                                     return false;
                                 }
+
+                                if self.pass == 1 {
+                                    let mut params = Vec::new();
+                                    while stack_len < self.expr_stack.len() {
+                                        params.push(self.pop_expr().unwrap());
+                                    }
+
+                                    let func_expr = self.pop_expr().unwrap();
+                                    if let Expression::FunctionCall(mut expr) = func_expr {
+                                        expr.set_arguments(params);
+                                        self.push_expr(Expression::FunctionCall(expr));
+                                    } else {
+                                        self.warnings.push(format!(
+                                            "function call expected but got {func_expr:?}"
+                                        ));
+                                        self.push_expr(func_expr);
+                                    }
+                                }
+                            } else {
+                                if self.pass == 1 {
+                                    let tmp = self.varout(
+                                        self.executable.source_buffer[self.src_ptr as usize],
+                                    );
+                                    self.push_expr(tmp);
+                                }
+                                self.src_ptr += 1;
+
+                                if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                                    self.executable
+                                        .variable_declarations
+                                        .get_mut(
+                                            &(self.executable.source_buffer
+                                                [self.src_ptr as usize - 1]
+                                                - 1),
+                                        )
+                                        .unwrap()
+                                        .flag = 1;
+                                    if self.dimexpr(
+                                        self.executable.source_buffer[self.src_ptr as usize],
+                                    ) != 0
+                                    {
+                                        return false;
+                                    }
+                                }
+                                self.src_ptr += 1;
                             }
-                            self.src_ptr += 1;
                         }
                     }
                 } else {
@@ -1953,7 +2003,7 @@ impl Decompiler {
                     self.src_ptr += 1;
                 }
 
-                OpCode::PCALL => {
+                OpCode::PCALL => unsafe {
                     // PCALL
                     self.src_ptr += 2;
                     self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;
@@ -1970,7 +2020,9 @@ impl Decompiler {
                             .variable_declarations
                             .get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1))
                             .unwrap()
-                            .function_header
+                            .variable
+                            .data
+                            .procedure_value
                             .parameters as i32,
                         0,
                     ) {
@@ -1990,7 +2042,7 @@ impl Decompiler {
                         prg,
                         ProcedureCallStatement::create_empty_statement(proc_name, params),
                     );
-                }
+                },
                 _ => {
                     let mut found = false;
                     for def in &STATEMENT_DEFINITIONS {

@@ -1738,9 +1738,6 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 218] = [
     },
 ];
 
-pub const PPL_TRUE: i32 = 1;
-pub const PPL_FALSE: i32 = 0;
-
 #[repr(i16)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]

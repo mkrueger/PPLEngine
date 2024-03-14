@@ -1,9 +1,9 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    ast::{convert_to, get_var_name, Expression, IdentifierExpression, VariableValue},
+    ast::{Expression, Variable},
     icy_board::text_messages,
-    interpreter::{evaluate_exp, get_int, get_string, Interpreter, TerminalTarget},
+    interpreter::{evaluate_exp, Interpreter, TerminalTarget},
     Res,
 };
 
@@ -58,7 +58,7 @@ pub fn wait(interpreter: &mut Interpreter) -> Res<()> {
 }
 
 pub fn color(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let color = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let color = evaluate_exp(interpreter, &params[0])?.as_int();
     interpreter.ctx.set_color(color as u8);
     Ok(())
 }
@@ -88,34 +88,34 @@ pub fn input(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn fcreate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
-    let file = &evaluate_exp(interpreter, &params[1])?.to_string();
-    let am = get_int(&evaluate_exp(interpreter, &params[2])?)?;
-    let sm = get_int(&evaluate_exp(interpreter, &params[3])?)?;
-    interpreter.io.fcreate(channel, file, am, sm);
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
+    let file = evaluate_exp(interpreter, &params[1])?.as_string();
+    let am = evaluate_exp(interpreter, &params[2])?.as_int();
+    let sm = evaluate_exp(interpreter, &params[3])?.as_int();
+    interpreter.io.fcreate(channel, &file, am, sm);
     Ok(())
 }
 
 pub fn fopen(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
-    let file = &evaluate_exp(interpreter, &params[1])?.to_string();
-    let am = get_int(&evaluate_exp(interpreter, &params[2])?)?;
-    let sm = get_int(&evaluate_exp(interpreter, &params[3])?)?;
-    interpreter.io.fopen(channel, file, am, sm)?;
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
+    let file = evaluate_exp(interpreter, &params[1])?.as_string();
+    let am = evaluate_exp(interpreter, &params[2])?.as_int();
+    let sm = evaluate_exp(interpreter, &params[3])?.as_int();
+    interpreter.io.fopen(channel, &file, am, sm)?;
     Ok(())
 }
 
 pub fn fappend(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
-    let file = &evaluate_exp(interpreter, &params[1])?.to_string();
-    let am = get_int(&evaluate_exp(interpreter, &params[2])?)?;
-    let sm = get_int(&evaluate_exp(interpreter, &params[3])?)?;
-    interpreter.io.fappend(channel, file, am, sm);
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
+    let file = evaluate_exp(interpreter, &params[1])?.as_string();
+    let am = evaluate_exp(interpreter, &params[2])?.as_int();
+    let sm = evaluate_exp(interpreter, &params[3])?.as_int();
+    interpreter.io.fappend(channel, &file, am, sm);
     Ok(())
 }
 
 pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int();
     if channel == -1 {
         // READLINE uses -1 as a special value
         return Ok(());
@@ -128,28 +128,28 @@ pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
-    let value = VariableValue::String(interpreter.io.fget(channel));
-    interpreter.set_variable_value(&params[1], value);
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
+    let value = Variable::new_string(interpreter.io.fget(channel));
+    interpreter.set_variable_value(&params[1], &value)?;
     Ok(())
 }
 
 pub fn fput(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
 
     for expr in &params[1..] {
         let value = evaluate_exp(interpreter, expr)?;
-        interpreter.io.fput(channel, value.to_string());
+        interpreter.io.fput(channel, value.as_string());
     }
     Ok(())
 }
 
 pub fn fputln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let channel = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
+    let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
 
     for expr in &params[1..] {
         let value = evaluate_exp(interpreter, expr)?;
-        interpreter.io.fput(channel, value.to_string());
+        interpreter.io.fput(channel, value.as_string());
     }
     interpreter.io.fput(channel, "\n".to_string());
     Ok(())
@@ -215,7 +215,7 @@ pub fn defcolor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn delete(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let file = &evaluate_exp(interpreter, &params[0])?.to_string();
+    let file = &evaluate_exp(interpreter, &params[0])?.as_string();
     if let Err(err) = interpreter.io.delete(file) {
         log::error!("Error deleting file: {}", err);
     }
@@ -230,7 +230,7 @@ pub fn adjtime(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let msg = &evaluate_exp(interpreter, &params[0])?.to_string();
+    let msg = evaluate_exp(interpreter, &params[0])?.as_string();
     // let left = &evaluate_exp(interpreter, &params[0])?;
     log::info!("{}", msg);
     Ok(())
@@ -239,15 +239,14 @@ pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 const TXT_STOPCHAR: char = '_';
 
 pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     // 1 Output Variable
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
-    let len = get_int(&evaluate_exp(interpreter, &params[3])?)?;
-    let valid = get_string(&evaluate_exp(interpreter, &params[4])?);
-    let flags = get_int(&evaluate_exp(interpreter, &params[5])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
+    let len = evaluate_exp(interpreter, &params[3])?.as_int();
+    let valid = evaluate_exp(interpreter, &params[4])?.as_string();
+    let flags = evaluate_exp(interpreter, &params[5])?.as_int();
     let output = internal_input_string(interpreter, color, prompt, len, &valid)?;
-    interpreter.set_variable_value(&params[1], VariableValue::String(output));
-    Ok(())
+    interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 
 fn internal_input_string(
@@ -288,93 +287,87 @@ fn internal_input_string(
 }
 
 pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 1;
     let valid = "YyNn";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     interpreter.set_variable_value(
         &params[1],
-        VariableValue::String(output.to_ascii_uppercase()),
-    );
-    Ok(())
+        &Variable::new_string(output.to_ascii_uppercase()),
+    )
 }
 
 pub fn inputmoney(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 13;
     let valid = "01234567890+-$.";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     // TODO: Money conversion.
-    interpreter.set_variable_value(&params[1], VariableValue::String(output));
-    Ok(())
+    interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 
 pub fn inputint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 11;
     let valid = "01234567890+-";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     interpreter.set_variable_value(
         &params[1],
-        VariableValue::Integer(output.parse::<i32>().unwrap()),
-    );
-    Ok(())
+        &Variable::new_int(output.parse::<i32>().unwrap()),
+    )
 }
 pub fn inputcc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 16;
     let valid = "01234567890";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
-    interpreter.set_variable_value(&params[1], VariableValue::String(output));
-    Ok(())
+    interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 8;
     let valid = "01234567890-/";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     // TODO: Date conversion
-    interpreter.set_variable_value(&params[1], VariableValue::String(output));
-    Ok(())
+    interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let mut prompt = get_string(&evaluate_exp(interpreter, &params[0])?);
+    let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
 
-    let color = get_int(&evaluate_exp(interpreter, &params[2])?)?;
+    let color = evaluate_exp(interpreter, &params[2])?.as_int();
     let len = 8;
     let valid = "01234567890:";
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     // TODO: Time conversion
-    interpreter.set_variable_value(&params[1], VariableValue::String(output));
-    Ok(())
+    interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
@@ -399,7 +392,7 @@ pub fn cdchkoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 
 pub fn delay(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     // 1 tick is ~1/18.2s
-    let ticks = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let ticks = evaluate_exp(interpreter, &params[0])?.as_int();
     if ticks > 0 {
         thread::sleep(Duration::from_millis((ticks as f32 * 1000.0 / 18.2) as u64));
     }
@@ -412,16 +405,14 @@ pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 
 pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let cur_value = evaluate_exp(interpreter, &params[0])?;
-    let new_value = cur_value + VariableValue::Integer(1);
-    interpreter.set_variable_value(&params[0], new_value);
-    Ok(())
+    let new_value = cur_value + Variable::new_int(1);
+    interpreter.set_variable_value(&params[0], &new_value)
 }
 
 pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     let cur_value = evaluate_exp(interpreter, &params[0])?;
-    let new_value = cur_value - VariableValue::Integer(1);
-    interpreter.set_variable_value(&params[0], new_value);
-    Ok(())
+    let new_value = cur_value - Variable::new_int(1);
+    interpreter.set_variable_value(&params[0], &new_value)
 }
 
 pub fn newline(interpreter: &mut Interpreter) -> Res<()> {
@@ -429,7 +420,7 @@ pub fn newline(interpreter: &mut Interpreter) -> Res<()> {
 }
 
 pub fn newlines(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let count = get_int(&evaluate_exp(interpreter, &params[0])?)?;
+    let count = evaluate_exp(interpreter, &params[0])?.as_int();
     for _ in 0..count {
         newline(interpreter)?;
     }
@@ -473,7 +464,7 @@ pub fn kbdstuff(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     let value = evaluate_exp(interpreter, &params[0])?;
     interpreter
         .ctx
-        .print(TerminalTarget::Both, &get_string(&value))
+        .print(TerminalTarget::Both, &value.as_string())
 }
 pub fn call(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
@@ -519,9 +510,9 @@ pub fn goodbye(interpreter: &mut Interpreter) -> Res<()> {
 /// without giving users the ability to manually broadcast
 /// at any time they choose.
 pub fn broadcast(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let lonode = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-    let hinode = get_int(&evaluate_exp(interpreter, &params[1])?)?;
-    let message = get_string(&evaluate_exp(interpreter, &params[2])?);
+    let lonode = evaluate_exp(interpreter, &params[0])?.as_int();
+    let hinode = evaluate_exp(interpreter, &params[1])?.as_int();
+    let message = evaluate_exp(interpreter, &params[2])?.as_string();
     // TODO: Broadcast
     println!("Broadcasting message from {lonode} to {hinode}: {message}");
     Ok(())
@@ -540,30 +531,26 @@ pub fn optext(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn dispstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let value = evaluate_exp(interpreter, &params[0])?;
-    interpreter
-        .ctx
-        .print(TerminalTarget::Both, &get_string(&value))
+    let value = evaluate_exp(interpreter, &params[0])?.as_string();
+    interpreter.ctx.print(TerminalTarget::Both, &value)
 }
 
 pub fn rdunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let value = evaluate_exp(interpreter, &params[0])?;
+    let value = evaluate_exp(interpreter, &params[0])?.as_int();
 
-    if let VariableValue::Integer(value) = value {
-        if let Some(node) = interpreter.icy_board_data.nodes.get(value as usize) {
-            interpreter.pcb_node = Some(node.clone());
-        }
+    if let Some(node) = interpreter.icy_board_data.nodes.get(value as usize) {
+        interpreter.pcb_node = Some(node.clone());
     }
     Ok(())
 }
 
 pub fn wrunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let node = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-    let stat = get_string(&evaluate_exp(interpreter, &params[1])?);
-    let name = get_string(&evaluate_exp(interpreter, &params[2])?);
-    let city = get_string(&evaluate_exp(interpreter, &params[3])?);
-    let operation = get_string(&evaluate_exp(interpreter, &params[4])?);
-    let broadcast = get_string(&evaluate_exp(interpreter, &params[5])?);
+    let node = evaluate_exp(interpreter, &params[0])?.as_int();
+    let stat = evaluate_exp(interpreter, &params[1])?.as_string();
+    let name = evaluate_exp(interpreter, &params[2])?.as_string();
+    let city = evaluate_exp(interpreter, &params[3])?.as_string();
+    let operation = evaluate_exp(interpreter, &params[4])?.as_string();
+    let broadcast = evaluate_exp(interpreter, &params[5])?.as_string();
 
     // Todo: Broadcast
 
@@ -597,8 +584,8 @@ pub fn varaddr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn ansipos(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let x = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-    let y = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+    let x = evaluate_exp(interpreter, &params[0])?.as_int();
+    let y = evaluate_exp(interpreter, &params[1])?.as_int();
 
     interpreter.ctx.gotoxy(TerminalTarget::Both, x, y)
 }
@@ -648,7 +635,7 @@ pub fn sprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
             .ctx
-            .print(TerminalTarget::Sysop, &value.to_string())?;
+            .print(TerminalTarget::Sysop, &value.as_string())?;
     }
     Ok(())
 }
@@ -658,7 +645,7 @@ pub fn sprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
             .ctx
-            .print(TerminalTarget::Sysop, &value.to_string())?;
+            .print(TerminalTarget::Sysop, &value.as_string())?;
     }
     interpreter.ctx.print(TerminalTarget::Sysop, "\n")?;
     Ok(())
@@ -669,7 +656,7 @@ pub fn mprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
             .ctx
-            .print(TerminalTarget::User, &value.to_string())?;
+            .print(TerminalTarget::User, &value.as_string())?;
     }
     Ok(())
 }
@@ -679,15 +666,15 @@ pub fn mprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
             .ctx
-            .print(TerminalTarget::User, &value.to_string())?;
+            .print(TerminalTarget::User, &value.as_string())?;
     }
     interpreter.ctx.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 
 pub fn rename(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let old = &evaluate_exp(interpreter, &params[0])?.to_string();
-    let new = &evaluate_exp(interpreter, &params[1])?.to_string();
+    let old = &evaluate_exp(interpreter, &params[0])?.as_string();
+    let new = &evaluate_exp(interpreter, &params[1])?.as_string();
     if let Err(err) = interpreter.io.rename(old, new) {
         log::error!("Error renaming file: {}", err);
     }
@@ -766,8 +753,8 @@ pub fn append(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 pub fn copy(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let old = &evaluate_exp(interpreter, &params[0])?.to_string();
-    let new = &evaluate_exp(interpreter, &params[1])?.to_string();
+    let old = &evaluate_exp(interpreter, &params[0])?.as_string();
+    let new = &evaluate_exp(interpreter, &params[1])?.as_string();
     if let Err(err) = interpreter.io.copy(old, new) {
         log::error!("Error renaming file: {}", err);
     }
@@ -805,7 +792,7 @@ pub fn wrusysdoor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
 }
 
 pub fn getaltuser(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
-    let user_record = get_int(&evaluate_exp(interpreter, &params[0])?)? as usize;
+    let user_record = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let user = interpreter.icy_board_data.users[user_record].clone();
     interpreter.set_user_variables(&user);
     Ok(())

@@ -1,11 +1,11 @@
 use std::fmt;
 
-use super::VariableType;
+use super::{VariableData, VariableType};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Constant {
-    Money(f64),
+    Money(i32),
     Integer(i32),
     Unsigned(u32),
     String(String),
@@ -143,15 +143,27 @@ impl Constant {
         }
     }
 
-    pub fn get_value(&self) -> super::VariableValue {
+    pub fn get_value(&self) -> super::Variable {
         match self {
-            Constant::Money(i) => super::VariableValue::Money(*i),
-            Constant::Integer(i) => super::VariableValue::Integer(*i),
-            Constant::Unsigned(i) => super::VariableValue::Unsigned(*i),
-            Constant::String(s) => super::VariableValue::String(s.clone()),
-            Constant::Real(i) => super::VariableValue::Real(*i),
-            Constant::Boolean(b) => super::VariableValue::Boolean(*b),
-            Constant::Builtin(s) => super::VariableValue::Integer(s.value),
+            Constant::Money(i) => {
+                super::Variable::new(VariableType::Money, VariableData { money_value: *i })
+            }
+            Constant::Integer(i) => {
+                super::Variable::new(VariableType::Integer, VariableData { int_value: *i })
+            }
+            Constant::Unsigned(i) => {
+                super::Variable::new(VariableType::Unsigned, VariableData { unsigned_value: *i })
+            }
+            Constant::String(s) => super::Variable::new_string(s.clone()),
+            Constant::Real(i) => {
+                super::Variable::new(VariableType::DoubleReal, VariableData { dreal_value: *i })
+            }
+            Constant::Boolean(b) => {
+                super::Variable::new(VariableType::Boolean, VariableData { bool_value: *b })
+            }
+            Constant::Builtin(s) => {
+                super::Variable::new(VariableType::Integer, VariableData { int_value: s.value })
+            }
         }
     }
 }

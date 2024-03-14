@@ -1,7 +1,7 @@
 use icy_ppe::{
-    ast::{Program, Statement, VariableType, VariableValue},
+    ast::{Program, Statement, Variable, VariableData, VariableType, VariableValue},
     crypt::{encode_rle, encrypt},
-    executable::FunctionHeader,
+    executable::FunctionValue,
     tables::{self, get_function_definition, OpCode},
 };
 use std::collections::HashMap;
@@ -35,15 +35,15 @@ struct VarInfo {
     pub flags: u8,
 }
 
-struct Variable {
+struct VariableId {
     pub info: VarInfo,
     pub var_type: VariableType,
-    pub value: VariableValue,
+    pub value: icy_ppe::ast::Variable,
 }
 
 #[derive(Debug)]
 struct Function {
-    pub header: FunctionHeader,
+    pub header: FunctionValue,
 
     pub usages: Vec<usize>,
 }
@@ -53,7 +53,7 @@ impl Function {
     }
 }
 
-impl Variable {
+impl VariableId {
     fn create_var_header(&self, exe: &Executable, version: u16) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.info.id as u16));
@@ -66,7 +66,7 @@ impl Variable {
         buffer.push(self.info.flags);
         encrypt(&mut buffer, version);
         if self.var_type == VariableType::Procedure || self.var_type == VariableType::Function {
-            let VariableValue::String(s) = &self.value else {
+            let VariableValue::String(s) = &self.value.generic_data else {
                 panic!("Invalid value type {:?}", self.value);
             };
             let proc = exe
@@ -81,7 +81,7 @@ impl Variable {
             proc.header.append(&mut buffer);
         } else if self.var_type == VariableType::String {
             let s = if self.info.dims == 0 {
-                let VariableValue::String(s) = &self.value else {
+                let VariableValue::String(s) = &self.value.generic_data else {
                     panic!("Invalid value type {:?}", self.value);
                 };
                 if s.len() > u16::MAX as usize {
@@ -128,7 +128,7 @@ pub struct Executable {
     procedure_declarations: HashMap<unicase::Ascii<String>, Function>,
 
     variable_id: usize,
-    variable_table: Vec<Variable>,
+    variable_table: Vec<VariableId>,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
 
     script_buffer: Vec<u16>,
@@ -171,7 +171,7 @@ impl Executable {
         let id = self.next_id();
         self.variable_lookup
             .insert(name.clone(), self.variable_table.len());
-        self.variable_table.push(Variable {
+        self.variable_table.push(VariableId {
             info: VarInfo {
                 id,
                 var_type,
@@ -186,13 +186,13 @@ impl Executable {
         });
     }
 
-    fn add_predefined_variable(&mut self, name: &str, val: VariableValue) {
+    fn add_predefined_variable(&mut self, name: &str, val: Variable) {
         let id = self.next_id();
         self.variable_lookup.insert(
             unicase::Ascii::new(name.to_string()),
             self.variable_table.len(),
         );
-        self.variable_table.push(Variable {
+        self.variable_table.push(VariableId {
             info: VarInfo {
                 id,
                 var_type: val.get_type(),
@@ -208,54 +208,60 @@ impl Executable {
     }
 
     fn initialize_variables(&mut self) {
-        self.add_predefined_variable("U_EXPERT", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_FSE", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_FSEP", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_CLS", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_EXPDATE", VariableValue::Date(0));
-        self.add_predefined_variable("U_SEC", VariableValue::Integer(0));
-        self.add_predefined_variable("U_PAGELEN", VariableValue::Integer(0));
-        self.add_predefined_variable("U_EXPSEC", VariableValue::Integer(0));
-        self.add_predefined_variable("U_CITY", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_BDPHONE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_HVPHONE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_TRANS", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_CMNT1", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_CMNT2", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_PWD", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_SCROLL", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_LONGHDR", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_DEF79", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_EXPERT", Variable::new_bool(false));
+        self.add_predefined_variable("U_FSE", Variable::new_bool(false));
+        self.add_predefined_variable("U_FSEP", Variable::new_bool(false));
+        self.add_predefined_variable("U_CLS", Variable::new_bool(false));
+        self.add_predefined_variable(
+            "U_EXPDATE",
+            Variable::new(VariableType::Date, VariableData::default()),
+        );
+        self.add_predefined_variable("U_SEC", Variable::new_int(0));
+        self.add_predefined_variable("U_PAGELEN", Variable::new_int(0));
+        self.add_predefined_variable("U_EXPSEC", Variable::new_int(0));
+        self.add_predefined_variable("U_CITY", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_BDPHONE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_HVPHONE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_TRANS", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT1", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT2", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_PWD", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_SCROLL", Variable::new_bool(false));
+        self.add_predefined_variable("U_LONGHDR", Variable::new_bool(false));
+        self.add_predefined_variable("U_DEF79", Variable::new_bool(false));
 
-        self.add_predefined_variable("U_VER", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_VER", Variable::new_string(String::new()));
         self.add_predefined_variable(
             "U_ADDR",
-            VariableValue::Dim1(
+            Variable::new_vector(
                 VariableType::String,
-                vec![VariableValue::String(String::new()); 5],
+                vec![Variable::new_string(String::new()); 5],
             ),
         );
         self.add_predefined_variable(
             "U_NOTES",
-            VariableValue::Dim1(
+            Variable::new_vector(
                 VariableType::String,
-                vec![VariableValue::String(String::new()); 4],
+                vec![Variable::new_string(String::new()); 4],
             ),
         );
 
-        self.add_predefined_variable("U_PWDEXP", VariableValue::Date(0));
+        self.add_predefined_variable(
+            "U_PWDEXP",
+            Variable::new(VariableType::Date, VariableData::default()),
+        );
 
         self.add_predefined_variable(
             "U_ACCOUNT",
-            VariableValue::Dim1(VariableType::Integer, vec![VariableValue::Integer(0); 16]),
+            Variable::new_vector(VariableType::Integer, vec![Variable::new_int(0); 16]),
         );
 
         // 3.40 variables
-        self.add_predefined_variable("U_SHORTDESC", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_GENDER", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_BIRTHDATE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_EMAIL", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_WEB", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_SHORTDESC", Variable::new_bool(false));
+        self.add_predefined_variable("U_GENDER", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_BIRTHDATE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_EMAIL", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_WEB", Variable::new_string(String::new()));
     }
 
     pub fn compile(&mut self, prg: &Program, no_user_vars: bool) {
@@ -270,12 +276,12 @@ impl Executable {
                     self.procedure_declarations.insert(
                         func.get_identifier().clone(),
                         Function {
-                            header: FunctionHeader {
-                                args: func.get_parameters().len() as i32,
-                                total_var: 0,
-                                start: 0,
-                                first_var: 0,
-                                return_var: *func.get_return_type() as i32,
+                            header: FunctionValue {
+                                parameters: func.get_parameters().len() as u8,
+                                local_variables: 0,
+                                start_offset: 0,
+                                first_var_id: 0,
+                                return_var: *func.get_return_type() as i16,
                             },
                             usages: Vec::new(),
                         },
@@ -292,11 +298,11 @@ impl Executable {
                     self.procedure_declarations.insert(
                         proc.get_identifier().clone(),
                         Function {
-                            header: FunctionHeader {
-                                args: proc.get_parameters().len() as i32,
-                                total_var: 0,
-                                start: 0,
-                                first_var: 0,
+                            header: FunctionValue {
+                                parameters: proc.get_parameters().len() as u8,
+                                local_variables: 0,
+                                start_offset: 0,
+                                first_var_id: 0,
                                 return_var: var_params,
                             },
                             usages: Vec::new(),
@@ -326,11 +332,11 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.header.start = self.script_buffer.len() as i32 * 2;
-                        decl.header.first_var = self.variable_table.len() as i32;
+                        decl.header.start_offset = self.script_buffer.len() as u16 * 2;
+                        decl.header.first_var_id = self.variable_table.len() as i16;
                         self.variable_lookup
                             .insert(p.get_identifier().clone(), self.variable_table.len());
-                        self.variable_table.push(Variable {
+                        self.variable_table.push(VariableId {
                             info: VarInfo {
                                 id,
                                 var_type: VariableType::Procedure,
@@ -341,7 +347,7 @@ impl Executable {
                                 flags: 0,
                             },
                             var_type: VariableType::Procedure,
-                            value: VariableValue::String(p.get_identifier().to_string()),
+                            value: Variable::new_string(p.get_identifier().to_string()),
                         });
                     }
                     for param in p.get_parameters() {
@@ -350,7 +356,7 @@ impl Executable {
                             param.get_variable().get_identifier().clone(),
                             self.variable_table.len(),
                         );
-                        self.variable_table.push(Variable {
+                        self.variable_table.push(VariableId {
                             info: VarInfo {
                                 id,
                                 var_type: param.get_variable_type(),
@@ -376,8 +382,8 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.header.total_var =
-                            self.variable_table.len() as i32 - decl.header.first_var;
+                        decl.header.local_variables =
+                            (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
                 }
                 icy_ppe::ast::Implementations::Function(p) => {
@@ -387,11 +393,11 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.header.start = self.script_buffer.len() as i32 * 2;
-                        decl.header.first_var = self.variable_table.len() as i32;
+                        decl.header.start_offset = self.script_buffer.len() as u16 * 2;
+                        decl.header.first_var_id = self.variable_table.len() as i16;
                         self.variable_lookup
                             .insert(p.get_identifier().clone(), self.variable_table.len());
-                        self.variable_table.push(Variable {
+                        self.variable_table.push(VariableId {
                             info: VarInfo {
                                 id,
                                 var_type: VariableType::Function,
@@ -402,7 +408,7 @@ impl Executable {
                                 flags: 0,
                             },
                             var_type: VariableType::Function,
-                            value: VariableValue::String(p.get_identifier().to_string()),
+                            value: Variable::new_string(p.get_identifier().to_string()),
                         });
                         self.cur_function = p.get_identifier().clone();
                         self.cur_function_id = id as i32;
@@ -413,7 +419,7 @@ impl Executable {
                             param.get_variable().get_identifier().clone(),
                             self.variable_table.len(),
                         );
-                        self.variable_table.push(Variable {
+                        self.variable_table.push(VariableId {
                             info: VarInfo {
                                 id,
                                 var_type: param.get_variable_type(),
@@ -439,8 +445,8 @@ impl Executable {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.header.total_var =
-                            self.variable_table.len() as i32 - decl.header.first_var;
+                        decl.header.local_variables =
+                            (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
                 }
             }
@@ -452,7 +458,7 @@ impl Executable {
 
         for decl in &self.procedure_declarations {
             for idx in &decl.1.usages {
-                self.script_buffer[*idx] = decl.1.header.first_var as u16;
+                self.script_buffer[*idx] = decl.1.header.first_var_id as u16;
             }
         }
     }
@@ -758,7 +764,7 @@ impl Executable {
 
     fn lookup_constant(&mut self, constant: &icy_ppe::ast::Constant) -> usize {
         let id = self.next_id();
-        self.variable_table.push(Variable {
+        self.variable_table.push(VariableId {
             info: VarInfo {
                 id,
                 var_type: constant.get_var_type(),

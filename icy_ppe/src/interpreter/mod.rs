@@ -9,13 +9,14 @@ use crate::ast::Expression;
 use crate::ast::Implementations;
 use crate::ast::Program;
 use crate::ast::Statement;
+use crate::ast::Variable;
+use crate::ast::VariableData;
 use crate::ast::VariableType;
 use crate::ast::VariableValue;
 use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
 use crate::icy_board::data::UserRecord;
 use crate::tables::OpCode;
-use crate::tables::PPL_TRUE;
 use crate::Res;
 
 pub use self::expressions::*;
@@ -107,7 +108,7 @@ pub trait ExecutionContext {
 }
 
 pub struct StackFrame {
-    pub values: HashMap<unicase::Ascii<String>, VariableValue>,
+    pub values: HashMap<unicase::Ascii<String>, Variable>,
     pub gosub_stack: Vec<usize>,
     pub cur_ptr: usize,
     pub label_table: HashMap<unicase::Ascii<String>, usize>,
@@ -143,39 +144,54 @@ impl<'a> Interpreter<'a> {
     fn set_user_variables(&mut self, cur_user: &UserRecord) {
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("self".to_string()),
-            VariableValue::Integer(cur_user.page_len),
+            Variable::new(
+                VariableType::Integer,
+                VariableData {
+                    int_value: cur_user.page_len,
+                },
+            ),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_PWD".to_string()),
-            VariableValue::String(cur_user.password.clone()),
+            Variable::new_string(cur_user.password.clone()),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_PWDEXP".to_string()),
-            VariableValue::Date(0000), // TODO
+            Variable::new(
+                VariableType::Date,
+                VariableData {
+                    int_value: cur_user.security_level,
+                },
+            ),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_SCROLL".to_string()),
-            VariableValue::Boolean(cur_user.scroll_flag),
+            Variable::new_bool(cur_user.scroll_flag),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_SEC".to_string()),
-            VariableValue::Integer(cur_user.security_level),
+            Variable::new(
+                VariableType::Integer,
+                VariableData {
+                    int_value: cur_user.security_level,
+                },
+            ),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_CITY".to_string()),
-            VariableValue::String(cur_user.city.clone()),
+            Variable::new_string(cur_user.city.clone()),
         );
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("U_ADDR".to_string()),
-            VariableValue::Dim1(
+            Variable::new_vector(
                 VariableType::String,
                 vec![
-                    VariableValue::String("Address Line 1".to_string()),
-                    VariableValue::String("Address Line 2".to_string()),
-                    VariableValue::String(cur_user.city.clone()),
-                    VariableValue::String("State".to_string()),
-                    VariableValue::String("ZIP Code".to_string()),
-                    VariableValue::String("Country".to_string()),
+                    Variable::new_string("Address Line 1".to_string()),
+                    Variable::new_string("Address Line 2".to_string()),
+                    Variable::new_string(cur_user.city.clone()),
+                    Variable::new_string("State".to_string()),
+                    Variable::new_string("ZIP Code".to_string()),
+                    Variable::new_string("Country".to_string()),
                 ],
             ),
         );
@@ -186,7 +202,7 @@ impl<'a> Interpreter<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&VariableValue> {
+    pub fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&Variable> {
         if self.cur_frame.len() > 1 {
             let last = self.cur_frame.last().unwrap();
             if let Some(val) = last.values.get(var_name) {
@@ -201,10 +217,7 @@ impl<'a> Interpreter<'a> {
     /// # Panics
     ///
     /// Panics if .
-    pub fn get_variable_mut(
-        &mut self,
-        var_name: &unicase::Ascii<String>,
-    ) -> Option<&mut VariableValue> {
+    pub fn get_variable_mut(&mut self, var_name: &unicase::Ascii<String>) -> Option<&mut Variable> {
         let cf = &mut self.cur_frame;
         if cf.len() > 1 && cf.last().unwrap().values.contains_key(var_name) {
             if let Some(last) = cf.last_mut() {
@@ -219,89 +232,93 @@ impl<'a> Interpreter<'a> {
     }
 
     fn set_default_variables(&mut self) {
-        self.add_predefined_variable("U_EXPERT", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_FSE", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_FSEP", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_CLS", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_EXPDATE", VariableValue::Date(0));
-        self.add_predefined_variable("U_SEC", VariableValue::Integer(0));
-        self.add_predefined_variable("U_PAGELEN", VariableValue::Integer(0));
-        self.add_predefined_variable("U_EXPSEC", VariableValue::Integer(0));
-        self.add_predefined_variable("U_CITY", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_BDPHONE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_HVPHONE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_TRANS", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_CMNT1", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_CMNT2", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_PWD", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_SCROLL", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_LONGHDR", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_DEF79", VariableValue::Boolean(false));
+        self.add_predefined_variable("U_EXPERT", Variable::new_bool(false));
+        self.add_predefined_variable("U_FSE", Variable::new_bool(false));
+        self.add_predefined_variable("U_FSEP", Variable::new_bool(false));
+        self.add_predefined_variable("U_CLS", Variable::new_bool(false));
+        self.add_predefined_variable(
+            "U_EXPDATE",
+            Variable::new(VariableType::Date, VariableData::default()),
+        );
+        self.add_predefined_variable("U_SEC", Variable::new_int(0));
+        self.add_predefined_variable("U_PAGELEN", Variable::new_int(0));
+        self.add_predefined_variable("U_EXPSEC", Variable::new_int(0));
+        self.add_predefined_variable("U_CITY", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_BDPHONE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_HVPHONE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_TRANS", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT1", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT2", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_PWD", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_SCROLL", Variable::new_bool(false));
+        self.add_predefined_variable("U_LONGHDR", Variable::new_bool(false));
+        self.add_predefined_variable("U_DEF79", Variable::new_bool(false));
 
-        self.add_predefined_variable("U_VER", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_VER", Variable::new_string(String::new()));
         self.add_predefined_variable(
             "U_ADDR",
-            VariableValue::Dim1(
+            Variable::new_vector(
                 VariableType::String,
-                vec![VariableValue::String(String::new()); 5],
+                vec![Variable::new_string(String::new()); 5],
             ),
         );
         self.add_predefined_variable(
             "U_NOTES",
-            VariableValue::Dim1(
+            Variable::new_vector(
                 VariableType::String,
-                vec![VariableValue::String(String::new()); 4],
+                vec![Variable::new_string(String::new()); 4],
             ),
         );
 
-        self.add_predefined_variable("U_PWDEXP", VariableValue::Date(0));
+        self.add_predefined_variable(
+            "U_PWDEXP",
+            Variable::new(VariableType::Date, VariableData::default()),
+        );
 
         self.add_predefined_variable(
             "U_ACCOUNT",
-            VariableValue::Dim1(VariableType::Integer, vec![VariableValue::Integer(0); 16]),
+            Variable::new_vector(VariableType::Integer, vec![Variable::new_int(0); 16]),
         );
 
         // 3.40 variables
-        self.add_predefined_variable("U_SHORTDESC", VariableValue::Boolean(false));
-        self.add_predefined_variable("U_GENDER", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_BIRTHDATE", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_EMAIL", VariableValue::String(String::new()));
-        self.add_predefined_variable("U_WEB", VariableValue::String(String::new()));
+        self.add_predefined_variable("U_SHORTDESC", Variable::new_bool(false));
+        self.add_predefined_variable("U_GENDER", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_BIRTHDATE", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_EMAIL", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_WEB", Variable::new_string(String::new()));
     }
 
-    fn add_predefined_variable(&mut self, arg: &str, val: VariableValue) {
+    fn add_predefined_variable(&mut self, arg: &str, val: Variable) {
         self.cur_frame[0]
             .values
             .insert(unicase::Ascii::new(arg.to_string()), val);
     }
 
-    fn set_variable_value(&mut self, params: &Expression, value: VariableValue) -> Res<()> {
+    fn set_variable_value(&mut self, params: &Expression, value: &Variable) -> Res<()> {
         match params {
             Expression::Identifier(ident) => {
-                if let Some(val) = self.get_variable_mut(&ident.get_identifier()) {
-                    *val = convert_to(val.get_type(), &value);
+                if let Some(val) = self.get_variable_mut(ident.get_identifier()) {
+                    *val = convert_to(val.get_type(), value);
                 } else {
                     panic!("variable not found {}", ident.get_identifier());
                 }
             }
             Expression::FunctionCall(func_call) => {
-                let val = if let Some(val) = self.get_variable(&func_call.get_identifier()) {
+                let val = if let Some(val) = self.get_variable(func_call.get_identifier()) {
                     val.clone()
                 } else {
                     panic!("variable not found {}", func_call.get_identifier());
                 };
-
-                match val {
-                    VariableValue::Dim1(var_type, args) => {
+                let var_type = val.get_type();
+                match val.generic_data {
+                    VariableValue::Dim1(args) => {
                         if func_call.get_arguments().len() == 1 {
-                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                            let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
                                 as usize;
                             if dim1 < args.len() {
-                                if let Some(val) =
-                                    self.get_variable_mut(&func_call.get_identifier())
-                                {
-                                    if let VariableValue::Dim1(var_type, args) = val {
-                                        args[dim1] = convert_to(*var_type, &value);
+                                if let Some(v) = self.get_variable_mut(func_call.get_identifier()) {
+                                    if let VariableValue::Dim1(args) = &mut v.generic_data {
+                                        args[dim1] = convert_to(var_type, value);
                                     }
                                 }
                             }
@@ -309,20 +326,19 @@ impl<'a> Interpreter<'a> {
                             panic!("incompatible variable {}", func_call.get_identifier());
                         }
                     }
-                    VariableValue::Dim2(var_type, args) => {
+                    VariableValue::Dim2(args) => {
                         if func_call.get_arguments().len() == 2 {
-                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                            let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
                                 as usize;
                             if dim1 < args.len() {
-                                let dim2 =
-                                    get_int(&evaluate_exp(self, &func_call.get_arguments()[1])?)?
-                                        as usize;
+                                let dim2 = evaluate_exp(self, &func_call.get_arguments()[1])?
+                                    .as_int() as usize;
                                 if dim2 < args[dim1].len() {
-                                    if let Some(val) =
-                                        self.get_variable_mut(&func_call.get_identifier())
+                                    if let Some(v) =
+                                        self.get_variable_mut(func_call.get_identifier())
                                     {
-                                        if let VariableValue::Dim2(var_type, args) = val {
-                                            args[dim1][dim2] = convert_to(*var_type, &value);
+                                        if let VariableValue::Dim2(args) = &mut v.generic_data {
+                                            args[dim1][dim2] = convert_to(var_type, value);
                                         }
                                     }
                                 }
@@ -331,26 +347,24 @@ impl<'a> Interpreter<'a> {
                             panic!("incompatible variable {}", func_call.get_identifier());
                         }
                     }
-                    VariableValue::Dim3(var_type, args) => {
+                    VariableValue::Dim3(args) => {
                         if func_call.get_arguments().len() == 2 {
-                            let dim1 = get_int(&evaluate_exp(self, &func_call.get_arguments()[0])?)?
+                            let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
                                 as usize;
                             if dim1 < args.len() {
-                                let dim2 =
-                                    get_int(&evaluate_exp(self, &func_call.get_arguments()[1])?)?
-                                        as usize;
+                                let dim2 = evaluate_exp(self, &func_call.get_arguments()[1])?
+                                    .as_int() as usize;
                                 if dim2 < args[dim1].len() {
-                                    let dim3 = get_int(&evaluate_exp(
-                                        self,
-                                        &func_call.get_arguments()[2],
-                                    )?)? as usize;
+                                    let dim3 = evaluate_exp(self, &func_call.get_arguments()[2])?
+                                        .as_int()
+                                        as usize;
                                     if dim3 < args[dim1][dim2].len() {
-                                        if let Some(val) =
-                                            self.get_variable_mut(&func_call.get_identifier())
+                                        if let Some(v) =
+                                            self.get_variable_mut(func_call.get_identifier())
                                         {
-                                            if let VariableValue::Dim3(var_type, args) = val {
+                                            if let VariableValue::Dim3(args) = &mut v.generic_data {
                                                 args[dim1][dim2][dim3] =
-                                                    convert_to(*var_type, &value);
+                                                    convert_to(var_type, value);
                                             }
                                         }
                                     }
@@ -378,25 +392,19 @@ impl<'a> Interpreter<'a> {
 /// Panics if .
 /// # Errors
 /// Errors if the variable is not found.
-pub fn set_array_value(
-    arr: &mut VariableValue,
-    val: VariableValue,
-    dim1: usize,
-    dim2: usize,
-    dim3: usize,
-) {
-    match arr {
-        VariableValue::Dim1(_, data) => {
+pub fn set_array_value(arr: &mut Variable, val: Variable, dim1: usize, dim2: usize, dim3: usize) {
+    match &mut arr.generic_data {
+        VariableValue::Dim1(data) => {
             if dim1 < data.len() {
                 data[dim1] = val;
             }
         }
-        VariableValue::Dim2(_, data) => {
+        VariableValue::Dim2(data) => {
             if dim1 < data.len() && dim2 < data[dim1].len() {
                 data[dim2][dim1] = val;
             }
         }
-        VariableValue::Dim3(_, data) => {
+        VariableValue::Dim3(data) => {
             if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
                 data[dim3][dim2][dim1] = val;
             }
@@ -413,26 +421,27 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
 
             if let Some(var_info) = interpreter.get_variable(&var_name) {
                 let var_type = var_info.get_type();
+                let value = convert_to(var_type, &value);
                 if var_info.get_dimensions() > 0 {
                     let dim1: usize = if let_stmt.get_arguments().is_empty() {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[0])?;
-                        get_int(v)? as usize
+                        v.as_int() as usize
                     };
 
                     let dim2 = if let_stmt.get_arguments().len() <= 1 {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[1])?;
-                        get_int(v)? as usize
+                        v.as_int() as usize
                     };
 
                     let dim3 = if let_stmt.get_arguments().len() <= 2 {
                         0
                     } else {
                         let v = &evaluate_exp(interpreter, &let_stmt.get_arguments()[2])?;
-                        get_int(v)? as usize
+                        v.as_int() as usize
                     };
 
                     if let Some(val) = interpreter.get_variable_mut(&var_name) {
@@ -441,7 +450,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
                         panic!("variable not found {var_name:?}");
                     }
                 } else if let Some(val) = interpreter.get_variable_mut(&var_name) {
-                    *val = convert_to(var_type, &value);
+                    *val = value;
                 } else {
                     panic!("variable not found {var_name:?}");
                 }
@@ -576,37 +585,18 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
             interpreter.cur_frame.last_mut().unwrap().cur_ptr = usize::MAX - 1;
         }
         Statement::If(if_statement) => {
-            let value = evaluate_exp(interpreter, if_statement.get_condition())?;
-            if let VariableValue::Integer(x) = value {
-                if x == PPL_TRUE {
-                    execute_statement(interpreter, if_statement.get_statement())?;
-                }
-            } else if let VariableValue::Boolean(x) = value {
-                if x {
-                    execute_statement(interpreter, if_statement.get_statement())?;
-                }
-            } else {
-                panic!("no bool value {value:?}");
+            let value = evaluate_exp(interpreter, if_statement.get_condition())?.as_bool();
+            if value {
+                execute_statement(interpreter, if_statement.get_statement())?;
             }
         }
 
         Statement::While(while_statement) => loop {
-            let value = evaluate_exp(interpreter, while_statement.get_condition())?;
-            if let VariableValue::Integer(x) = value {
-                if x == PPL_TRUE {
-                    execute_statement(interpreter, while_statement.get_statement())?;
-                } else {
-                    break;
-                }
-            } else if let VariableValue::Boolean(x) = value {
-                if x {
-                    execute_statement(interpreter, while_statement.get_statement())?;
-                } else {
-                    break;
-                }
-            } else {
-                panic!("no bool value {value:?}");
+            let value = evaluate_exp(interpreter, while_statement.get_condition())?.as_bool();
+            if !value {
+                break;
             }
+            execute_statement(interpreter, while_statement.get_statement())?;
         },
 
         Statement::VariableDeclaration(var_decl) => {

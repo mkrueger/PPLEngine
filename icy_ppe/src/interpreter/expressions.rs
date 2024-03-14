@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{
-        convert_to, BinOp, Constant, Expression, Implementations, UnaryOp, VariableType,
-        VariableValue,
-    },
+    ast::{convert_to, BinOp, Expression, Implementations, UnaryOp, Variable, VariableValue},
     interpreter::{calc_table, errors::IcyError, execute_statement, StackFrame},
-    tables::{FuncOpCode, FunctionDefinition, PPL_FALSE, PPL_TRUE},
+    tables::{FuncOpCode, FunctionDefinition},
     Res,
 };
 
@@ -25,7 +22,7 @@ use super::Interpreter;
 ///
 /// Panics if .
 /// # Errors
-pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<VariableValue> {
+pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Variable> {
     match expr {
         Expression::Identifier(identifier_expr) => {
             let id = identifier_expr.get_identifier();
@@ -46,16 +43,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                 identifier_expr.get_identifier().to_string(),
             )))
         }
-        Expression::Const(constant) => match constant.get_constant_value() {
-            Constant::Boolean(true) => Ok(VariableValue::Integer(PPL_TRUE)),
-            Constant::Boolean(false) => Ok(VariableValue::Integer(PPL_FALSE)),
-            Constant::Money(x) => Ok(VariableValue::Money(*x)),
-            Constant::Integer(x) => Ok(VariableValue::Integer(*x)),
-            Constant::Unsigned(x) => Ok(VariableValue::Unsigned(*x)),
-            Constant::String(x) => Ok(VariableValue::String(x.clone())),
-            Constant::Real(x) => Ok(VariableValue::Real(*x)),
-            Constant::Builtin(x) => Ok(VariableValue::Integer(x.value)),
-        },
+        Expression::Const(constant) => Ok(constant.get_constant_value().get_value()),
         Expression::Parens(expr) => evaluate_exp(interpreter, expr.get_expression()),
         Expression::FunctionCall(expr) => {
             let func_id = expr.get_identifier();
@@ -115,69 +103,39 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             }
             let first_arg_expr = &evaluate_exp(interpreter, &expr.get_arguments()[0])?.clone();
 
-            let var_value = if interpreter
-                .cur_frame
-                .last()
-                .unwrap()
-                .values
-                .get(expr.get_identifier())
-                .is_some()
-            {
-                interpreter
-                    .cur_frame
-                    .last()
-                    .unwrap()
-                    .values
-                    .get(expr.get_identifier())
-            } else if interpreter
-                .cur_frame
-                .first()
-                .unwrap()
-                .values
-                .get(expr.get_identifier())
-                .is_some()
-            {
-                interpreter
-                    .cur_frame
-                    .first()
-                    .unwrap()
-                    .values
-                    .get(expr.get_identifier())
-            } else {
-                panic!("function not found {}", expr.get_identifier());
-            };
+            let var_value = interpreter.get_variable_mut(expr.get_identifier());
             if let Some(var_value) = var_value {
                 match expr.get_arguments().len() {
                     1 => {
-                        let vector = get_int(first_arg_expr)?;
-                        if let VariableValue::Dim1(var_type, data) = var_value {
+                        let vector = first_arg_expr.as_int();
+                        if let VariableValue::Dim1(data) = &mut var_value.generic_data {
                             if vector < 0 || vector >= data.len() as i32 {
-                                return Ok(var_type.create_empty_value());
+                                return Ok(var_value.get_type().create_empty_value());
                             }
                             return Ok(data[vector as usize].clone());
                         }
                         panic!("unsupported for {expr:?} value {var_value:?}");
                     }
                     2 => {
-                        let vector = get_int(first_arg_expr)?;
-                        let matrix = get_int(first_arg_expr)?;
-                        if let VariableValue::Dim2(var_type, data) = var_value {
+                        let vector = first_arg_expr.as_int();
+                        let matrix = first_arg_expr.as_int();
+                        if let VariableValue::Dim2(data) = &mut var_value.generic_data {
                             if vector < 0
                                 || vector >= data.len() as i32
                                 || matrix < 0
                                 || matrix >= data[0].len() as i32
                             {
-                                return Ok(var_type.create_empty_value());
+                                return Ok(var_value.get_type().create_empty_value());
                             }
                             return Ok(data[vector as usize][matrix as usize].clone());
                         }
                         panic!("unsupported for {expr:?} value {var_value:?}");
                     }
                     3 => {
-                        let vector = get_int(first_arg_expr)?;
-                        let matrix = get_int(first_arg_expr)?;
-                        let cube = get_int(first_arg_expr)?;
-                        if let VariableValue::Dim3(var_type, data) = var_value {
+                        let vector = first_arg_expr.as_int();
+                        let matrix = first_arg_expr.as_int();
+                        let cube = first_arg_expr.as_int();
+                        if let VariableValue::Dim3(data) = &mut var_value.generic_data {
                             if vector < 0
                                 || vector >= data.len() as i32
                                 || matrix < 0
@@ -185,7 +143,7 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
                                 || cube < 0
                                 || cube >= data[0][0].len() as i32
                             {
-                                return Ok(var_type.create_empty_value());
+                                return Ok(var_value.get_type().create_empty_value());
                             }
                             return Ok(
                                 data[vector as usize][matrix as usize][cube as usize].clone()
@@ -214,29 +172,8 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
         }
         Expression::Unary(expr) => match expr.get_op() {
             UnaryOp::Plus => evaluate_exp(interpreter, expr.get_expression()),
-            UnaryOp::Not => {
-                let value = evaluate_exp(interpreter, expr.get_expression())?;
-                match value {
-                    VariableValue::Integer(x) => Ok(VariableValue::Integer(if x == PPL_FALSE {
-                        PPL_TRUE
-                    } else {
-                        PPL_FALSE
-                    })),
-                    VariableValue::Boolean(x) => Ok(VariableValue::Boolean(!x)),
-                    _ => {
-                        panic!("unsupported for minus {expr:?} value {value:?}");
-                    }
-                }
-            }
-            UnaryOp::Minus => {
-                let value = evaluate_exp(interpreter, expr.get_expression())?;
-                match value {
-                    VariableValue::Integer(x) => Ok(VariableValue::Integer(-x)),
-                    _ => {
-                        panic!("unsupported for minus {expr:?} value {value:?}");
-                    }
-                }
-            }
+            UnaryOp::Not => Ok(evaluate_exp(interpreter, expr.get_expression())?.not()),
+            UnaryOp::Minus => Ok(-evaluate_exp(interpreter, expr.get_expression())?),
         },
 
         Expression::Binary(expr) => match expr.get_op() {
@@ -249,40 +186,40 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
             BinOp::Div => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
                 / evaluate_exp(interpreter, expr.get_right_expression())?),
             BinOp::Mod => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
-                .modulo(evaluate_exp(interpreter, expr.get_right_expression())?)),
+                % evaluate_exp(interpreter, expr.get_right_expression())?),
             BinOp::PoW => Ok(evaluate_exp(interpreter, expr.get_left_expression())?
                 .pow(evaluate_exp(interpreter, expr.get_right_expression())?)),
             BinOp::Eq => {
                 let l = evaluate_exp(interpreter, expr.get_left_expression())?;
                 let r = evaluate_exp(interpreter, expr.get_right_expression())?;
-                Ok(VariableValue::Boolean(l == r))
+                Ok(Variable::new_bool(l == r))
             }
             BinOp::NotEq => {
                 let l = evaluate_exp(interpreter, expr.get_left_expression())?;
                 let r = evaluate_exp(interpreter, expr.get_right_expression())?;
-                Ok(VariableValue::Boolean(l != r))
+                Ok(Variable::new_bool(l != r))
             }
-            BinOp::Or => Ok(VariableValue::Boolean(
+            BinOp::Or => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?.as_bool()
                     || evaluate_exp(interpreter, expr.get_right_expression())?.as_bool(),
             )),
-            BinOp::And => Ok(VariableValue::Boolean(
+            BinOp::And => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?.as_bool()
                     && evaluate_exp(interpreter, expr.get_right_expression())?.as_bool(),
             )),
-            BinOp::Lower => Ok(VariableValue::Boolean(
+            BinOp::Lower => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?
                     < evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
-            BinOp::LowerEq => Ok(VariableValue::Boolean(
+            BinOp::LowerEq => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?
                     <= evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
-            BinOp::Greater => Ok(VariableValue::Boolean(
+            BinOp::Greater => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?
                     > evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
-            BinOp::GreaterEq => Ok(VariableValue::Boolean(
+            BinOp::GreaterEq => Ok(Variable::new_bool(
                 evaluate_exp(interpreter, expr.get_left_expression())?
                     >= evaluate_exp(interpreter, expr.get_right_expression())?,
             )),
@@ -290,44 +227,11 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
     }
 }
 
-/// # Errors
-/// Errors if
-pub fn get_int(val: &VariableValue) -> Res<i32> {
-    if let VariableValue::Integer(i) = convert_to(VariableType::Integer, val) {
-        Ok(i)
-    } else {
-        Err(Box::new(IcyError::IntegerExpected(format!("{val:?}"))))
-    }
-}
-
-pub fn get_string(val: &VariableValue) -> String {
-    match val {
-        VariableValue::Boolean(b) => {
-            if *b {
-                "1".to_string()
-            } else {
-                "0".to_string()
-            }
-        }
-        VariableValue::Integer(i) => i.to_string(),
-        VariableValue::SWord(i) => i.to_string(),
-        VariableValue::Byte(i) => i.to_string(),
-        VariableValue::SByte(i) => i.to_string(),
-        VariableValue::Money(i) | VariableValue::Real(i) => i.to_string(),
-        VariableValue::String(i) => i.clone(),
-        VariableValue::Word(i) | VariableValue::Date(i) | VariableValue::EDate(i) => i.to_string(), // TODO
-        VariableValue::Unsigned(i) | VariableValue::Time(i) => i.to_string(), // TODO
-        VariableValue::Dim1(_, _) | VariableValue::Dim2(_, _) | VariableValue::Dim3(_, _) => {
-            val.to_string()
-        } // TODO
-    }
-}
-
 fn call_function(
     interpreter: &mut Interpreter,
     func_def: &'static FunctionDefinition,
     params: &[Expression],
-) -> Res<VariableValue> {
+) -> Res<Variable> {
     Ok(match func_def.opcode {
         FuncOpCode::LEN => predefined_functions::len(evaluate_exp(interpreter, &params[0])?),
         FuncOpCode::LOWER => predefined_functions::lower(evaluate_exp(interpreter, &params[0])?),
@@ -487,17 +391,17 @@ fn call_function(
         FuncOpCode::PEEKW => predefined_functions::peekw(evaluate_exp(interpreter, &params[0])?),
         FuncOpCode::MKADDR => predefined_functions::mkaddr(evaluate_exp(interpreter, &params[0])?),
         FuncOpCode::EXIST => {
-            let file_name = get_string(&evaluate_exp(interpreter, &params[0])?);
+            let file_name = evaluate_exp(interpreter, &params[0])?.as_string();
             predefined_functions::exist(interpreter, file_name.as_str())
         }
         FuncOpCode::I2S => {
-            let int = get_int(&evaluate_exp(interpreter, &params[0])?)?;
-            let base = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+            let int = evaluate_exp(interpreter, &params[0])?.as_int();
+            let base = evaluate_exp(interpreter, &params[1])?.as_int();
             predefined_functions::i2s(int, base)
         }
         FuncOpCode::S2I => {
-            let s = get_string(&evaluate_exp(interpreter, &params[0])?);
-            let base = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+            let s = evaluate_exp(interpreter, &params[0])?.as_string();
+            let base = evaluate_exp(interpreter, &params[1])?.as_int();
             predefined_functions::s2i(&s, base)?
         }
         FuncOpCode::CARRIER => predefined_functions::carrier(interpreter),
@@ -531,14 +435,14 @@ fn call_function(
         FuncOpCode::DEFCOLOR => {
             predefined_functions::defcolor(evaluate_exp(interpreter, &params[0])?)
         }
-        FuncOpCode::ABS => predefined_functions::abs(evaluate_exp(interpreter, &params[0])?)?,
+        FuncOpCode::ABS => evaluate_exp(interpreter, &params[0])?.abs(),
         FuncOpCode::GRAFMODE => {
             predefined_functions::grafmode(evaluate_exp(interpreter, &params[0])?)
         }
         FuncOpCode::PSA => predefined_functions::psa(evaluate_exp(interpreter, &params[0])?),
         FuncOpCode::FILEINF => {
-            let file = get_string(&evaluate_exp(interpreter, &params[0])?);
-            let item = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+            let file = evaluate_exp(interpreter, &params[0])?.as_string();
+            let item = evaluate_exp(interpreter, &params[1])?.as_int();
             predefined_functions::fileinf(interpreter, &file, item)?
         }
         FuncOpCode::PPENAME => predefined_functions::ppename(interpreter),

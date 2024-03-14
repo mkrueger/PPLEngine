@@ -4,7 +4,7 @@ use crate::{
     Res,
 };
 
-use super::{evaluate_exp, get_int, get_string, Interpreter, InterpreterError};
+use super::{evaluate_exp, Interpreter, InterpreterError};
 /// .
 ///
 /// # Examples
@@ -36,7 +36,7 @@ pub fn call_predefined_procedure(
                 let value = evaluate_exp(interpreter, expr)?;
                 interpreter
                     .ctx
-                    .print(super::TerminalTarget::Both, &value.to_string())?;
+                    .print(super::TerminalTarget::Both, &value.as_string())?;
             }
             Ok(())
         }
@@ -45,7 +45,7 @@ pub fn call_predefined_procedure(
                 let value = evaluate_exp(interpreter, expr)?;
                 interpreter
                     .ctx
-                    .print(super::TerminalTarget::Both, &value.to_string())?;
+                    .print(super::TerminalTarget::Both, &value.as_string())?;
             }
             interpreter.ctx.print(super::TerminalTarget::Both, "\n")?;
             Ok(())
@@ -53,8 +53,8 @@ pub fn call_predefined_procedure(
         OpCode::CONFFLAG => predefined_procedures::confflag(interpreter, params),
         OpCode::CONFUNFLAG => predefined_procedures::confunflag(interpreter, params),
         OpCode::DISPFILE => {
-            let file = get_string(&evaluate_exp(interpreter, &params[0])?);
-            let flags = get_int(&evaluate_exp(interpreter, &params[1])?)?;
+            let file = evaluate_exp(interpreter, &params[0])?.as_string();
+            let flags = evaluate_exp(interpreter, &params[1])?.as_int();
             predefined_procedures::dispfile(interpreter, &file, flags)
         }
 
@@ -108,7 +108,7 @@ pub fn call_predefined_procedure(
         OpCode::NEWLINE => predefined_procedures::newline(interpreter),
         OpCode::NEWLINES => predefined_procedures::newlines(interpreter, params),
         OpCode::TOKENIZE => {
-            let s = get_string(&evaluate_exp(interpreter, &params[0])?);
+            let s = evaluate_exp(interpreter, &params[0])?.as_string();
             predefined_procedures::tokenize(interpreter, &s);
             Ok(())
         }

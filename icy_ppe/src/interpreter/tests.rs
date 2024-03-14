@@ -160,8 +160,8 @@ INC B
 PRINT B, ","
 B = 0
 DEC B
-PRINT B   
-"#,
+PRINT B
+            "#,
             "65535,0,65535",
         );
     }
@@ -179,6 +179,20 @@ DEC B
 PRINT B
 "#,
             "32767,-32768,32767",
+        );
+    }
+
+    #[test]
+    fn test_sword_overflow_case2() {
+        check_output(
+            r#"
+WORD B
+B = 0
+PRINT B - 1, ","
+
+B = B - 1
+PRINT B"#,
+            "-1,65535",
         );
     }
 
@@ -284,22 +298,22 @@ PRINT B
             IcyBoardData::default(),
         )
         .unwrap();
-        assert_eq!("1,$41.43,16".to_string(), ctx.output);
+        assert_eq!("1,4143,16".to_string(), ctx.output);
     }
 
     #[test]
     fn test_func_len() {
         check_output(
             r#"
-        STRING STR001
-        STRING STR002
-        STR001 = "hello"
-        STR002 = 1234
-        PRINT LEN(STR001), ",", LEN(STR002), ","
-        STR001 = TRUE
-        STR002 = ""
-        PRINT LEN(STR001), ",", LEN(STR002)
-        "#,
+STRING STR001
+STRING STR002
+STR001 = "hello"
+STR002 = 1234
+PRINT LEN(STR001), ",", LEN(STR002), ","
+STR001 = TRUE
+STR002 = ""
+PRINT LEN(STR001), ",", LEN(STR002)
+            "#,
             "5,4,1,0",
         );
     }

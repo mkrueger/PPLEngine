@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     parser::tokens::{CommentType, SpannedToken, Token},
-    tables::{StatementDefinition, PPL_TRUE},
+    tables::StatementDefinition,
 };
 
 use super::{
@@ -1546,16 +1546,9 @@ impl Statement {
 
     pub fn try_boolean_conversion(expr: &Expression) -> Expression {
         match expr {
-            Expression::Const(c) => match c.get_constant_value() {
-                Constant::Integer(i) => {
-                    if *i == PPL_TRUE {
-                        ConstantExpression::create_empty_expression(Constant::Boolean(true))
-                    } else {
-                        ConstantExpression::create_empty_expression(Constant::Boolean(false))
-                    }
-                }
-                _ => expr.clone(),
-            },
+            Expression::Const(c) => ConstantExpression::create_empty_expression(Constant::Boolean(
+                c.get_constant_value().get_value().as_bool(),
+            )),
             Expression::Parens(expr) => Statement::try_boolean_conversion(expr.get_expression()),
             Expression::Unary(un_expr) => {
                 if !matches!(un_expr.get_op(), UnaryOp::Not) {

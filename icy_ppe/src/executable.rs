@@ -38,36 +38,45 @@ impl VarHeader {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct FunctionHeader {
-    pub args: i32,
-    pub total_var: i32,
-    pub start: i32,
-    pub first_var: i32,
-    pub return_var: i32,
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FunctionValue {
+    pub parameters: u8,
+    pub local_variables: u8,
+    pub start_offset: u16,
+    pub first_var_id: i16,
+    pub return_var: i16,
 }
 
-impl FunctionHeader {
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ProcedureValue {
+    pub parameters: u8,
+    pub local_variables: u8,
+    pub start_offset: u16,
+    pub first_var_id: i16,
+    pub pass_flags: u16,
+}
+
+impl FunctionValue {
     /// .
     ///
     /// # Panics
     ///
     /// Panics if .
-    pub fn from_bytes(cur_buf: &[u8]) -> FunctionHeader {
+    pub fn from_bytes(cur_buf: &[u8]) -> FunctionValue {
         Self {
-            args: cur_buf[4] as i32,
-            total_var: cur_buf[5] as i32,
-            start: u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()) as i32,
-            first_var: u16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()) as i32,
-            return_var: u16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()) as i32,
+            parameters: cur_buf[4],
+            local_variables: cur_buf[5],
+            start_offset: u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()),
+            first_var_id: i16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()),
+            return_var: i16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()),
         }
     }
 
     pub fn append(&self, buffer: &mut Vec<u8>) {
-        buffer.push(self.args as u8);
-        buffer.push(self.total_var as u8);
-        buffer.extend(u16::to_le_bytes(self.start as u16));
-        buffer.extend(u16::to_le_bytes(self.first_var as u16));
+        buffer.push(self.parameters as u8);
+        buffer.push(self.local_variables as u8);
+        buffer.extend(u16::to_le_bytes(self.start_offset as u16));
+        buffer.extend(u16::to_le_bytes(self.first_var_id as u16));
         buffer.extend(u16::to_le_bytes(self.return_var as u16));
     }
 }
@@ -85,7 +94,7 @@ pub struct VarDecl {
     pub lflag: u8,
     pub fflag: u8,
     pub number: i32,
-    pub function_header: FunctionHeader,
+    pub function_header: FunctionValue,
     pub function_id: i32,
 }
 
@@ -242,7 +251,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             flag: 0,
             lflag: 0,
             fflag: 0,
-            function_header: FunctionHeader::default(),
+            function_header: FunctionValue::default(),
         };
         i += 11;
         // println!("var_decl: {:?}", var_decl.header);
@@ -262,14 +271,14 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
             VariableType::Function => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.function_header = FunctionHeader::from_bytes(cur_buf);
-                var_decl.function_header.total_var -= 1;
+                var_decl.function_header = FunctionValue::from_bytes(cur_buf);
+                var_decl.function_header.local_variables -= 1;
                 i += 12;
             }
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                var_decl.function_header = FunctionHeader::from_bytes(cur_buf);
+                var_decl.function_header = FunctionValue::from_bytes(cur_buf);
                 i += 12;
             }
             _ => {
@@ -304,34 +313,35 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
         match cur.header.variable_type {
             VariableType::Function => {
                 let mut j = 0;
-                let last = cur.function_header.total_var + cur.function_header.return_var;
-                for i in cur.function_header.first_var..last {
+                let last = cur.function_header.local_variables as i32
+                    + cur.function_header.return_var as i32;
+                for i in cur.function_header.first_var_id as i32..last {
                     let fvar = result.get_mut(&i).unwrap();
                     fvar.lflag = 1;
-                    if j < cur.function_header.args {
+                    if j < cur.function_header.parameters as i32 {
                         fvar.flag = 1;
                     }
-                    if i != cur.function_header.return_var - 1 {
+                    if i != cur.function_header.return_var as i32 - 1 {
                         j += 1;
                         fvar.number = j;
                     }
                 }
 
                 let next = result
-                    .get_mut(&(cur.function_header.return_var - 1))
+                    .get_mut(&(cur.function_header.return_var as i32 - 1))
                     .unwrap();
                 next.fflag = 1;
             }
             VariableType::Procedure => {
                 let mut j = 0;
-                let last = cur.function_header.total_var
-                    + cur.function_header.args
-                    + cur.function_header.first_var;
+                let last = cur.function_header.local_variables as i32
+                    + cur.function_header.parameters as i32
+                    + cur.function_header.first_var_id as i32;
 
-                for i in cur.function_header.first_var..last {
+                for i in cur.function_header.first_var_id as i32..last {
                     if let Some(fvar) = result.get_mut(&i) {
                         fvar.lflag = 1;
-                        if j < cur.function_header.args {
+                        if j < cur.function_header.parameters as i32 {
                             fvar.flag = 1;
                         }
                         j += 1;

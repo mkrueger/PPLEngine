@@ -242,8 +242,6 @@ impl ExecutionContext for Output {
                         disable_raw_mode().unwrap();
                         print!("\x1B");
                         enable_raw_mode().unwrap();
-                    } else if c == '\n' || c == '\r' || c == '\x08' || c == '\x1B' {
-                        print!("{}", c);
                     } else {
                         print!("{}", c);
                     }

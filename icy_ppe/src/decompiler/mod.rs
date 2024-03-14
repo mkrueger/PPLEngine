@@ -175,18 +175,18 @@ impl Decompiler {
                             .get(&self.akt_proc)
                             .unwrap()
                             .function_header
-                            .start;
+                            .start_offset as i32;
                         let act_dec_args = self
                             .executable
                             .variable_declarations
                             .get(&self.akt_proc)
                             .unwrap()
                             .function_header
-                            .args;
+                            .parameters;
 
                         self.funcin(act_dec_start, self.akt_proc);
                         self.pushlabel(act_dec_start);
-                        trap = !self.parse_expr(act_dec_args, 0);
+                        trap = !self.parse_expr(act_dec_args as i32, 0);
                     }
                     0xf7 => {
                         if self.parse_expr(0x01, 0) {
@@ -491,17 +491,17 @@ impl Decompiler {
                                 .get_mut(&i)
                                 .unwrap()
                                 .number = c_func;
-                            let n = &(self
+                            let n = (self
                                 .executable
                                 .variable_declarations
                                 .get_mut(&i)
                                 .unwrap()
                                 .function_header
                                 .return_var
-                                - 1);
+                                - 1) as i32;
                             self.executable
                                 .variable_declarations
-                                .get_mut(n)
+                                .get_mut(&n)
                                 .unwrap()
                                 .number = c_func;
                         }
@@ -615,14 +615,14 @@ impl Decompiler {
             .get(&func)
             .unwrap()
             .function_header
-            .first_var;
+            .first_var_id as i32;
         for _ in 0..self
             .executable
             .variable_declarations
             .get(&func)
             .unwrap()
             .function_header
-            .args
+            .parameters
         {
             let var_name = format!(
                 "LOC{0:>03}",
@@ -694,14 +694,14 @@ impl Decompiler {
             .get(&proc)
             .unwrap()
             .function_header
-            .first_var;
+            .first_var_id as i32;
         for n in 0..self
             .executable
             .variable_declarations
             .get(&proc)
             .unwrap()
             .function_header
-            .args
+            .parameters
         {
             let var_name = format!(
                 "LOC{0:>03}",
@@ -787,16 +787,19 @@ impl Decompiler {
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
         let mut i;
-        let mx_var: i32;
+        let mx_var;
         let mut j = 0;
         // StackPtr = 0;
         let cur_var = self.executable.variable_declarations.get(&func).unwrap();
         if cur_var.header.variable_type == VariableType::Function {
-            i = cur_var.function_header.return_var;
-            mx_var = cur_var.function_header.return_var + cur_var.function_header.total_var;
+            i = cur_var.function_header.return_var as i32;
+            mx_var = cur_var.function_header.return_var as i32
+                + cur_var.function_header.local_variables as i32;
         } else {
-            i = cur_var.function_header.first_var + cur_var.function_header.args;
-            mx_var = cur_var.function_header.first_var + cur_var.function_header.total_var;
+            i = cur_var.function_header.first_var_id as i32
+                + cur_var.function_header.parameters as i32;
+            mx_var = cur_var.function_header.first_var_id as i32
+                + cur_var.function_header.local_variables as i32;
             //+1;
         }
 
@@ -1242,7 +1245,7 @@ impl Decompiler {
                     cur_var.string_value.clone(),
                 ))
             }
-            VariableType::Double | VariableType::Real => {
+            VariableType::DoubleReal | VariableType::Real => {
                 ConstantExpression::create_empty_expression(Constant::Real(cur_var.content as f64))
             }
             _ => ConstantExpression::create_empty_expression(Constant::Integer(0)),
@@ -1387,7 +1390,7 @@ impl Decompiler {
                                 .get(var_idx)
                                 .unwrap()
                                 .function_header
-                                .start,
+                                .start_offset as i32,
                         );
                         self.executable
                             .variable_declarations
@@ -1400,7 +1403,7 @@ impl Decompiler {
                                 .get(var_idx)
                                 .unwrap()
                                 .function_header
-                                .start,
+                                .start_offset as i32,
                             *var_idx,
                         );
                         if self.pass == 1 {
@@ -1435,7 +1438,7 @@ impl Decompiler {
                                 )
                                 .unwrap()
                                 .function_header
-                                .args,
+                                .parameters as i32,
                             1,
                         ) {
                             return 1;
@@ -1601,7 +1604,7 @@ impl Decompiler {
                                     )
                                     .unwrap()
                                     .function_header
-                                    .start,
+                                    .start_offset as i32,
                             );
                             self.executable
                                 .variable_declarations
@@ -1618,7 +1621,7 @@ impl Decompiler {
                                     )
                                     .unwrap()
                                     .function_header
-                                    .start,
+                                    .start_offset as i32,
                                 self.executable.source_buffer[self.src_ptr as usize] - 1,
                             );
                             let mut stack_len = 0;
@@ -1644,7 +1647,7 @@ impl Decompiler {
                                     )
                                     .unwrap()
                                     .function_header
-                                    .args,
+                                    .parameters as i32,
                                 1,
                             ) {
                                 return false;
@@ -1968,7 +1971,7 @@ impl Decompiler {
                             .get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1))
                             .unwrap()
                             .function_header
-                            .args,
+                            .parameters as i32,
                         0,
                     ) {
                         self.output_stmt(

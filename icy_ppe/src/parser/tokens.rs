@@ -288,7 +288,7 @@ pub enum Token {
         let slice = lex.slice();
         let num = lex.slice()[1..].parse::<f64>();
         match num {
-            Ok(num) => Ok(Constant::Money(num)),
+            Ok(num) => Ok(Constant::Money((num * 100.0) as i32)),
             Err(err) => Err(LexingErrorType::InvalidInteger(err.to_string(), slice.to_string()))
         }
     })]
@@ -577,7 +577,7 @@ mod tests {
         assert_eq!(Token::Const(Constant::Integer(123)), get_token("123"));
         assert_eq!(Token::Const(Constant::Integer(100)), get_token("@X64"));
 
-        assert_eq!(Token::Const(Constant::Money(1.42)), get_token("$1.42"));
+        assert_eq!(Token::Const(Constant::Money(142)), get_token("$1.42"));
         assert_eq!(Token::Const(Constant::Integer(255)), get_token("0FFh"));
         assert_eq!(Token::Const(Constant::Integer(123)), get_token("123d"));
         assert_eq!(Token::Const(Constant::Integer(88)), get_token("130o"));

@@ -1,7 +1,7 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement, Expression,
-    FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
+    AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement,
+    Expression, FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
     IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier,
     ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
     ProcedureCallStatement, ProcedureImplementation, Program, ReturnStatement, Statement,
@@ -35,6 +35,10 @@ pub fn load_file(file_name: &str) -> Program {
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
     d.do_pass2(&mut prg, false);
+
+    prg.nodes
+        .extend(d.statements.iter().map(|s| AstNode::Statement(s.clone())));
+
     prg
 }
 
@@ -598,13 +602,16 @@ impl Decompiler {
         None
     }
 
-    /*
-
     fn get_procedure_mut(prg: &mut Program, func: i32) -> Option<&mut ProcedureImplementation> {
-        prg.procedure_implementations
-            .iter_mut()
-            .find(|f| f.id == func)
-    }*/
+        for f in &mut prg.nodes {
+            if let crate::ast::AstNode::Procedure(decl) = f {
+                if decl.id == func {
+                    return Some(decl);
+                }
+            }
+        }
+        None
+    }
 
     fn dump_locs(&mut self, prg: &mut Program, func: i32) {
         let mut i;
@@ -663,27 +670,49 @@ impl Decompiler {
                             .set_name(var_name.clone());
                         let cur_var = &self.executable.variable_declarations[&i];
 
-                        let func = Decompiler::get_function_mut(prg, func).unwrap();
-
-                        let dims = match cur_var.header.dim {
-                            1 => vec![cur_var.header.vector_size],
-                            2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
-                            3 => vec![
-                                cur_var.header.vector_size,
-                                cur_var.header.matrix_size,
-                                cur_var.header.cube_size,
-                            ],
-                            _ => vec![],
-                        };
-                        func.get_statements_mut().push(
-                            VariableDeclarationStatement::create_empty_statement(
-                                var_type,
-                                vec![VariableSpecifier::empty(
-                                    unicase::Ascii::new(var_name),
-                                    dims,
-                                )],
-                            ),
-                        );
+                        if let Some(func) = Decompiler::get_function_mut(prg, func) {
+                            let dims = match cur_var.header.dim {
+                                1 => vec![cur_var.header.vector_size],
+                                2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
+                                3 => vec![
+                                    cur_var.header.vector_size,
+                                    cur_var.header.matrix_size,
+                                    cur_var.header.cube_size,
+                                ],
+                                _ => vec![],
+                            };
+                            func.get_statements_mut().push(
+                                VariableDeclarationStatement::create_empty_statement(
+                                    var_type,
+                                    vec![VariableSpecifier::empty(
+                                        unicase::Ascii::new(var_name),
+                                        dims,
+                                    )],
+                                ),
+                            );
+                        } else if let Some(proc) = Decompiler::get_procedure_mut(prg, func) {
+                            let dims = match cur_var.header.dim {
+                                1 => vec![cur_var.header.vector_size],
+                                2 => vec![cur_var.header.vector_size, cur_var.header.matrix_size],
+                                3 => vec![
+                                    cur_var.header.vector_size,
+                                    cur_var.header.matrix_size,
+                                    cur_var.header.cube_size,
+                                ],
+                                _ => vec![],
+                            };
+                            proc.get_statements_mut().push(
+                                VariableDeclarationStatement::create_empty_statement(
+                                    var_type,
+                                    vec![VariableSpecifier::empty(
+                                        unicase::Ascii::new(var_name),
+                                        dims,
+                                    )],
+                                ),
+                            );
+                        } else {
+                            panic!("function or procedure {func} not found");
+                        }
                     }
                 }
                 i += 1;
@@ -1501,6 +1530,18 @@ impl Decompiler {
         if disassemble {
             println!();
             println!("Code size: {}", self.executable.code_size);
+
+            for (i, x) in self.executable.source_buffer.iter().enumerate() {
+                print!("{:04X} ", *x as i16);
+                if i > 0 && (i % 16) == 0 {
+                    println!();
+                }
+            }
+
+            println!();
+
+            println!("-----------------------------");
+
             println!("Offset  # OpCode      Parameters");
         }
         while self.src_ptr < self.executable.code_size / 2 {
@@ -1602,7 +1643,7 @@ impl Decompiler {
                 }
                 let op_str = format!("{:?}", op);
 
-                print!("{:>5}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
+                print!("{:>5X}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
 
                 last_stmt_offset = stmt_ptr;
             }
@@ -1833,7 +1874,7 @@ impl Decompiler {
             "--- Variable Table ({} variables) ---",
             self.executable.max_var
         );
-        println!("  # Type         Flags Role          Name        Value");
+        println!("   # Type         Flags Role          Name        Value");
         for i in (0..self.executable.max_var).rev() {
             let var = self.executable.variable_declarations.get(&i).unwrap();
 
@@ -1843,7 +1884,7 @@ impl Decompiler {
                 var.header.variable_type.to_string()
             };
 
-            print!("{:>3} {:<13}", var.header.id, ts);
+            print!("{:04X} {:<13}", var.header.id, ts);
 
             let ts = format!("{:?}", var.get_type());
             print!("{}     {:<14}", var.header.flags, ts);
@@ -1883,7 +1924,7 @@ impl Decompiler {
                 println!();
                 print!("                      ");
             }
-            print!("{:<4} ", *x);
+            print!("{:<04X} ", *x);
         }
         println!();
     }

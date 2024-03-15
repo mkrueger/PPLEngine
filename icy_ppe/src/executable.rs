@@ -51,7 +51,7 @@ impl fmt::Debug for FunctionValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "parameters:{} locals:{} offset:{} first:{} return:{}",
+            "parameters:{} locals:{} offset:{:04X}h first:{:04X}h return:{:04X}h",
             self.parameters,
             self.local_variables,
             self.start_offset,
@@ -74,7 +74,7 @@ impl fmt::Debug for ProcedureValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "parameters:{} locals:{} offset:{} first:{} pass:{:b}",
+            "parameters:{} locals:{} offset:{:04X}h first:{:04X}h pass:{:b}b",
             self.parameters,
             self.local_variables,
             self.start_offset,
@@ -369,7 +369,7 @@ pub fn read_file(file_name: &str) -> Executable {
     } else {
         buffer[i..real_size + i].to_vec()
     };*/
-
+    println!("Code size: {code_size} bytes real size {real_size}.");
     let code_data: &mut [u8] = &mut buffer[i..];
     let mut decrypted_data = Vec::new();
 
@@ -480,11 +480,16 @@ fn read_vars(
             VariableType::Function => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
+                let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
+                assert!(
+                    !(vtype != VariableType::Function),
+                    "Invalid function type: {vtype}"
+                );
                 let mut function_value = FunctionValue::from_bytes(cur_buf);
                 function_value.local_variables -= 1;
                 i += 4; // skip vtable + type
                 variable = Variable {
-                    vtype: VariableType::Function,
+                    vtype,
                     data: VariableData { function_value },
                     ..Default::default()
                 };
@@ -493,10 +498,15 @@ fn read_vars(
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
+                let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
+                assert!(
+                    !(vtype != VariableType::Procedure),
+                    "Invalid function type: {vtype}"
+                );
                 let function_value = FunctionValue::from_bytes(cur_buf);
                 i += 4; // skip vtable + type
                 variable = Variable {
-                    vtype: VariableType::Procedure,
+                    vtype,
                     data: VariableData { function_value },
                     ..Default::default()
                 };
@@ -506,6 +516,10 @@ fn read_vars(
                 if version <= 100 {
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                    assert!(
+                        !(vtype != header.variable_type),
+                        "Invalid variable type: {vtype}"
+                    );
                     i += 2; // what's stored here ?
                     variable = Variable {
                         vtype,
@@ -518,6 +532,10 @@ fn read_vars(
                 } else if version < 300 {
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                    assert!(
+                        !(vtype != header.variable_type),
+                        "Invalid variable type: {vtype}"
+                    );
                     i += 2; // what's stored here ?
                     variable = Variable {
                         vtype,
@@ -531,6 +549,10 @@ fn read_vars(
                     decrypt(&mut buf[i..(i + 12)], version);
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                    assert!(
+                        !(vtype != header.variable_type),
+                        "Invalid variable type: {vtype}"
+                    );
                     i += 2; // what's stored here ?
                     variable = Variable {
                         vtype,

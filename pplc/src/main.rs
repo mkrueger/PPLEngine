@@ -7,7 +7,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-mod executable;
+mod output;
 pub mod parser;
 
 #[derive(Parser, Debug)]
@@ -45,7 +45,7 @@ fn main() {
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
     transform_ast(&mut prg);
-    let mut exec = executable::Executable::new();
+    let mut exec = output::PPEOutput::new();
     exec.compile(&prg, arguments.no_user_variables);
 
     if !prg.errors.is_empty()
@@ -130,7 +130,7 @@ fn main() {
     }
 
     println!();
-    match exec.create_binary(200) {
+    match exec.create_binary(330) {
         Ok(bin) => {
             let out_file_name = Path::new(&file_name).with_extension("ppe");
             let len = bin.len();

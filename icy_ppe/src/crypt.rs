@@ -117,11 +117,10 @@ pub fn encrypt(block: &mut [u8], version: u16) {
     if version < 300 {
         return;
     }
+    encrypt2(block);
     if version >= 330 {
         crypt3(block);
     }
-
-    encrypt2(block);
 }
 
 pub fn encode_rle(src: &[u8]) -> Vec<u8> {

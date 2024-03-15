@@ -504,5 +504,4 @@ impl FunctionDeclarationAstNode {
     pub fn get_return_type(&self) -> VariableType {
         self.return_type
     }
-
 }

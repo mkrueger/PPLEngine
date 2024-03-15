@@ -395,10 +395,7 @@ impl AstVisitor<()> for OutputVisitor {
         }
     }
 
-    fn visit_procedure_declaration(
-        &mut self,
-        proc_decl: &super::ProcedureDeclarationAstNode,
-    ) {
+    fn visit_procedure_declaration(&mut self, proc_decl: &super::ProcedureDeclarationAstNode) {
         self.output_keyword("Declare Procedure ");
         self.output(proc_decl.get_identifier());
         self.output.push('(');
@@ -430,10 +427,7 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push(')');
     }
 
-    fn visit_function_declaration(
-        &mut self,
-        func_decl: &super::FunctionDeclarationAstNode,
-    ) {
+    fn visit_function_declaration(&mut self, func_decl: &super::FunctionDeclarationAstNode) {
         self.output_keyword("Declare Function ");
         self.output(func_decl.get_identifier());
         self.output.push('(');

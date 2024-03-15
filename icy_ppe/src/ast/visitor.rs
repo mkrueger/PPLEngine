@@ -115,16 +115,10 @@ pub trait AstVisitor<T: Default>: Sized {
     ) -> T {
         T::default()
     }
-    fn visit_procedure_declaration(
-        &mut self,
-        proc_decl: &ProcedureDeclarationAstNode,
-    ) -> T {
+    fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) -> T {
         T::default()
     }
-    fn visit_function_declaration(
-        &mut self,
-        func_decl: &FunctionDeclarationAstNode,
-    ) -> T {
+    fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) -> T {
         T::default()
     }
 
@@ -406,16 +400,10 @@ pub trait AstVisitorMut<T: Default>: Sized {
     ) -> T {
         T::default()
     }
-    fn visit_procedure_declaration(
-        &mut self,
-        proc_decl: &mut ProcedureDeclarationAstNode,
-    ) -> T {
+    fn visit_procedure_declaration(&mut self, proc_decl: &mut ProcedureDeclarationAstNode) -> T {
         T::default()
     }
-    fn visit_function_declaration(
-        &mut self,
-        func_decl: &mut FunctionDeclarationAstNode,
-    ) -> T {
+    fn visit_function_declaration(&mut self, func_decl: &mut FunctionDeclarationAstNode) -> T {
         T::default()
     }
 

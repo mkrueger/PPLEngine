@@ -77,7 +77,6 @@ pub struct FunctionImplementation {
     endfunc_token: SpannedToken,
 }
 
-
 impl FunctionImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(

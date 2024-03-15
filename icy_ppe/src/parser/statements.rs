@@ -639,7 +639,7 @@ impl Parser {
                 let ct = self.save_spannedtoken();
                 Some(Statement::End(EndStatement::new(ct)))
             }
-           /*
+            /*
             Some(Token::Begin) => {
                 let begin_token = self.save_spannedtoken();
                 self.parse_block(begin_token)

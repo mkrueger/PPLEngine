@@ -15,7 +15,7 @@ pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
     optimize_block(statements);
     let mut p = usize::MAX;
 
-    for (i, fd) in  prg.nodes.iter_mut().enumerate() {
+    for (i, fd) in prg.nodes.iter_mut().enumerate() {
         match fd {
             AstNode::Function(fd) => {
                 if i < p {
@@ -35,7 +35,10 @@ pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
     if p > prg.nodes.len() {
         p = prg.nodes.len() - 1;
     }
-    prg.nodes.splice(p..p, statements.iter().map(|s| AstNode::Statement(s.clone())));
+    prg.nodes.splice(
+        p..p,
+        statements.iter().map(|s| AstNode::Statement(s.clone())),
+    );
 
     prg.visit_mut(&mut RemoveNotNotVisitor {});
 }

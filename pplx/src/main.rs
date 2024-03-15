@@ -72,6 +72,7 @@ fn main() {
     let mut prg = icy_ppe::decompiler::load_file(&file_name);
     let mut io = DiskIO::new(".");
     let mut output = Output::default();
+
     output.is_sysop = arguments.sysop;
     enable_raw_mode().unwrap();
     let supports_keyboard_enhancement = matches!(

@@ -427,7 +427,6 @@ impl PredefinedFunctionCallExpression {
         Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::empty(func, arguments))
     }
 
-
     pub fn get_func(&self) -> &'static FunctionDefinition<'static> {
         self.func
     }

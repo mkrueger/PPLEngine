@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::os::linux::raw::stat;
 use std::string::String;
 
 pub mod expressions;
@@ -639,8 +640,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         }
 
         // nop statements
-        | Statement::Label(_)
-        | Statement::Comment(_) => { /* skip */ }
+        Statement::Label(_) | Statement::Comment(_) => { /* skip */ }
     }
     Ok(())
 }
@@ -693,6 +693,7 @@ pub fn run(
     };
     interpreter.set_default_variables();
     interpreter.set_user_variables(&UserRecord::default());
+
     while interpreter.is_running {
         let idx = interpreter.cur_frame.last().unwrap().cur_ptr;
         if idx >= statements.len() {

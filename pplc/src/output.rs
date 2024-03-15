@@ -68,6 +68,7 @@ struct VariableId {
 
 #[derive(Debug)]
 struct Function {
+    pub id: usize,
     pub header: FunctionValue,
 
     pub usages: Vec<usize>,
@@ -79,7 +80,7 @@ impl Function {
 }
 
 impl VariableId {
-    fn create_var_header(&self, exe: &Executable, version: u16) -> Vec<u8> {
+    fn create_var_header(&self, exe: &PPEOutput, version: u16) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.info.id as u16));
         buffer.push(self.info.dims);
@@ -90,6 +91,8 @@ impl VariableId {
         buffer.push(self.info.var_type as u8);
         buffer.push(self.info.flags);
         encrypt(&mut buffer, version);
+
+        let b = buffer.len();
         if self.var_type == VariableType::Procedure || self.var_type == VariableType::Function {
             let VariableValue::String(s) = &self.value.generic_data else {
                 panic!("Invalid value type {:?}", self.value);
@@ -101,9 +104,10 @@ impl VariableId {
 
             buffer.push(0);
             buffer.push(0);
-            buffer.push(0);
+            buffer.push(self.var_type as u8);
             buffer.push(0);
             proc.header.append(&mut buffer);
+            encrypt(&mut buffer[b..], version);
         } else if self.var_type == VariableType::String {
             let s = if self.info.dims == 0 {
                 let VariableValue::String(s) = &self.value.generic_data else {
@@ -140,7 +144,9 @@ impl VariableId {
             buffer.push(0);
 
             buffer.extend_from_slice(&u64::to_le_bytes(self.value.get_u64_value()));
+            encrypt(&mut buffer[b..], version);
         }
+
         buffer
     }
 }
@@ -150,7 +156,7 @@ struct LabelInfo {
     pub usages: Vec<(SpannedToken, usize)>,
 }
 
-pub struct Executable {
+pub struct PPEOutput {
     procedure_declarations: HashMap<unicase::Ascii<String>, Function>,
 
     variable_id: usize,
@@ -167,11 +173,7 @@ pub struct Executable {
     cur_function_id: i32,
 }
 
-const ENDPROC: u16 = 0x00a9;
-const ENDFUNC: u16 = 0x00ab;
-const END: u16 = 1;
-
-impl Executable {
+impl PPEOutput {
     pub fn new() -> Self {
         Self {
             variable_table: Vec::new(),
@@ -257,7 +259,7 @@ impl Executable {
         self.add_predefined_variable("U_SCROLL", Variable::new_bool(false));
         self.add_predefined_variable("U_LONGHDR", Variable::new_bool(false));
         self.add_predefined_variable("U_DEF79", Variable::new_bool(false));
-
+        self.add_predefined_variable("U_ALIAS", Variable::new_string(String::new()));
         self.add_predefined_variable("U_VER", Variable::new_string(String::new()));
         self.add_predefined_variable(
             "U_ADDR",
@@ -285,11 +287,13 @@ impl Executable {
         );
 
         // 3.40 variables
+        /*
         self.add_predefined_variable("U_SHORTDESC", Variable::new_bool(false));
         self.add_predefined_variable("U_GENDER", Variable::new_string(String::new()));
         self.add_predefined_variable("U_BIRTHDATE", Variable::new_string(String::new()));
         self.add_predefined_variable("U_EMAIL", Variable::new_string(String::new()));
         self.add_predefined_variable("U_WEB", Variable::new_string(String::new()));
+        */
     }
 
     pub fn compile(&mut self, prg: &Program, no_user_vars: bool) {
@@ -300,23 +304,68 @@ impl Executable {
         for d in &prg.nodes {
             match d {
                 icy_ppe::ast::AstNode::Comment(_) => {}
-                icy_ppe::ast::AstNode::Function(func) => {
+                icy_ppe::ast::AstNode::Function(_func) => {}
+                icy_ppe::ast::AstNode::Procedure(_proc) => {}
+
+                icy_ppe::ast::AstNode::FunctionDeclaration(func) => {
+                    if self
+                        .procedure_declarations
+                        .contains_key(func.get_identifier())
+                    {
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::FunctionAlreadyDefined(
+                                func.get_identifier().to_string(),
+                            ),
+                            range: func.get_identifier_token().span.clone(),
+                        });
+                        return;
+                    }
                     self.procedure_declarations.insert(
                         func.get_identifier().clone(),
                         Function {
+                            id: 0,
                             header: FunctionValue {
                                 parameters: func.get_parameters().len() as u8,
                                 local_variables: 0,
                                 start_offset: 0,
                                 first_var_id: 0,
-                                return_var: *func.get_return_type() as i16,
+                                return_var: func.get_return_type() as i16,
                             },
                             usages: Vec::new(),
                         },
                     );
                 }
 
-                icy_ppe::ast::AstNode::Procedure(proc) => {
+                icy_ppe::ast::AstNode::ProcedureDeclaration(proc) => {
+                    if self
+                        .procedure_declarations
+                        .contains_key(proc.get_identifier())
+                    {
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::ProcedureAlreadyDefined(
+                                proc.get_identifier().to_string(),
+                            ),
+                            range: proc.get_identifier_token().span.clone(),
+                        });
+                        return;
+                    }
+                    self.variable_lookup
+                        .insert(proc.get_identifier().clone(), self.variable_table.len());
+                    let id: usize = self.next_id();
+                    self.variable_table.push(VariableId {
+                        info: VarInfo {
+                            id,
+                            var_type: VariableType::Procedure,
+                            dims: 0,
+                            vector_size: 0,
+                            matrix_size: 0,
+                            cube_size: 0,
+                            flags: 0,
+                        },
+                        var_type: VariableType::Procedure,
+                        value: Variable::new_string(proc.get_identifier().to_string()),
+                    });
+
                     let mut var_params = 0;
                     for (i, p) in proc.get_parameters().iter().enumerate() {
                         if p.is_var() {
@@ -326,6 +375,7 @@ impl Executable {
                     self.procedure_declarations.insert(
                         proc.get_identifier().clone(),
                         Function {
+                            id,
                             header: FunctionValue {
                                 parameters: proc.get_parameters().len() as u8,
                                 local_variables: 0,
@@ -337,111 +387,28 @@ impl Executable {
                         },
                     );
                 }
-                
-                
-
-                icy_ppe::ast::AstNode::FunctionDeclaration(func) => {
-                if self
-                    .procedure_declarations
-                    .contains_key(func.get_identifier())
-                {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::FunctionAlreadyDefined(
-                            func.get_identifier().to_string(),
-                        ),
-                        range: func.get_identifier_token().span.clone(),
-                    });
-                    return;
-                }
-                self.procedure_declarations.insert(
-                    func.get_identifier().clone(),
-                    Function {
-                        header: FunctionValue {
-                            parameters: func.get_parameters().len() as u8,
-                            local_variables: 0,
-                            start_offset: 0,
-                            first_var_id: 0,
-                            return_var: func.get_return_type() as i16,
-                        },
-                        usages: Vec::new(),
-                    },
-                );
-            }
-
-            icy_ppe::ast::AstNode::ProcedureDeclaration(proc) => {
-                if self
-                    .procedure_declarations
-                    .contains_key(proc.get_identifier())
-                {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::ProcedureAlreadyDefined(
-                            proc.get_identifier().to_string(),
-                        ),
-                        range: proc.get_identifier_token().span.clone(),
-                    });
-                    return;
-                }
-
-                let mut var_params = 0;
-                for (i, p) in proc.get_parameters().iter().enumerate() {
-                    if p.is_var() {
-                        var_params |= 1 << i;
-                    }
-                }
-                self.procedure_declarations.insert(
-                    proc.get_identifier().clone(),
-                    Function {
-                        header: FunctionValue {
-                            parameters: proc.get_parameters().len() as u8,
-                            local_variables: 0,
-                            start_offset: 0,
-                            first_var_id: 0,
-                            return_var: var_params,
-                        },
-                        usages: Vec::new(),
-                    },
-                );
-            }
 
                 icy_ppe::ast::AstNode::Statement(stmt) => {
                     self.compile_statement(stmt);
                 }
             }
         }
-
-        self.script_buffer.push(END);
-
         self.fill_labels();
+        if !self.script_buffer.ends_with(&[OpCode::END as u16]) {
+            self.script_buffer.push(OpCode::END as u16);
+        }
 
-        self.script_buffer.push(OpCode::END as u16);
-        
         for imp in &prg.nodes {
             match imp {
                 icy_ppe::ast::AstNode::Comment(_) => {}
                 icy_ppe::ast::AstNode::Procedure(p) => {
                     {
-                        let id = self.next_id();
                         let decl = self
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
                         decl.header.start_offset = self.script_buffer.len() as u16 * 2;
                         decl.header.first_var_id = self.variable_table.len() as i16;
-                        self.variable_lookup
-                            .insert(p.get_identifier().clone(), self.variable_table.len());
-                        self.variable_table.push(VariableId {
-                            info: VarInfo {
-                                id,
-                                var_type: VariableType::Procedure,
-                                dims: 0,
-                                vector_size: 0,
-                                matrix_size: 0,
-                                cube_size: 0,
-                                flags: 0,
-                            },
-                            var_type: VariableType::Procedure,
-                            value: Variable::new_string(p.get_identifier().to_string()),
-                        });
                     }
                     for param in p.get_parameters() {
                         let id = self.next_id();
@@ -463,18 +430,25 @@ impl Executable {
                             value: param.get_variable_type().create_empty_value(),
                         });
                     }
+
                     p.get_statements().iter().for_each(|s| {
                         self.compile_statement(s);
                     });
+
                     self.fill_labels();
 
-                    self.script_buffer.push(ENDPROC);
-
+                    self.script_buffer.push(OpCode::FPCLR as u16);
+                    self.script_buffer.push(OpCode::END as u16);
                     {
                         let decl = self
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
+
+                        for i in decl.header.first_var_id as usize..self.variable_table.len() {
+                            self.variable_table[i].info.flags |= 1;
+                        }
+
                         decl.header.local_variables =
                             (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
@@ -487,7 +461,7 @@ impl Executable {
                             .get_mut(p.get_identifier())
                             .unwrap();
                         decl.header.start_offset = self.script_buffer.len() as u16 * 2;
-                        decl.header.first_var_id = self.variable_table.len() as i16;
+                        decl.header.first_var_id = id as i16;
                         self.variable_lookup
                             .insert(p.get_identifier().clone(), self.variable_table.len());
                         self.variable_table.push(VariableId {
@@ -526,13 +500,13 @@ impl Executable {
                             value: param.get_variable_type().create_empty_value(),
                         });
                     }
-
                     p.get_statements().iter().for_each(|s| {
                         self.compile_statement(s);
                     });
                     self.cur_function_id = -1;
                     self.fill_labels();
-                    self.script_buffer.push(ENDFUNC);
+                    self.script_buffer.push(OpCode::FEND as u16);
+                    self.script_buffer.push(OpCode::END as u16);
                     {
                         let decl = self
                             .procedure_declarations
@@ -547,11 +521,13 @@ impl Executable {
             }
         }
 
-        self.script_buffer.push(OpCode::END as u16);
+        if !self.script_buffer.ends_with(&[OpCode::END as u16]) {
+            self.script_buffer.push(OpCode::END as u16);
+        }
 
         for decl in &self.procedure_declarations {
             for idx in &decl.1.usages {
-                self.script_buffer[*idx] = decl.1.header.first_var_id as u16;
+                self.script_buffer[*idx] = decl.1.id as u16;
             }
         }
     }
@@ -811,7 +787,6 @@ impl Executable {
                         stack.extend(stack2);
                     }
                     stack.push(tables::FUNCTION_DEFINITIONS[predef as usize].opcode as u16);
-                    return;
                 }
             }
             icy_ppe::ast::Expression::FunctionCall(expr) => {
@@ -932,7 +907,7 @@ impl Executable {
                 continue;
             }
 
-            for (token, usage) in &info.usages {
+            for (_token, usage) in &info.usages {
                 self.script_buffer[*usage / 2] = *address_pos as u16;
             }
         }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 
@@ -38,7 +39,7 @@ impl VarHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct FunctionValue {
     pub parameters: u8,
     pub local_variables: u8,
@@ -46,14 +47,41 @@ pub struct FunctionValue {
     pub first_var_id: i16,
     pub return_var: i16,
 }
+impl fmt::Debug for FunctionValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "parameters:{} locals:{} offset:{} first:{} return:{}",
+            self.parameters,
+            self.local_variables,
+            self.start_offset,
+            self.first_var_id,
+            self.return_var
+        )
+    }
+}
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct ProcedureValue {
     pub parameters: u8,
     pub local_variables: u8,
     pub start_offset: u16,
     pub first_var_id: i16,
     pub pass_flags: u16,
+}
+
+impl fmt::Debug for ProcedureValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "parameters:{} locals:{} offset:{} first:{} pass:{:b}",
+            self.parameters,
+            self.local_variables,
+            self.start_offset,
+            self.first_var_id,
+            self.pass_flags
+        )
+    }
 }
 
 impl FunctionValue {
@@ -407,7 +435,7 @@ pub fn read_file(file_name: &str) -> Executable {
         variable_lookup,
         source_buffer,
         max_var,
-        code_size: (code_size - 2) as i32, // forget the last END
+        code_size: code_size as i32 - 2, // drop last END
     }
 }
 

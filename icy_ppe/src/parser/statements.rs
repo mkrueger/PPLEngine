@@ -1,6 +1,8 @@
+use std::backtrace::Backtrace;
+
 use crate::{
     ast::{
-        BlockStatement, BreakStatement, CaseBlock, CommentStatement, Constant, ContinueStatement,
+        BlockStatement, BreakStatement, CaseBlock, CommentAstNode, Constant, ContinueStatement,
         ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
         LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
@@ -12,10 +14,10 @@ use crate::{
 
 use super::{
     lexer::{SpannedToken, Token},
-    Error, Tokenizer,
+    Error, Parser, ParserWarning, ParserWarningType,
 };
 
-impl Tokenizer {
+impl Parser {
     pub fn skip_eol(&mut self) {
         while self.get_cur_token() == Some(Token::Eol) {
             self.next_token();
@@ -129,22 +131,26 @@ impl Tokenizer {
     }
 
     fn parse_block(&mut self, begin_token: SpannedToken) -> Option<Statement> {
+        self.next_token();
         self.skip_eol();
         let mut statements = Vec::new();
-        while self.get_cur_token() != Some(Token::End) {
-            if self.get_cur_token().is_none() {
+        loop {
+            let Some(token) = self.get_cur_token() else {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::EndExpected,
                         range: self.lex.span(),
                     }));
                 return None;
+            };
+            if token == Token::End {
+                break;
             }
             statements.push(self.parse_statement());
+            self.next_token();
             self.skip_eol();
         }
         let end_token = self.save_spannedtoken();
-        self.next_token();
         Some(Statement::Block(BlockStatement::new(
             begin_token,
             statements.into_iter().flatten().collect(),
@@ -236,7 +242,6 @@ impl Tokenizer {
             self.skip_eol();
         }
         let next_token = self.save_spannedtoken();
-        self.next_token(); // skip NEXT
 
         Some(Statement::For(ForStatement::new(
             for_token,
@@ -476,7 +481,6 @@ impl Tokenizer {
         if end_if_token.is_none() {
             end_if_token = Some(self.save_spannedtoken());
         }
-        self.next_token();
 
         Some(Statement::IfThen(IfThenStatement::new(
             if_token,
@@ -603,9 +607,6 @@ impl Tokenizer {
             end_select_token = Some(self.save_spannedtoken());
         }
 
-        self.next_token();
-        self.skip_eol();
-
         Some(Statement::Select(SelectStatement::new(
             select_token,
             case_token,
@@ -623,19 +624,23 @@ impl Tokenizer {
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
-            Some(Token::Comment(_)) => {
+            Some(Token::Comment(_, _)) => {
                 let cmt = self.save_spannedtoken();
-                self.next_token();
-                Some(Statement::Comment(CommentStatement::new(cmt)))
+                Some(Statement::Comment(CommentAstNode::new(cmt)))
+            }
+            Some(Token::UseFuncs(_, _)) => {
+                self.warnings.push(ParserWarning {
+                    error: ParserWarningType::UsefuncsIgnored,
+                    range: self.lex.span(),
+                });
+                None
             }
             Some(Token::End) => {
                 let ct = self.save_spannedtoken();
-                self.next_token();
                 Some(Statement::End(EndStatement::new(ct)))
             }
             Some(Token::Begin) => {
                 let begin_token = self.save_spannedtoken();
-                self.next_token();
                 self.parse_block(begin_token)
             }
             Some(Token::While) => self.parse_while(),

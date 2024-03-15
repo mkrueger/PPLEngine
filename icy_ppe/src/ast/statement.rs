@@ -13,7 +13,7 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Comment(CommentStatement),
+    Comment(CommentAstNode),
     End(EndStatement),
     Block(BlockStatement),
 
@@ -42,7 +42,7 @@ pub enum Statement {
 impl Statement {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
-            Statement::Comment(s) => visitor.visit_comment_statement(s),
+            Statement::Comment(s) => visitor.visit_comment(s),
             Statement::End(s) => visitor.visit_end_statement(s),
             Statement::Block(s) => visitor.visit_block_statement(s),
             Statement::If(s) => visitor.visit_if_statement(s),
@@ -68,7 +68,7 @@ impl Statement {
 
     pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) -> T {
         match self {
-            Statement::Comment(s) => visitor.visit_comment_statement(s),
+            Statement::Comment(s) => visitor.visit_comment(s),
             Statement::End(s) => visitor.visit_end_statement(s),
             Statement::Block(s) => visitor.visit_block_statement(s),
             Statement::If(s) => visitor.visit_if_statement(s),
@@ -102,21 +102,21 @@ impl fmt::Display for Statement {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct CommentStatement {
+pub struct CommentAstNode {
     comment_token: SpannedToken,
 }
 
-impl CommentStatement {
+impl CommentAstNode {
     pub fn new(comment_token: SpannedToken) -> Self {
         Self { comment_token }
     }
 
     pub fn empty(comment: impl Into<String>) -> Self {
         Self {
-            comment_token: SpannedToken::create_empty(Token::Comment((
+            comment_token: SpannedToken::create_empty(Token::Comment(
                 CommentType::SingleLineSemicolon,
                 comment.into(),
-            ))),
+            )),
         }
     }
 
@@ -130,8 +130,11 @@ impl CommentStatement {
     ///
     /// Panics if .
     pub fn get_comment(&self) -> &String {
-        if let Token::Comment(id) = &self.comment_token.token {
-            return &id.1;
+        if let Token::Comment(_ct, id) = &self.comment_token.token {
+            return id;
+        }
+        if let Token::UseFuncs(_ct, id) = &self.comment_token.token {
+            return id;
         }
         panic!("Expected identifier token")
     }
@@ -140,18 +143,21 @@ impl CommentStatement {
     ///
     /// Panics if .
     pub fn get_comment_type(&self) -> CommentType {
-        if let Token::Comment(id) = &self.comment_token.token {
-            return id.0;
+        if let Token::Comment(ct, _id) = &self.comment_token.token {
+            return *ct;
         }
-        panic!("Expected identifier token")
+        if let Token::UseFuncs(ct, _id) = &self.comment_token.token {
+            return *ct;
+        }
+        panic!("Expected comment token")
     }
 
     pub fn create_empty_statement(identifier: impl Into<String>) -> Statement {
-        Statement::Comment(CommentStatement::empty(identifier))
+        Statement::Comment(CommentAstNode::empty(identifier))
     }
 }
 
-impl fmt::Display for CommentStatement {
+impl fmt::Display for CommentAstNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.get_comment_type(), self.get_comment())
     }
@@ -1237,8 +1243,8 @@ impl LabelStatement {
     ///
     /// Panics if .
     pub fn get_comment_type(&self) -> CommentType {
-        if let Token::Comment(id) = &self.label_token.token {
-            return id.0;
+        if let Token::Comment(ct, _id) = &self.label_token.token {
+            return *ct;
         }
         panic!("Expected identifier token")
     }

@@ -1,6 +1,6 @@
 use crate::ast::{constant::BuiltinConst, Constant};
 use core::fmt;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::PathBuf};
 use thiserror::Error;
 use unicase::Ascii;
 
@@ -15,6 +15,12 @@ pub enum LexingErrorType {
 
     #[error("Unexpected end of file in string")]
     UnexpectedEOFInString,
+
+    #[error("Error loading include file '{0}': {1}")]
+    ErrorLoadingIncludeFile(String, String),
+
+    #[error("Can't find parent of path {0}")]
+    PathError(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -60,7 +66,8 @@ pub enum Token {
     Eol,
 
     Identifier(Ascii<String>),
-    Comment((CommentType, String)),
+    Comment(CommentType, String),
+    UseFuncs(CommentType, String),
 
     Comma,
 
@@ -190,8 +197,8 @@ impl fmt::Display for Token {
             Token::Case => write!(f, "CASE"),
             Token::EndSelect => write!(f, "ENDSELECT"),
 
-            Token::Comment(ct) => write!(f, ";{}", ct.1),
-
+            Token::Comment(ct, s) => write!(f, "{}{}", ct, s),
+            Token::UseFuncs(ct, s) => write!(f, "{}{}", ct, s),
             Token::Eol => writeln!(f),
 
             // Token::VarType(t) => write!(f, "{:?}", t),
@@ -212,11 +219,14 @@ pub enum LexerState {
 }
 
 pub struct Lexer {
+    file: PathBuf,
     text: Vec<char>,
 
     lexer_state: LexerState,
     token_start: usize,
     token_end: usize,
+
+    include_lexer: Option<Box<Lexer>>,
 }
 
 lazy_static::lazy_static! {
@@ -361,12 +371,14 @@ lazy_static::lazy_static! {
 }
 
 impl Lexer {
-    pub fn new(text: &str) -> Self {
+    pub fn new(file: PathBuf, text: &str) -> Self {
         Self {
+            file,
             text: text.chars().collect(),
             lexer_state: LexerState::AfterEol,
             token_start: 0,
             token_end: 0,
+            include_lexer: None,
         }
     }
 
@@ -387,6 +399,23 @@ impl Lexer {
     }
 
     pub fn next_token(&mut self) -> Option<Result<Token, LexingError>> {
+        if let Some(lexer) = &mut self.include_lexer {
+            let result = lexer.next_token();
+            match result {
+                Some(Ok(token)) => {
+                    return Some(Ok(token));
+                }
+                Some(Err(err)) => {
+                    return Some(Err(LexingError {
+                        error: err.error,
+                        range: self.token_start..self.token_end,
+                    }))
+                }
+                None => {
+                    self.include_lexer = None;
+                }
+            }
+        }
         let ch;
         loop {
             self.token_start = self.token_end;
@@ -731,7 +760,6 @@ impl Lexer {
         Ok(Token::Identifier(identifier))
     }
 
-    #[allow(clippy::unnecessary_wraps)]
     fn read_comment(&mut self, ch: char) -> Result<Token, LexingError> {
         let cmt_type = match ch {
             ';' => CommentType::SingleLineSemicolon,
@@ -747,12 +775,46 @@ impl Lexer {
             }
         }
         self.lexer_state = LexerState::AfterEol;
-        return Ok(Token::Comment((
-            cmt_type,
-            self.text[self.token_start + 1..self.token_end]
-                .iter()
-                .collect::<String>(),
-        )));
+        let comment = self.text[self.token_start + 1..self.token_end]
+            .iter()
+            .collect::<String>();
+
+        if comment.len() > "$INCLUDE".len()
+            && comment[.."$INCLUDE".len()].to_ascii_uppercase() == "$INCLUDE"
+        {
+            let include_file = comment["$INCLUDE:".len()..].trim();
+
+            let Some(parent) = self.file.parent() else {
+                return Err(LexingError {
+                    error: LexingErrorType::PathError(self.file.to_string_lossy().to_string()),
+                    range: self.token_start..self.token_end,
+                });
+            };
+
+            let path = parent.join(include_file);
+
+            match fs::read_to_string(&path) {
+                Ok(k) => {
+                    self.include_lexer = Some(Box::new(Lexer::new(path, &k)));
+                }
+                Err(err) => {
+                    return Err(LexingError {
+                        error: LexingErrorType::ErrorLoadingIncludeFile(
+                            include_file.to_string(),
+                            err.to_string(),
+                        ),
+                        range: self.token_start..self.token_end,
+                    });
+                }
+            }
+        }
+
+        if comment.len() > "$USEFUNCS".len()
+            && comment[.."$USEFUNCS".len()].to_ascii_uppercase() == "$USEFUNCS"
+        {
+            return Ok(Token::UseFuncs(cmt_type, comment));
+        }
+        Ok(Token::Comment(cmt_type, comment))
     }
 
     pub fn span(&self) -> std::ops::Range<usize> {

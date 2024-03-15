@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod interpreter_tests {
+    use std::path::PathBuf;
+
     use crate::{
         icy_board::data::IcyBoardData,
         interpreter::{run, ExecutionContext, HangupType, MemoryIO, PCBoardIO, TerminalTarget},
@@ -267,7 +269,7 @@ PRINT B"#,
     fn check_output_withio(prg: &str, io: &mut dyn PCBoardIO, out: &str) {
         let mut ctx = TestContext::new();
         run(
-            &mut parse_program(prg),
+            &mut parse_program(PathBuf::from("."), prg),
             &mut ctx,
             io,
             IcyBoardData::default(),
@@ -282,7 +284,7 @@ PRINT B"#,
         let mut io = MemoryIO::new();
 
         run(
-            &mut parse_program("PRINTLN 1, 2, 3, \"Hello World\""),
+            &mut parse_program(PathBuf::from("."), "PRINTLN 1, 2, 3, \"Hello World\""),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -292,7 +294,7 @@ PRINT B"#,
 
         ctx = TestContext::new();
         run(
-            &mut parse_program("PRINT TRUE, \",\", $41.43, \",\", 10h"),
+            &mut parse_program(PathBuf::from("."), "PRINT TRUE, \",\", $41.43, \",\", 10h"),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -423,7 +425,7 @@ FCLOSE 1
         let mut io = MemoryIO::new();
         let mut ctx = TestContext::new();
         run(
-            &mut parse_program(prg),
+            &mut parse_program(PathBuf::from("."), prg),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -446,7 +448,7 @@ FCLOSE 1
         let mut io = MemoryIO::new();
         let mut ctx = TestContext::new();
         run(
-            &mut parse_program(prg),
+            &mut parse_program(PathBuf::from("."), prg),
             &mut ctx,
             &mut io,
             IcyBoardData::default(),
@@ -587,6 +589,23 @@ S = CHR(13)
 PRINT S <> CHR(13)
 ",
             "0",
+        );
+    }
+
+    #[test]
+    fn test_use_funcs() {
+        check_output(
+            r#"
+DECLARE PROCEDURE PROC()
+;$USEFUNCS
+PROCEDURE PROC()
+    PRINTLN "Hello"
+ENDPROC
+BEGIN
+    PROC()
+END
+"#,
+            "Hello",
         );
     }
 }

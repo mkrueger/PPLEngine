@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
 use icy_ppe::ast::{AstVisitor, Program};
@@ -500,12 +502,12 @@ struct TextDocumentItem {
 impl Backend {
     async fn on_change(&self, params: TextDocumentItem) {
         let rope = ropey::Rope::from_str(&params.text);
-        self.document_map
-            .insert(params.uri.to_string(), rope.clone());
-        let prg = parse_program(&params.text);
+        let uri = params.uri.to_string();
+        self.document_map.insert(uri.clone(), rope.clone());
+        let prg = parse_program(PathBuf::from(uri), &params.text);
         let semantic_tokens = semantic_token_from_ast(&prg);
 
-        let mut diagnostics = prg
+        let diagnostics = prg
             .errors
             .iter()
             .filter_map(|e| match e {

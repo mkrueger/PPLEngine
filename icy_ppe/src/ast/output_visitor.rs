@@ -121,7 +121,7 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push(')');
     }
 
-    fn visit_comment_statement(&mut self, comment: &super::CommentStatement) {
+    fn visit_comment(&mut self, comment: &super::CommentAstNode) {
         if self.skip_comments {
             return;
         }
@@ -466,13 +466,6 @@ impl AstVisitor<()> for OutputVisitor {
         self.output_keyword(func_decl.get_return_type().to_string().as_str());
     }
 
-    fn visit_comment_implementation(&mut self, comment: &crate::parser::lexer::SpannedToken) {
-        if self.skip_comments {
-            return;
-        }
-        self.output.push_str(comment.token.to_string().as_str());
-    }
-
     fn visit_function_implementation(&mut self, function: &super::FunctionImplementation) {
         self.output_keyword("Function ");
         self.output(function.get_identifier());
@@ -557,15 +550,10 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_program(&mut self, program: &super::Program) {
-        for stmt in &program.statements {
+        for stmt in &program.nodes {
             stmt.visit(self);
             self.eol();
         }
         self.eol();
-
-        for impls in &program.implementations {
-            impls.visit(self);
-            self.eol();
-        }
     }
 }

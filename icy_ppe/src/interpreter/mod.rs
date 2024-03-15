@@ -5,8 +5,8 @@ pub mod expressions;
 use thiserror::Error;
 
 use crate::ast::convert_to;
+use crate::ast::AstNode;
 use crate::ast::Expression;
-use crate::ast::Implementations;
 use crate::ast::Program;
 use crate::ast::Statement;
 use crate::ast::Variable;
@@ -113,7 +113,17 @@ pub struct StackFrame {
     pub label_table: HashMap<unicase::Ascii<String>, usize>,
 }
 
-pub fn calc_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usize> {
+pub fn calc_table(blk: &[AstNode]) -> HashMap<unicase::Ascii<String>, usize> {
+    let mut res = HashMap::new();
+    for (i, stmt) in blk.iter().enumerate() {
+        if let AstNode::Statement(Statement::Label(label)) = stmt {
+            res.insert(label.get_label().clone(), i);
+        }
+    }
+    res
+}
+
+pub fn calc_stmt_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usize> {
     let mut res = HashMap::new();
     for (i, stmt) in blk.iter().enumerate() {
         if let Statement::Label(label) = stmt {
@@ -499,15 +509,15 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
             );
         }
         Statement::Call(call_stmt) => {
-            for imp in &interpreter.prg.implementations {
-                let Implementations::Procedure(f) = imp else {
+            for imp in &interpreter.prg.nodes {
+                let AstNode::Procedure(f) = imp else {
                     continue;
                 };
 
                 if call_stmt.get_identifier() != f.get_identifier() {
                     continue;
                 }
-                let label_table = calc_table(f.get_statements());
+                let label_table = calc_stmt_table(f.get_statements());
                 let mut prg_frame = StackFrame {
                     values: HashMap::new(),
                     gosub_stack: Vec::new(),
@@ -659,7 +669,7 @@ pub fn run(
     io: &mut dyn PCBoardIO,
     icy_board_data: IcyBoardData,
 ) -> Res<bool> {
-    let label_table = calc_table(&prg.statements);
+    let label_table = calc_table(&prg.nodes);
     let cur_frame = StackFrame {
         values: HashMap::new(),
         gosub_stack: Vec::new(),
@@ -683,11 +693,14 @@ pub fn run(
     };
     interpreter.set_default_variables();
     interpreter.set_user_variables(&UserRecord::default());
-
-    while interpreter.is_running
-        && interpreter.cur_frame.last().unwrap().cur_ptr < prg.statements.len()
-    {
-        let stmt = &prg.statements[interpreter.cur_frame.last().unwrap().cur_ptr];
+    while interpreter.is_running {
+        let idx = interpreter.cur_frame.last().unwrap().cur_ptr;
+        if idx >= prg.nodes.len() {
+            break;
+        }
+        let AstNode::Statement(stmt) = &prg.nodes[idx] else {
+            continue;
+        };
         match execute_statement(&mut interpreter, stmt) {
             Ok(()) => {}
             Err(err) => {

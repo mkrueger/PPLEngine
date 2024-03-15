@@ -1,9 +1,9 @@
 use crate::ast::{
     walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut,
-    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut,
-    BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression, ContinueStatement, ElseBlock,
-    ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations,
-    SelectStatement, UnaryExpression, WhileDoStatement,
+    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstNode,
+    AstVisitorMut, BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression,
+    ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement,
+    IfThenStatement, SelectStatement, UnaryExpression, WhileDoStatement,
 };
 
 use super::{
@@ -12,16 +12,17 @@ use super::{
 };
 
 pub fn do_pass3(prg: &mut Program) {
-    optimize_block(&mut prg.statements);
-    for fd in &mut prg.implementations {
+    //  optimize_block(&mut prg.statements);
+    for fd in &mut prg.nodes {
         match fd {
-            Implementations::Function(fd) => {
+            AstNode::Function(fd) => {
                 optimize_block(fd.get_statements_mut());
             }
-            Implementations::Procedure(pd) => {
+            AstNode::Procedure(pd) => {
                 optimize_block(pd.get_statements_mut());
             }
-            Implementations::Comment(_) => {}
+            AstNode::Comment(_) => {}
+            _ => {}
         }
     }
 

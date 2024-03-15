@@ -24,6 +24,12 @@ pub enum CompilationErrorType {
 
     #[error("Undefined label: {0}")]
     UndefinedLabel(String),
+
+    #[error("Function {0} already defined.")]
+    FunctionAlreadyDefined(String),
+
+    #[error("Procedure {0} already defined.")]
+    ProcedureAlreadyDefined(String),
 }
 
 pub struct CompilationError {
@@ -291,10 +297,10 @@ impl Executable {
             self.initialize_variables();
         }
 
-        for d in &prg.implementations {
+        for d in &prg.nodes {
             match d {
-                icy_ppe::ast::Implementations::Comment(_) => {}
-                icy_ppe::ast::Implementations::Function(func) => {
+                icy_ppe::ast::AstNode::Comment(_) => {}
+                icy_ppe::ast::AstNode::Function(func) => {
                     self.procedure_declarations.insert(
                         func.get_identifier().clone(),
                         Function {
@@ -310,7 +316,7 @@ impl Executable {
                     );
                 }
 
-                icy_ppe::ast::Implementations::Procedure(proc) => {
+                icy_ppe::ast::AstNode::Procedure(proc) => {
                     let mut var_params = 0;
                     for (i, p) in proc.get_parameters().iter().enumerate() {
                         if p.is_var() {
@@ -331,12 +337,12 @@ impl Executable {
                         },
                     );
                 }
+                icy_ppe::ast::AstNode::Statement(stmt) => {
+                    self.compile_statement(stmt);
+                }
             }
         }
 
-        prg.statements.iter().for_each(|s| {
-            self.compile_statement(s);
-        });
         self.script_buffer.push(END);
 
         self.fill_labels();
@@ -344,10 +350,10 @@ impl Executable {
         if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
             self.script_buffer.push(OpCode::END as u16);
         }
-        for imp in &prg.implementations {
+        for imp in &prg.nodes {
             match imp {
-                icy_ppe::ast::Implementations::Comment(_) => {}
-                icy_ppe::ast::Implementations::Procedure(p) => {
+                icy_ppe::ast::AstNode::Comment(_) => {}
+                icy_ppe::ast::AstNode::Procedure(p) => {
                     {
                         let id = self.next_id();
                         let decl = self
@@ -408,7 +414,7 @@ impl Executable {
                             (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
                 }
-                icy_ppe::ast::Implementations::Function(p) => {
+                icy_ppe::ast::AstNode::Function(p) => {
                     {
                         let id = self.next_id();
                         let decl = self
@@ -471,6 +477,8 @@ impl Executable {
                             (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
                 }
+
+                _ => {}
             }
         }
 
@@ -635,11 +643,67 @@ impl Executable {
                 }
             }
 
-            Statement::FunctionDeclaration(_decl) => {
-                // Ignore: Taken from implementations.
+            Statement::FunctionDeclaration(func) => {
+                if self
+                    .procedure_declarations
+                    .contains_key(func.get_identifier())
+                {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::FunctionAlreadyDefined(
+                            func.get_identifier().to_string(),
+                        ),
+                        range: func.get_identifier_token().span.clone(),
+                    });
+                    return;
+                }
+                self.procedure_declarations.insert(
+                    func.get_identifier().clone(),
+                    Function {
+                        header: FunctionValue {
+                            parameters: func.get_parameters().len() as u8,
+                            local_variables: 0,
+                            start_offset: 0,
+                            first_var_id: 0,
+                            return_var: func.get_return_type() as i16,
+                        },
+                        usages: Vec::new(),
+                    },
+                );
             }
-            Statement::ProcedureDeclaration(_decl) => {
-                // Ignore: Taken from implementations.
+
+            Statement::ProcedureDeclaration(proc) => {
+                if self
+                    .procedure_declarations
+                    .contains_key(proc.get_identifier())
+                {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::ProcedureAlreadyDefined(
+                            proc.get_identifier().to_string(),
+                        ),
+                        range: proc.get_identifier_token().span.clone(),
+                    });
+                    return;
+                }
+
+                let mut var_params = 0;
+                for (i, p) in proc.get_parameters().iter().enumerate() {
+                    if p.is_var() {
+                        var_params |= 1 << i;
+                    }
+                }
+                self.procedure_declarations.insert(
+                    proc.get_identifier().clone(),
+                    Function {
+                        header: FunctionValue {
+                            parameters: proc.get_parameters().len() as u8,
+                            local_variables: 0,
+                            start_offset: 0,
+                            first_var_id: 0,
+                            return_var: var_params,
+                        },
+                        usages: Vec::new(),
+                    },
+                );
             }
 
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),

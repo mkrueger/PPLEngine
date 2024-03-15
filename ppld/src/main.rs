@@ -5,7 +5,8 @@ use crossterm::style::ResetColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
-use icy_ppe::ast::CommentStatement;
+use icy_ppe::ast::AstNode;
+use icy_ppe::ast::CommentAstNode;
 use icy_ppe::ast::FunctionDeclarationStatement;
 use icy_ppe::ast::OutputFunc;
 use icy_ppe::ast::ProcedureDeclarationStatement;
@@ -29,6 +30,10 @@ struct Args {
     #[arg(short, long)]
     raw: bool,
 
+    /// raw ppe without reconstruction control structures
+    #[arg(short, long)]
+    disassemble: bool,
+
     /// output to console instead of writing to file
     #[arg(short, long)]
     output: bool,
@@ -46,22 +51,22 @@ lazy_static::lazy_static! {
 }
 
 #[must_use]
-pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
+pub fn decompile(file_name: &str, to_file: bool, raw: bool, disassemble: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(read_file(file_name));
 
-    prg.statements
-        .push(CommentStatement::create_empty_statement(
+    prg.nodes
+        .push(icy_ppe::ast::AstNode::Comment(CommentAstNode::empty(
             "-----------------------------------------",
-        ));
-    prg.statements
-        .push(CommentStatement::create_empty_statement(
+        )));
+    prg.nodes
+        .push(icy_ppe::ast::AstNode::Comment(CommentAstNode::empty(
             " PCBoard programming language decompiler ",
-        ));
-    prg.statements
-        .push(CommentStatement::create_empty_statement(
+        )));
+    prg.nodes
+        .push(icy_ppe::ast::AstNode::Comment(CommentAstNode::empty(
             "-----------------------------------------",
-        ));
+        )));
 
     println!(
         "Format: {}.{:00} detected",
@@ -69,40 +74,56 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         d.executable.version % 100
     );
 
-    if to_file {
+    if to_file && !disassemble {
         println!("Pass 1 ...");
     }
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
-    if to_file {
+    if disassemble {
+        d.print_variable_table();
+    }
+
+    if to_file && !disassemble {
         println!("Pass 2 ...");
     }
-    d.do_pass2(&mut prg);
+    d.do_pass2(&mut prg, disassemble);
 
-    if !prg.implementations.is_empty() {
+    if !prg.nodes.is_empty() {
         // res.push_str("; Function declarations\n");
     }
-    for v in &prg.implementations {
+
+    if disassemble {
+        return prg;
+    }
+
+    let mut declarations = Vec::new();
+    for v in &prg.nodes {
         let declaration = match v {
-            icy_ppe::ast::Implementations::Comment(_) => {
+            icy_ppe::ast::AstNode::Comment(_) => {
                 continue;
             }
-            icy_ppe::ast::Implementations::Function(f) => {
+            icy_ppe::ast::AstNode::Function(f) => {
                 FunctionDeclarationStatement::create_empty_statement(
                     f.get_identifier().clone(),
                     f.get_parameters().clone(),
                     *f.get_return_type(),
                 )
             }
-            icy_ppe::ast::Implementations::Procedure(p) => {
+            icy_ppe::ast::AstNode::Procedure(p) => {
                 ProcedureDeclarationStatement::create_empty_statement(
                     p.get_identifier().clone(),
                     p.get_parameters().clone(),
                 )
             }
+            _ => {
+                continue;
+            }
         };
-        prg.statements.insert(0, declaration);
+        declarations.push(AstNode::Statement(declaration));
     }
+
+    declarations.extend(prg.nodes);
+    prg.nodes = declarations;
 
     if !raw {
         if to_file {
@@ -112,16 +133,16 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         reconstruct::do_pass4(&mut prg);
     }
 
-    if !d.warnings.is_empty() || d.errors.is_empty() {
+    if !d.warnings.is_empty() || !d.errors.is_empty() {
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "---------------------------------------".to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(format!(
+            CommentAstNode::create_empty_statement(format!(
                 "!!! {} WARNING(S), {} ERROR(S) CAUSED BY PPLC BUGS DETECTED",
                 d.warnings.len(),
                 d.errors.len()
@@ -129,35 +150,35 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "PROBLEM: These expressions most probably looked like !0+!0+!0 or similar"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "         before PPLC fucked it up to something like !(!(+0)+0)!0. This may"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "         also apply to - / and * aswell. Also occurs upon use of multiple !'s."
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "         Some smartbrains use this BUG to make programms running different"
                     .to_string(),
             ),
         );
         d.output_stmt(
             &mut prg,
-            CommentStatement::create_empty_statement(
+            CommentAstNode::create_empty_statement(
                 "         (or not at all) when being de- and recompiled.".to_string(),
             ),
         );
@@ -255,7 +276,11 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    let decompilation = decompile(file_name, true, arguments.raw);
+    let decompilation = decompile(file_name, true, arguments.raw, arguments.disassemble);
+
+    if arguments.disassemble {
+        return;
+    }
 
     let mut output_visitor = output_visitor::OutputVisitor::default();
     output_visitor.output_func = output_func;

@@ -1,7 +1,7 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression,
+    BinaryExpression, BlockStatement, BreakStatement, CommentAstNode, ConstantExpression,
     ContinueStatement, EndStatement, ForStatement, FunctionCallExpression,
     FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
     IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
@@ -43,7 +43,7 @@ pub trait AstVisitor<T: Default>: Sized {
     }
 
     // visit statements
-    fn visit_comment_statement(&mut self, comment: &CommentStatement) -> T {
+    fn visit_comment(&mut self, comment: &CommentAstNode) -> T {
         T::default()
     }
     fn visit_end_statement(&mut self, end: &EndStatement) -> T {
@@ -130,10 +130,6 @@ pub trait AstVisitor<T: Default>: Sized {
 
     // visit implementations
 
-    fn visit_comment_implementation(&mut self, comment: &SpannedToken) -> T {
-        T::default()
-    }
-
     fn visit_function_implementation(&mut self, function: &FunctionImplementation) -> T {
         walk_function_implementation(self, function);
         T::default()
@@ -151,11 +147,8 @@ pub trait AstVisitor<T: Default>: Sized {
 }
 
 pub fn walk_program<T: Default, V: AstVisitor<T>>(visitor: &mut V, program: &Program) {
-    for stmt in &program.statements {
-        stmt.visit(visitor);
-    }
-    for impls in &program.implementations {
-        impls.visit(visitor);
+    for node in &program.nodes {
+        node.visit(visitor);
     }
 }
 
@@ -341,7 +334,7 @@ pub trait AstVisitorMut<T: Default>: Sized {
     }
 
     // visit statements
-    fn visit_comment_statement(&mut self, comment: &mut CommentStatement) -> T {
+    fn visit_comment(&mut self, comment: &mut CommentAstNode) -> T {
         T::default()
     }
     fn visit_end_statement(&mut self, end: &mut EndStatement) -> T {
@@ -449,11 +442,8 @@ pub trait AstVisitorMut<T: Default>: Sized {
 }
 
 pub fn walk_program_mut<T: Default, V: AstVisitorMut<T>>(visitor: &mut V, program: &mut Program) {
-    for stmt in &mut program.statements {
-        stmt.visit_mut(visitor);
-    }
-    for impls in &mut program.implementations {
-        impls.visit_mut(visitor);
+    for node in &mut program.nodes {
+        node.visit_mut(visitor);
     }
 }
 

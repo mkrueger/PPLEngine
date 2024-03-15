@@ -5,18 +5,22 @@ use crate::ast::{
 };
 
 pub fn transform_ast(prg: &mut Program) {
-    for f in &mut prg.implementations {
+    /*
+    for f in &mut prg.nodes {
         match f {
-            crate::ast::Implementations::Function(f) => {
+            crate::ast::AstNode::Function(f) => {
                 transform_block(f.get_statements_mut());
             }
-            crate::ast::Implementations::Procedure(f) => {
+            crate::ast::AstNode::Procedure(f) => {
                 transform_block(f.get_statements_mut());
             }
-            crate::ast::Implementations::Comment(_) => {}
+            crate::ast::AstNode::Comment(_) => {}
+            crate::ast::AstNode::Statement(_) => {
+
+            }
         }
     }
-    transform_block(&mut prg.statements);
+    transform_block(&mut prg.statements);*/
 }
 
 fn transform_block(statements: &mut Vec<Statement>) {

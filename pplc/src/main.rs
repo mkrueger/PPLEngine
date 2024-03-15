@@ -2,7 +2,11 @@ use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
 use icy_ppe::{compiler::transform_ast, parser::parse_program};
 use semver::Version;
-use std::{ffi::OsStr, fs, path::Path};
+use std::{
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 mod executable;
 pub mod parser;
 
@@ -37,16 +41,18 @@ fn main() {
     let src = fs::read_to_string(&file_name).expect("Failed to read file");
     println!();
     println!("Parsing...");
-    let mut prg = parse_program(&src);
+    let mut prg = parse_program(PathBuf::from(&file_name), &src);
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
-
-    println!("{}", prg);
     transform_ast(&mut prg);
     let mut exec = executable::Executable::new();
     exec.compile(&prg, arguments.no_user_variables);
 
-    if !prg.errors.is_empty() || !exec.warnings.is_empty() || !exec.errors.is_empty() {
+    if !prg.errors.is_empty()
+        || !prg.warnings.is_empty()
+        || !exec.warnings.is_empty()
+        || !exec.errors.is_empty()
+    {
         let mut errors = 0;
         let mut warnings = 0;
 
@@ -79,6 +85,19 @@ fn main() {
                         .unwrap();
                 }
             }
+        }
+
+        for err in &prg.warnings {
+            warnings += 1;
+            Report::build(ReportKind::Warning, &file_name, 12)
+                .with_code(warnings)
+                .with_message(format!("{}", err.error))
+                .with_label(
+                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Yellow),
+                )
+                .finish()
+                .print((&file_name, Source::from(&src)))
+                .unwrap();
         }
 
         for err in &exec.errors {

@@ -96,7 +96,7 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         parens.get_expression().visit(self)
     }
 
-    fn visit_comment_statement(&mut self, comment: &icy_ppe::ast::CommentStatement) {
+    fn visit_comment(&mut self, comment: &icy_ppe::ast::CommentAstNode) {
         self.highlight_token(comment.get_comment_token(), SemanticTokenType::COMMENT);
     }
 
@@ -184,10 +184,6 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         self.highlight_token(func_decl.get_declare_token(), SemanticTokenType::KEYWORD);
         self.highlight_token(func_decl.get_function_token(), SemanticTokenType::KEYWORD);
         self.higlight_parameters(func_decl.get_parameters());
-    }
-
-    fn visit_comment_implementation(&mut self, comment: &icy_ppe::parser::lexer::SpannedToken) {
-        self.highlight_token(comment, SemanticTokenType::COMMENT);
     }
 
     fn visit_function_implementation(&mut self, function: &icy_ppe::ast::FunctionImplementation) {

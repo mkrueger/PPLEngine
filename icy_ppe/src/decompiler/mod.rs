@@ -1,6 +1,6 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    BinaryExpression, CommentStatement, Constant, ConstantExpression, EndStatement, Expression,
+    BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement, Expression,
     FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
     IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier,
     ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
@@ -34,7 +34,7 @@ pub fn load_file(file_name: &str) -> Program {
     let mut d = Decompiler::new(read_file(file_name));
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
-    d.do_pass2(&mut prg);
+    d.do_pass2(&mut prg, false);
     prg
 }
 
@@ -89,24 +89,22 @@ impl Decompiler {
     }
 
     pub fn output_stmt(&mut self, prg: &mut Program, stmt: Statement) {
-        for f in &mut prg.implementations {
-            match f {
-                crate::ast::Implementations::Function(decl) => {
-                    if self.func_flag > 0 && decl.id == self.func_flag {
-                        decl.get_statements_mut().push(stmt);
-                        return;
-                    }
+        match prg.nodes.last_mut() {
+            Some(crate::ast::AstNode::Function(decl)) => {
+                if self.func_flag > 0 && decl.id == self.func_flag {
+                    decl.get_statements_mut().push(stmt);
+                    return;
                 }
-                crate::ast::Implementations::Procedure(decl) => {
-                    if self.proc_flag > 0 && decl.id == self.proc_flag {
-                        decl.get_statements_mut().push(stmt);
-                        return;
-                    }
-                }
-                crate::ast::Implementations::Comment(_) => {}
             }
+            Some(crate::ast::AstNode::Procedure(decl)) => {
+                if self.proc_flag > 0 && decl.id == self.proc_flag {
+                    decl.get_statements_mut().push(stmt);
+                    return;
+                }
+            }
+            _ => {}
         }
-        prg.statements.push(stmt);
+        prg.nodes.push(crate::ast::AstNode::Statement(stmt));
     }
 
     fn fill_valid(&mut self, i: i32, j: i32) {
@@ -469,16 +467,15 @@ impl Decompiler {
                 .unwrap()
                 .header
                 .variable_type as usize];
-            prg.implementations
-                .push(crate::ast::Implementations::Function(
-                    FunctionImplementation::empty(
-                        func,
-                        func_name,
-                        func_parameters,
-                        func_type,
-                        Vec::new(),
-                    ),
-                ));
+            prg.nodes.push(crate::ast::AstNode::Function(
+                FunctionImplementation::empty(
+                    func,
+                    func_name,
+                    func_parameters,
+                    func_type,
+                    Vec::new(),
+                ),
+            ));
         }
     }
 
@@ -555,10 +552,9 @@ impl Decompiler {
                     .function_id = proc;
                 j += 1;
             }
-            prg.implementations
-                .push(crate::ast::Implementations::Procedure(
-                    ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
-                ));
+            prg.nodes.push(crate::ast::AstNode::Procedure(
+                ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
+            ));
         }
     }
 
@@ -591,8 +587,8 @@ impl Decompiler {
     }
 
     fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionImplementation> {
-        for f in &mut prg.implementations {
-            if let crate::ast::Implementations::Function(decl) = f {
+        for f in &mut prg.nodes {
+            if let crate::ast::AstNode::Function(decl) = f {
                 if decl.id == func {
                     return Some(decl);
                 }
@@ -1493,14 +1489,19 @@ impl Decompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn do_pass2(&mut self, prg: &mut Program) {
+    pub fn do_pass2(&mut self, prg: &mut Program, disassemble: bool) {
         self.cur_stmt = -1;
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
         let mut if_ptr = -1;
         let mut if_while_stack = vec![];
-
+        let mut last_stmt_offset = 0;
+        if disassemble {
+            println!();
+            println!("Code size: {}", self.executable.code_size);
+            println!("Offset  # OpCode      Parameters");
+        }
         while self.src_ptr < self.executable.code_size / 2 {
             let prev_stat = self.cur_stmt;
             if self.src_ptr == if_ptr {
@@ -1514,6 +1515,7 @@ impl Decompiler {
                 continue;
             }
 
+            let stmt_ptr = self.src_ptr;
             self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
             assert!(
                 !(self.cur_stmt > LAST_STMT
@@ -1590,6 +1592,20 @@ impl Decompiler {
                 }
             }
             let op: OpCode = unsafe { transmute(self.cur_stmt as u8) };
+            if disassemble {
+                if stmt_ptr > 0 {
+                    self.print_disassembler_parameters(
+                        last_stmt_offset as usize,
+                        stmt_ptr as usize,
+                    );
+                }
+                let op_str = format!("{:?}", op);
+
+                print!("{:>5}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
+
+                last_stmt_offset = stmt_ptr;
+            }
+
             match op {
                 OpCode::END => {
                     self.outputpass2(
@@ -1753,12 +1769,18 @@ impl Decompiler {
                 => { //STOP
                     self.func_flag = 0;
                     self.proc_flag = 0;
-                    self.output_stmt(prg, CommentStatement::create_empty_statement("---------------------------------------".to_string()));
+                    self.output_stmt(prg, CommentAstNode::create_empty_statement("---------------------------------------".to_string()));
                 }
                 _ => {}
             }
         }
 
+        if disassemble {
+            self.print_disassembler_parameters(
+                last_stmt_offset as usize,
+                self.executable.source_buffer.len(),
+            );
+        }
         self.labelout(prg, self.src_ptr * 2);
     }
 
@@ -1802,6 +1824,67 @@ impl Decompiler {
                 .clone();
         }
         cur_var.get_name().clone()
+    }
+
+    pub fn print_variable_table(&self) {
+        println!();
+        println!(
+            "--- Variable Table ({} variables) ---",
+            self.executable.max_var
+        );
+        println!("  # Type         Flags Role          Name        Value");
+        for i in (0..self.executable.max_var).rev() {
+            let var = self.executable.variable_declarations.get(&i).unwrap();
+
+            let ts = if var.header.dim > 0 {
+                format!("{}({})", var.header.variable_type, var.header.dim)
+            } else {
+                var.header.variable_type.to_string()
+            };
+
+            print!("{:>3} {:<13}", var.header.id, ts);
+
+            let ts = format!("{:?}", var.get_type());
+            print!("{}     {:<14}", var.header.flags, ts);
+            print!("{:<12}", var.get_name());
+
+            if var.header.variable_type == VariableType::Function {
+                unsafe {
+                    print!("{:?}", var.variable.data.function_value);
+                }
+            } else if var.header.variable_type == VariableType::Procedure {
+                unsafe {
+                    print!("{:?}", var.variable.data.procedure_value);
+                }
+            } else {
+                print!("{}", var.variable);
+                if var.header.dim > 0
+                    || var.header.vector_size > 0
+                    || var.header.matrix_size > 0
+                    || var.header.cube_size > 0
+                {
+                    print!(
+                        " ({}, {}, {})",
+                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
+                    );
+                }
+            }
+            println!();
+        }
+    }
+
+    fn print_disassembler_parameters(&self, from: usize, to: usize) {
+        for (i, x) in self.executable.source_buffer[from + 1..to]
+            .iter()
+            .enumerate()
+        {
+            if i > 0 && i % 20 == 0 {
+                println!();
+                print!("                      ");
+            }
+            print!("{:<4} ", *x);
+        }
+        println!();
     }
 }
 

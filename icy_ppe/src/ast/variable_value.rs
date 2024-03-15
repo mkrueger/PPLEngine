@@ -88,7 +88,7 @@ impl fmt::Display for Variable {
 
                 VariableType::String | VariableType::BigStr => {
                     if let VariableValue::String(s) = &self.generic_data {
-                        write!(f, "{s}")
+                        write!(f, "\"{s}\"")
                     } else {
                         write!(f, "")
                     }

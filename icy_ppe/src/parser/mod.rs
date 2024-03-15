@@ -2,8 +2,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     ast::{
-        Constant, DimensionSpecifier, FunctionDeclarationStatement, FunctionImplementation,
-        Implementations, ParameterSpecifier, ProcedureDeclarationStatement,
+        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationStatement,
+        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationStatement,
         ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType,
     },
     parser::lexer::LexingError,
@@ -94,6 +94,23 @@ pub enum ParserErrorType {
 
     #[error("VAR parameters are not allowed in functions")]
     VarNotAllowedInFunctions,
+
+    #[error("Only one BEGIN block is allowed with $USEFUNCS")]
+    OnlyOneBeginBlockAllowed,
+
+    #[error("No statements allowed outside of BEGIN...END block")]
+    NoStatementsAllowedOutsideBlock,
+
+    #[error("$USEFUNCS used after statements has no effect.")]
+    UsefuncAfterStatement,
+}
+
+#[derive(Error, Debug, Clone, PartialEq)]
+pub enum ParserWarningType {
+    #[error("$USEFUNCS is not valid there, ignoring.")]
+    UsefuncsIgnored,
+    #[error("$USEFUNCS already set, ignoring.")]
+    UsefuncsAlreadySet,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -102,17 +119,25 @@ pub struct ParserError {
     pub range: core::ops::Range<usize>,
 }
 
-pub struct Tokenizer {
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParserWarning {
+    pub error: ParserWarningType,
+    pub range: core::ops::Range<usize>,
+}
+
+pub struct Parser {
     pub errors: Vec<Error>,
-    pub cur_token: Option<SpannedToken>,
+    pub warnings: Vec<ParserWarning>,
+    cur_token: Option<SpannedToken>,
     lex: Lexer,
 }
 
-impl Tokenizer {
-    pub fn new(text: &str) -> Self {
-        let lex = Lexer::new(text);
-        Tokenizer {
+impl Parser {
+    pub fn new(file: PathBuf, text: &str) -> Self {
+        let lex = Lexer::new(file, text);
+        Parser {
             errors: Vec::new(),
+            warnings: Vec::new(),
             cur_token: None,
             lex,
         }
@@ -219,7 +244,7 @@ lazy_static::lazy_static! {
 
 }
 
-impl Tokenizer {
+impl Parser {
     pub fn get_variable_type(&self) -> Option<VariableType> {
         let Some(token) = &self.cur_token else {
             return None;
@@ -699,64 +724,97 @@ impl Tokenizer {
     }
 }
 
-pub fn parse_program(input: &str) -> Program {
-    let mut implementations = Vec::new();
-    let mut statements = Vec::new();
+pub fn parse_program(file: PathBuf, input: &str) -> Program {
+    let mut nodes = Vec::new();
+    let mut parser = Parser::new(file, input);
+    parser.next_token();
+    parser.skip_eol();
+    let mut use_funcs = false;
+    let mut parsed_begin = false;
+    let mut got_statement = false;
 
-    let mut tokenizer = Tokenizer::new(input);
-    tokenizer.next_token();
-    tokenizer.skip_eol();
-
-    while tokenizer.cur_token.is_some() {
-        if let Some(func) = tokenizer.parse_function() {
-            implementations.push(Implementations::Function(func));
-        } else if let Some(func) = tokenizer.parse_procedure() {
-            implementations.push(Implementations::Procedure(func));
-        } else {
-            if !implementations.is_empty() {
-                if let Some(Token::Comment(_)) = tokenizer.get_cur_token() {
-                    let cmt = tokenizer.save_spannedtoken();
-                    tokenizer.next_token();
-                    implementations.push(Implementations::Comment(cmt));
-                    continue;
+    while let Some(cur_token) = &parser.cur_token {
+        match cur_token.token {
+            Token::Function => {
+                if let Some(func) = parser.parse_function() {
+                    nodes.push(AstNode::Function(func));
                 }
-
-                if let Some(Token::Eol) = tokenizer.get_cur_token() {
-                    tokenizer.next_token();
-                    tokenizer.skip_eol();
-                    continue;
-                }
-
-                tokenizer.errors.push(Error::ParserError(ParserError {
-                    error: ParserErrorType::InvalidToken(tokenizer.save_token()),
-                    range: tokenizer.save_token_span(),
-                }));
-                tokenizer.next_token();
-                tokenizer.skip_eol();
-                continue;
             }
-            let tok = tokenizer.cur_token.clone();
-            let stmt = tokenizer.parse_statement();
-            if let Some(stmt) = stmt {
-                statements.push(stmt);
-            } else if let Some(t) = tok {
-                if !matches!(t.token, Token::Eol | Token::Comment(_)) {
-                    tokenizer.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::InvalidToken(t.token),
-                        range: t.span,
+            Token::Procedure => {
+                if let Some(func) = parser.parse_procedure() {
+                    nodes.push(AstNode::Procedure(func));
+                }
+            }
+            Token::Comment(_, _) => {
+                let cmt = parser.save_spannedtoken();
+                nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
+            }
+            Token::UseFuncs(_, _) => {
+                if use_funcs {
+                    parser.warnings.push(ParserWarning {
+                        error: ParserWarningType::UsefuncsAlreadySet,
+                        range: parser.lex.span(),
+                    });
+                }
+                if got_statement {
+                    parser.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::UsefuncAfterStatement,
+                        range: parser.lex.span(),
                     }));
+                    parser.next_token();
+                    continue;
+                }
+                use_funcs = true;
+                let cmt = parser.save_spannedtoken();
+                nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
+            }
+            Token::Eol => {}
+            Token::Begin => {
+                if parsed_begin && use_funcs {
+                    parser.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::OnlyOneBeginBlockAllowed,
+                        range: parser.lex.span(),
+                    }));
+                    break;
+                }
+                parsed_begin = true;
+                let stmt = parser.parse_statement();
+                if let Some(stmt) = stmt {
+                    nodes.push(AstNode::Statement(stmt));
+                }
+            }
+            _ => {
+                let tok = parser.cur_token.clone();
+                let stmt = parser.parse_statement();
+                if let Some(stmt) = stmt {
+                    if use_funcs {
+                        parser.errors.push(Error::ParserError(ParserError {
+                            error: ParserErrorType::NoStatementsAllowedOutsideBlock,
+                            range: parser.lex.span(),
+                        }));
+                        break;
+                    }
+                    got_statement = true;
+                    nodes.push(AstNode::Statement(stmt));
+                } else if let Some(t) = tok {
+                    if !matches!(t.token, Token::Eol | Token::Comment(_, _)) {
+                        parser.errors.push(Error::ParserError(ParserError {
+                            error: ParserErrorType::InvalidToken(t.token),
+                            range: t.span,
+                        }));
+                    }
                 }
             }
         }
-        tokenizer.next_token();
-        tokenizer.skip_eol();
+
+        parser.next_token();
     }
 
     Program {
-        statements,
-        implementations,
+        nodes,
         file_name: PathBuf::from("/test/test.ppe"),
-        errors: tokenizer.errors,
+        errors: parser.errors,
+        warnings: parser.warnings,
     }
 }
 

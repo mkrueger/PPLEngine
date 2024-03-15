@@ -1,21 +1,21 @@
-use super::{AstVisitor, AstVisitorMut, Implementations, Statement};
+use super::{AstNode, AstVisitor, AstVisitorMut, Statement};
 use std::{fmt, path::PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
-    pub statements: Vec<Statement>,
-    pub implementations: Vec<Implementations>,
+    pub nodes: Vec<AstNode>,
     pub file_name: PathBuf,
     pub errors: Vec<crate::parser::Error>,
+    pub warnings: Vec<crate::parser::ParserWarning>,
 }
 
 impl Program {
     pub fn new() -> Self {
         Program {
-            statements: vec![],
-            implementations: vec![],
+            nodes: vec![],
             file_name: PathBuf::new(),
             errors: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 

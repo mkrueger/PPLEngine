@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{convert_to, BinOp, Expression, Implementations, UnaryOp, Variable, VariableValue},
-    interpreter::{calc_table, errors::IcyError, execute_statement, StackFrame},
+    ast::{convert_to, AstNode, BinOp, Expression, UnaryOp, Variable, VariableValue},
+    interpreter::{calc_stmt_table, calc_table, errors::IcyError, execute_statement, StackFrame},
     tables::{FuncOpCode, FunctionDefinition},
     Res,
 };
@@ -54,15 +54,15 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
         Expression::FunctionCall(expr) => {
             let func_id = expr.get_identifier();
 
-            for imp in &interpreter.prg.implementations {
-                let Implementations::Function(f) = imp else {
+            for imp in &interpreter.prg.nodes {
+                let AstNode::Function(f) = imp else {
                     continue;
                 };
 
                 if func_id != f.get_identifier() {
                     continue;
                 }
-                let label_table = calc_table(f.get_statements());
+                let label_table = calc_stmt_table(f.get_statements());
 
                 let mut prg_frame = StackFrame {
                     values: HashMap::new(),

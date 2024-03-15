@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{
     ast::Constant,
     parser::lexer::{CommentType, Lexer, Token},
@@ -7,21 +9,21 @@ use crate::{
 fn test_comments() {
     assert_eq!(
         get_token("; COMMENT"),
-        Token::Comment((CommentType::SingleLineSemicolon, " COMMENT".to_string()))
+        Token::Comment(CommentType::SingleLineSemicolon, " COMMENT".to_string())
     );
     assert_eq!(
         get_token("' COMMENT"),
-        Token::Comment((CommentType::SingleLineQuote, " COMMENT".to_string()))
+        Token::Comment(CommentType::SingleLineQuote, " COMMENT".to_string())
     );
     assert_eq!(
         get_token("* COMMENT"),
-        Token::Comment((CommentType::SingleLineStar, " COMMENT".to_string()))
+        Token::Comment(CommentType::SingleLineStar, " COMMENT".to_string())
     );
     assert_eq!(get_token("End ; COMMENT"), Token::End);
 }
 
 fn get_token(src: &str) -> Token {
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
     match lex.next_token().unwrap() {
         Ok(t) => {
             //println!("got token: {t:?}");
@@ -51,7 +53,7 @@ fn test_string() {
     );
 
     let src = "\"Hello World\" \"foo\"";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
 
     assert_eq!(
         Token::Const(Constant::String("Hello World".to_string())),
@@ -108,7 +110,7 @@ fn test_identifier() {
     );
 
     let src = "Hello World";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("Hello".to_string())),
@@ -145,7 +147,7 @@ fn test_constants() {
 #[test]
 fn test_errors() {
     let src = "34877539875349573940";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
     let res = lex.next_token().unwrap();
     assert!(res.is_err());
     println!("got expected error: {res:?}");
@@ -154,7 +156,7 @@ fn test_errors() {
 #[test]
 fn test_eol() {
     let src = "A\nB\r\nC";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("A".to_string())),
@@ -175,7 +177,7 @@ fn test_eol() {
 #[test]
 fn test_colon_eol() {
     let src = "A:B:C";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("A".to_string())),
@@ -221,7 +223,7 @@ fn test_continue() {
 #[test]
 fn test_skip() {
     let src = "Hello _\n World";
-    let mut lex = Lexer::new(src);
+    let mut lex = Lexer::new(PathBuf::from("."), src);
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("Hello".to_string())),

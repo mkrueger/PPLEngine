@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{convert_to, AstNode, BinOp, Expression, UnaryOp, Variable, VariableValue},
-    interpreter::{calc_stmt_table, calc_table, errors::IcyError, execute_statement, StackFrame},
+    interpreter::{calc_stmt_table, errors::IcyError, execute_statement, StackFrame},
     tables::{FuncOpCode, FunctionDefinition},
     Res,
 };

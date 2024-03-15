@@ -113,16 +113,6 @@ pub struct StackFrame {
     pub label_table: HashMap<unicase::Ascii<String>, usize>,
 }
 
-pub fn calc_table(blk: &[AstNode]) -> HashMap<unicase::Ascii<String>, usize> {
-    let mut res = HashMap::new();
-    for (i, stmt) in blk.iter().enumerate() {
-        if let AstNode::Statement(Statement::Label(label)) = stmt {
-            res.insert(label.get_label().clone(), i);
-        }
-    }
-    res
-}
-
 pub fn calc_stmt_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usize> {
     let mut res = HashMap::new();
     for (i, stmt) in blk.iter().enumerate() {
@@ -641,7 +631,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         Statement::IfThen(_) => {
             panic!("unsupported statement IfThen")
         }
-        Statement::Block(_) => {
+        Statement::Block(block) => {
             panic!("unsupported statement Begin…End block")
         }
         Statement::Select(_) => {
@@ -669,7 +659,19 @@ pub fn run(
     io: &mut dyn PCBoardIO,
     icy_board_data: IcyBoardData,
 ) -> Res<bool> {
-    let label_table = calc_table(&prg.nodes);
+    let mut statements = Vec::new();
+    for imp in &mut prg.nodes {
+        let AstNode::Statement(stmt) = imp else {
+            continue;
+        };
+        if let Statement::Block(b) = stmt {
+            statements.extend(b.get_statements_mut().drain(0..));
+        } else {
+            statements.push(stmt.clone());
+        }
+    }
+
+    let label_table = calc_stmt_table(&statements);
     let cur_frame = StackFrame {
         values: HashMap::new(),
         gosub_stack: Vec::new(),
@@ -695,12 +697,10 @@ pub fn run(
     interpreter.set_user_variables(&UserRecord::default());
     while interpreter.is_running {
         let idx = interpreter.cur_frame.last().unwrap().cur_ptr;
-        if idx >= prg.nodes.len() {
+        if idx >= statements.len() {
             break;
         }
-        let AstNode::Statement(stmt) = &prg.nodes[idx] else {
-            continue;
-        };
+        let stmt = &statements[idx];
         match execute_statement(&mut interpreter, stmt) {
             Ok(()) => {}
             Err(err) => {
@@ -708,7 +708,6 @@ pub fn run(
                 break;
             }
         }
-
         interpreter.cur_frame.last_mut().unwrap().cur_ptr += 1;
     }
     Ok(true)

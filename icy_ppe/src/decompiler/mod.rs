@@ -55,7 +55,7 @@ pub struct Decompiler {
 
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
-
+    pub statements: Vec<Statement>,
     label_used: HashMap<i32, i32>,
     func_used: HashMap<i32, FuncL>,
     label_stack: Vec<i32>,
@@ -85,6 +85,7 @@ impl Decompiler {
             func_used: HashMap::new(),
             label_stack: Vec::new(),
             expr_stack: Vec::new(),
+            statements: Vec::new(),
         }
     }
 
@@ -104,7 +105,7 @@ impl Decompiler {
             }
             _ => {}
         }
-        prg.nodes.push(crate::ast::AstNode::Statement(stmt));
+        self.statements.push(stmt);
     }
 
     fn fill_valid(&mut self, i: i32, j: i32) {

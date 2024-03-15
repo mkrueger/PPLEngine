@@ -129,7 +129,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool, disassemble: bool) -
         if to_file {
             println!("Pass 3 ...");
         }
-        reconstruct::do_pass3(&mut prg);
+        reconstruct::do_pass3(&mut prg, &mut d.statements);
         reconstruct::do_pass4(&mut prg);
     }
 

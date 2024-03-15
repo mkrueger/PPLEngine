@@ -639,10 +639,11 @@ impl Parser {
                 let ct = self.save_spannedtoken();
                 Some(Statement::End(EndStatement::new(ct)))
             }
+           /*
             Some(Token::Begin) => {
                 let begin_token = self.save_spannedtoken();
                 self.parse_block(begin_token)
-            }
+            }*/
             Some(Token::While) => self.parse_while(),
             Some(Token::Select) => self.parse_select(),
             Some(Token::If) => self.parse_if(),
@@ -777,7 +778,6 @@ impl Parser {
             }
 
             Some(Token::Eol) | None => None,
-            Some(Token::Declare) => self.parse_declaration(),
             _ => {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {

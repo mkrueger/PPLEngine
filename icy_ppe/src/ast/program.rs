@@ -1,4 +1,4 @@
-use super::{AstNode, AstVisitor, AstVisitorMut, Statement};
+use super::{AstNode, AstVisitor, AstVisitorMut};
 use std::{fmt, path::PathBuf};
 
 #[derive(Debug, PartialEq)]

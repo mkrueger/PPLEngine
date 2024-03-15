@@ -168,18 +168,18 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         self.highlight_token(var_decl.get_type_token(), SemanticTokenType::TYPE);
     }
 
-    fn visit_procedure_declaration_statement(
+    fn visit_procedure_declaration(
         &mut self,
-        proc_decl: &icy_ppe::ast::ProcedureDeclarationStatement,
+        proc_decl: &icy_ppe::ast::ProcedureDeclarationAstNode,
     ) {
         self.highlight_token(proc_decl.get_declare_token(), SemanticTokenType::KEYWORD);
         self.highlight_token(proc_decl.get_procedure_token(), SemanticTokenType::KEYWORD);
         self.higlight_parameters(proc_decl.get_parameters());
     }
 
-    fn visit_function_declaration_statement(
+    fn visit_function_declaration(
         &mut self,
-        func_decl: &icy_ppe::ast::FunctionDeclarationStatement,
+        func_decl: &icy_ppe::ast::FunctionDeclarationAstNode,
     ) {
         self.highlight_token(func_decl.get_declare_token(), SemanticTokenType::KEYWORD);
         self.highlight_token(func_decl.get_function_token(), SemanticTokenType::KEYWORD);

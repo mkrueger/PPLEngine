@@ -6,8 +6,7 @@ use crate::{
 };
 
 use super::{
-    AstVisitor, AstVisitorMut, Constant, ConstantExpression, Expression,
-    FunctionDeclarationStatement, ProcedureDeclarationStatement, UnaryExpression, UnaryOp,
+    AstVisitor, AstVisitorMut, Constant, ConstantExpression, Expression, UnaryExpression, UnaryOp,
     VariableDeclarationStatement, VariableSpecifier,
 };
 
@@ -35,8 +34,6 @@ pub enum Statement {
     PredifinedCall(PredefinedCallStatement),
 
     VariableDeclaration(VariableDeclarationStatement),
-    ProcedureDeclaration(ProcedureDeclarationStatement),
-    FunctionDeclaration(FunctionDeclarationStatement),
 }
 
 impl Statement {
@@ -61,8 +58,6 @@ impl Statement {
             Statement::Call(s) => visitor.visit_procedure_call_statement(s),
             Statement::PredifinedCall(s) => visitor.visit_predefined_call_statement(s),
             Statement::VariableDeclaration(s) => visitor.visit_variable_declaration_statement(s),
-            Statement::ProcedureDeclaration(s) => visitor.visit_procedure_declaration_statement(s),
-            Statement::FunctionDeclaration(s) => visitor.visit_function_declaration_statement(s),
         }
     }
 
@@ -87,8 +82,6 @@ impl Statement {
             Statement::Call(s) => visitor.visit_procedure_call_statement(s),
             Statement::PredifinedCall(s) => visitor.visit_predefined_call_statement(s),
             Statement::VariableDeclaration(s) => visitor.visit_variable_declaration_statement(s),
-            Statement::ProcedureDeclaration(s) => visitor.visit_procedure_declaration_statement(s),
-            Statement::FunctionDeclaration(s) => visitor.visit_function_declaration_statement(s),
         }
     }
 }

@@ -122,9 +122,9 @@ impl AstVisitorMut<()> for RenameVisitor {
         }
     }
 
-    fn visit_procedure_declaration_statement(
+    fn visit_procedure_declaration(
         &mut self,
-        proc_decl: &mut crate::ast::ProcedureDeclarationStatement,
+        proc_decl: &mut crate::ast::ProcedureDeclarationAstNode,
     ) {
         if let Some(id) = self.rename_map.get(proc_decl.get_identifier()) {
             proc_decl.set_identifier(id.clone());
@@ -136,9 +136,9 @@ impl AstVisitorMut<()> for RenameVisitor {
         }
     }
 
-    fn visit_function_declaration_statement(
+    fn visit_function_declaration(
         &mut self,
-        func_decl: &mut crate::ast::FunctionDeclarationStatement,
+        func_decl: &mut crate::ast::FunctionDeclarationAstNode,
     ) {
         if let Some(id) = self.rename_map.get(func_decl.get_identifier()) {
             func_decl.set_identifier(id.clone());

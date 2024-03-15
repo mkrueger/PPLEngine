@@ -7,9 +7,9 @@ use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::AstNode;
 use icy_ppe::ast::CommentAstNode;
-use icy_ppe::ast::FunctionDeclarationStatement;
+use icy_ppe::ast::FunctionDeclarationAstNode;
 use icy_ppe::ast::OutputFunc;
-use icy_ppe::ast::ProcedureDeclarationStatement;
+use icy_ppe::ast::ProcedureDeclarationAstNode;
 use icy_ppe::ast::Program;
 use icy_ppe::decompiler::reconstruct;
 use icy_ppe::decompiler::Decompiler;
@@ -103,23 +103,23 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool, disassemble: bool) -
                 continue;
             }
             icy_ppe::ast::AstNode::Function(f) => {
-                FunctionDeclarationStatement::create_empty_statement(
+                icy_ppe::ast::AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
                     f.get_identifier().clone(),
                     f.get_parameters().clone(),
                     *f.get_return_type(),
-                )
+                ))
             }
             icy_ppe::ast::AstNode::Procedure(p) => {
-                ProcedureDeclarationStatement::create_empty_statement(
+                icy_ppe::ast::AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::empty(
                     p.get_identifier().clone(),
                     p.get_parameters().clone(),
-                )
+                ))
             }
             _ => {
                 continue;
             }
         };
-        declarations.push(AstNode::Statement(declaration));
+        declarations.push(declaration);
     }
 
     declarations.extend(prg.nodes);

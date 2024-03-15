@@ -337,6 +337,72 @@ impl Executable {
                         },
                     );
                 }
+                
+                
+
+                icy_ppe::ast::AstNode::FunctionDeclaration(func) => {
+                if self
+                    .procedure_declarations
+                    .contains_key(func.get_identifier())
+                {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::FunctionAlreadyDefined(
+                            func.get_identifier().to_string(),
+                        ),
+                        range: func.get_identifier_token().span.clone(),
+                    });
+                    return;
+                }
+                self.procedure_declarations.insert(
+                    func.get_identifier().clone(),
+                    Function {
+                        header: FunctionValue {
+                            parameters: func.get_parameters().len() as u8,
+                            local_variables: 0,
+                            start_offset: 0,
+                            first_var_id: 0,
+                            return_var: func.get_return_type() as i16,
+                        },
+                        usages: Vec::new(),
+                    },
+                );
+            }
+
+            icy_ppe::ast::AstNode::ProcedureDeclaration(proc) => {
+                if self
+                    .procedure_declarations
+                    .contains_key(proc.get_identifier())
+                {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::ProcedureAlreadyDefined(
+                            proc.get_identifier().to_string(),
+                        ),
+                        range: proc.get_identifier_token().span.clone(),
+                    });
+                    return;
+                }
+
+                let mut var_params = 0;
+                for (i, p) in proc.get_parameters().iter().enumerate() {
+                    if p.is_var() {
+                        var_params |= 1 << i;
+                    }
+                }
+                self.procedure_declarations.insert(
+                    proc.get_identifier().clone(),
+                    Function {
+                        header: FunctionValue {
+                            parameters: proc.get_parameters().len() as u8,
+                            local_variables: 0,
+                            start_offset: 0,
+                            first_var_id: 0,
+                            return_var: var_params,
+                        },
+                        usages: Vec::new(),
+                    },
+                );
+            }
+
                 icy_ppe::ast::AstNode::Statement(stmt) => {
                     self.compile_statement(stmt);
                 }
@@ -347,9 +413,8 @@ impl Executable {
 
         self.fill_labels();
 
-        if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
-            self.script_buffer.push(OpCode::END as u16);
-        }
+        self.script_buffer.push(OpCode::END as u16);
+        
         for imp in &prg.nodes {
             match imp {
                 icy_ppe::ast::AstNode::Comment(_) => {}
@@ -482,9 +547,7 @@ impl Executable {
             }
         }
 
-        if self.script_buffer.last() != Some(&(OpCode::END as u16)) {
-            self.script_buffer.push(OpCode::END as u16);
-        }
+        self.script_buffer.push(OpCode::END as u16);
 
         for decl in &self.procedure_declarations {
             for idx in &decl.1.usages {
@@ -641,69 +704,6 @@ impl Executable {
                         v.get_cube_size(),
                     );
                 }
-            }
-
-            Statement::FunctionDeclaration(func) => {
-                if self
-                    .procedure_declarations
-                    .contains_key(func.get_identifier())
-                {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::FunctionAlreadyDefined(
-                            func.get_identifier().to_string(),
-                        ),
-                        range: func.get_identifier_token().span.clone(),
-                    });
-                    return;
-                }
-                self.procedure_declarations.insert(
-                    func.get_identifier().clone(),
-                    Function {
-                        header: FunctionValue {
-                            parameters: func.get_parameters().len() as u8,
-                            local_variables: 0,
-                            start_offset: 0,
-                            first_var_id: 0,
-                            return_var: func.get_return_type() as i16,
-                        },
-                        usages: Vec::new(),
-                    },
-                );
-            }
-
-            Statement::ProcedureDeclaration(proc) => {
-                if self
-                    .procedure_declarations
-                    .contains_key(proc.get_identifier())
-                {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::ProcedureAlreadyDefined(
-                            proc.get_identifier().to_string(),
-                        ),
-                        range: proc.get_identifier_token().span.clone(),
-                    });
-                    return;
-                }
-
-                let mut var_params = 0;
-                for (i, p) in proc.get_parameters().iter().enumerate() {
-                    if p.is_var() {
-                        var_params |= 1 << i;
-                    }
-                }
-                self.procedure_declarations.insert(
-                    proc.get_identifier().clone(),
-                    Function {
-                        header: FunctionValue {
-                            parameters: proc.get_parameters().len() as u8,
-                            local_variables: 0,
-                            start_offset: 0,
-                            first_var_id: 0,
-                            return_var: var_params,
-                        },
-                        usages: Vec::new(),
-                    },
-                );
             }
 
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),

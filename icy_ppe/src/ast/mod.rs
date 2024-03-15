@@ -33,6 +33,8 @@ pub enum AstNode {
     Function(FunctionImplementation),
     Procedure(ProcedureImplementation),
     Statement(Statement),
+    ProcedureDeclaration(ProcedureDeclarationAstNode),
+    FunctionDeclaration(FunctionDeclarationAstNode),
 }
 
 impl AstNode {
@@ -42,6 +44,8 @@ impl AstNode {
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => s.visit(visitor),
+            AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
+            AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
         }
     }
 
@@ -51,6 +55,8 @@ impl AstNode {
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => s.visit_mut(visitor),
+            AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
+            AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
         }
     }
 }
@@ -71,13 +77,7 @@ pub struct FunctionImplementation {
     endfunc_token: SpannedToken,
 }
 
-/*
-impl fmt::Display for FunctionImplementation {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.declaration)
-    }
-}
-*/
+
 impl FunctionImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -3,10 +3,10 @@ use crate::parser::lexer::SpannedToken;
 use super::{
     BinaryExpression, BlockStatement, BreakStatement, CommentAstNode, ConstantExpression,
     ContinueStatement, EndStatement, ForStatement, FunctionCallExpression,
-    FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
+    FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement,
     IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
     ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
-    ProcedureCallStatement, ProcedureDeclarationStatement, ProcedureImplementation, Program,
+    ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Program,
     ReturnStatement, SelectStatement, UnaryExpression, VariableDeclarationStatement,
     WhileDoStatement, WhileStatement,
 };
@@ -115,15 +115,15 @@ pub trait AstVisitor<T: Default>: Sized {
     ) -> T {
         T::default()
     }
-    fn visit_procedure_declaration_statement(
+    fn visit_procedure_declaration(
         &mut self,
-        proc_decl: &ProcedureDeclarationStatement,
+        proc_decl: &ProcedureDeclarationAstNode,
     ) -> T {
         T::default()
     }
-    fn visit_function_declaration_statement(
+    fn visit_function_declaration(
         &mut self,
-        func_decl: &FunctionDeclarationStatement,
+        func_decl: &FunctionDeclarationAstNode,
     ) -> T {
         T::default()
     }
@@ -406,15 +406,15 @@ pub trait AstVisitorMut<T: Default>: Sized {
     ) -> T {
         T::default()
     }
-    fn visit_procedure_declaration_statement(
+    fn visit_procedure_declaration(
         &mut self,
-        proc_decl: &mut ProcedureDeclarationStatement,
+        proc_decl: &mut ProcedureDeclarationAstNode,
     ) -> T {
         T::default()
     }
-    fn visit_function_declaration_statement(
+    fn visit_function_declaration(
         &mut self,
-        func_decl: &mut FunctionDeclarationStatement,
+        func_decl: &mut FunctionDeclarationAstNode,
     ) -> T {
         T::default()
     }

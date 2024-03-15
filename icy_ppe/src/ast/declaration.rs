@@ -312,7 +312,7 @@ impl fmt::Display for VariableDeclarationStatement {
     }
 }
 #[derive(Debug, PartialEq, Clone)]
-pub struct ProcedureDeclarationStatement {
+pub struct ProcedureDeclarationAstNode {
     declare_token: SpannedToken,
     procedure_token: SpannedToken,
     identifier_token: SpannedToken,
@@ -321,7 +321,7 @@ pub struct ProcedureDeclarationStatement {
     rightpar_token: SpannedToken,
 }
 
-impl ProcedureDeclarationStatement {
+impl ProcedureDeclarationAstNode {
     pub fn new(
         declare_token: SpannedToken,
         procedure_token: SpannedToken,
@@ -395,18 +395,10 @@ impl ProcedureDeclarationStatement {
     pub fn get_rightpar_token(&self) -> &SpannedToken {
         &self.rightpar_token
     }
-    pub fn create_empty_statement(
-        identifier: unicase::Ascii<String>,
-        parameters: Vec<ParameterSpecifier>,
-    ) -> Statement {
-        Statement::ProcedureDeclaration(ProcedureDeclarationStatement::empty(
-            identifier, parameters,
-        ))
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FunctionDeclarationStatement {
+pub struct FunctionDeclarationAstNode {
     declare_token: SpannedToken,
     function_token: SpannedToken,
     identifier_token: SpannedToken,
@@ -417,7 +409,7 @@ pub struct FunctionDeclarationStatement {
     return_type: VariableType,
 }
 
-impl FunctionDeclarationStatement {
+impl FunctionDeclarationAstNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         declare_token: SpannedToken,
@@ -513,15 +505,4 @@ impl FunctionDeclarationStatement {
         self.return_type
     }
 
-    pub fn create_empty_statement(
-        identifier: unicase::Ascii<String>,
-        parameters: Vec<ParameterSpecifier>,
-        return_type: VariableType,
-    ) -> Statement {
-        Statement::FunctionDeclaration(FunctionDeclarationStatement::empty(
-            identifier,
-            parameters,
-            return_type,
-        ))
-    }
 }

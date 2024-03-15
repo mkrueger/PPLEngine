@@ -2,8 +2,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     ast::{
-        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationStatement,
-        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationStatement,
+        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
+        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
         ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType,
     },
     parser::lexer::LexingError,
@@ -352,140 +352,137 @@ impl Parser {
     /// # Panics
     ///
     /// Panics if .
-    pub fn parse_declaration(&mut self) -> Option<Statement> {
-        if Some(Token::Declare) == self.get_cur_token() {
-            let declare_token = self.save_spannedtoken();
-            self.next_token();
+    pub fn parse_declaration(&mut self) -> Option<AstNode> {
+        let declare_token = self.save_spannedtoken();
+        self.next_token();
 
-            let is_function = if Some(Token::Procedure) == self.get_cur_token() {
-                false
-            } else if Some(Token::Function) == self.get_cur_token() {
-                true
-            } else {
+        let is_function = if Some(Token::Procedure) == self.get_cur_token() {
+            false
+        } else if Some(Token::Function) == self.get_cur_token() {
+            true
+        } else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::InvalidDeclaration(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
+        let func_or_proc_token = self.save_spannedtoken();
+        self.next_token();
+
+        let Some(Token::Identifier(_name)) = self.get_cur_token() else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::IdentifierExpected(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
+        let identifier_token = self.save_spannedtoken();
+        self.next_token();
+
+        if self.get_cur_token() != Some(Token::LPar) {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::MissingOpenParens(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        }
+
+        let leftpar_token = self.save_spannedtoken();
+        self.next_token();
+
+        let mut parameters = Vec::new();
+
+        while self.get_cur_token() != Some(Token::RPar) {
+            if self.get_cur_token().is_none() {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::InvalidDeclaration(self.save_token()),
-                        range: self.lex.span(),
-                    }));
-                return None;
-            };
-            let func_or_proc_token = self.save_spannedtoken();
-            self.next_token();
-
-            let Some(Token::Identifier(_name)) = self.get_cur_token() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::IdentifierExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
-                return None;
-            };
-            let identifier_token = self.save_spannedtoken();
-            self.next_token();
-
-            if self.get_cur_token() != Some(Token::LPar) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingOpenParens(self.save_token()),
+                        error: ParserErrorType::MissingCloseParens(self.save_token()),
                         range: self.lex.span(),
                     }));
                 return None;
             }
 
-            let leftpar_token = self.save_spannedtoken();
-            self.next_token();
-
-            let mut parameters = Vec::new();
-
-            while self.get_cur_token() != Some(Token::RPar) {
-                if self.get_cur_token().is_none() {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.save_token()),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                }
-
-                let mut var_token = None;
-                if let Some(Token::Identifier(id)) = self.get_cur_token() {
-                    if id == Ascii::new("VAR".to_string()) {
-                        if is_function {
-                            self.errors
-                                .push(crate::parser::Error::ParserError(ParserError {
-                                    error: ParserErrorType::VarNotAllowedInFunctions,
-                                    range: self.lex.span(),
-                                }));
-                        } else {
-                            var_token = Some(self.save_spannedtoken());
-                        }
-                        self.next_token();
+            let mut var_token = None;
+            if let Some(Token::Identifier(id)) = self.get_cur_token() {
+                if id == Ascii::new("VAR".to_string()) {
+                    if is_function {
+                        self.errors
+                            .push(crate::parser::Error::ParserError(ParserError {
+                                error: ParserErrorType::VarNotAllowedInFunctions,
+                                range: self.lex.span(),
+                            }));
+                    } else {
+                        var_token = Some(self.save_spannedtoken());
                     }
-                }
-
-                if let Some(var_type) = self.get_variable_type() {
-                    let type_token = self.save_spannedtoken();
                     self.next_token();
-                    let Some(info) = self.parse_var_info() else {
-                        return None;
-                    };
-                    parameters.push(ParameterSpecifier::new(
-                        var_token, type_token, var_type, info,
-                    ));
-                } else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::TypeExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                }
+            }
+
+            if let Some(var_type) = self.get_variable_type() {
+                let type_token = self.save_spannedtoken();
+                self.next_token();
+                let Some(info) = self.parse_var_info() else {
                     return None;
-                }
-
-                if self.get_cur_token() == Some(Token::Comma) {
-                    self.next_token();
-                }
-            }
-            let rightpar_token = self.save_spannedtoken();
-            self.next_token();
-
-            if !is_function {
-                return Some(Statement::ProcedureDeclaration(
-                    ProcedureDeclarationStatement::new(
-                        declare_token,
-                        func_or_proc_token,
-                        identifier_token,
-                        leftpar_token,
-                        parameters,
-                        rightpar_token,
-                    ),
+                };
+                parameters.push(ParameterSpecifier::new(
+                    var_token, type_token, var_type, info,
                 ));
-            }
-
-            let Some(return_type) = self.get_variable_type() else {
+            } else {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::TypeExpected(self.save_token()),
                         range: self.lex.span(),
                     }));
                 return None;
-            };
-            let return_type_token = self.save_spannedtoken();
-            self.next_token();
+            }
 
-            return Some(Statement::FunctionDeclaration(
-                FunctionDeclarationStatement::new(
+            if self.get_cur_token() == Some(Token::Comma) {
+                self.next_token();
+            }
+        }
+        let rightpar_token = self.save_spannedtoken();
+        self.next_token();
+
+        if !is_function {
+            return Some(AstNode::ProcedureDeclaration(
+                ProcedureDeclarationAstNode::new(
                     declare_token,
                     func_or_proc_token,
                     identifier_token,
                     leftpar_token,
                     parameters,
                     rightpar_token,
-                    return_type_token,
-                    return_type,
                 ),
             ));
         }
-        None
+
+        let Some(return_type) = self.get_variable_type() else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::TypeExpected(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
+        let return_type_token = self.save_spannedtoken();
+        self.next_token();
+
+        return Some(AstNode::FunctionDeclaration(
+            FunctionDeclarationAstNode::new(
+                declare_token,
+                func_or_proc_token,
+                identifier_token,
+                leftpar_token,
+                parameters,
+                rightpar_token,
+                return_type_token,
+                return_type,
+            ),
+        ));
     }
 
     /// Returns the parse procedure of this [`Tokenizer`].
@@ -745,6 +742,11 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
                     nodes.push(AstNode::Procedure(func));
                 }
             }
+            Token::Declare => {
+                if let Some(decl) = parser.parse_declaration() {
+                    nodes.push(decl);
+                }
+            }
             Token::Comment(_, _) => {
                 let cmt = parser.save_spannedtoken();
                 nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
@@ -770,7 +772,7 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
             }
             Token::Eol => {}
             Token::Begin => {
-                if parsed_begin && use_funcs {
+                if parsed_begin {
                     parser.errors.push(Error::ParserError(ParserError {
                         error: ParserErrorType::OnlyOneBeginBlockAllowed,
                         range: parser.lex.span(),
@@ -778,16 +780,12 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
                     break;
                 }
                 parsed_begin = true;
-                let stmt = parser.parse_statement();
-                if let Some(stmt) = stmt {
-                    nodes.push(AstNode::Statement(stmt));
-                }
             }
             _ => {
                 let tok = parser.cur_token.clone();
                 let stmt = parser.parse_statement();
                 if let Some(stmt) = stmt {
-                    if use_funcs {
+                    if use_funcs && !parsed_begin {
                         parser.errors.push(Error::ParserError(ParserError {
                             error: ParserErrorType::NoStatementsAllowedOutsideBlock,
                             range: parser.lex.span(),

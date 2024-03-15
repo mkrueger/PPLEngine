@@ -639,8 +639,6 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         }
 
         // nop statements
-        Statement::ProcedureDeclaration(_)
-        | Statement::FunctionDeclaration(_)
         | Statement::Label(_)
         | Statement::Comment(_) => { /* skip */ }
     }

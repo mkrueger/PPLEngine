@@ -404,10 +404,6 @@ impl PredefinedFunctionCallExpression {
         &mut self.arguments
     }
 
-    pub(crate) fn set_arguments(&mut self, arguments: Vec<Expression>) {
-        self.arguments = arguments;
-    }
-
     pub fn get_rpar_token_token(&self) -> &SpannedToken {
         &self.rpar_token
     }
@@ -431,9 +427,6 @@ impl PredefinedFunctionCallExpression {
         Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::empty(func, arguments))
     }
 
-    pub(crate) fn set_identifier(&mut self, identifier: unicase::Ascii<String>) {
-        self.identifier_token.token = Token::Identifier(identifier);
-    }
 
     pub fn get_func(&self) -> &'static FunctionDefinition<'static> {
         self.func

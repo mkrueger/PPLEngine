@@ -45,14 +45,10 @@ pub fn evaluate_exp(interpreter: &mut Interpreter, expr: &Expression) -> Res<Var
         }
         Expression::Const(constant) => Ok(constant.get_constant_value().get_value()),
         Expression::Parens(expr) => evaluate_exp(interpreter, expr.get_expression()),
-        
+
         Expression::PredefinedFunctionCall(expr) => {
             // TODO: Check parameter signature
-            return call_function(
-                interpreter,
-                expr.get_func(),
-                expr.get_arguments(),
-            );
+            return call_function(interpreter, expr.get_func(), expr.get_arguments());
         }
 
         Expression::FunctionCall(expr) => {

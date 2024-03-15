@@ -171,8 +171,7 @@ impl Constant {
 impl fmt::Display for Constant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Constant::Money(i) |
-            Constant::Integer(i) => write!(f, "{i}"),
+            Constant::Money(i) | Constant::Integer(i) => write!(f, "{i}"),
             Constant::Unsigned(i) => write!(f, "{i}"),
             Constant::String(str) => write!(f, "\"{str}\""),
             Constant::Double(i) => write!(f, "{i}"),

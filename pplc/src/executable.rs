@@ -2,6 +2,7 @@ use icy_ppe::{
     ast::{Program, Statement, Variable, VariableData, VariableType, VariableValue},
     crypt::{encode_rle, encrypt},
     executable::FunctionValue,
+    parser::lexer::SpannedToken,
     tables::{self, get_function_definition, OpCode},
 };
 use std::collections::HashMap;
@@ -17,9 +18,27 @@ pub enum CompilationErrorType {
 
     #[error("Procedure not found: {0}")]
     ProcedureNotFound(String),
+
+    #[error("Label already defined: {0}")]
+    LabelAlreadyDefined(String),
+
+    #[error("Undefined label: {0}")]
+    UndefinedLabel(String),
 }
+
 pub struct CompilationError {
     pub error: CompilationErrorType,
+    pub range: core::ops::Range<usize>,
+}
+
+#[derive(Error, Debug)]
+pub enum CompilationWarningType {
+    #[error("Unused label {0}")]
+    UnusedLabel(String),
+}
+
+pub struct CompilationWarning {
+    pub error: CompilationWarningType,
     pub range: core::ops::Range<usize>,
 }
 
@@ -119,9 +138,10 @@ impl VariableId {
         buffer
     }
 }
+#[derive(Debug)]
 struct LabelInfo {
-    pub address: usize,
-    pub usages: Vec<usize>,
+    pub address: Option<(SpannedToken, usize)>,
+    pub usages: Vec<(SpannedToken, usize)>,
 }
 
 pub struct Executable {
@@ -135,6 +155,7 @@ pub struct Executable {
 
     label_table: HashMap<unicase::Ascii<String>, LabelInfo>,
     pub errors: Vec<CompilationError>,
+    pub warnings: Vec<CompilationWarning>,
 
     cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
@@ -153,6 +174,7 @@ impl Executable {
             script_buffer: Vec::new(),
             label_table: HashMap::new(),
             errors: Vec::new(),
+            warnings: Vec::new(),
             cur_function: unicase::Ascii::new(String::new()),
             cur_function_id: -1,
             variable_id: 0,
@@ -534,16 +556,28 @@ impl Executable {
             }
             Statement::Gosub(gosub_stmt) => {
                 self.script_buffer.push(OpCode::GOSUB as u16);
-                self.add_label_usage(gosub_stmt.get_label(), self.script_buffer.len() * 2);
+                self.add_label_usage(
+                    gosub_stmt.get_label(),
+                    gosub_stmt.get_label_token().clone(),
+                    self.script_buffer.len() * 2,
+                );
                 self.script_buffer.push(0);
             }
-            Statement::Goto(label) => {
+            Statement::Goto(goto_stmt) => {
                 self.script_buffer.push(OpCode::GOTO as u16);
-                self.add_label_usage(label.get_label(), self.script_buffer.len() * 2);
+                self.add_label_usage(
+                    goto_stmt.get_label(),
+                    goto_stmt.get_label_token().clone(),
+                    self.script_buffer.len() * 2,
+                );
                 self.script_buffer.push(0);
             }
             Statement::Label(label) => {
-                self.add_label_address(label.get_label(), self.script_buffer.len() * 2);
+                self.add_label_address(
+                    label.get_label(),
+                    label.get_label_token().clone(),
+                    self.script_buffer.len() * 2,
+                );
             }
             Statement::PredifinedCall(call_stmt) => {
                 let def = call_stmt.get_func();
@@ -715,10 +749,8 @@ impl Executable {
                     stack.push(tables::FUNCTION_DEFINITIONS[predef as usize].opcode as u16);
                     return;
                 }
-
             }
             icy_ppe::ast::Expression::FunctionCall(expr) => {
-                
                 if self
                     .procedure_declarations
                     .contains_key(expr.get_identifier())
@@ -783,12 +815,25 @@ impl Executable {
         id
     }
 
-    fn add_label_address(&mut self, label: &unicase::Ascii<String>, len: usize) {
-        self.get_label_info(label).address = len;
+    fn add_label_address(
+        &mut self,
+        label: &unicase::Ascii<String>,
+        token: SpannedToken,
+        len: usize,
+    ) {
+        if self.get_label_info(label).address.is_some() {
+            self.errors.push(CompilationError {
+                error: CompilationErrorType::LabelAlreadyDefined(label.to_string()),
+                range: token.span.clone(),
+            });
+            return;
+        }
+
+        self.get_label_info(label).address = Some((token, len));
     }
 
-    fn add_label_usage(&mut self, label: &unicase::Ascii<String>, len: usize) {
-        self.get_label_info(label).usages.push(len);
+    fn add_label_usage(&mut self, label: &unicase::Ascii<String>, token: SpannedToken, len: usize) {
+        self.get_label_info(label).usages.push((token, len));
     }
 
     fn get_label_info(&mut self, label: &unicase::Ascii<String>) -> &mut LabelInfo {
@@ -796,7 +841,7 @@ impl Executable {
             self.label_table.insert(
                 label.clone(),
                 LabelInfo {
-                    address: 0,
+                    address: None,
                     usages: Vec::new(),
                 },
             );
@@ -806,8 +851,25 @@ impl Executable {
 
     fn fill_labels(&mut self) {
         for info in self.label_table.values() {
-            for usage in &info.usages {
-                self.script_buffer[*usage / 2] = info.address as u16;
+            let Some((address_token, address_pos)) = &info.address else {
+                let label = &info.usages.first().unwrap().0;
+                self.errors.push(CompilationError {
+                    error: CompilationErrorType::UndefinedLabel(label.token.to_string()),
+                    range: label.span.clone(),
+                });
+                continue;
+            };
+
+            if info.usages.is_empty() {
+                self.warnings.push(CompilationWarning {
+                    error: CompilationWarningType::UnusedLabel(address_token.token.to_string()),
+                    range: address_token.span.clone(),
+                });
+                continue;
+            }
+
+            for (token, usage) in &info.usages {
+                self.script_buffer[*usage / 2] = *address_pos as u16;
             }
         }
         self.label_table.clear();

@@ -41,13 +41,14 @@ fn main() {
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
 
+    println!("{}", prg);
     transform_ast(&mut prg);
     let mut exec = executable::Executable::new();
     exec.compile(&prg, arguments.no_user_variables);
 
-    if !prg.errors.is_empty() || !exec.errors.is_empty() {
+    if !prg.errors.is_empty() || !exec.warnings.is_empty() || !exec.errors.is_empty() {
         let mut errors = 0;
-        let warnings = 0;
+        let mut warnings = 0;
 
         for e in &prg.errors {
             match e {
@@ -87,6 +88,19 @@ fn main() {
                 .with_message(format!("{}", err.error))
                 .with_label(
                     Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Red),
+                )
+                .finish()
+                .print((&file_name, Source::from(&src)))
+                .unwrap();
+        }
+
+        for err in &exec.warnings {
+            warnings += 1;
+            Report::build(ReportKind::Warning, &file_name, 12)
+                .with_code(warnings)
+                .with_message(format!("{}", err.error))
+                .with_label(
+                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Yellow),
                 )
                 .finish()
                 .print((&file_name, Source::from(&src)))

@@ -1,8 +1,15 @@
 use crate::ast::{
-    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut, walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut, BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement, UnaryExpression, WhileDoStatement
+    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut,
+    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut,
+    BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression, ContinueStatement, ElseBlock,
+    ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations,
+    SelectStatement, UnaryExpression, WhileDoStatement,
 };
 
-use super::{rename_visitor::{RenameScanVistitor, RenameVisitor}, Expression, HashSet, Program, Statement};
+use super::{
+    rename_visitor::{RenameScanVistitor, RenameVisitor},
+    Expression, HashSet, Program, Statement,
+};
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.statements);
@@ -23,7 +30,6 @@ pub fn do_pass3(prg: &mut Program) {
 
 struct RemoveNotNotVisitor {}
 
-
 fn simplify_condition(cond: &mut Expression) {
     if let Expression::Unary(unaryexpr1) = cond {
         if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
@@ -33,22 +39,24 @@ fn simplify_condition(cond: &mut Expression) {
                         *cond = unary_expr.get_expression().clone();
                     }
                 }
-                Expression::Const(c) => {
-                    match c.get_constant_value() {
-                        Constant::Boolean(b) => {
-                            *cond = ConstantExpression::create_empty_expression(Constant::Boolean(!b));
-                        }
-                        Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE) => {
-                            *cond = ConstantExpression::create_empty_expression(Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE));
-                        }
-                        Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE) => {
-                            *cond = ConstantExpression::create_empty_expression(Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE));
-                        }
-                        _ => (),
+                Expression::Const(c) => match c.get_constant_value() {
+                    Constant::Boolean(b) => {
+                        *cond = ConstantExpression::create_empty_expression(Constant::Boolean(!b));
                     }
-                }
+                    Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE) => {
+                        *cond = ConstantExpression::create_empty_expression(Constant::Builtin(
+                            &crate::ast::constant::BuiltinConst::FALSE,
+                        ));
+                    }
+                    Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE) => {
+                        *cond = ConstantExpression::create_empty_expression(Constant::Builtin(
+                            &crate::ast::constant::BuiltinConst::TRUE,
+                        ));
+                    }
+                    _ => (),
+                },
                 _ => (),
-            } 
+            }
         }
     }
     while let Expression::Parens(p) = cond {
@@ -934,4 +942,3 @@ pub fn do_pass4(prg: &mut Program) {
     let mut renamer = RenameVisitor::new(scanner.rename_map);
     prg.visit_mut(&mut renamer);
 }
-

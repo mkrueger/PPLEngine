@@ -1,7 +1,10 @@
 use std::fmt;
 
 use super::{AstVisitor, AstVisitorMut, Constant};
-use crate::{parser::lexer::{SpannedToken, Token}, tables::FunctionDefinition};
+use crate::{
+    parser::lexer::{SpannedToken, Token},
+    tables::FunctionDefinition,
+};
 
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -77,7 +80,9 @@ impl Expression {
             Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
             Expression::Const(expr) => visitor.visit_constant_expression(expr),
             Expression::Parens(expr) => visitor.visit_parens_expression(expr),
-            Expression::PredefinedFunctionCall(expr) => visitor.visit_predefined_function_call_expression(expr),
+            Expression::PredefinedFunctionCall(expr) => {
+                visitor.visit_predefined_function_call_expression(expr)
+            }
             Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
             Expression::Unary(expr) => visitor.visit_unary_expression(expr),
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
@@ -89,7 +94,9 @@ impl Expression {
             Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
             Expression::Const(expr) => visitor.visit_constant_expression(expr),
             Expression::Parens(expr) => visitor.visit_parens_expression(expr),
-            Expression::PredefinedFunctionCall(expr) => visitor.visit_predefined_function_call_expression(expr),
+            Expression::PredefinedFunctionCall(expr) => {
+                visitor.visit_predefined_function_call_expression(expr)
+            }
             Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
             Expression::Unary(expr) => visitor.visit_unary_expression(expr),
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
@@ -343,7 +350,6 @@ impl fmt::Display for FunctionCallExpression {
     }
 }
 
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct PredefinedFunctionCallExpression {
     identifier_token: SpannedToken,
@@ -373,7 +379,9 @@ impl PredefinedFunctionCallExpression {
 
     pub fn empty(func: &'static FunctionDefinition<'static>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(func.name.to_string()))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                func.name.to_string(),
+            ))),
             func,
             lpar_token: SpannedToken::create_empty(Token::LPar),
             arguments,
@@ -426,7 +434,7 @@ impl PredefinedFunctionCallExpression {
     pub(crate) fn set_identifier(&mut self, identifier: unicase::Ascii<String>) {
         self.identifier_token.token = Token::Identifier(identifier);
     }
-    
+
     pub fn get_func(&self) -> &'static FunctionDefinition<'static> {
         self.func
     }
@@ -444,7 +452,6 @@ impl fmt::Display for PredefinedFunctionCallExpression {
         write!(f, ")")
     }
 }
-
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpression {

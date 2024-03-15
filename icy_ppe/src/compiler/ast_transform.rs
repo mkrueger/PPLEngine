@@ -21,7 +21,6 @@ pub fn transform_ast(prg: &mut Program) {
 
 fn transform_block(statements: &mut Vec<Statement>) {
     translate_select_case(statements);
-
     let mut i = 0;
     let mut labels = 1;
 
@@ -279,8 +278,6 @@ fn transform_block(statements: &mut Vec<Statement>) {
 
         i += 1;
     }
-
-    crate::decompiler::reconstruct::strip_unused_labels(statements);
 }
 
 fn translate_select_case(statements: &mut [Statement]) {

@@ -1,7 +1,14 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression, ContinueStatement, EndStatement, ForStatement, FunctionCallExpression, FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationStatement, ProcedureImplementation, Program, ReturnStatement, SelectStatement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement
+    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression,
+    ContinueStatement, EndStatement, ForStatement, FunctionCallExpression,
+    FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+    ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
+    ProcedureCallStatement, ProcedureDeclarationStatement, ProcedureImplementation, Program,
+    ReturnStatement, SelectStatement, UnaryExpression, VariableDeclarationStatement,
+    WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -20,7 +27,10 @@ pub trait AstVisitor<T: Default>: Sized {
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> T {
         unary.get_expression().visit(self)
     }
-    fn visit_predefined_function_call_expression(&mut self, call: &PredefinedFunctionCallExpression) -> T {
+    fn visit_predefined_function_call_expression(
+        &mut self,
+        call: &PredefinedFunctionCallExpression,
+    ) -> T {
         walk__predefined_function_call_expression(self, call);
         T::default()
     }
@@ -250,8 +260,6 @@ pub fn walk_function_call_expression<T: Default, V: AstVisitor<T>>(
     }
 }
 
-
-
 pub fn walk_predefined_call_statement<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     call: &PredefinedCallStatement,
@@ -316,7 +324,10 @@ pub trait AstVisitorMut<T: Default>: Sized {
         unary.get_expression_mut().visit_mut(self)
     }
 
-    fn visit_predefined_function_call_expression(&mut self, call: &mut PredefinedFunctionCallExpression) -> T {
+    fn visit_predefined_function_call_expression(
+        &mut self,
+        call: &mut PredefinedFunctionCallExpression,
+    ) -> T {
         walk_predefined_function_call_expression_mut(self, call);
         T::default()
     }

@@ -97,20 +97,26 @@ pub struct VariableNameGenerator {
 
     function_vars: usize,
     procedure_vars: usize,
-    constants: usize
+    constants: usize,
 }
 
 impl VariableNameGenerator {
     pub fn get_next_name(&mut self, decl: &VariableEntry) -> (String, bool) {
-        if self.has_user_vars && (self.version < 300 && decl.header.id <= 0x17 || self.version >= 300 && decl.header.id <= 0x18) {
-            return (VariableNameGenerator::get_user_variable_name(decl.header.id - 1), true);
+        if self.has_user_vars
+            && (self.version < 300 && decl.header.id <= 0x17
+                || self.version >= 300 && decl.header.id <= 0x18)
+        {
+            return (
+                VariableNameGenerator::get_user_variable_name(decl.header.id - 1),
+                true,
+            );
         }
 
         if decl.get_type() == EntryType::Constant {
             self.constants += 1;
             return (format!("CONST{:>03}", self.constants), false);
         }
-    
+
         let name = match decl.header.variable_type {
             VariableType::String => {
                 self.string_vars += 1;
@@ -158,9 +164,8 @@ impl VariableNameGenerator {
             }
         };
         (name, false)
-
     }
-    
+
     fn get_user_variable_name(number: usize) -> String {
         match number {
             0 => "U_EXPERT".to_string(),
@@ -218,7 +223,7 @@ pub enum EntryType {
     UserVariable,
     Variable,
     FunctionResult,
-    Parameter
+    Parameter,
 }
 impl EntryType {
     pub fn use_name(self) -> bool {
@@ -389,9 +394,12 @@ pub fn read_file(file_name: &str) -> Executable {
         i += 2;
     }
 
-    let mut variable_lookup =  HashMap::new();
+    let mut variable_lookup = HashMap::new();
     for (i, var_decl) in &variable_declarations {
-        variable_lookup.insert( unicase::Ascii::new(var_decl.get_name().clone()), *i as usize);
+        variable_lookup.insert(
+            unicase::Ascii::new(var_decl.get_name().clone()),
+            *i as usize,
+        );
     }
     Executable {
         version,
@@ -403,7 +411,11 @@ pub fn read_file(file_name: &str) -> Executable {
     }
 }
 
-fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32, Box<VariableEntry>>) {
+fn read_vars(
+    version: u16,
+    buf: &mut [u8],
+    max_var: i32,
+) -> (usize, HashMap<i32, Box<VariableEntry>>) {
     let mut result = HashMap::new();
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
@@ -449,7 +461,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     ..Default::default()
                 };
                 i += 8;
-            },
+            }
             VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
@@ -503,7 +515,10 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 }
             } // B9 4b
         }
-        result.insert(var_count - 1, Box::new(VariableEntry::new(header, variable)));
+        result.insert(
+            var_count - 1,
+            Box::new(VariableEntry::new(header, variable)),
+        );
     }
 
     let mut k = (result.len() - 1) as i32;
@@ -521,8 +536,9 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                         fvar.number = k;
                     } else if j < cur.variable.data.function_value.parameters as i32 {
                         fvar.set_type(EntryType::Parameter);
-                        fvar.number = (cur.variable.data.function_value.first_var_id  + 1) as i32- i;
-                    } 
+                        fvar.number =
+                            (cur.variable.data.function_value.first_var_id + 1) as i32 - i;
+                    }
                     j += 1;
                 }
             },
@@ -552,7 +568,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
 
         k -= 1;
     }
-
 
     (i, result)
 }

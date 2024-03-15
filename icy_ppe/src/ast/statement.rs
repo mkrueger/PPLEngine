@@ -1552,9 +1552,9 @@ impl Statement {
                 }
 
                 match un_expr.get_expression() {
-                    Expression::Const(c) => {
-                        Expression::Const(ConstantExpression::empty(Constant::Boolean(!c.get_constant_value().get_value().as_bool())))
-                    }
+                    Expression::Const(c) => Expression::Const(ConstantExpression::empty(
+                        Constant::Boolean(!c.get_constant_value().get_value().as_bool()),
+                    )),
                     Expression::Unary(notexpr) => {
                         if matches!(notexpr.get_op(), UnaryOp::Not) {
                             return Statement::try_boolean_conversion(notexpr.get_expression());

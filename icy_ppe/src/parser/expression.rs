@@ -1,7 +1,8 @@
 use super::{lexer::Token, Tokenizer};
 use crate::{
     ast::{
-        BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression
+        BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
+        IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression,
     },
     parser::{Error, ParserError, ParserErrorType},
 };
@@ -260,23 +261,27 @@ impl Tokenizer {
                     let predef = crate::tables::get_function_definition(id);
                     // TODO: Check parameter signature
                     if predef >= 0 {
-                        return Some(Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::new(
-                            identifier_token,
-                            &crate::tables::FUNCTION_DEFINITIONS[predef as usize],
-                            leftpar_token,
-                            arguments,
-                            rightpar_token
-                        )));
+                        return Some(Expression::PredefinedFunctionCall(
+                            PredefinedFunctionCallExpression::new(
+                                identifier_token,
+                                &crate::tables::FUNCTION_DEFINITIONS[predef as usize],
+                                leftpar_token,
+                                arguments,
+                                rightpar_token,
+                            ),
+                        ));
                     }
                     return Some(Expression::FunctionCall(FunctionCallExpression::new(
                         identifier_token,
                         leftpar_token,
                         arguments,
-                        rightpar_token
+                        rightpar_token,
                     )));
                 }
 
-                Some(Expression::Identifier(IdentifierExpression::new(identifier_token)))
+                Some(Expression::Identifier(IdentifierExpression::new(
+                    identifier_token,
+                )))
             }
             Token::LPar => {
                 self.next_token();

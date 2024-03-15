@@ -1,6 +1,12 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
-    BinaryExpression, CommentStatement, Constant, ConstantExpression, EndStatement, Expression, FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier, VariableType, WhileStatement
+    BinaryExpression, CommentStatement, Constant, ConstantExpression, EndStatement, Expression,
+    FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
+    IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier,
+    ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
+    ProcedureCallStatement, ProcedureImplementation, Program, ReturnStatement, Statement,
+    UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier, VariableType,
+    WhileStatement,
 };
 use crate::executable::{read_file, EntryType, Executable, VariableEntry, VariableNameGenerator};
 use crate::tables::{
@@ -344,14 +350,11 @@ impl Decompiler {
             };
 
             if cur_var.get_type() == EntryType::Variable {
-                match cur_var
-                    .header
-                    .variable_type
-                {
+                match cur_var.header.variable_type {
                     VariableType::Function => {
-                            c_func += 1;
-                            cur_var.number = c_func;
-                    },
+                        c_func += 1;
+                        cur_var.number = c_func;
+                    }
                     VariableType::Procedure => {
                         c_proc += 1;
                         cur_var.number = c_proc;
@@ -361,7 +364,7 @@ impl Decompiler {
                         cur_var.number = c_vars;
                         if self.symbol == 0 {
                             let var_type = TYPE_NAMES[cur_var.header.variable_type as usize];
-                            
+
                             let dims = match cur_var.header.dim {
                                 1 => vec![cur_var.header.vector_size],
                                 2 => {
@@ -389,10 +392,7 @@ impl Decompiler {
         }
 
         for stmt in statements {
-            self.output_stmt(
-                prg,
-                stmt
-            );
+            self.output_stmt(prg, stmt);
         }
 
         if self.symbol == 0 {
@@ -401,11 +401,13 @@ impl Decompiler {
     }
 
     fn output_func(&mut self, prg: &mut Program, func: i32) {
-        let func_name = self.executable
-        .variable_declarations
-        .get(&func)
-        .unwrap()
-        .get_name().clone();
+        let func_name = self
+            .executable
+            .variable_declarations
+            .get(&func)
+            .unwrap()
+            .get_name()
+            .clone();
         let mut func_parameters = vec![];
         unsafe {
             let mut j = self
@@ -443,7 +445,11 @@ impl Decompiler {
                     .unwrap()
                     .header
                     .variable_type as usize];
-                self.executable.variable_declarations.get_mut(&j).unwrap().set_name(var_name.clone());
+                self.executable
+                    .variable_declarations
+                    .get_mut(&j)
+                    .unwrap()
+                    .set_name(var_name.clone());
                 func_parameters.push(ParameterSpecifier::empty(
                     false,
                     var_type,
@@ -477,11 +483,13 @@ impl Decompiler {
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: i32) {
-        let proc_name = self.executable
+        let proc_name = self
+            .executable
             .variable_declarations
             .get(&proc)
             .unwrap()
-            .get_name().clone();
+            .get_name()
+            .clone();
         unsafe {
             let param_flags = self
                 .executable
@@ -528,7 +536,11 @@ impl Decompiler {
                     .unwrap()
                     .header
                     .variable_type as usize];
-                self.executable.variable_declarations.get_mut(&j).unwrap().set_name(var_name.clone());
+                self.executable
+                    .variable_declarations
+                    .get_mut(&j)
+                    .unwrap()
+                    .set_name(var_name.clone());
                 let is_var = (1 << n) & param_flags != 0;
 
                 proc_parameters.push(ParameterSpecifier::empty(
@@ -617,7 +629,14 @@ impl Decompiler {
             }
 
             while i < mx_var {
-                if self.executable.variable_declarations.get(&i).unwrap().get_type() == EntryType::Variable {
+                if self
+                    .executable
+                    .variable_declarations
+                    .get(&i)
+                    .unwrap()
+                    .get_type()
+                    == EntryType::Variable
+                {
                     self.executable
                         .variable_declarations
                         .get_mut(&i)
@@ -640,7 +659,11 @@ impl Decompiler {
                                 .unwrap()
                                 .number
                         );
-                        self.executable.variable_declarations.get_mut(&i).unwrap().set_name(var_name.clone());
+                        self.executable
+                            .variable_declarations
+                            .get_mut(&i)
+                            .unwrap()
+                            .set_name(var_name.clone());
                         let cur_var = &self.executable.variable_declarations[&i];
 
                         let func = Decompiler::get_function_mut(prg, func).unwrap();
@@ -779,10 +802,7 @@ impl Decompiler {
                     p2.push(Self::repl_const(e.clone(), names));
                 }
 
-                PredefinedFunctionCallExpression::create_empty_expression(
-                    call_expr.get_func(),
-                    p2,
-                )
+                PredefinedFunctionCallExpression::create_empty_expression(call_expr.get_func(), p2)
             }
             Expression::Unary(expr) => UnaryExpression::create_empty_expression(
                 expr.get_op(),
@@ -869,7 +889,7 @@ impl Decompiler {
                 }
                 _ => {
                     return IdentifierExpression::create_empty_expression(unicase::Ascii::new(
-                        self.get_variable_name(cur_var)
+                        self.get_variable_name(cur_var),
                     ));
                 }
             }
@@ -907,11 +927,12 @@ impl Decompiler {
                     log::warn!(
                         "unknown variable type {} at {}",
                         cur_var.header.variable_type,
-                        self.src_ptr);
+                        self.src_ptr
+                    );
                     ConstantExpression::create_empty_expression(Constant::Integer(
                         cur_var.variable.data.int_value,
                     ))
-                },
+                }
             }
         }
     }
@@ -1013,8 +1034,7 @@ impl Decompiler {
         }
         parameters.reverse();
         self.push_expr(PredefinedFunctionCallExpression::create_empty_expression(
-            func_def,
-            parameters,
+            func_def, parameters,
         ));
         0
     }
@@ -1418,7 +1438,7 @@ impl Decompiler {
 
     fn set_if_ptr(&mut self, i: i32) -> i32 {
         let j = self.executable.source_buffer[self.src_ptr as usize] as usize / 2;
-     /*    assert!(
+        /*    assert!(
             !(j < 2 || j >= self.executable.source_buffer.len() - 1),
             "Error: Invalid IF pointer at {} buffer length is {}",
             self.src_ptr,
@@ -1659,12 +1679,13 @@ impl Decompiler {
                     // PCALL
                     self.src_ptr += 2;
                     self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;
-                    let proc_name = 
-                    self.executable
+                    let proc_name = self
+                        .executable
                         .variable_declarations
                         .get(&self.akt_proc)
                         .unwrap()
-                        .get_name().clone();
+                        .get_name()
+                        .clone();
                     if !self.parse_expr(
                         self.executable
                             .variable_declarations
@@ -1740,13 +1761,17 @@ impl Decompiler {
 
         self.labelout(prg, self.src_ptr * 2);
     }
-    
+
     fn name_variables(&mut self) {
-        let has_user_vars = has_user_variables(&self.executable.variable_declarations, self.executable.version);
-        let mut name_generator: VariableNameGenerator = VariableNameGenerator::new(self.executable.version, has_user_vars);
-        
+        let has_user_vars = has_user_variables(
+            &self.executable.variable_declarations,
+            self.executable.version,
+        );
+        let mut name_generator: VariableNameGenerator =
+            VariableNameGenerator::new(self.executable.version, has_user_vars);
+
         for i in 0..self.executable.max_var {
-            if let Some(res) =self.executable.variable_declarations.get_mut(&i) {
+            if let Some(res) = self.executable.variable_declarations.get_mut(&i) {
                 if res.get_type() == EntryType::FunctionResult {
                     res.set_name(format!("RESULT{i:>03}"));
                     continue;
@@ -1760,132 +1785,63 @@ impl Decompiler {
             }
         }
         for (i, res) in &self.executable.variable_declarations {
-            self.executable.variable_lookup.insert(unicase::Ascii::new(res.get_name().clone()), *i as usize);
+            self.executable
+                .variable_lookup
+                .insert(unicase::Ascii::new(res.get_name().clone()), *i as usize);
         }
-
     }
-    
+
     fn get_variable_name(&self, cur_var: &VariableEntry) -> String {
         if cur_var.get_type() == EntryType::FunctionResult {
-            return self.executable.variable_declarations.get(&cur_var.number).unwrap().get_name().clone();
+            return self
+                .executable
+                .variable_declarations
+                .get(&cur_var.number)
+                .unwrap()
+                .get_name()
+                .clone();
         }
         cur_var.get_name().clone()
     }
 }
 
-
-pub fn has_user_variables(variable_declarations: &HashMap<i32, Box<VariableEntry>>, version: u16) -> bool {
-    let has_user_variables = variable_declarations[&0]
-    .header
-    .variable_type
-    == VariableType::Boolean
-    && (variable_declarations[&1]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&2]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&3]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&4]
-        .header
-        .variable_type
-        == VariableType::Date)
-    && (variable_declarations[&5]
-        .header
-        .variable_type
-        == VariableType::Integer)
-    && (variable_declarations[&6]
-        .header
-        .variable_type
-        == VariableType::Integer)
-    && (variable_declarations[&7]
-        .header
-        .variable_type
-        == VariableType::Integer)
-    && (variable_declarations[&8]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&9]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&10]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&11]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&12]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&13]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&14]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&15]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&16]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&17]
-        .header
-        .variable_type
-        == VariableType::Boolean)
-    && (variable_declarations[&18]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&19]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&20]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&21]
-        .header
-        .variable_type
-        == VariableType::String)
-    && (variable_declarations[&22]
-        .header
-        .variable_type
-        == VariableType::Date)
-    && (variable_declarations[&20]
-        .header
-        .vector_size
-        == 5);
+pub fn has_user_variables(
+    variable_declarations: &HashMap<i32, Box<VariableEntry>>,
+    version: u16,
+) -> bool {
+    let has_user_variables = variable_declarations[&0].header.variable_type
+        == VariableType::Boolean
+        && (variable_declarations[&1].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&2].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&3].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&4].header.variable_type == VariableType::Date)
+        && (variable_declarations[&5].header.variable_type == VariableType::Integer)
+        && (variable_declarations[&6].header.variable_type == VariableType::Integer)
+        && (variable_declarations[&7].header.variable_type == VariableType::Integer)
+        && (variable_declarations[&8].header.variable_type == VariableType::String)
+        && (variable_declarations[&9].header.variable_type == VariableType::String)
+        && (variable_declarations[&10].header.variable_type == VariableType::String)
+        && (variable_declarations[&11].header.variable_type == VariableType::String)
+        && (variable_declarations[&12].header.variable_type == VariableType::String)
+        && (variable_declarations[&13].header.variable_type == VariableType::String)
+        && (variable_declarations[&14].header.variable_type == VariableType::String)
+        && (variable_declarations[&15].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&16].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&17].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[&18].header.variable_type == VariableType::String)
+        && (variable_declarations[&19].header.variable_type == VariableType::String)
+        && (variable_declarations[&20].header.variable_type == VariableType::String)
+        && (variable_declarations[&21].header.variable_type == VariableType::String)
+        && (variable_declarations[&22].header.variable_type == VariableType::Date)
+        && (variable_declarations[&20].header.vector_size == 5);
 
     if has_user_variables
         && version >= 300
-        && !(variable_declarations[&23]
-            .header
-            .variable_type
-            == VariableType::Integer
-            && variable_declarations[&23]
-                .header
-                .vector_size
-                == 16)
+        && !(variable_declarations[&23].header.variable_type == VariableType::Integer
+            && variable_declarations[&23].header.vector_size == 16)
     {
         return false;
     }
 
     has_user_variables
-
 }

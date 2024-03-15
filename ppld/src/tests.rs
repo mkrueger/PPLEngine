@@ -78,8 +78,6 @@ fn test_decompiler() {
             continue;
         }*/
 
-    
-    
         let d = decompile(file_name.to_str().unwrap(), false, false);
         let source_file = cur_entry.with_extension("pps");
         let orig_text = fs::read_to_string(source_file).unwrap();

@@ -57,7 +57,7 @@ impl AstVisitor<()> for OutputVisitor {
 
     fn visit_constant_expression(&mut self, constant: &super::ConstantExpression) {
         match constant.get_constant_value() {
-            super::Constant::Builtin(b) =>  {
+            super::Constant::Builtin(b) => {
                 self.output_keyword(b.name);
             }
             super::Constant::String(s) => {
@@ -72,10 +72,9 @@ impl AstVisitor<()> for OutputVisitor {
             }
             _ => {
                 self.output
-                .push_str(&format!("{}", constant.get_constant_value().get_value()));
+                    .push_str(&format!("{}", constant.get_constant_value().get_value()));
             }
         }
-        
     }
 
     fn visit_binary_expression(&mut self, binary: &super::BinaryExpression) {
@@ -89,7 +88,10 @@ impl AstVisitor<()> for OutputVisitor {
         unary.get_expression().visit(self);
     }
 
-    fn visit_predefined_function_call_expression(&mut self, call: &super::PredefinedFunctionCallExpression) {
+    fn visit_predefined_function_call_expression(
+        &mut self,
+        call: &super::PredefinedFunctionCallExpression,
+    ) {
         self.output_keyword(call.get_identifier());
         self.output.push('(');
         for (i, arg) in call.get_arguments().iter().enumerate() {
@@ -151,7 +153,7 @@ impl AstVisitor<()> for OutputVisitor {
         if_stmt.get_condition().visit(self);
         self.output.push(')');
         self.output.push(' ');
-        
+
         /*
         self.eol();
         self.indent += 1;
@@ -240,7 +242,7 @@ impl AstVisitor<()> for OutputVisitor {
         while_stmt.get_condition().visit(self);
         self.output.push(')');
         self.output.push(' ');
-        
+
         /*self.eol();
         self.indent += 1;
         self.indent();

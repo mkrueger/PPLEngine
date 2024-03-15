@@ -14,7 +14,7 @@ pub enum Constant {
     Builtin(&'static BuiltinConst),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct BuiltinConst {
     pub name: &'static str,
     pub value: i32,
@@ -171,12 +171,12 @@ impl Constant {
 impl fmt::Display for Constant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Constant::Money(i) => write!(f, "${i}"),
+            Constant::Money(i) |
             Constant::Integer(i) => write!(f, "{i}"),
             Constant::Unsigned(i) => write!(f, "{i}"),
             Constant::String(str) => write!(f, "\"{str}\""),
             Constant::Double(i) => write!(f, "{i}"),
-            Constant::Boolean(b) => write!(f, "{}", if *b { "TRUE" } else { "FALSE" }),
+            Constant::Boolean(b) => write!(f, "{}", if *b { "1" } else { "0" }),
             Constant::Builtin(s) => write!(f, "{}", s.name),
         }
     }

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use super::{AstVisitor, AstVisitorMut, Constant};
-use crate::parser::lexer::{SpannedToken, Token};
+use crate::{parser::lexer::{SpannedToken, Token}, tables::FunctionDefinition};
 
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -65,6 +65,7 @@ pub enum Expression {
     Identifier(IdentifierExpression),
     Const(ConstantExpression),
     Parens(ParensExpression),
+    PredefinedFunctionCall(PredefinedFunctionCallExpression),
     FunctionCall(FunctionCallExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
@@ -76,6 +77,7 @@ impl Expression {
             Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
             Expression::Const(expr) => visitor.visit_constant_expression(expr),
             Expression::Parens(expr) => visitor.visit_parens_expression(expr),
+            Expression::PredefinedFunctionCall(expr) => visitor.visit_predefined_function_call_expression(expr),
             Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
             Expression::Unary(expr) => visitor.visit_unary_expression(expr),
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
@@ -87,6 +89,7 @@ impl Expression {
             Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
             Expression::Const(expr) => visitor.visit_constant_expression(expr),
             Expression::Parens(expr) => visitor.visit_parens_expression(expr),
+            Expression::PredefinedFunctionCall(expr) => visitor.visit_predefined_function_call_expression(expr),
             Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
             Expression::Unary(expr) => visitor.visit_unary_expression(expr),
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
@@ -134,9 +137,9 @@ impl IdentifierExpression {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -322,8 +325,8 @@ impl FunctionCallExpression {
         Expression::FunctionCall(FunctionCallExpression::empty(identifier, arguments))
     }
 
-    pub(crate) fn set_identifier(&mut self, identifier: String) {
-        self.identifier_token.token = Token::Identifier(unicase::Ascii::new(identifier));
+    pub(crate) fn set_identifier(&mut self, identifier: unicase::Ascii<String>) {
+        self.identifier_token.token = Token::Identifier(identifier);
     }
 }
 
@@ -339,6 +342,109 @@ impl fmt::Display for FunctionCallExpression {
         write!(f, ")")
     }
 }
+
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PredefinedFunctionCallExpression {
+    identifier_token: SpannedToken,
+    func: &'static FunctionDefinition<'static>,
+
+    lpar_token: SpannedToken,
+    arguments: Vec<Expression>,
+    rpar_token: SpannedToken,
+}
+
+impl PredefinedFunctionCallExpression {
+    pub fn new(
+        identifier_token: SpannedToken,
+        func: &'static FunctionDefinition<'static>,
+        leftpar_token: SpannedToken,
+        arguments: Vec<Expression>,
+        rightpar_token: SpannedToken,
+    ) -> Self {
+        Self {
+            identifier_token,
+            func,
+            lpar_token: leftpar_token,
+            arguments,
+            rpar_token: rightpar_token,
+        }
+    }
+
+    pub fn empty(func: &'static FunctionDefinition<'static>, arguments: Vec<Expression>) -> Self {
+        Self {
+            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(func.name.to_string()))),
+            func,
+            lpar_token: SpannedToken::create_empty(Token::LPar),
+            arguments,
+            rpar_token: SpannedToken::create_empty(Token::RPar),
+        }
+    }
+
+    pub fn get_identifier_token(&self) -> &SpannedToken {
+        &self.identifier_token
+    }
+    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+        &self.lpar_token
+    }
+
+    pub fn get_arguments(&self) -> &Vec<Expression> {
+        &self.arguments
+    }
+
+    pub fn get_arguments_mut(&mut self) -> &mut Vec<Expression> {
+        &mut self.arguments
+    }
+
+    pub(crate) fn set_arguments(&mut self, arguments: Vec<Expression>) {
+        self.arguments = arguments;
+    }
+
+    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+        &self.rpar_token
+    }
+
+    /// Returns a reference to the get identifier of this [`IdentifierExpression`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_identifier(&self) -> &unicase::Ascii<String> {
+        if let Token::Identifier(id) = &self.identifier_token.token {
+            return id;
+        }
+        panic!("Expected identifier token")
+    }
+
+    pub(crate) fn create_empty_expression(
+        func: &'static FunctionDefinition<'static>,
+        arguments: Vec<Expression>,
+    ) -> Expression {
+        Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::empty(func, arguments))
+    }
+
+    pub(crate) fn set_identifier(&mut self, identifier: unicase::Ascii<String>) {
+        self.identifier_token.token = Token::Identifier(identifier);
+    }
+    
+    pub fn get_func(&self) -> &'static FunctionDefinition<'static> {
+        self.func
+    }
+}
+
+impl fmt::Display for PredefinedFunctionCallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}(", self.get_identifier())?;
+        for (i, arg) in self.get_arguments().iter().enumerate() {
+            write!(f, "{arg}")?;
+            if i < self.get_arguments().len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, ")")
+    }
+}
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpression {

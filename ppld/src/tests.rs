@@ -66,13 +66,6 @@ fn test_decompiler() {
             cur_entry.file_name().unwrap().to_str().unwrap()
         );
         /*
-                if !cur_entry.file_name().unwrap().to_str().unwrap().eq("if_elseif_else_endif_end.ppe")
-                {
-                    // println!("skip.");
-                    //skipped += 1;
-                    continue;
-                }
-        */
         if cur_entry
             .file_name()
             .unwrap()
@@ -83,8 +76,10 @@ fn test_decompiler() {
             // println!("skip.");
             //skipped += 1;
             continue;
-        }
+        }*/
 
+    
+    
         let d = decompile(file_name.to_str().unwrap(), false, false);
         let source_file = cur_entry.with_extension("pps");
         let orig_text = fs::read_to_string(source_file).unwrap();

@@ -879,9 +879,9 @@ impl ForStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -1227,9 +1227,9 @@ impl LabelStatement {
         panic!("Expected label token")
     }
 
-    pub fn set_label(&mut self, new_id: impl Into<String>) {
+    pub fn set_label(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Label(id) = &mut self.label_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -1313,9 +1313,9 @@ impl ProcedureCallStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -1461,9 +1461,9 @@ impl LetStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -1552,12 +1552,9 @@ impl Statement {
                 }
 
                 match un_expr.get_expression() {
-                    Expression::Const(c) => match c.get_constant_value() {
-                        Constant::Boolean(b) => {
-                            Expression::Const(ConstantExpression::empty(Constant::Boolean(!b)))
-                        }
-                        _ => expr.clone(),
-                    },
+                    Expression::Const(c) => {
+                        Expression::Const(ConstantExpression::empty(Constant::Boolean(!c.get_constant_value().get_value().as_bool())))
+                    }
                     Expression::Unary(notexpr) => {
                         if matches!(notexpr.get_op(), UnaryOp::Not) {
                             return Statement::try_boolean_conversion(notexpr.get_expression());

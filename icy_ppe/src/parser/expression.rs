@@ -1,8 +1,7 @@
 use super::{lexer::Token, Tokenizer};
 use crate::{
     ast::{
-        BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
-        IdentifierExpression, ParensExpression, UnaryExpression,
+        BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression, IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression
     },
     parser::{Error, ParserError, ParserErrorType},
 };
@@ -218,11 +217,13 @@ impl Tokenizer {
                 )))
             }
             Token::Identifier(id) => {
-                let ct = self.save_spannedtoken();
+                let identifier_token = self.save_spannedtoken();
                 self.next_token();
                 if self.get_cur_token() == Some(Token::LPar) {
+                    let leftpar_token = self.save_spannedtoken();
+
                     self.next_token();
-                    let mut params = Vec::new();
+                    let mut arguments = Vec::new();
 
                     while self.get_cur_token() != Some(Token::RPar) {
                         let Some(value) = self.parse_expression() else {
@@ -232,7 +233,7 @@ impl Tokenizer {
                             }));
                             return None;
                         };
-                        params.push(value);
+                        arguments.push(value);
                         if self.get_cur_token() == Some(Token::Comma) {
                             self.next_token();
                             continue;
@@ -250,16 +251,32 @@ impl Tokenizer {
                             error: ParserErrorType::MissingCloseParens(self.save_token()),
                             range: self.save_token_span(),
                         }));
+                        return None;
                     }
+                    let rightpar_token = self.save_spannedtoken();
 
                     self.next_token();
-                    return Some(FunctionCallExpression::create_empty_expression(
-                        id.clone(),
-                        params,
-                    ));
+
+                    let predef = crate::tables::get_function_definition(id);
+                    // TODO: Check parameter signature
+                    if predef >= 0 {
+                        return Some(Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::new(
+                            identifier_token,
+                            &crate::tables::FUNCTION_DEFINITIONS[predef as usize],
+                            leftpar_token,
+                            arguments,
+                            rightpar_token
+                        )));
+                    }
+                    return Some(Expression::FunctionCall(FunctionCallExpression::new(
+                        identifier_token,
+                        leftpar_token,
+                        arguments,
+                        rightpar_token
+                    )));
                 }
 
-                Some(Expression::Identifier(IdentifierExpression::new(ct)))
+                Some(Expression::Identifier(IdentifierExpression::new(identifier_token)))
             }
             Token::LPar => {
                 self.next_token();

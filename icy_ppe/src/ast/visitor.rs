@@ -1,14 +1,7 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression,
-    ContinueStatement, EndStatement, ForStatement, FunctionCallExpression,
-    FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
-    ParensExpression, PredefinedCallStatement, ProcedureCallStatement,
-    ProcedureDeclarationStatement, ProcedureImplementation, Program, ReturnStatement,
-    SelectStatement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement,
-    WhileStatement,
+    BinaryExpression, BlockStatement, BreakStatement, CommentStatement, ConstantExpression, ContinueStatement, EndStatement, ForStatement, FunctionCallExpression, FunctionDeclarationStatement, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationStatement, ProcedureImplementation, Program, ReturnStatement, SelectStatement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement
 };
 
 #[allow(unused_variables)]
@@ -26,6 +19,10 @@ pub trait AstVisitor<T: Default>: Sized {
     }
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> T {
         unary.get_expression().visit(self)
+    }
+    fn visit_predefined_function_call_expression(&mut self, call: &PredefinedFunctionCallExpression) -> T {
+        walk__predefined_function_call_expression(self, call);
+        T::default()
     }
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> T {
         walk_function_call_expression(self, call);
@@ -235,6 +232,15 @@ pub fn walk_binary_expression<T: Default, V: AstVisitor<T>>(
     binary.get_right_expression().visit(visitor);
 }
 
+pub fn walk__predefined_function_call_expression<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    call: &PredefinedFunctionCallExpression,
+) {
+    for arg in call.get_arguments() {
+        arg.visit(visitor);
+    }
+}
+
 pub fn walk_function_call_expression<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     call: &FunctionCallExpression,
@@ -243,6 +249,8 @@ pub fn walk_function_call_expression<T: Default, V: AstVisitor<T>>(
         arg.visit(visitor);
     }
 }
+
+
 
 pub fn walk_predefined_call_statement<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
@@ -308,11 +316,15 @@ pub trait AstVisitorMut<T: Default>: Sized {
         unary.get_expression_mut().visit_mut(self)
     }
 
+    fn visit_predefined_function_call_expression(&mut self, call: &mut PredefinedFunctionCallExpression) -> T {
+        walk_predefined_function_call_expression_mut(self, call);
+        T::default()
+    }
+
     fn visit_function_call_expression(&mut self, call: &mut FunctionCallExpression) -> T {
         walk_function_call_expression_mut(self, call);
         T::default()
     }
-
     fn visit_parens_expression(&mut self, parens: &mut ParensExpression) -> T {
         parens.get_expression_mut().visit_mut(self)
     }
@@ -521,6 +533,15 @@ pub fn walk_binary_expression_mut<T: Default, V: AstVisitorMut<T>>(
 ) {
     binary.get_left_expression_mut().visit_mut(visitor);
     binary.get_right_expression_mut().visit_mut(visitor);
+}
+
+pub fn walk_predefined_function_call_expression_mut<T: Default, V: AstVisitorMut<T>>(
+    visitor: &mut V,
+    call: &mut PredefinedFunctionCallExpression,
+) {
+    for arg in call.get_arguments_mut() {
+        arg.visit_mut(visitor);
+    }
 }
 
 pub fn walk_function_call_expression_mut<T: Default, V: AstVisitorMut<T>>(

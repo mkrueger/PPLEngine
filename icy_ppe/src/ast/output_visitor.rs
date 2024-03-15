@@ -56,8 +56,26 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_constant_expression(&mut self, constant: &super::ConstantExpression) {
-        self.output
-            .push_str(&format!("{}", constant.get_constant_value().get_value()));
+        match constant.get_constant_value() {
+            super::Constant::Builtin(b) =>  {
+                self.output_keyword(b.name);
+            }
+            super::Constant::String(s) => {
+                self.output.push_str(&format!("\"{s}\""));
+            }
+            super::Constant::Boolean(b) => {
+                if *b {
+                    self.output_keyword("True");
+                } else {
+                    self.output_keyword("False");
+                }
+            }
+            _ => {
+                self.output
+                .push_str(&format!("{}", constant.get_constant_value().get_value()));
+            }
+        }
+        
     }
 
     fn visit_binary_expression(&mut self, binary: &super::BinaryExpression) {
@@ -71,8 +89,20 @@ impl AstVisitor<()> for OutputVisitor {
         unary.get_expression().visit(self);
     }
 
-    fn visit_function_call_expression(&mut self, call: &super::FunctionCallExpression) {
+    fn visit_predefined_function_call_expression(&mut self, call: &super::PredefinedFunctionCallExpression) {
         self.output_keyword(call.get_identifier());
+        self.output.push('(');
+        for (i, arg) in call.get_arguments().iter().enumerate() {
+            arg.visit(self);
+            if i < call.get_arguments().len() - 1 {
+                self.output.push_str(", ");
+            }
+        }
+        self.output.push(')');
+    }
+
+    fn visit_function_call_expression(&mut self, call: &super::FunctionCallExpression) {
+        self.output(call.get_identifier());
         self.output.push('(');
         for (i, arg) in call.get_arguments().iter().enumerate() {
             arg.visit(self);
@@ -120,9 +150,13 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push_str(" (");
         if_stmt.get_condition().visit(self);
         self.output.push(')');
+        self.output.push(' ');
+        
+        /*
         self.eol();
         self.indent += 1;
         self.indent();
+        */
         if_stmt.get_statement().visit(self);
         self.eol();
         self.indent -= 1;
@@ -146,6 +180,7 @@ impl AstVisitor<()> for OutputVisitor {
             self.output.push_str(" (");
             if_else.get_condition().visit(self);
             self.output.push(')');
+            self.output_keyword(" Then");
             self.eol();
 
             self.indent += 1;
@@ -204,9 +239,12 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push_str(" (");
         while_stmt.get_condition().visit(self);
         self.output.push(')');
-        self.eol();
+        self.output.push(' ');
+        
+        /*self.eol();
         self.indent += 1;
         self.indent();
+        */
         while_stmt.get_statement().visit(self);
         self.eol();
         self.indent -= 1;
@@ -232,7 +270,7 @@ impl AstVisitor<()> for OutputVisitor {
     fn visit_for_statement(&mut self, for_stmt: &super::ForStatement) {
         self.output_keyword("For");
         self.output.push(' ');
-        self.output_keyword(for_stmt.get_identifier());
+        self.output(for_stmt.get_identifier());
         self.output.push(' ');
         self.output.push('=');
         self.output.push(' ');

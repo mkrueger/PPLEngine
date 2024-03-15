@@ -73,7 +73,7 @@ pub fn decompile(file_name: &str, to_file: bool, raw: bool) -> Program {
         println!("Pass 1 ...");
     }
     d.do_pass1();
-    d.dump_vars(&mut prg);
+    d.generate_variable_declarations(&mut prg);
     if to_file {
         println!("Pass 2 ...");
     }

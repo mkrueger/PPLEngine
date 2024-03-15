@@ -1,7 +1,5 @@
 use std::{
-    cmp::Ordering,
-    fmt,
-    ops::{Add, Div, Mul, Neg, Rem, Sub},
+    cmp::Ordering, fmt, ops::{Add, Div, Mul, Neg, Rem, Sub}
 };
 
 use crate::{

@@ -703,7 +703,7 @@ impl Executable {
             icy_ppe::ast::Expression::Parens(expr) => {
                 self.comp_expr(stack, expr.get_expression());
             }
-            icy_ppe::ast::Expression::FunctionCall(expr) => {
+            icy_ppe::ast::Expression::PredefinedFunctionCall(expr) => {
                 let predef = get_function_definition(expr.get_identifier());
                 // TODO: Check parameter signature
                 if predef >= 0 {
@@ -716,6 +716,9 @@ impl Executable {
                     return;
                 }
 
+            }
+            icy_ppe::ast::Expression::FunctionCall(expr) => {
+                
                 if self
                     .procedure_declarations
                     .contains_key(expr.get_identifier())

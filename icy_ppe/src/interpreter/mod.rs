@@ -26,7 +26,6 @@ pub use self::statements::*;
 
 pub mod io;
 pub use self::io::*;
-pub mod rename_vars_visitor;
 
 pub mod errors;
 mod tests;

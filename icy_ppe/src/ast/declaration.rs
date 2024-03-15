@@ -97,9 +97,9 @@ impl VariableSpecifier {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -374,9 +374,9 @@ impl ProcedureDeclarationStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 
@@ -483,9 +483,9 @@ impl FunctionDeclarationStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn set_identifier(&mut self, new_id: impl Into<String>) {
+    pub fn set_identifier(&mut self, new_id: unicase::Ascii<String>) {
         if let Token::Identifier(id) = &mut self.identifier_token.token {
-            *id = unicase::Ascii::new(new_id.into());
+            *id = new_id;
         }
     }
 

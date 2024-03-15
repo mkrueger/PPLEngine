@@ -1,12 +1,8 @@
 use crate::ast::{
-    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut,
-    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut,
-    BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement,
-    UnaryExpression, WhileDoStatement,
+    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut, walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstVisitorMut, BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, Implementations, SelectStatement, UnaryExpression, WhileDoStatement
 };
 
-use super::{Expression, HashMap, HashSet, Program, Statement};
+use super::{rename_visitor::{RenameScanVistitor, RenameVisitor}, Expression, HashSet, Program, Statement};
 
 pub fn do_pass3(prg: &mut Program) {
     optimize_block(&mut prg.statements);
@@ -26,6 +22,40 @@ pub fn do_pass3(prg: &mut Program) {
 }
 
 struct RemoveNotNotVisitor {}
+
+
+fn simplify_condition(cond: &mut Expression) {
+    if let Expression::Unary(unaryexpr1) = cond {
+        if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
+            match unaryexpr1.get_expression_mut() {
+                Expression::Unary(unary_expr) => {
+                    if unary_expr.get_op() == crate::ast::UnaryOp::Not {
+                        *cond = unary_expr.get_expression().clone();
+                    }
+                }
+                Expression::Const(c) => {
+                    match c.get_constant_value() {
+                        Constant::Boolean(b) => {
+                            *cond = ConstantExpression::create_empty_expression(Constant::Boolean(!b));
+                        }
+                        Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE) => {
+                            *cond = ConstantExpression::create_empty_expression(Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE));
+                        }
+                        Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE) => {
+                            *cond = ConstantExpression::create_empty_expression(Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE));
+                        }
+                        _ => (),
+                    }
+                }
+                _ => (),
+            } 
+        }
+    }
+    while let Expression::Parens(p) = cond {
+        *cond = p.get_expression().clone();
+    }
+}
+
 impl AstVisitorMut<()> for RemoveNotNotVisitor {
     fn visit_function_call_expression(&mut self, call: &mut crate::ast::FunctionCallExpression) {
         for arg in call.get_arguments_mut() {
@@ -48,54 +78,22 @@ impl AstVisitorMut<()> for RemoveNotNotVisitor {
     }
 
     fn visit_while_statement(&mut self, while_stmt: &mut crate::ast::WhileStatement) {
-        if let Expression::Unary(unaryexpr1) = while_stmt.get_condition_mut() {
-            if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
-                if let Expression::Unary(unary_expr) = unaryexpr1.get_expression_mut() {
-                    if unary_expr.get_op() == crate::ast::UnaryOp::Not {
-                        *while_stmt.get_condition_mut() = unary_expr.get_expression().clone();
-                    }
-                }
-            }
-        }
+        simplify_condition(while_stmt.get_condition_mut());
         walk_while_stmt_mut(self, while_stmt);
     }
 
     fn visit_while_do_statement(&mut self, while_do: &mut WhileDoStatement) {
-        if let Expression::Unary(unaryexpr1) = while_do.get_condition_mut() {
-            if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
-                if let Expression::Unary(unary_expr) = unaryexpr1.get_expression_mut() {
-                    if unary_expr.get_op() == crate::ast::UnaryOp::Not {
-                        *while_do.get_condition_mut() = unary_expr.get_expression().clone();
-                    }
-                }
-            }
-        }
+        simplify_condition(while_do.get_condition_mut());
         walk_while_do_stmt_mut(self, while_do);
     }
 
     fn visit_if_then_statement(&mut self, if_then: &mut IfThenStatement) {
-        if let Expression::Unary(unaryexpr1) = if_then.get_condition_mut() {
-            if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
-                if let Expression::Unary(unary_expr) = unaryexpr1.get_expression_mut() {
-                    if unary_expr.get_op() == crate::ast::UnaryOp::Not {
-                        *if_then.get_condition_mut() = unary_expr.get_expression().clone();
-                    }
-                }
-            }
-        }
+        simplify_condition(if_then.get_condition_mut());
         if let Expression::Parens(expr) = if_then.get_condition_mut() {
             *if_then.get_condition_mut() = expr.get_expression().clone();
         }
         for else_if in if_then.get_else_if_blocks_mut() {
-            if let Expression::Unary(unaryexpr1) = else_if.get_condition_mut() {
-                if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
-                    if let Expression::Unary(unary_expr) = unaryexpr1.get_expression_mut() {
-                        if unary_expr.get_op() == crate::ast::UnaryOp::Not {
-                            *else_if.get_condition_mut() = unary_expr.get_expression().clone();
-                        }
-                    }
-                }
-            }
+            simplify_condition(else_if.get_condition_mut());
             if let Expression::Parens(expr) = else_if.get_condition_mut() {
                 *else_if.get_condition_mut() = expr.get_expression().clone();
             }
@@ -931,211 +929,9 @@ fn strip_unused_labels2(
 }
 
 pub fn do_pass4(prg: &mut Program) {
-    rename_variables(&mut prg.statements);
-    for fd in &mut prg.implementations {
-        match fd {
-            Implementations::Function(fd) => {
-                rename_variables(fd.get_statements_mut());
-            }
-            Implementations::Procedure(pd) => {
-                rename_variables(pd.get_statements_mut());
-            }
-            Implementations::Comment(_) => {}
-        }
-    }
+    let mut scanner = RenameScanVistitor::default();
+    prg.visit(&mut scanner);
+    let mut renamer = RenameVisitor::new(scanner.rename_map);
+    prg.visit_mut(&mut renamer);
 }
 
-const _INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];
-
-fn scan_replace_vars(
-    _stmt: &Statement,
-    _rename_map: &mut HashMap<unicase::Ascii<String>, String>,
-    _index: &mut i32,
-    _file_names: &mut i32,
-) {
-    /*
-        match stmt {
-            Statement::For(v, _, _, _, stmts) => {
-                let var_name = get_var_name(v);
-                if !rename_map.contains_key(&var_name) && *index < INDEX_VARS.len() as i32 {
-                    rename_map.insert(var_name, INDEX_VARS[*index as usize].to_string());
-
-                    *index += 1;
-                }
-                for s in stmts {
-                    scan_replace_vars(s, rename_map, index, file_names);
-                }
-            }
-
-            Statement::DoWhile(_, stmts) | Statement::Block(stmts) => {
-                for s in stmts {
-                    scan_replace_vars(s, rename_map, index, file_names);
-                }
-            }
-            Statement::IfThen(_, stmts, else_ifs, else_stmts) => {
-                for s in stmts {
-                    scan_replace_vars(s, rename_map, index, file_names);
-                }
-                for block in else_ifs {
-                    for s in &block.block {
-                        scan_replace_vars(s, rename_map, index, file_names);
-                    }
-                }
-                if let Some(stmts) = else_stmts {
-                    for s in stmts {
-                        scan_replace_vars(s, rename_map, index, file_names);
-                    }
-                }
-            }
-
-            Statement::If(_, s) | Statement::While(_, s) => {
-                scan_replace_vars(s, rename_map, index, file_names);
-            }
-            Statement::Call(def, parameters) => match &def.opcode {
-                OpCode::FOPEN => {
-                    let var_name = get_var_name(&parameters[1]);
-                    rename_map.entry(var_name).or_insert_with(|| {
-                        *file_names += 1;
-                        format!("fileName{file_names}")
-                    });
-                }
-                OpCode::DELETE => {
-                    let var_name = get_var_name(&parameters[0]);
-                    rename_map.entry(var_name).or_insert_with(|| {
-                        *file_names += 1;
-                        format!("fileName{file_names}")
-                    });
-                }
-                OpCode::DISPFILE => {
-                    let var_name = get_var_name(&parameters[0]);
-                    rename_map.entry(var_name).or_insert_with(|| {
-                        *file_names += 1;
-                        format!("fileName{file_names}")
-                    });
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-    */
-}
-
-fn rename_variables(block: &mut Vec<Statement>) {
-    let mut rename_map = HashMap::new();
-    let mut index = 0;
-    let mut file_names = 0;
-
-    for stmt in block.iter() {
-        scan_replace_vars(stmt, &mut rename_map, &mut index, &mut file_names);
-    }
-
-    for stmt in block {
-        replace_in_statement(stmt, &rename_map);
-    }
-}
-
-fn replace_in_statement(
-    stmt: &mut Statement,
-    rename_map: &HashMap<unicase::Ascii<String>, String>,
-) {
-    match stmt {
-        Statement::If(if_stmt) => {
-            replace_in_expression(if_stmt.get_condition_mut(), rename_map);
-            replace_in_statement(if_stmt.get_statement_mut(), rename_map);
-        }
-        Statement::While(while_stmt) => {
-            replace_in_expression(while_stmt.get_condition_mut(), rename_map);
-            replace_in_statement(while_stmt.get_statement_mut(), rename_map);
-        }
-        Statement::WhileDo(while_do_stmt) => {
-            replace_in_expression(while_do_stmt.get_condition_mut(), rename_map);
-            for s in while_do_stmt.get_statements_mut() {
-                replace_in_statement(s, rename_map);
-            }
-        }
-        Statement::Block(block_stmt) => {
-            for s in block_stmt.get_statements_mut() {
-                replace_in_statement(s, rename_map);
-            }
-        }
-        Statement::IfThen(if_then_stmt) => {
-            replace_in_expression(if_then_stmt.get_condition_mut(), rename_map);
-            for s in if_then_stmt.get_statements_mut() {
-                replace_in_statement(s, rename_map);
-            }
-            for else_if_block in if_then_stmt.get_else_if_blocks_mut() {
-                for s in else_if_block.get_statements_mut() {
-                    replace_in_statement(s, rename_map);
-                }
-            }
-            if let Some(else_block) = if_then_stmt.get_else_block_mut() {
-                for s in else_block.get_statements_mut() {
-                    replace_in_statement(s, rename_map);
-                }
-            }
-        }
-
-        Statement::For(for_stmt) => {
-            if rename_map.contains_key(for_stmt.get_identifier()) {
-                for_stmt.set_identifier(rename_map.get(for_stmt.get_identifier()).unwrap());
-            }
-            replace_in_expression(for_stmt.get_start_expr_mut(), rename_map);
-            replace_in_expression(for_stmt.get_end_expr_mut(), rename_map);
-
-            for stmt in for_stmt.get_statements_mut() {
-                replace_in_statement(stmt, rename_map);
-            }
-        }
-        Statement::Let(let_stmt) => {
-            if let Some(name) = rename_map.get(let_stmt.get_identifier()) {
-                let_stmt.set_identifier(name.clone());
-            }
-            for arg in let_stmt.get_arguments_mut() {
-                replace_in_expression(arg, rename_map);
-            }
-            replace_in_expression(let_stmt.get_value_expression_mut(), rename_map);
-        }
-        Statement::Call(call_stmt) => {
-            for p in call_stmt.get_arguments_mut() {
-                replace_in_expression(p, rename_map);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn replace_in_expression(
-    repl_expr: &mut Expression,
-    rename_map: &HashMap<unicase::Ascii<String>, String>,
-) {
-    match repl_expr {
-        Expression::Identifier(id) => {
-            if rename_map.contains_key(id.get_identifier()) {
-                *id = IdentifierExpression::empty(unicase::Ascii::new(
-                    rename_map.get(id.get_identifier()).unwrap().clone(),
-                ));
-            }
-        }
-        Expression::Parens(expr) => {
-            replace_in_expression(expr.get_expression_mut(), rename_map);
-        }
-        Expression::Unary(expr) => {
-            replace_in_expression(expr.get_expression_mut(), rename_map);
-        }
-
-        Expression::Binary(expr) => {
-            replace_in_expression(expr.get_left_expression_mut(), rename_map);
-            replace_in_expression(expr.get_right_expression_mut(), rename_map);
-        }
-
-        Expression::FunctionCall(expr) => {
-            if rename_map.contains_key(expr.get_identifier()) {
-                expr.set_identifier(rename_map.get(expr.get_identifier()).unwrap().to_string());
-            }
-            for p in expr.get_arguments_mut() {
-                replace_in_expression(p, rename_map);
-            }
-        }
-        Expression::Const(_) => {}
-    }
-}

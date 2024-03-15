@@ -81,22 +81,198 @@ impl FunctionValue {
     }
 }
 
-#[derive(Clone)]
-pub struct VarDecl {
-    pub header: VarHeader,
-    pub var_name: String,
+#[derive(Clone, Debug, Default)]
+pub struct VariableNameGenerator {
+    version: u16,
+    has_user_vars: bool,
 
-    pub flag: u8,
-    pub lflag: u8,
-    pub fflag: u8,
+    string_vars: usize,
+    int_vars: usize,
+    bool_vars: usize,
+    money_vars: usize,
+    byte_vars: usize,
+    time_vars: usize,
+    date_vars: usize,
+    generic_vars: usize,
+
+    function_vars: usize,
+    procedure_vars: usize,
+    constants: usize
+}
+
+impl VariableNameGenerator {
+    pub fn get_next_name(&mut self, decl: &VariableEntry) -> (String, bool) {
+        if self.has_user_vars && (self.version < 300 && decl.header.id <= 0x17 || self.version >= 300 && decl.header.id <= 0x18) {
+            return (VariableNameGenerator::get_user_variable_name(decl.header.id - 1), true);
+        }
+
+        if decl.get_type() == EntryType::Constant {
+            self.constants += 1;
+            return (format!("CONST{:>03}", self.constants), false);
+        }
+    
+        let name = match decl.header.variable_type {
+            VariableType::String => {
+                self.string_vars += 1;
+                format!("STR{:>03}", self.string_vars)
+            }
+            VariableType::BigStr => {
+                self.string_vars += 1;
+                format!("BSTR{:>03}", self.string_vars)
+            }
+            VariableType::Integer => {
+                self.int_vars += 1;
+                format!("INT{:>03}", self.int_vars)
+            }
+            VariableType::Boolean => {
+                self.bool_vars += 1;
+                format!("BOOL{:>03}", self.bool_vars)
+            }
+            VariableType::Byte => {
+                self.byte_vars += 1;
+                format!("BYTE{:>03}", self.byte_vars)
+            }
+            VariableType::Money => {
+                self.money_vars += 1;
+                format!("MONEY{:>03}", self.money_vars)
+            }
+            VariableType::Time => {
+                self.time_vars += 1;
+                format!("TIME{:>03}", self.time_vars)
+            }
+            VariableType::Date => {
+                self.date_vars += 1;
+                format!("DATE{:>03}", self.date_vars)
+            }
+            VariableType::Function => {
+                self.function_vars += 1;
+                format!("FUNC{:>03}", self.function_vars)
+            }
+            VariableType::Procedure => {
+                self.procedure_vars += 1;
+                format!("PROC{:>03}", self.procedure_vars)
+            }
+            _ => {
+                self.generic_vars += 1;
+                format!("VAR{:>03}", self.generic_vars)
+            }
+        };
+        (name, false)
+
+    }
+    
+    fn get_user_variable_name(number: usize) -> String {
+        match number {
+            0 => "U_EXPERT".to_string(),
+            1 => "U_FSE".to_string(),
+            2 => "U_FSEP".to_string(),
+            3 => "U_CLS".to_string(),
+            4 => "U_EXPDATE".to_string(),
+            5 => "U_SEC".to_string(),
+            6 => "U_PAGELEN".to_string(),
+            7 => "U_EXPSEC".to_string(),
+            8 => "U_CITY".to_string(),
+            9 => "U_BDPHONE".to_string(),
+            10 => "U_HVPHONE".to_string(),
+            11 => "U_TRANS".to_string(),
+            12 => "U_CMNT1".to_string(),
+            13 => "U_CMNT2".to_string(),
+            14 => "U_PWD".to_string(),
+            15 => "U_SCROLL".to_string(),
+            16 => "U_LONGHDR".to_string(),
+            17 => "U_DEF79".to_string(),
+            18 => "U_ALIAS".to_string(),
+            19 => "U_VER".to_string(),
+            20 => "U_ADDR".to_string(),
+            21 => "U_NOTES".to_string(),
+            22 => "U_PWDEXP".to_string(),
+            23 => "U_ACCOUNT".to_string(),
+
+            // Added in 3.40
+            24 => "U_SHORTDESC".to_string(),
+            25 => "U_GENDER".to_string(),
+            26 => "U_BIRTHDATE".to_string(),
+            27 => "U_EMAIL".to_string(),
+            28 => "U_WEB".to_string(),
+
+            _ => {
+                log::error!("Unknown user variable number: {number}");
+                "????".to_string()
+            }
+        }
+    }
+
+    pub fn new(version: u16, has_user_vars: bool) -> Self {
+        Self {
+            version,
+            has_user_vars,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EntryType {
+    #[default]
+    Constant,
+    UserVariable,
+    Variable,
+    FunctionResult,
+    Parameter
+}
+impl EntryType {
+    pub fn use_name(self) -> bool {
+        self != EntryType::Constant
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VariableEntry {
+    pub header: VarHeader,
+    name: String,
+    entry_type: EntryType,
     pub number: i32,
     pub variable: Variable,
     pub function_id: i32,
 }
 
+impl VariableEntry {
+    fn new(header: VarHeader, variable: Variable) -> Self {
+        Self {
+            header,
+            name: "Unnamed".to_string(),
+            number: 0,
+            variable,
+            function_id: 0,
+            entry_type: EntryType::Constant,
+        }
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn get_type(&self) -> EntryType {
+        self.entry_type
+    }
+    pub fn set_type(&mut self, entry_type: EntryType) {
+        self.entry_type = entry_type;
+    }
+    pub fn report_variable_usage(&mut self) {
+        if self.entry_type == EntryType::Constant {
+            self.entry_type = EntryType::Variable;
+        }
+    }
+}
+
 pub struct Executable {
     pub version: u16,
-    pub variable_declarations: HashMap<i32, Box<VarDecl>>,
+    pub variable_declarations: HashMap<i32, Box<VariableEntry>>,
+    pub variable_lookup: HashMap<unicase::Ascii<String>, usize>,
     pub source_buffer: Vec<i32>,
     pub max_var: i32,
     pub code_size: i32,
@@ -213,42 +389,38 @@ pub fn read_file(file_name: &str) -> Executable {
         i += 2;
     }
 
+    let mut variable_lookup =  HashMap::new();
+    for (i, var_decl) in &variable_declarations {
+        variable_lookup.insert( unicase::Ascii::new(var_decl.get_name().clone()), *i as usize);
+    }
     Executable {
         version,
         variable_declarations,
+        variable_lookup,
         source_buffer,
         max_var,
         code_size: (code_size - 2) as i32, // forget the last END
     }
 }
 
-fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32, Box<VarDecl>>) {
-    let mut result: HashMap<i32, Box<VarDecl>> = HashMap::new();
+fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32, Box<VariableEntry>>) {
+    let mut result = HashMap::new();
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
         return (i, result);
     }
     let mut var_count = max_var + 1;
-    println!("Read {max_var} entries from variable table");
     while var_count > 1 {
         decrypt(&mut (buf[i..(i + 11)]), version);
         let cur_block = &buf[i..(i + 11)];
 
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as i32;
 
-        let mut var_decl = VarDecl {
-            header: VarHeader::from_bytes(cur_block),
-            number: 0,
-            function_id: 0,
-            var_name: String::new(),
-            flag: 0,
-            lflag: 0,
-            fflag: 0,
-            variable: Variable::default(),
-        };
+        let header = VarHeader::from_bytes(cur_block);
+
         i += 11;
-        // println!("var_decl: {:?}", var_decl.header);
-        match var_decl.header.variable_type {
+        let variable;
+        match header.variable_type {
             VariableType::String => {
                 let string_length =
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
@@ -258,24 +430,24 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 for c in &buf[i..(i + string_length - 1)] {
                     str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
                 }
-                var_decl.variable = Variable {
+                variable = Variable {
                     vtype: VariableType::String,
                     generic_data: VariableValue::String(str),
                     ..Default::default()
                 };
                 i += string_length;
             }
-            VariableType::Function => unsafe {
+            VariableType::Function => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
-                let function_value = FunctionValue::from_bytes(cur_buf);
+                let mut function_value = FunctionValue::from_bytes(cur_buf);
+                function_value.local_variables -= 1;
                 i += 4; // skip vtable + type
-                var_decl.variable = Variable {
+                variable = Variable {
                     vtype: VariableType::Function,
                     data: VariableData { function_value },
                     ..Default::default()
                 };
-                var_decl.variable.data.function_value.local_variables -= 1;
                 i += 8;
             },
             VariableType::Procedure => {
@@ -283,7 +455,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 let cur_buf = &buf[i..(i + 12)];
                 let function_value = FunctionValue::from_bytes(cur_buf);
                 i += 4; // skip vtable + type
-                var_decl.variable = Variable {
+                variable = Variable {
                     vtype: VariableType::Procedure,
                     data: VariableData { function_value },
                     ..Default::default()
@@ -295,7 +467,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
                     i += 2; // what's stored here ?
-                    var_decl.variable = Variable {
+                    variable = Variable {
                         vtype,
                         data: VariableData {
                             unsigned_value: u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()),
@@ -307,7 +479,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
                     i += 2; // what's stored here ?
-                    var_decl.variable = Variable {
+                    variable = Variable {
                         vtype,
                         data: VariableData {
                             u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
@@ -320,7 +492,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
                     let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
                     i += 2; // what's stored here ?
-                    var_decl.variable = Variable {
+                    variable = Variable {
                         vtype,
                         data: VariableData {
                             u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
@@ -331,7 +503,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
                 }
             } // B9 4b
         }
-        result.insert(var_count - 1, Box::new(var_decl.clone()));
+        result.insert(var_count - 1, Box::new(VariableEntry::new(header, variable)));
     }
 
     let mut k = (result.len() - 1) as i32;
@@ -339,25 +511,20 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
         let cur = result.get(&k).unwrap().clone();
         match cur.header.variable_type {
             VariableType::Function => unsafe {
-                let mut j = 0;
                 let last = cur.variable.data.function_value.local_variables as i32
                     + cur.variable.data.function_value.return_var as i32;
+                let mut j = 0;
                 for i in cur.variable.data.function_value.first_var_id as i32..last {
                     let fvar = result.get_mut(&i).unwrap();
-                    fvar.lflag = 1;
-                    if j < cur.variable.data.function_value.parameters as i32 {
-                        fvar.flag = 1;
-                    }
-                    if i != cur.variable.data.function_value.return_var as i32 - 1 {
-                        j += 1;
-                        fvar.number = j;
-                    }
+                    if i == cur.variable.data.function_value.return_var as i32 - 1 {
+                        fvar.set_type(EntryType::FunctionResult);
+                        fvar.number = k;
+                    } else if j < cur.variable.data.function_value.parameters as i32 {
+                        fvar.set_type(EntryType::Parameter);
+                        fvar.number = (cur.variable.data.function_value.first_var_id  + 1) as i32- i;
+                    } 
+                    j += 1;
                 }
-
-                let next = result
-                    .get_mut(&(cur.variable.data.function_value.return_var as i32 - 1))
-                    .unwrap();
-                next.fflag = 1;
             },
             VariableType::Procedure => unsafe {
                 let mut j = 0;
@@ -367,9 +534,8 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
 
                 for i in cur.variable.data.procedure_value.first_var_id as i32..last {
                     if let Some(fvar) = result.get_mut(&i) {
-                        fvar.lflag = 1;
                         if j < cur.variable.data.procedure_value.parameters as i32 {
-                            fvar.flag = 1;
+                            fvar.set_type(EntryType::Parameter);
                         }
                         j += 1;
                         fvar.number = j;
@@ -386,5 +552,7 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: i32) -> (usize, HashMap<i32,
 
         k -= 1;
     }
+
+
     (i, result)
 }

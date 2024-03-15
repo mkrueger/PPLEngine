@@ -10,6 +10,9 @@ use std::{
 mod output;
 pub mod parser;
 
+#[cfg(test)]
+pub mod tests;
+
 #[derive(Parser, Debug)]
 #[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
 struct Args {

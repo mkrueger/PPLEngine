@@ -310,6 +310,110 @@ pub struct Executable {
     pub max_var: i32,
     pub code_size: i32,
 }
+impl Executable {
+    pub fn from_buffer(buffer: &mut [u8]) -> Executable {
+        for i in 0..PREAMBLE.len() {
+            assert!(PREAMBLE[i] == buffer[i], "Invalid PPE file");
+        }
+        let version = ((buffer[40] & 15) as u16 * 10 + (buffer[41] as u16 & 15)) * 100
+            + (buffer[43] as u16 & 15) * 10
+            + (buffer[44] as u16 & 15);
+
+        assert!(
+            version <= LAST_PPLC,
+            "Version number {version} not supported. (Only up to {LAST_PPLC})"
+        );
+        let max_var = u16::from_le_bytes(
+            (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
+                .try_into()
+                .unwrap(),
+        ) as i32;
+        let (mut i, variable_declarations) = read_vars(version, buffer, max_var);
+        let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
+        i += 2;
+        let real_size = buffer.len() - i;
+        /*
+        let data: Vec<u8> = if version >= 300 {
+            let data = &mut buffer[i..real_size + i];
+            decrypt(data, version);
+            if real_size == code_size {
+                data.to_vec()
+            } else {
+                decode_rle(data)
+            }
+        } else {
+            buffer[i..real_size + i].to_vec()
+        };*/
+        println!("Code size: {code_size} bytes real size {real_size}.");
+        let code_data: &mut [u8] = &mut buffer[i..];
+        let mut decrypted_data = Vec::new();
+
+        let mut offset = 0;
+        let data: &[u8] = if version > 300 {
+            let use_rle = real_size != code_size;
+
+            let code_data_len = code_data.len();
+
+            while offset < code_data_len {
+                let mut chunk_size = 2047;
+                let end = (offset + chunk_size).min(code_data_len);
+                let mut chunk = &mut code_data[offset..end];
+                decrypt(chunk, version);
+
+                if use_rle && offset + chunk_size < code_data_len && chunk[chunk_size - 1] == 0 {
+                    chunk = &mut code_data[offset..=end];
+                    chunk_size += 1;
+                }
+
+                offset += chunk_size;
+
+                if use_rle {
+                    let decoded = decode_rle(chunk);
+                    decrypted_data.extend_from_slice(&decoded);
+                } else {
+                    decrypted_data.extend_from_slice(chunk);
+                }
+            }
+            &decrypted_data
+        } else {
+            code_data
+        };
+        if data.len() != code_size {
+            println!(
+                "WARNING: decoded size({}) differs from expected size ({}).",
+                data.len(),
+                code_size
+            );
+        }
+        let mut source_buffer = Vec::new();
+        let mut i = 0;
+        while i < data.len() {
+            let k = if i + 1 >= data.len() {
+                data[i] as i32
+            } else {
+                i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
+            };
+            source_buffer.push(k);
+            i += 2;
+        }
+
+        let mut variable_lookup = HashMap::new();
+        for (i, var_decl) in &variable_declarations {
+            variable_lookup.insert(
+                unicase::Ascii::new(var_decl.get_name().clone()),
+                *i as usize,
+            );
+        }
+        Executable {
+            version,
+            variable_declarations,
+            variable_lookup,
+            source_buffer,
+            max_var,
+            code_size: code_size as i32 - 2, // drop last END
+        }
+    }
+}
 
 static PREAMBLE: &[u8] = "PCBoard Programming Language Executable".as_bytes();
 
@@ -337,106 +441,7 @@ pub fn read_file(file_name: &str) -> Executable {
     f.read_to_end(&mut buffer)
         .expect("Error while reading file.");
 
-    for i in 0..PREAMBLE.len() {
-        assert!(PREAMBLE[i] == buffer[i], "Invalid PPE file");
-    }
-    let version = ((buffer[40] & 15) as u16 * 10 + (buffer[41] as u16 & 15)) * 100
-        + (buffer[43] as u16 & 15) * 10
-        + (buffer[44] as u16 & 15);
-
-    assert!(
-        version <= LAST_PPLC,
-        "Version number {version} not supported. (Only up to {LAST_PPLC})"
-    );
-    let max_var = u16::from_le_bytes(
-        (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
-            .try_into()
-            .unwrap(),
-    ) as i32;
-    let (mut i, variable_declarations) = read_vars(version, &mut buffer, max_var);
-    let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
-    i += 2;
-    let real_size = buffer.len() - i;
-    /*
-    let data: Vec<u8> = if version >= 300 {
-        let data = &mut buffer[i..real_size + i];
-        decrypt(data, version);
-        if real_size == code_size {
-            data.to_vec()
-        } else {
-            decode_rle(data)
-        }
-    } else {
-        buffer[i..real_size + i].to_vec()
-    };*/
-    println!("Code size: {code_size} bytes real size {real_size}.");
-    let code_data: &mut [u8] = &mut buffer[i..];
-    let mut decrypted_data = Vec::new();
-
-    let mut offset = 0;
-    let data: &[u8] = if version > 300 {
-        let use_rle = real_size != code_size;
-
-        let code_data_len = code_data.len();
-
-        while offset < code_data_len {
-            let mut chunk_size = 2047;
-            let end = (offset + chunk_size).min(code_data_len);
-            let mut chunk = &mut code_data[offset..end];
-            decrypt(chunk, version);
-
-            if use_rle && offset + chunk_size < code_data_len && chunk[chunk_size - 1] == 0 {
-                chunk = &mut code_data[offset..=end];
-                chunk_size += 1;
-            }
-
-            offset += chunk_size;
-
-            if use_rle {
-                let decoded = decode_rle(chunk);
-                decrypted_data.extend_from_slice(&decoded);
-            } else {
-                decrypted_data.extend_from_slice(chunk);
-            }
-        }
-        &decrypted_data
-    } else {
-        code_data
-    };
-    if data.len() != code_size {
-        println!(
-            "WARNING: decoded size({}) differs from expected size ({}).",
-            data.len(),
-            code_size
-        );
-    }
-    let mut source_buffer = Vec::new();
-    let mut i = 0;
-    while i < data.len() {
-        let k = if i + 1 >= data.len() {
-            data[i] as i32
-        } else {
-            i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
-        };
-        source_buffer.push(k);
-        i += 2;
-    }
-
-    let mut variable_lookup = HashMap::new();
-    for (i, var_decl) in &variable_declarations {
-        variable_lookup.insert(
-            unicase::Ascii::new(var_decl.get_name().clone()),
-            *i as usize,
-        );
-    }
-    Executable {
-        version,
-        variable_declarations,
-        variable_lookup,
-        source_buffer,
-        max_var,
-        code_size: code_size as i32 - 2, // drop last END
-    }
+    Executable::from_buffer(&mut buffer)
 }
 
 fn read_vars(

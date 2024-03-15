@@ -103,6 +103,9 @@ pub enum ParserErrorType {
 
     #[error("$USEFUNCS used after statements has no effect.")]
     UsefuncAfterStatement,
+
+    #[error("No statements allowed after functions (use $USEFUNCS)")]
+    NoStatementsAfterFunctions,
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -729,16 +732,19 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
     let mut use_funcs = false;
     let mut parsed_begin = false;
     let mut got_statement = false;
+    let mut got_funcs = false;
 
     while let Some(cur_token) = &parser.cur_token {
         match cur_token.token {
             Token::Function => {
                 if let Some(func) = parser.parse_function() {
+                    got_funcs = true;
                     nodes.push(AstNode::Function(func));
                 }
             }
             Token::Procedure => {
                 if let Some(func) = parser.parse_procedure() {
+                    got_funcs = true;
                     nodes.push(AstNode::Procedure(func));
                 }
             }
@@ -779,6 +785,13 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
                     }));
                     break;
                 }
+                if got_funcs && !use_funcs {
+                    parser.errors.push(Error::ParserError(ParserError {
+                        error: ParserErrorType::NoStatementsAfterFunctions,
+                        range: parser.lex.span(),
+                    }));
+                    break;
+                }
                 parsed_begin = true;
             }
             _ => {
@@ -788,6 +801,13 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
                     if use_funcs && !parsed_begin {
                         parser.errors.push(Error::ParserError(ParserError {
                             error: ParserErrorType::NoStatementsAllowedOutsideBlock,
+                            range: parser.lex.span(),
+                        }));
+                        break;
+                    }
+                    if got_funcs && !use_funcs {
+                        parser.errors.push(Error::ParserError(ParserError {
+                            error: ParserErrorType::NoStatementsAfterFunctions,
                             range: parser.lex.span(),
                         }));
                         break;

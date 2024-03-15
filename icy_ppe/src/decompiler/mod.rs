@@ -1,12 +1,12 @@
 use crate::ast::constant::BuiltinConst;
 use crate::ast::{
     AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement,
-    Expression, FunctionCallExpression, FunctionImplementation, GosubStatement, GotoStatement,
-    IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier,
-    ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression,
-    ProcedureCallStatement, ProcedureImplementation, Program, ReturnStatement, Statement,
-    UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier, VariableType,
-    WhileStatement,
+    Expression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
+    GosubStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
+    ParameterSpecifier, ParensExpression, PredefinedCallStatement,
+    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
+    ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp,
+    VariableDeclarationStatement, VariableSpecifier, VariableType, WhileStatement,
 };
 use crate::executable::{read_file, EntryType, Executable, VariableEntry, VariableNameGenerator};
 use crate::tables::{
@@ -1969,4 +1969,209 @@ pub fn has_user_variables(
     }
 
     has_user_variables
+}
+
+#[must_use]
+pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: bool) -> Program {
+    let mut prg = Program::new();
+    let mut d = Decompiler::new(executable);
+
+    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
+        "-----------------------------------------",
+    )));
+    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
+        " PCBoard programming language decompiler ",
+    )));
+    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
+        "-----------------------------------------",
+    )));
+
+    println!(
+        "Format: {}.{:00} detected",
+        d.executable.version / 100,
+        d.executable.version % 100
+    );
+
+    if to_file && !disassemble {
+        println!("Pass 1 ...");
+    }
+    d.do_pass1();
+    d.generate_variable_declarations(&mut prg);
+    if disassemble {
+        d.print_variable_table();
+    }
+
+    if to_file && !disassemble {
+        println!("Pass 2 ...");
+    }
+    d.do_pass2(&mut prg, disassemble);
+
+    if !prg.nodes.is_empty() {
+        // res.push_str("; Function declarations\n");
+    }
+
+    if disassemble {
+        return prg;
+    }
+
+    let mut declarations = Vec::new();
+    for v in &prg.nodes {
+        let declaration = match v {
+            AstNode::Comment(_) => {
+                continue;
+            }
+            AstNode::Function(f) => {
+                AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
+                    f.get_identifier().clone(),
+                    f.get_parameters().clone(),
+                    *f.get_return_type(),
+                ))
+            }
+            AstNode::Procedure(p) => {
+                AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::empty(
+                    p.get_identifier().clone(),
+                    p.get_parameters().clone(),
+                ))
+            }
+            _ => {
+                continue;
+            }
+        };
+        declarations.push(declaration);
+    }
+
+    if raw {
+        declarations.extend(d.statements.iter().map(|s| AstNode::Statement(s.clone())));
+        prg.nodes = declarations;
+        return prg;
+    }
+
+    declarations.extend(prg.nodes);
+    prg.nodes = declarations;
+
+    if !raw {
+        if to_file {
+            println!("Pass 3 ...");
+        }
+        reconstruct::do_pass3(&mut prg, &mut d.statements);
+        reconstruct::do_pass4(&mut prg);
+    }
+
+    if !d.warnings.is_empty() || !d.errors.is_empty() {
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "---------------------------------------".to_string(),
+            ),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(format!(
+                "!!! {} WARNING(S), {} ERROR(S) CAUSED BY PPLC BUGS DETECTED",
+                d.warnings.len(),
+                d.errors.len()
+            )),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "PROBLEM: These expressions most probably looked like !0+!0+!0 or similar"
+                    .to_string(),
+            ),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "         before PPLC fucked it up to something like !(!(+0)+0)!0. This may"
+                    .to_string(),
+            ),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "         also apply to - / and * aswell. Also occurs upon use of multiple !'s."
+                    .to_string(),
+            ),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "         Some smartbrains use this BUG to make programms running different"
+                    .to_string(),
+            ),
+        );
+        d.output_stmt(
+            &mut prg,
+            CommentAstNode::create_empty_statement(
+                "         (or not at all) when being de- and recompiled.".to_string(),
+            ),
+        );
+        if to_file {
+            if d.warnings.is_empty() && d.errors.is_empty() {
+                println!("NO DECOMPILER ERROR DETECTED");
+            } /*else {
+                  for err in &d.errors {
+                      stdout()
+                          .execute(SetForegroundColor(Color::Red))
+                          .unwrap()
+                          .execute(Print("ERROR: "))
+                          .unwrap()
+                          .execute(ResetColor)
+                          .unwrap()
+                          .execute(Print(err))
+                          .unwrap()
+                          .flush()
+                          .unwrap();
+                      println!();
+                  }
+
+                  for warn in &d.warnings {
+                      stdout()
+                          .execute(SetForegroundColor(Color::Yellow))
+                          .unwrap()
+                          .execute(Print("WARNING: "))
+                          .unwrap()
+                          .execute(ResetColor)
+                          .unwrap()
+                          .execute(Print(warn))
+                          .unwrap()
+                          .flush()
+                          .unwrap();
+                      println!();
+                  }
+
+                  if !d.warnings.is_empty() {
+                      stdout()
+                          .execute(SetForegroundColor(Color::Yellow))
+                          .unwrap()
+                          .execute(Print(format!("{} WARNING(S)", d.warnings.len())))
+                          .unwrap()
+                          .execute(ResetColor)
+                          .unwrap();
+                  }
+
+                  if !d.errors.is_empty() {
+                      if !d.warnings.is_empty() {
+                          stdout().execute(Print(", ")).unwrap();
+                      }
+
+                      stdout()
+                          .execute(SetForegroundColor(Color::Red))
+                          .unwrap()
+                          .execute(Print(format!("{} ERROR(S)", d.errors.len())))
+                          .unwrap()
+                          .execute(ResetColor)
+                          .unwrap();
+                  }
+
+                  stdout()
+                      .execute(Print(" DURING DECOMPILATION DETECTED"))
+                      .unwrap()
+                      .flush()
+                      .unwrap();
+                  println!();
+              }*/
+        }
+    }
+    prg
 }

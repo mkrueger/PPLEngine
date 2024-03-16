@@ -337,9 +337,7 @@ pub enum ExecutableError {
 pub struct Executable {
     pub version: u16,
     pub variable_table: Vec<VariableEntry>,
-    pub source_buffer: Vec<i16>,
-    pub code_size: usize,
-    pub max_var: usize,
+    pub script_buffer: Vec<i16>,
 }
 
 impl Executable {
@@ -418,9 +416,7 @@ impl Executable {
         Ok(Executable {
             version,
             variable_table,
-            source_buffer: script_buffer,
-            code_size: code_size as usize - 2,
-            max_var,
+            script_buffer,
         })
     }
 
@@ -450,12 +446,12 @@ impl Executable {
         }
         */
         let mut script_buffer = Vec::new();
-        for s in &self.source_buffer {
+        for s in &self.script_buffer {
             script_buffer.extend_from_slice(&s.to_le_bytes());
         }
         let mut code_data = encode_rle(&script_buffer);
 
-        buffer.extend_from_slice(&u16::to_le_bytes(self.source_buffer.len() as u16 * 2));
+        buffer.extend_from_slice(&u16::to_le_bytes(self.script_buffer.len() as u16 * 2));
         // in the very unlikely case the rle compressed buffer is larger than the original buffer
         let use_rle = code_data.len() > script_buffer.len() || self.version < 300;
         if use_rle {
@@ -539,7 +535,7 @@ impl Executable {
     }
 
     pub fn print_disassembler_parameters(&self, from: usize, to: usize) {
-        for (i, x) in self.source_buffer[from + 1..to].iter().enumerate() {
+        for (i, x) in self.script_buffer[from + 1..to].iter().enumerate() {
             if i > 0 && i % 20 == 0 {
                 println!();
                 print!("                      ");
@@ -552,12 +548,12 @@ impl Executable {
     pub fn print_script_buffer_dump(&self) {
         println!(
             "Script buffer size: {} ({} bytes)",
-            self.source_buffer.len(),
-            self.source_buffer.len() * 2
+            self.script_buffer.len(),
+            self.script_buffer.len() * 2
         );
         print!("{:04X}: ", 0);
 
-        for (i, x) in self.source_buffer.iter().enumerate() {
+        for (i, x) in self.script_buffer.iter().enumerate() {
             if i > 0 && (i % 16) == 0 {
                 println!();
                 print!("{:04X}: ", i * 2);

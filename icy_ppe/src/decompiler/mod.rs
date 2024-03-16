@@ -73,7 +73,7 @@ pub struct Decompiler {
 impl Decompiler {
     pub fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
-        valid_buffer.resize(executable.code_size / 2, false);
+        valid_buffer.resize(executable.script_buffer.len(), false);
         let variable_lookup_table = executable.create_variable_lookup_table();
         Decompiler {
             executable,
@@ -138,15 +138,17 @@ impl Decompiler {
         self.next_func = 0;
         self.src_ptr = 0;
 
-        while self.src_ptr <= self.executable.code_size / 2 {
-            if self.src_ptr >= self.executable.code_size / 2 || self.valid_buffer[self.src_ptr] {
+        while self.src_ptr < self.executable.script_buffer.len() {
+            if self.src_ptr >= self.executable.script_buffer.len() - 1
+                || self.valid_buffer[self.src_ptr]
+            {
                 self.fill_valid(last_point, self.src_ptr);
             } else {
                 let prev_stat = self.cur_stmt;
                 if self.src_ptr == if_ptr {
                     self.src_ptr += 2;
                 }
-                self.cur_stmt = self.executable.source_buffer[self.src_ptr];
+                self.cur_stmt = self.executable.script_buffer[self.src_ptr];
                 assert!(
                     self.cur_stmt < LAST_STMT
                         && (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len()
@@ -167,7 +169,7 @@ impl Decompiler {
                     0xf6 => unsafe {
                         self.src_ptr += 2;
                         self.akt_proc =
-                            self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
+                            self.executable.script_buffer[self.src_ptr - 1] as usize - 1;
                         self.report_variable_usage(self.akt_proc as i16 + 1);
                         let act_dec_start = self
                             .get_var(self.akt_proc)
@@ -188,7 +190,7 @@ impl Decompiler {
                     },
                     0xf7 => {
                         if self.parse_expr(0x01, 0) {
-                            self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
+                            self.report_variable_usage(self.executable.script_buffer[self.src_ptr]);
                             trap = !self.parse_expr(0x01, 0);
                         } else {
                             trap = true;
@@ -196,35 +198,35 @@ impl Decompiler {
                     }
                     0xf8 => {
                         if self.parse_expr(0x03, 0) {
-                            self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
+                            self.report_variable_usage(self.executable.script_buffer[self.src_ptr]);
                             self.src_ptr += 1;
                         } else {
                             trap = true;
                         }
                     }
                     0xf9 => {
-                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 1]);
-                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 2]);
+                        self.report_variable_usage(self.executable.script_buffer[self.src_ptr + 1]);
+                        self.report_variable_usage(self.executable.script_buffer[self.src_ptr + 2]);
                         self.src_ptr += 3;
                     }
                     0xfe => {
                         self.src_ptr += 1;
-                        trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0);
+                        trap = !self.parse_expr(self.executable.script_buffer[self.src_ptr], 0);
                     }
                     0xfa => {
-                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 2]);
+                        self.report_variable_usage(self.executable.script_buffer[self.src_ptr + 2]);
                         self.src_ptr += 2;
                         trap = !self
-                            .parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0);
+                            .parse_expr(self.executable.script_buffer[self.src_ptr - 1] - 1, 0);
                     }
                     0xfc => {
                         self.src_ptr += 1;
                         trap = !self
-                            .parse_expr(self.executable.source_buffer[self.src_ptr] | 0xf00, 0);
+                            .parse_expr(self.executable.script_buffer[self.src_ptr] | 0xf00, 0);
                     }
                     0xfd => {
                         self.src_ptr += 1;
-                        self.labelin(self.executable.source_buffer[self.src_ptr] as usize);
+                        self.labelin(self.executable.script_buffer[self.src_ptr] as usize);
                         self.src_ptr += 1;
                     }
                     0xff => {
@@ -261,13 +263,13 @@ impl Decompiler {
                         => {
                             self.fill_valid(last_point, self.src_ptr);
                             last_point = self.src_ptr;
-                            self.pushlabel(self.executable.source_buffer[self.src_ptr - 1] as usize);
+                            self.pushlabel(self.executable.script_buffer[self.src_ptr - 1] as usize);
                             continue;
                         }
                         0x0007 => {
                             self.fill_valid(last_point, self.src_ptr); // GOTO
                             last_point = self.src_ptr;
-                            self.pushlabel(self.executable.source_buffer[self.src_ptr - 1] as usize);
+                            self.pushlabel(self.executable.script_buffer[self.src_ptr - 1] as usize);
                             if prev_stat == 0x000b {
                                 continue;
                             }
@@ -302,7 +304,7 @@ impl Decompiler {
         let mut c_proc = 0;
 
         let mut statements = vec![];
-        for i in 0..self.executable.max_var {
+        for i in 0..self.executable.variable_table.len() {
             if self.get_var(i).get_type() == EntryType::Variable {
                 match self.get_var(i).header.variable_type {
                     VariableType::Function => {
@@ -894,12 +896,12 @@ impl Decompiler {
             let mut tmp_func = 0;
             self.src_ptr += 1;
 
-            while (self.src_ptr) < self.executable.source_buffer.len()
-                && self.executable.source_buffer[self.src_ptr] != 0
+            while (self.src_ptr) < self.executable.script_buffer.len()
+                && self.executable.script_buffer[self.src_ptr] != 0
             {
                 unsafe {
-                    let curvar = self.executable.source_buffer[self.src_ptr] as usize;
-                    if curvar <= self.executable.max_var {
+                    let curvar = self.executable.script_buffer[self.src_ptr] as usize;
+                    if curvar <= self.executable.variable_table.len() {
                         let var_idx = curvar - 1;
                         if self.get_var(var_idx).header.variable_type == VariableType::Function {
                             self.pushlabel(
@@ -907,7 +909,7 @@ impl Decompiler {
                                     as usize,
                             );
                             self.report_variable_usage(
-                                self.executable.source_buffer[self.src_ptr - 1],
+                                self.executable.script_buffer[self.src_ptr - 1],
                             );
                             self.funcin(
                                 self.get_var(var_idx).value.data.function_value.start_offset
@@ -940,7 +942,7 @@ impl Decompiler {
                             self.src_ptr += 1;
                             if !self.parse_expr(
                                 self.get_var(
-                                    self.executable.source_buffer[self.src_ptr - 1] as usize - 1,
+                                    self.executable.script_buffer[self.src_ptr - 1] as usize - 1,
                                 )
                                 .value
                                 .data
@@ -953,33 +955,33 @@ impl Decompiler {
                             self.src_ptr -= 1;
                         } else {
                             if self.pass == 1 {
-                                let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
+                                let tmp = self.varout(self.executable.script_buffer[self.src_ptr]);
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
-                            if self.executable.source_buffer[self.src_ptr] != 0 {
+                            if self.executable.script_buffer[self.src_ptr] != 0 {
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr - 1],
+                                    self.executable.script_buffer[self.src_ptr - 1],
                                 );
-                                if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
+                                if self.dimexpr(self.executable.script_buffer[self.src_ptr]) != 0 {
                                     return 1;
                                 }
                             }
                         }
                     } else {
-                        let x = self.executable.source_buffer[self.src_ptr];
+                        let x = self.executable.script_buffer[self.src_ptr];
 
-                        if self.executable.source_buffer[self.src_ptr] < crate::tables::LAST_FUNC {
+                        if self.executable.script_buffer[self.src_ptr] < crate::tables::LAST_FUNC {
                             log::error!(
                                 "Error: Unknown function {} at {} avoiding...",
-                                self.executable.source_buffer[self.src_ptr],
+                                self.executable.script_buffer[self.src_ptr],
                                 self.src_ptr
                             );
                             return 1;
                         }
                         if self.pass == 1 {
                             if self.fnktout(x) != 0 {
-                                tmp_func = self.executable.source_buffer[self.src_ptr];
+                                tmp_func = self.executable.script_buffer[self.src_ptr];
                             } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
                                 tmp_func = 0;
                             }
@@ -1031,21 +1033,21 @@ impl Decompiler {
             self.exp_count = 0;
             let mut trash_func = 0;
 
-            while self.executable.source_buffer[self.src_ptr] != 0 {
-                if self.executable.source_buffer[self.src_ptr] >= 0
-                    && self.executable.source_buffer[self.src_ptr] as usize
-                        <= self.executable.max_var
+            while self.executable.script_buffer[self.src_ptr] != 0 {
+                if self.executable.script_buffer[self.src_ptr] >= 0
+                    && self.executable.script_buffer[self.src_ptr] as usize
+                        <= self.executable.variable_table.len()
                 {
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
-                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
+                        self.report_variable_usage(self.executable.script_buffer[self.src_ptr]);
                         if self.pass == 1 {
-                            let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
+                            let tmp = self.varout(self.executable.script_buffer[self.src_ptr]);
                             self.push_expr(tmp);
                         }
                         self.src_ptr += 1;
 
-                        if self.executable.source_buffer[self.src_ptr] != 0 {
-                            if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
+                        if self.executable.script_buffer[self.src_ptr] != 0 {
+                            if self.dimexpr(self.executable.script_buffer[self.src_ptr]) != 0 {
                                 return false;
                             }
                             if self.pass == 1 {
@@ -1071,19 +1073,19 @@ impl Decompiler {
                                     != 0
                             {
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr],
+                                    self.executable.script_buffer[self.src_ptr],
                                 );
                             }
 
                             if self
-                                .get_var(self.executable.source_buffer[self.src_ptr] as usize - 1)
+                                .get_var(self.executable.script_buffer[self.src_ptr] as usize - 1)
                                 .header
                                 .variable_type
                                 == VariableType::Function
                             {
                                 self.pushlabel(
                                     self.get_var(
-                                        self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                        self.executable.script_buffer[self.src_ptr] as usize - 1,
                                     )
                                     .value
                                     .data
@@ -1091,22 +1093,22 @@ impl Decompiler {
                                     .start_offset as usize,
                                 );
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr],
+                                    self.executable.script_buffer[self.src_ptr],
                                 );
                                 self.funcin(
                                     self.get_var(
-                                        self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                        self.executable.script_buffer[self.src_ptr] as usize - 1,
                                     )
                                     .value
                                     .data
                                     .function_value
                                     .start_offset as usize,
-                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                    self.executable.script_buffer[self.src_ptr] as usize - 1,
                                 );
                                 let mut stack_len = 0;
                                 if self.pass == 1 {
                                     let tmp2 =
-                                        self.varout(self.executable.source_buffer[self.src_ptr]);
+                                        self.varout(self.executable.script_buffer[self.src_ptr]);
                                     let tmp3 = self.pop_expr();
                                     if let Some(t) = tmp3 {
                                         self.push_expr(t);
@@ -1119,7 +1121,7 @@ impl Decompiler {
 
                                 if !self.parse_expr(
                                     self.get_var(
-                                        self.executable.source_buffer[self.src_ptr - 1] as usize
+                                        self.executable.script_buffer[self.src_ptr - 1] as usize
                                             - 1,
                                     )
                                     .value
@@ -1151,16 +1153,16 @@ impl Decompiler {
                             } else {
                                 if self.pass == 1 {
                                     let tmp =
-                                        self.varout(self.executable.source_buffer[self.src_ptr]);
+                                        self.varout(self.executable.script_buffer[self.src_ptr]);
                                     self.push_expr(tmp);
                                 }
                                 self.src_ptr += 1;
 
-                                if self.executable.source_buffer[self.src_ptr] != 0 {
+                                if self.executable.script_buffer[self.src_ptr] != 0 {
                                     self.report_variable_usage(
-                                        self.executable.source_buffer[self.src_ptr - 1],
+                                        self.executable.script_buffer[self.src_ptr - 1],
                                     );
-                                    if self.dimexpr(self.executable.source_buffer[self.src_ptr])
+                                    if self.dimexpr(self.executable.script_buffer[self.src_ptr])
                                         != 0
                                     {
                                         return false;
@@ -1172,8 +1174,8 @@ impl Decompiler {
                     }
                 } else {
                     if self.pass == 1 {
-                        if self.fnktout(self.executable.source_buffer[self.src_ptr]) != 0 {
-                            trash_func = self.executable.source_buffer[self.src_ptr];
+                        if self.fnktout(self.executable.script_buffer[self.src_ptr]) != 0 {
+                            trash_func = self.executable.script_buffer[self.src_ptr];
                         } else if trash_func != 0 && self.fnktout(trash_func) == 0 {
                             trash_func = 0;
                         }
@@ -1197,18 +1199,18 @@ impl Decompiler {
     }
 
     fn set_if_ptr(&mut self, i: usize) -> usize {
-        let j = self.executable.source_buffer[self.src_ptr] as usize / 2;
+        let j = self.executable.script_buffer[self.src_ptr] as usize / 2;
         /*    assert!(
             !(j < 2 || j >= self.executable.source_buffer.len() - 1),
             "Error: Invalid IF pointer at {} buffer length is {}",
             self.src_ptr,
             self.executable.source_buffer.len() / 2
         );*/
-        if self.executable.source_buffer[j - 2] == 0x0007
-            && self.executable.source_buffer[j - 1] / 2 == i as i16
+        if self.executable.script_buffer[j - 2] == 0x0007
+            && self.executable.script_buffer[j - 1] / 2 == i as i16
         {
-            self.executable.source_buffer[i] = 0;
-            (self.executable.source_buffer[self.src_ptr] / 2 - 2) as usize
+            self.executable.script_buffer[i] = 0;
+            (self.executable.script_buffer[self.src_ptr] / 2 - 2) as usize
         } else {
             i.wrapping_sub(5)
         }
@@ -1263,9 +1265,9 @@ impl Decompiler {
         let mut last_stmt_offset = 0;
         if disassemble {
             println!();
-            println!("Code size: {}", self.executable.code_size);
+            println!("Code size: {}", self.executable.script_buffer.len());
 
-            for (i, x) in self.executable.source_buffer.iter().enumerate() {
+            for (i, x) in self.executable.script_buffer.iter().enumerate() {
                 print!("{:04X} ", *x);
                 if i > 0 && (i % 16) == 0 {
                     println!();
@@ -1278,7 +1280,7 @@ impl Decompiler {
 
             println!("Offset  # OpCode      Parameters");
         }
-        while self.src_ptr < self.executable.code_size / 2 {
+        while self.src_ptr < self.executable.script_buffer.len() {
             let prev_stat = self.cur_stmt;
             if self.src_ptr == if_ptr {
                 self.src_ptr += 2;
@@ -1292,7 +1294,7 @@ impl Decompiler {
             }
 
             let stmt_ptr = self.src_ptr;
-            self.cur_stmt = self.executable.source_buffer[self.src_ptr];
+            self.cur_stmt = self.executable.script_buffer[self.src_ptr];
             assert!(
                 !(self.cur_stmt > LAST_STMT
                     || STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa),
@@ -1314,7 +1316,7 @@ impl Decompiler {
                     if !self.parse_expr(0x01, 0) {
                         return;
                     }
-                    let tmp = self.varout(*self.executable.source_buffer.get(self.src_ptr).unwrap());
+                    let tmp = self.varout(*self.executable.script_buffer.get(self.src_ptr).unwrap());
                     self.push_expr(tmp);
                     if !self.parse_expr(0x01, 0) {
                         return;
@@ -1324,40 +1326,40 @@ impl Decompiler {
                     if !self.parse_expr(0x03, 0) {
                         return;
                     }
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
+                    let tmp = self.varout(self.executable.script_buffer[self.src_ptr]);
                     self.push_expr(tmp);
                     self.src_ptr += 1;
                 }
                 0xf9 => {// sort
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 1]);
+                    let tmp = self.varout(self.executable.script_buffer[self.src_ptr + 1]);
                     self.push_expr(tmp);
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 2]);
+                    let tmp = self.varout(self.executable.script_buffer[self.src_ptr + 2]);
                     self.push_expr(tmp);
                     self.src_ptr += 3;
                 }
                 0xfe => { // variable expressions - Println
                     self.src_ptr += 1;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0) {
+                    if !self.parse_expr(self.executable.script_buffer[self.src_ptr], 0) {
                         return;
                     }
                 }
                 0xfa => { // variable expressions, expr 1 is avar
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 2]);
+                    let tmp = self.varout(self.executable.script_buffer[self.src_ptr + 2]);
                     self.push_expr(tmp);
                     self.src_ptr += 2;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0) {
+                    if !self.parse_expr(self.executable.script_buffer[self.src_ptr - 1] - 1, 0) {
                         return;
                     }
                 }
                 0xfc => { // varies var
                     self.src_ptr += 1;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr] | 0xf00, 0) {
+                    if !self.parse_expr(self.executable.script_buffer[self.src_ptr] | 0xf00, 0) {
                         return;
                     }
                 }
                 0xfd => { // label (Goto)
                     self.src_ptr += 1;
-                    let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr] as usize);
+                    let tmp = *self.labelnr(self.executable.script_buffer[self.src_ptr] as usize);
                     self.push_expr(IdentifierExpression::create_empty_expression(unicase::Ascii::new(format!("LABEL{tmp:>03}"))));
                     self.src_ptr += 1;
                 }
@@ -1466,10 +1468,10 @@ impl Decompiler {
                 OpCode::PCALL => unsafe {
                     // PCALL
                     self.src_ptr += 2;
-                    self.akt_proc = self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
+                    self.akt_proc = self.executable.script_buffer[self.src_ptr - 1] as usize - 1;
                     let proc_name = self.get_var(self.akt_proc).get_name().clone();
                     if !self.parse_expr(
-                        self.get_var(self.executable.source_buffer[self.src_ptr - 1] as usize - 1)
+                        self.get_var(self.executable.script_buffer[self.src_ptr - 1] as usize - 1)
                             .value
                             .data
                             .procedure_value
@@ -1541,7 +1543,7 @@ impl Decompiler {
         if disassemble {
             self.executable.print_disassembler_parameters(
                 last_stmt_offset,
-                self.executable.source_buffer.len(),
+                self.executable.script_buffer.len(),
             );
         }
         self.labelout(prg, self.src_ptr * 2);

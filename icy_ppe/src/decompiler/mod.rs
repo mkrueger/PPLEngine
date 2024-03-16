@@ -168,7 +168,7 @@ impl Decompiler {
                         self.src_ptr += 2;
                         self.akt_proc =
                             self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
-                        self.report_variable_usage(self.akt_proc);
+                        self.report_variable_usage(self.akt_proc as i16 + 1);
                         let act_dec_start = self
                             .get_var(self.akt_proc)
                             .value
@@ -188,9 +188,7 @@ impl Decompiler {
                     },
                     0xf7 => {
                         if self.parse_expr(0x01, 0) {
-                            self.report_variable_usage(
-                                self.executable.source_buffer[self.src_ptr] as usize - 1,
-                            );
+                            self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
                             trap = !self.parse_expr(0x01, 0);
                         } else {
                             trap = true;
@@ -198,21 +196,15 @@ impl Decompiler {
                     }
                     0xf8 => {
                         if self.parse_expr(0x03, 0) {
-                            self.report_variable_usage(
-                                self.executable.source_buffer[self.src_ptr] as usize - 1,
-                            );
+                            self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
                             self.src_ptr += 1;
                         } else {
                             trap = true;
                         }
                     }
                     0xf9 => {
-                        self.report_variable_usage(
-                            self.executable.source_buffer[self.src_ptr + 1] as usize - 1,
-                        );
-                        self.report_variable_usage(
-                            self.executable.source_buffer[self.src_ptr + 2] as usize - 1,
-                        );
+                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 1]);
+                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 2]);
                         self.src_ptr += 3;
                     }
                     0xfe => {
@@ -220,9 +212,7 @@ impl Decompiler {
                         trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0);
                     }
                     0xfa => {
-                        self.report_variable_usage(
-                            self.executable.source_buffer[self.src_ptr + 2] as usize - 1,
-                        );
+                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr + 2]);
                         self.src_ptr += 2;
                         trap = !self
                             .parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0);
@@ -917,7 +907,7 @@ impl Decompiler {
                                     as usize,
                             );
                             self.report_variable_usage(
-                                self.executable.source_buffer[self.src_ptr - 1] as usize,
+                                self.executable.source_buffer[self.src_ptr - 1],
                             );
                             self.funcin(
                                 self.get_var(var_idx).value.data.function_value.start_offset
@@ -969,7 +959,7 @@ impl Decompiler {
                             self.src_ptr += 1;
                             if self.executable.source_buffer[self.src_ptr] != 0 {
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr - 1] as usize - 1,
+                                    self.executable.source_buffer[self.src_ptr - 1],
                                 );
                                 if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
                                     return 1;
@@ -1047,9 +1037,7 @@ impl Decompiler {
                         <= self.executable.max_var
                 {
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
-                        self.report_variable_usage(
-                            self.executable.source_buffer[self.src_ptr] as usize - 1,
-                        );
+                        self.report_variable_usage(self.executable.source_buffer[self.src_ptr]);
                         if self.pass == 1 {
                             let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
                             self.push_expr(tmp);
@@ -1083,7 +1071,7 @@ impl Decompiler {
                                     != 0
                             {
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                    self.executable.source_buffer[self.src_ptr],
                                 );
                             }
 
@@ -1103,7 +1091,7 @@ impl Decompiler {
                                     .start_offset as usize,
                                 );
                                 self.report_variable_usage(
-                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                    self.executable.source_buffer[self.src_ptr],
                                 );
                                 self.funcin(
                                     self.get_var(
@@ -1170,8 +1158,7 @@ impl Decompiler {
 
                                 if self.executable.source_buffer[self.src_ptr] != 0 {
                                     self.report_variable_usage(
-                                        self.executable.source_buffer[self.src_ptr - 1] as usize
-                                            - 1,
+                                        self.executable.source_buffer[self.src_ptr - 1],
                                     );
                                     if self.dimexpr(self.executable.source_buffer[self.src_ptr])
                                         != 0
@@ -1597,8 +1584,8 @@ impl Decompiler {
         cur_var.get_name().clone()
     }
 
-    fn report_variable_usage(&mut self, id: usize) {
-        self.get_var_mut(id).report_variable_usage();
+    fn report_variable_usage(&mut self, id: i16) {
+        self.get_var_mut(id as usize - 1).report_variable_usage();
     }
 
     fn get_var(&self, id: usize) -> &VariableEntry {

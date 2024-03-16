@@ -1,9 +1,10 @@
 use icy_ppe::{
-    ast::{Program, Statement, Variable, VariableData, VariableType, VariableValue},
-    crypt::encrypt,
-    executable::{FunctionValue, VarHeader},
+    ast::{ParameterSpecifier, Program, Statement, Variable, VariableData, VariableType},
+    executable::{Executable, FunctionValue, PPECommand, PPEExpr, VarHeader, VariableEntry},
     parser::lexer::SpannedToken,
-    tables::{self, get_function_definition, OpCode},
+    tables::{
+        self, get_function_definition, FuncOpCode, FunctionDefinition, OpCode, FUNCTION_DEFINITIONS,
+    },
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -45,11 +46,6 @@ pub struct CompilationWarning {
     pub range: core::ops::Range<usize>,
 }
 
-struct VariableId {
-    pub info: VarHeader,
-    pub value: icy_ppe::ast::Variable,
-}
-
 #[derive(Debug)]
 struct Function {
     pub id: usize,
@@ -63,7 +59,6 @@ impl Function {
     }
 }
 
-impl VariableId {}
 #[derive(Debug)]
 struct LabelInfo {
     pub address: Option<(SpannedToken, usize)>,
@@ -74,7 +69,7 @@ pub struct PPEOutput {
     procedure_declarations: HashMap<unicase::Ascii<String>, Function>,
 
     variable_id: usize,
-    variable_table: Vec<VariableId>,
+    variable_table: Vec<VariableEntry>,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
 
     script_buffer: Vec<i16>,
@@ -85,6 +80,8 @@ pub struct PPEOutput {
 
     cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
+
+    commands: Vec<PPECommand>,
 }
 
 impl PPEOutput {
@@ -97,7 +94,9 @@ impl PPEOutput {
             label_table: HashMap::new(),
             errors: Vec::new(),
             warnings: Vec::new(),
+            commands: Vec::new(),
             cur_function: unicase::Ascii::new(String::new()),
+
             cur_function_id: -1,
             variable_id: 0,
         }
@@ -115,18 +114,19 @@ impl PPEOutput {
         let id = self.next_id();
         self.variable_lookup
             .insert(name.clone(), self.variable_table.len());
-        self.variable_table.push(VariableId {
-            info: VarHeader {
-                id,
-                variable_type,
-                dim,
-                vector_size,
-                matrix_size,
-                cube_size,
-                flags: 0,
-            },
-            value: variable_type.create_empty_value(),
-        });
+        let header = VarHeader {
+            id,
+            variable_type,
+            dim,
+            vector_size,
+            matrix_size,
+            cube_size,
+            flags: 0,
+        };
+        let mut entry = VariableEntry::new(header, variable_type.create_empty_value());
+        entry.set_name(name.to_string());
+        entry.set_type(icy_ppe::executable::EntryType::Variable);
+        self.variable_table.push(entry);
     }
 
     fn add_predefined_variable(&mut self, name: &str, val: Variable) {
@@ -135,18 +135,19 @@ impl PPEOutput {
             unicase::Ascii::new(name.to_string()),
             self.variable_table.len(),
         );
-        self.variable_table.push(VariableId {
-            info: VarHeader {
-                id,
-                variable_type: val.get_type(),
-                dim: val.get_dimensions(),
-                vector_size: val.get_vector_size(),
-                matrix_size: val.get_matrix_size(),
-                cube_size: val.get_cube_size(),
-                flags: 0,
-            },
-            value: val,
-        });
+        let header = VarHeader {
+            id,
+            variable_type: val.get_type(),
+            dim: val.get_dimensions(),
+            vector_size: val.get_vector_size(),
+            matrix_size: val.get_matrix_size(),
+            cube_size: val.get_cube_size(),
+            flags: 0,
+        };
+        let mut entry = VariableEntry::new(header, val);
+        entry.set_name(name.to_string());
+        entry.set_type(icy_ppe::executable::EntryType::UserVariable);
+        self.variable_table.push(entry);
     }
 
     fn initialize_variables(&mut self) {
@@ -232,6 +233,25 @@ impl PPEOutput {
                         });
                         return;
                     }
+
+                    self.variable_lookup
+                        .insert(func.get_identifier().clone(), self.variable_table.len());
+                    let id: usize = self.next_id();
+                    let header: VarHeader = VarHeader {
+                        id,
+                        variable_type: VariableType::Function,
+                        dim: 0,
+                        vector_size: 0,
+                        matrix_size: 0,
+                        cube_size: 0,
+                        flags: 0,
+                    };
+                    let mut entry =
+                        VariableEntry::new(header, VariableType::Function.create_empty_value());
+                    entry.set_name(func.get_identifier().to_string());
+                    entry.set_type(icy_ppe::executable::EntryType::Procedure);
+                    self.variable_table.push(entry);
+
                     self.procedure_declarations.insert(
                         func.get_identifier().clone(),
                         Function {
@@ -264,18 +284,20 @@ impl PPEOutput {
                     self.variable_lookup
                         .insert(proc.get_identifier().clone(), self.variable_table.len());
                     let id: usize = self.next_id();
-                    self.variable_table.push(VariableId {
-                        info: VarHeader {
-                            id,
-                            variable_type: VariableType::Procedure,
-                            dim: 0,
-                            vector_size: 0,
-                            matrix_size: 0,
-                            cube_size: 0,
-                            flags: 0,
-                        },
-                        value: Variable::new_string(proc.get_identifier().to_string()),
-                    });
+                    let header: VarHeader = VarHeader {
+                        id,
+                        variable_type: VariableType::Procedure,
+                        dim: 0,
+                        vector_size: 0,
+                        matrix_size: 0,
+                        cube_size: 0,
+                        flags: 0,
+                    };
+                    let mut entry =
+                        VariableEntry::new(header, VariableType::Procedure.create_empty_value());
+                    entry.set_name(proc.get_identifier().to_string());
+                    entry.set_type(icy_ppe::executable::EntryType::Procedure);
+                    self.variable_table.push(entry);
 
                     let mut var_params = 0;
                     for (i, p) in proc.get_parameters().iter().enumerate() {
@@ -321,25 +343,7 @@ impl PPEOutput {
                         decl.header.start_offset = self.script_buffer.len() as u16 * 2;
                         decl.header.first_var_id = self.variable_table.len() as i16;
                     }
-                    for param in p.get_parameters() {
-                        let id = self.next_id();
-                        self.variable_lookup.insert(
-                            param.get_variable().get_identifier().clone(),
-                            self.variable_table.len(),
-                        );
-                        self.variable_table.push(VariableId {
-                            info: VarHeader {
-                                id,
-                                variable_type: param.get_variable_type(),
-                                dim: param.get_variable().get_dimensions().len() as u8,
-                                vector_size: param.get_variable().get_vector_size(),
-                                matrix_size: param.get_variable().get_matrix_size(),
-                                cube_size: param.get_variable().get_cube_size(),
-                                flags: 0,
-                            },
-                            value: param.get_variable_type().create_empty_value(),
-                        });
-                    }
+                    self.add_parameters(p.get_parameters());
 
                     p.get_statements().iter().for_each(|s| {
                         self.compile_statement(s);
@@ -356,59 +360,47 @@ impl PPEOutput {
                             .unwrap();
 
                         for i in decl.header.first_var_id as usize..self.variable_table.len() {
-                            self.variable_table[i].info.flags |= 1;
+                            self.variable_table[i].header.flags |= 1;
                         }
 
                         decl.header.local_variables =
                             (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
                     }
                 }
-                icy_ppe::ast::AstNode::Function(p) => {
+                icy_ppe::ast::AstNode::Function(func) => {
                     {
                         let id = self.next_id();
                         let decl = self
                             .procedure_declarations
-                            .get_mut(p.get_identifier())
+                            .get_mut(func.get_identifier())
                             .unwrap();
                         decl.header.start_offset = self.script_buffer.len() as u16 * 2;
                         decl.header.first_var_id = id as i16;
                         self.variable_lookup
-                            .insert(p.get_identifier().clone(), self.variable_table.len());
-                        self.variable_table.push(VariableId {
-                            info: VarHeader {
-                                id,
-                                variable_type: VariableType::Function,
-                                dim: 0,
-                                vector_size: 0,
-                                matrix_size: 0,
-                                cube_size: 0,
-                                flags: 0,
-                            },
-                            value: Variable::new_string(p.get_identifier().to_string()),
-                        });
-                        self.cur_function = p.get_identifier().clone();
+                            .insert(func.get_identifier().clone(), self.variable_table.len());
+                        self.cur_function = func.get_identifier().clone();
                         self.cur_function_id = id as i32;
                     }
-                    for param in p.get_parameters() {
-                        let id = self.next_id();
-                        self.variable_lookup.insert(
-                            param.get_variable().get_identifier().clone(),
-                            self.variable_table.len(),
-                        );
-                        self.variable_table.push(VariableId {
-                            info: VarHeader {
-                                id,
-                                variable_type: param.get_variable_type(),
-                                dim: param.get_variable().get_dimensions().len() as u8,
-                                vector_size: param.get_variable().get_vector_size(),
-                                matrix_size: param.get_variable().get_matrix_size(),
-                                cube_size: param.get_variable().get_cube_size(),
-                                flags: 0,
-                            },
-                            value: param.get_variable_type().create_empty_value(),
-                        });
-                    }
-                    p.get_statements().iter().for_each(|s| {
+                    self.add_parameters(func.get_parameters());
+
+                    let id = self.next_id();
+
+                    let header: VarHeader = VarHeader {
+                        id,
+                        variable_type: *func.get_return_type(),
+                        dim: 0,
+                        vector_size: 0,
+                        matrix_size: 0,
+                        cube_size: 0,
+                        flags: 0,
+                    };
+                    let mut entry =
+                        VariableEntry::new(header, func.get_return_type().create_empty_value());
+                    entry.set_name(format!("RESULT_FOR_{}", func.get_identifier()));
+                    entry.set_type(icy_ppe::executable::EntryType::FunctionResult);
+                    self.variable_table.push(entry);
+
+                    func.get_statements().iter().for_each(|s| {
                         self.compile_statement(s);
                     });
                     self.cur_function_id = -1;
@@ -418,7 +410,7 @@ impl PPEOutput {
                     {
                         let decl = self
                             .procedure_declarations
-                            .get_mut(p.get_identifier())
+                            .get_mut(func.get_identifier())
                             .unwrap();
                         decl.header.local_variables =
                             (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
@@ -440,10 +432,35 @@ impl PPEOutput {
         }
     }
 
+    fn add_parameters(&mut self, parameters: &[ParameterSpecifier]) {
+        for param in parameters {
+            let id = self.next_id();
+            self.variable_lookup.insert(
+                param.get_variable().get_identifier().clone(),
+                self.variable_table.len(),
+            );
+
+            let header: VarHeader = VarHeader {
+                id,
+                variable_type: param.get_variable_type(),
+                dim: param.get_variable().get_dimensions().len() as u8,
+                vector_size: param.get_variable().get_vector_size(),
+                matrix_size: param.get_variable().get_matrix_size(),
+                cube_size: param.get_variable().get_cube_size(),
+                flags: 0,
+            };
+            let mut entry =
+                VariableEntry::new(header, param.get_variable_type().create_empty_value());
+            entry.set_name(param.get_variable().get_identifier().to_string());
+            entry.set_type(icy_ppe::executable::EntryType::Parameter);
+            self.variable_table.push(entry);
+        }
+    }
+
     fn compile_statement(&mut self, s: &Statement) {
         match s {
             Statement::End(_) => {
-                self.script_buffer.push(OpCode::END as i16);
+                self.commands.push(PPECommand::End);
             }
             Statement::Comment(_) => {
                 // ignore
@@ -477,7 +494,7 @@ impl PPEOutput {
                 self.compile_statement(while_stmt.get_statement());
             }
             Statement::Return(_) => {
-                self.script_buffer.push(OpCode::RETURN as i16);
+                self.commands.push(PPECommand::Return);
             }
             Statement::Let(let_smt) => {
                 self.script_buffer.push(OpCode::LET as i16);
@@ -497,7 +514,7 @@ impl PPEOutput {
                         return;
                     };
                     let decl = &self.variable_table[*decl_idx];
-                    self.script_buffer.push(decl.info.id as i16);
+                    self.script_buffer.push(decl.header.id as i16);
                     self.script_buffer
                         .push(let_smt.get_arguments().len() as i16);
                     for arg in let_smt.get_arguments() {
@@ -510,22 +527,20 @@ impl PPEOutput {
                 self.script_buffer.extend(expr_buffer);
             }
             Statement::Gosub(gosub_stmt) => {
-                self.script_buffer.push(OpCode::GOSUB as i16);
+                self.commands.push(PPECommand::Gosub(0));
                 self.add_label_usage(
                     gosub_stmt.get_label(),
                     gosub_stmt.get_label_token().clone(),
-                    self.script_buffer.len() * 2,
+                    self.commands.len(),
                 );
-                self.script_buffer.push(0);
             }
             Statement::Goto(goto_stmt) => {
-                self.script_buffer.push(OpCode::GOTO as i16);
+                self.commands.push(PPECommand::Goto(0));
                 self.add_label_usage(
                     goto_stmt.get_label(),
                     goto_stmt.get_label_token().clone(),
-                    self.script_buffer.len() * 2,
+                    self.commands.len(),
                 );
-                self.script_buffer.push(0);
             }
             Statement::Label(label) => {
                 self.add_label_address(
@@ -599,24 +614,27 @@ impl PPEOutput {
         }
     }
 
-    pub fn create_binary(&self, version: u16) -> Result<Vec<u8>, CompilationErrorType> {
-        Ok(Vec::new())
+    pub fn create_binary(&self, version: u16) -> Result<Executable, CompilationErrorType> {
+        Ok(Executable {
+            version,
+            variable_table: self.variable_table.clone(),
+            script_buffer: self.script_buffer.clone(),
+        })
     }
 
     fn compile_expression(&mut self, expr: &icy_ppe::ast::Expression) -> Vec<i16> {
         let mut stack = Vec::new();
-        self.comp_expr(&mut stack, expr);
+        self.comp_expr(expr);
         stack.push(0); // push end of expression
         stack
     }
 
-    fn comp_expr(&mut self, stack: &mut Vec<i16>, expr: &icy_ppe::ast::Expression) {
+    fn comp_expr(&mut self, expr: &icy_ppe::ast::Expression) -> Option<PPEExpr> {
         match expr {
             icy_ppe::ast::Expression::Identifier(id) => {
                 if let Some(decl_idx) = self.variable_lookup.get(id.get_identifier()) {
                     let decl = &self.variable_table[*decl_idx];
-                    stack.push(decl.info.id as i16);
-                    stack.push(0);
+                    return Some(PPEExpr::Value(decl.header.id));
                 } else {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::VariableNotFound(
@@ -627,26 +645,26 @@ impl PPEOutput {
                 }
             }
             icy_ppe::ast::Expression::Const(constant) => {
-                stack.push(self.lookup_constant(constant.get_constant_value()) as i16);
-                stack.push(0);
+                let table_id = self.lookup_constant(constant.get_constant_value());
+                return Some(PPEExpr::Value(table_id));
             }
             icy_ppe::ast::Expression::Parens(expr) => {
-                self.comp_expr(stack, expr.get_expression());
+                return self.comp_expr(expr.get_expression());
             }
             icy_ppe::ast::Expression::PredefinedFunctionCall(expr) => {
                 let predef = get_function_definition(expr.get_identifier());
                 // TODO: Check parameter signature
-                if predef >= 0 {
-                    for p in expr.get_arguments() {
-                        let mut stack2 = Vec::new();
-                        self.comp_expr(&mut stack2, p);
-                        stack.extend(stack2);
-                    }
-                    stack.push(tables::FUNCTION_DEFINITIONS[predef as usize].opcode as i16);
-                }
+                return Some(PPEExpr::PredefinedFunctionCall(
+                    &FUNCTION_DEFINITIONS[predef as usize],
+                    expr.get_arguments()
+                        .iter()
+                        .map(|e| self.comp_expr(e))
+                        .flatten()
+                        .collect(),
+                ));
             }
             icy_ppe::ast::Expression::FunctionCall(expr) => {
-                if self
+                /*   if self
                     .procedure_declarations
                     .contains_key(expr.get_identifier())
                 {
@@ -662,8 +680,8 @@ impl PPEOutput {
                 } else {
                     if let Some(var_idx) = self.variable_lookup.get(expr.get_identifier()) {
                         let var = &self.variable_table[*var_idx];
-                        stack.push(var.info.id as i16);
-                        stack.push(var.info.dim as i16);
+                        stack.push(var.header.id as i16);
+                        stack.push(var.header.dim as i16);
                     } else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::VariableNotFound(
@@ -677,35 +695,72 @@ impl PPEOutput {
                         let expr_buffer = self.compile_expression(p);
                         stack.extend(expr_buffer);
                     }
-                }
+                }*/
             }
 
-            icy_ppe::ast::Expression::Unary(expr) => {
-                self.comp_expr(stack, expr.get_expression());
-                stack.push(expr.get_op() as i16);
+            icy_ppe::ast::Expression::Unary(unary_expr) => {
+                let Some(expr) = self.comp_expr(unary_expr.get_expression()) else {
+                    return None;
+                };
+                let func = match unary_expr.get_op() {
+                    icy_ppe::ast::UnaryOp::Plus => FuncOpCode::UPLUS,
+                    icy_ppe::ast::UnaryOp::Minus => FuncOpCode::UMINUS,
+                    icy_ppe::ast::UnaryOp::Not => FuncOpCode::NOT,
+                };
+                let offset = -(func as i32);
+                return Some(PPEExpr::PredefinedFunctionCall(
+                    &FUNCTION_DEFINITIONS[offset as usize],
+                    vec![expr],
+                ));
             }
-            icy_ppe::ast::Expression::Binary(expr) => {
-                self.comp_expr(stack, expr.get_left_expression());
-                self.comp_expr(stack, expr.get_right_expression());
-                stack.push(expr.get_op() as i16);
+            icy_ppe::ast::Expression::Binary(bin_expr) => {
+                let Some(left) = self.comp_expr(bin_expr.get_left_expression()) else {
+                    return None;
+                };
+                let Some(right) = self.comp_expr(bin_expr.get_right_expression()) else {
+                    return None;
+                };
+                let func = match bin_expr.get_op() {
+                    icy_ppe::ast::BinOp::PoW => FuncOpCode::EXP,
+                    icy_ppe::ast::BinOp::Mul => FuncOpCode::TIMES,
+                    icy_ppe::ast::BinOp::Div => FuncOpCode::DIVIDE,
+                    icy_ppe::ast::BinOp::Mod => FuncOpCode::MOD,
+                    icy_ppe::ast::BinOp::Add => FuncOpCode::PLUS,
+                    icy_ppe::ast::BinOp::Sub => FuncOpCode::MINUS,
+                    icy_ppe::ast::BinOp::Eq => FuncOpCode::EQ,
+                    icy_ppe::ast::BinOp::NotEq => FuncOpCode::NE,
+                    icy_ppe::ast::BinOp::Lower => FuncOpCode::LT,
+                    icy_ppe::ast::BinOp::LowerEq => FuncOpCode::LE,
+                    icy_ppe::ast::BinOp::Greater => FuncOpCode::GT,
+                    icy_ppe::ast::BinOp::GreaterEq => FuncOpCode::GE,
+                    icy_ppe::ast::BinOp::And => FuncOpCode::AND,
+                    icy_ppe::ast::BinOp::Or => FuncOpCode::OR,
+                };
+                let offset = -(func as i32);
+                return Some(PPEExpr::PredefinedFunctionCall(
+                    &FUNCTION_DEFINITIONS[offset as usize],
+                    vec![left, right],
+                ));
             }
         }
+        None
     }
 
     fn lookup_constant(&mut self, constant: &icy_ppe::ast::Constant) -> usize {
         let id = self.next_id();
-        self.variable_table.push(VariableId {
-            info: VarHeader {
-                id,
-                variable_type: constant.get_var_type(),
-                dim: 0,
-                vector_size: 0,
-                matrix_size: 0,
-                cube_size: 0,
-                flags: 0,
-            },
-            value: constant.get_value(),
-        });
+        let header: VarHeader = VarHeader {
+            id,
+            variable_type: constant.get_var_type(),
+            dim: 0,
+            vector_size: 0,
+            matrix_size: 0,
+            cube_size: 0,
+            flags: 0,
+        };
+        let mut entry = VariableEntry::new(header, constant.get_value());
+        entry.set_name(format!("CONST_{}", id));
+        entry.set_type(icy_ppe::executable::EntryType::Constant);
+        self.variable_table.push(entry);
         id
     }
 

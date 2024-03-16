@@ -55,20 +55,22 @@ fn run_test(data: &String, output: &str) {
 
     let mut exec = output::PPEOutput::new();
     exec.compile(&prg, false);
+    let binary = exec.create_binary(330).unwrap();
+    let mut buffer = binary.to_buffer().unwrap();
+    let exe = Executable::from_buffer(&mut buffer).unwrap();
+    let mut prg = decompile(exe, true, true, false);
+    let mut io = MemoryIO::new();
+    let mut ctx = TestContext::new();
+    run(&mut prg, &mut ctx, &mut io, IcyBoardData::default()).unwrap();
 
-    match exec.create_binary(330) {
-        Ok(mut buffer) => {
-            let exe = Executable::from_buffer(&mut buffer).unwrap();
-            let mut prg = decompile(exe, true, true, false);
-            let mut io = MemoryIO::new();
-            let mut ctx = TestContext::new();
-            run(&mut prg, &mut ctx, &mut io, IcyBoardData::default()).unwrap();
-            assert_eq!(output, ctx.output);
-        }
-        Err(e) => {
-            panic!("Error: {e}");
-        }
+    let error = output != ctx.output;
+    if error {
+        let mut exe = Executable::from_buffer(&mut buffer).unwrap();
+        exe.print_variable_table();
+        exe.print_script_buffer_dump();
+        exe.print_disassembler();
     }
+    assert!(!error);
     println!("{}", output);
     println!("------------)");
     println!("{}", data);

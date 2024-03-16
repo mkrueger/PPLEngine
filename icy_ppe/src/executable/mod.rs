@@ -7,7 +7,19 @@ use thiserror::Error;
 
 use crate::ast::{Variable, VariableData, VariableType, VariableValue};
 use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
+use crate::tables::OpCode;
 use crate::Res;
+
+pub mod deserializer;
+pub use deserializer::*;
+
+pub mod commands;
+pub use commands::*;
+
+#[cfg(test)]
+pub mod expr_tests;
+#[cfg(test)]
+pub mod stmt_tests;
 
 #[derive(Clone, Default, Debug)]
 pub struct VarHeader {
@@ -40,6 +52,11 @@ impl VarHeader {
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.id as u16));
@@ -288,7 +305,7 @@ pub struct VariableEntry {
 }
 
 impl VariableEntry {
-    fn new(header: VarHeader, variable: Variable) -> Self {
+    pub fn new(header: VarHeader, variable: Variable) -> Self {
         Self {
             header,
             name: "Unnamed".to_string(),
@@ -321,6 +338,11 @@ impl VariableEntry {
         }
     }
 
+    /// .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
     pub fn to_buffer(&self, version: u16) -> Result<Vec<u8>, ExecutableError> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.header.id as u16));
@@ -337,10 +359,6 @@ impl VariableEntry {
         if self.header.variable_type == VariableType::Procedure
             || self.header.variable_type == VariableType::Function
         {
-            let VariableValue::String(s) = &self.value.generic_data else {
-                panic!("Invalid value type {:?}", self.value);
-            };
-
             buffer.push(0);
             buffer.push(0);
             buffer.push(self.header.variable_type as u8);
@@ -416,6 +434,15 @@ pub struct Executable {
 }
 
 impl Executable {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
     pub fn from_buffer(buffer: &mut [u8]) -> Result<Executable, ExecutableError> {
         if !buffer.starts_with(PREAMBLE) {
             return Err(ExecutableError::InvalidPPEFile);
@@ -576,7 +603,7 @@ impl Executable {
             self.variable_table.len()
         );
         println!("   # Type         Flags Role           Name        Value");
-        for var in self.variable_table.iter().skip(1).rev() {
+        for var in self.variable_table.iter().rev() {
             let ts = if var.header.dim > 0 {
                 format!("{}({})", var.header.variable_type, var.header.dim)
             } else {
@@ -614,17 +641,6 @@ impl Executable {
         }
     }
 
-    pub fn print_disassembler_parameters(&self, from: usize, to: usize) {
-        for (i, x) in self.script_buffer[from + 1..to].iter().enumerate() {
-            if i > 0 && i % 20 == 0 {
-                println!();
-                print!("                      ");
-            }
-            print!("{:<04X} ", *x);
-        }
-        println!();
-    }
-
     pub fn print_script_buffer_dump(&self) {
         println!(
             "Script buffer size: {} ({} bytes)",
@@ -639,6 +655,66 @@ impl Executable {
                 print!("{:04X}: ", i * 2);
             }
             print!("{:04X} ", *x);
+        }
+    }
+
+    pub fn print_disassembler(&mut self) {
+        println!("-----------------------------");
+        println!("Offset  # OpCode      Parameters");
+        /*
+                if disassemble {
+                    if stmt_ptr > 0 {
+                        self.executable
+                            .print_disassembler_parameters(last_stmt_offset, stmt_ptr);
+                    }
+                    let op_str = format!("{op:?}");
+
+                    print!("{:>5X}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
+
+                    last_stmt_offset = stmt_ptr;
+                }
+
+        */
+
+        let mut deserializer = PPEDeserializer::default();
+        let mut visitor = DisassembleVisitor::default();
+        loop {
+            match deserializer.deserialize_command(self) {
+                Ok(Some(cmd)) => {
+                    print!("{:>5X}: ", deserializer.stmt_span().start * 2);
+                    cmd.visit(&mut visitor);
+                    println!();
+                }
+                Ok(None) => {
+                    break;
+                }
+                Err(e) => {
+                    println!("Error: {e}");
+                    print!("{:04X}: ", deserializer.stmt_span().start);
+                    for o in deserializer.stmt_span() {
+                        print!("{:04X} ", self.script_buffer[o]);
+                    }
+                    println!();
+                    if deserializer.expr_span().start > deserializer.stmt_span().start {
+                        print!("{:04X}: ", deserializer.expr_span().start);
+                        for o in deserializer.expr_span() {
+                            print!("{:04X} ", self.script_buffer[o]);
+                        }
+                        println!();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+impl Default for Executable {
+    fn default() -> Self {
+        Self {
+            version: LAST_PPLC,
+            variable_table: Vec::new(),
+            script_buffer: Vec::new(),
         }
     }
 }
@@ -714,7 +790,7 @@ fn read_variable_table(
                     !(vtype != header.variable_type),
                     "Invalid function type: {vtype}"
                 );
-                let mut function_value = FunctionValue::from_bytes(cur_buf);
+                let function_value = FunctionValue::from_bytes(cur_buf);
                 i += 4; // skip vtable + type
                 variable = Variable {
                     vtype,
@@ -816,4 +892,143 @@ fn read_variable_table(
     }
 
     (i, result)
+}
+
+#[derive(Default)]
+struct DisassembleVisitor {}
+impl DisassembleVisitor {
+    fn output_op_code(&self, end: OpCode) {
+        print!("{:02X} {:?}", end as i16, end);
+    }
+
+    fn print_arguments(&mut self, args: &[PPEExpr]) {
+        for (i, d) in args.iter().enumerate() {
+            if i > 0 {
+                print!(", ");
+            }
+            d.visit(self);
+        }
+    }
+}
+
+impl PPEVisitor<()> for DisassembleVisitor {
+    fn visit_value(&mut self, id: usize) {
+        print!("[{id:04X}]");
+    }
+
+    fn visit_unary_expression(&mut self, op: crate::ast::UnaryOp, expr: &PPEExpr) {
+        match op {
+            crate::ast::UnaryOp::Minus => {
+                print!("-");
+            }
+            crate::ast::UnaryOp::Not => {
+                print!("NOT ");
+            }
+            crate::ast::UnaryOp::Plus => {
+                print!("+");
+            }
+        }
+        print!("(");
+        expr.visit(self);
+        print!(")");
+    }
+
+    fn visit_binary_expression(&mut self, op: crate::ast::BinOp, left: &PPEExpr, right: &PPEExpr) {
+        left.visit(self);
+        print!(" {op} ");
+        right.visit(self);
+    }
+
+    fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) {
+        print!("[{id:04X}](");
+        self.print_arguments(dim);
+        print!(")");
+    }
+
+    fn visit_predefined_function_call(
+        &mut self,
+        def: &crate::tables::FunctionDefinition,
+        arguments: &[PPEExpr],
+    ) {
+        print!("'{}'(", def.name);
+        self.print_arguments(arguments);
+        print!(")");
+    }
+
+    fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) {
+        print!("FUNC[{id}](");
+        self.print_arguments(arguments);
+        print!(")");
+    }
+
+    fn visit_end(&mut self) {
+        self.output_op_code(OpCode::END);
+    }
+
+    fn visit_return(&mut self) {
+        self.output_op_code(OpCode::RETURN);
+    }
+
+    fn visit_if(&mut self, cond: &PPEExpr, label: &usize) {
+        self.output_op_code(OpCode::IF);
+        print!(" (");
+        cond.visit(self);
+        print!(")");
+        print!(" GOTO {{{label:04X}}}");
+    }
+
+    fn visit_while(&mut self, cond: &PPEExpr, stmt: &PPECommand, label: &usize) {
+        self.output_op_code(OpCode::WHILE);
+        print!("(");
+        cond.visit(self);
+        print!(")");
+        print!(" {{{label:04X}}}");
+        println!("\t\t");
+        stmt.visit(self);
+    }
+
+    fn visit_proc_call(&mut self, id: &usize, args: &[PPEExpr]) {
+        self.output_op_code(OpCode::PCALL);
+        print!(" PROC[{id:04X}]: ");
+        self.print_arguments(args);
+    }
+
+    fn visit_predefined_call(
+        &mut self,
+        def: &crate::tables::StatementDefinition,
+        args: &[PPEExpr],
+    ) {
+        print!("{:02X} '{}': ", def.opcode as i16, def.name);
+        self.print_arguments(args);
+    }
+
+    fn visit_goto(&mut self, label: &usize) {
+        self.output_op_code(OpCode::GOTO);
+        print!(" {{{label:04X}}}");
+    }
+
+    fn visit_gosub(&mut self, label: &usize) {
+        self.output_op_code(OpCode::GOSUB);
+        print!(" {{{label:04X}}}");
+    }
+
+    fn visit_end_func(&mut self) {
+        self.output_op_code(OpCode::FEND);
+    }
+
+    fn visit_end_proc(&mut self) {
+        self.output_op_code(OpCode::FPCLR);
+    }
+
+    fn visit_stop(&mut self) {
+        self.output_op_code(OpCode::STOP);
+    }
+
+    fn visit_let(&mut self, target: &PPEExpr, value: &PPEExpr) {
+        self.output_op_code(OpCode::LET);
+        print!(" ");
+        target.visit(self);
+        print!(" <- ");
+        value.visit(self);
+    }
 }

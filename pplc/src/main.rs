@@ -134,7 +134,8 @@ fn main() {
 
     println!();
     match exec.create_binary(330) {
-        Ok(bin) => {
+        Ok(executable) => {
+            let bin = executable.to_buffer().unwrap();
             let out_file_name = Path::new(&file_name).with_extension("ppe");
             let len = bin.len();
             fs::write(&out_file_name, bin).expect("Unable to write file");

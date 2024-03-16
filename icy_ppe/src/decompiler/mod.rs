@@ -10,12 +10,11 @@ use crate::ast::{
 };
 use crate::executable::{read_file, EntryType, Executable, VariableEntry, VariableNameGenerator};
 use crate::tables::{
-    FuncOpCode, OpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS,
-    STATEMENT_SIGNATURE_TABLE, TYPE_NAMES,
+    FuncOpCode, OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE,
+    TYPE_NAMES,
 };
 use crate::Res;
 use std::collections::{HashMap, HashSet};
-use std::hash::BuildHasher;
 use std::intrinsics::transmute;
 use std::path::PathBuf;
 use std::vec;
@@ -23,7 +22,7 @@ use std::vec;
 pub mod reconstruct;
 pub mod rename_visitor;
 
-const LAST_STMT: i16 = 0x00e2;
+pub const LAST_STMT: i16 = 0x00e2;
 
 struct FuncL {
     func: usize,
@@ -608,6 +607,7 @@ impl Decompiler {
         let expr = self.pop_expr();
         expr.map(Decompiler::stripper)
     }
+
     fn repl_const(expr: Expression, names: &'static [BuiltinConst]) -> Expression {
         match expr {
             Expression::Const(c) => match c.get_constant_value() {
@@ -846,7 +846,7 @@ impl Decompiler {
                 let r_value = self.pop_expr().unwrap();
                 let l_value = self.pop_expr().unwrap();
 
-                let binop = BIN_EXPR[offset];
+                let binop = unsafe { transmute(func) };
 
                 self.push_expr(ParensExpression::create_empty_expression(Box::new(
                     BinaryExpression::create_empty_expression(
@@ -1207,8 +1207,9 @@ impl Decompiler {
             self.src_ptr,
             self.executable.source_buffer.len() / 2
         );*/
-        if self.executable.script_buffer[j - 2] == 0x0007
-            && self.executable.script_buffer[j - 1] / 2 == i as i16
+        if j <= 2
+            || self.executable.script_buffer[j - 2] == 0x0007
+                && self.executable.script_buffer[j - 1] / 2 == i as i16
         {
             self.executable.script_buffer[i] = 0;
             (self.executable.script_buffer[self.src_ptr] / 2 - 2) as usize
@@ -1263,23 +1264,11 @@ impl Decompiler {
         self.src_ptr = 0;
         let mut if_ptr = usize::MAX;
         let mut if_while_stack = vec![];
-        let mut last_stmt_offset = 0;
         if disassemble {
             println!();
-            println!("Code size: {}", self.executable.script_buffer.len());
-
-            for (i, x) in self.executable.script_buffer.iter().enumerate() {
-                print!("{:04X} ", *x);
-                if i > 0 && (i % 16) == 0 {
-                    println!();
-                }
-            }
-
+            self.executable.print_script_buffer_dump();
             println!();
-
-            println!("-----------------------------");
-
-            println!("Offset  # OpCode      Parameters");
+            self.executable.print_disassembler();
         }
         while self.src_ptr < self.executable.script_buffer.len() {
             let prev_stat = self.cur_stmt;
@@ -1294,7 +1283,6 @@ impl Decompiler {
                 continue;
             }
 
-            let stmt_ptr = self.src_ptr;
             self.cur_stmt = self.executable.script_buffer[self.src_ptr];
             assert!(
                 !(self.cur_stmt > LAST_STMT
@@ -1371,18 +1359,6 @@ impl Decompiler {
                 }
             }
             let op: OpCode = unsafe { transmute(self.cur_stmt) };
-            if disassemble {
-                if stmt_ptr > 0 {
-                    self.executable
-                        .print_disassembler_parameters(last_stmt_offset, stmt_ptr);
-                }
-                let op_str = format!("{op:?}");
-
-                print!("{:>5X}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
-
-                last_stmt_offset = stmt_ptr;
-            }
-
             match op {
                 OpCode::END => {
                     self.outputpass2(
@@ -1539,13 +1515,6 @@ impl Decompiler {
                 }
                 _ => {}
             }
-        }
-
-        if disassemble {
-            self.executable.print_disassembler_parameters(
-                last_stmt_offset,
-                self.executable.script_buffer.len(),
-            );
         }
         self.labelout(prg, self.src_ptr * 2);
     }

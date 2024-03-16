@@ -1738,6 +1738,12 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 218] = [
     },
 ];
 
+pub fn get_statement_definition(opcode: OpCode) -> Option<&'static StatementDefinition<'static>> {
+    STATEMENT_DEFINITIONS
+        .iter()
+        .find(|def| def.opcode == opcode)
+}
+
 #[repr(i16)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]

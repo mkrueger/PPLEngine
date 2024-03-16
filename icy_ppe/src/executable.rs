@@ -3,8 +3,11 @@ use std::fmt;
 use std::fs::File;
 use std::io::Read;
 
+use thiserror::Error;
+
 use crate::ast::{Variable, VariableData, VariableType, VariableValue};
 use crate::crypt::{decode_rle, decrypt};
+use crate::Res;
 
 #[derive(Clone, Debug)]
 pub struct VarHeader {
@@ -264,9 +267,9 @@ pub struct VariableEntry {
     pub header: VarHeader,
     name: String,
     entry_type: EntryType,
-    pub number: i32,
+    pub number: usize,
     pub variable: Variable,
-    pub function_id: i32,
+    pub function_id: usize,
 }
 
 impl VariableEntry {
@@ -292,9 +295,11 @@ impl VariableEntry {
     pub fn get_type(&self) -> EntryType {
         self.entry_type
     }
+
     pub fn set_type(&mut self, entry_type: EntryType) {
         self.entry_type = entry_type;
     }
+
     pub fn report_variable_usage(&mut self) {
         if self.entry_type == EntryType::Constant {
             self.entry_type = EntryType::Variable;
@@ -302,56 +307,54 @@ impl VariableEntry {
     }
 }
 
+#[derive(Error, Debug, Clone, PartialEq)]
+pub enum ExecutableError {
+    #[error("Invalid PPE file")]
+    InvalidPPEFile,
+    #[error("Unsupported version: {0} (Only up to {LAST_PPLC})")]
+    UnsupporrtedVersion(u16),
+}
+
 pub struct Executable {
     pub version: u16,
-    pub variable_declarations: HashMap<i32, Box<VariableEntry>>,
+    pub variable_declarations: HashMap<usize, Box<VariableEntry>>,
     pub variable_lookup: HashMap<unicase::Ascii<String>, usize>,
     pub source_buffer: Vec<i32>,
-    pub max_var: i32,
-    pub code_size: i32,
+    pub max_var: usize,
+
+    pub code_size: usize,
+    pub real_size: usize,
 }
+
 impl Executable {
-    pub fn from_buffer(buffer: &mut [u8]) -> Executable {
-        for i in 0..PREAMBLE.len() {
-            assert!(PREAMBLE[i] == buffer[i], "Invalid PPE file");
+    pub fn from_buffer(buffer: &mut [u8]) -> Result<Executable, ExecutableError> {
+        if !buffer.starts_with(PREAMBLE) {
+            return Err(ExecutableError::InvalidPPEFile);
         }
         let version = ((buffer[40] & 15) as u16 * 10 + (buffer[41] as u16 & 15)) * 100
             + (buffer[43] as u16 & 15) * 10
             + (buffer[44] as u16 & 15);
 
-        assert!(
-            version <= LAST_PPLC,
-            "Version number {version} not supported. (Only up to {LAST_PPLC})"
-        );
+        if version > LAST_PPLC {
+            return Err(ExecutableError::UnsupporrtedVersion(version));
+        }
+
         let max_var = u16::from_le_bytes(
             (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
                 .try_into()
                 .unwrap(),
-        ) as i32;
+        ) as usize;
         let (mut i, variable_declarations) = read_vars(version, buffer, max_var);
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
         let real_size = buffer.len() - i;
-        /*
-        let data: Vec<u8> = if version >= 300 {
-            let data = &mut buffer[i..real_size + i];
-            decrypt(data, version);
-            if real_size == code_size {
-                data.to_vec()
-            } else {
-                decode_rle(data)
-            }
-        } else {
-            buffer[i..real_size + i].to_vec()
-        };*/
-        println!("Code size: {code_size} bytes real size {real_size}.");
+
         let code_data: &mut [u8] = &mut buffer[i..];
-        let mut decrypted_data = Vec::new();
+        let mut decrypted_data: Vec<u8> = Vec::new();
 
         let mut offset = 0;
         let data: &[u8] = if version > 300 {
             let use_rle = real_size != code_size;
-
             let code_data_len = code_data.len();
 
             while offset < code_data_len {
@@ -379,7 +382,7 @@ impl Executable {
             code_data
         };
         if data.len() != code_size {
-            println!(
+            log::warn!(
                 "WARNING: decoded size({}) differs from expected size ({}).",
                 data.len(),
                 code_size
@@ -404,14 +407,15 @@ impl Executable {
                 *i as usize,
             );
         }
-        Executable {
+        Ok(Executable {
             version,
             variable_declarations,
             variable_lookup,
             source_buffer,
             max_var,
-            code_size: code_size as i32 - 2, // drop last END
-        }
+            code_size: code_size - 2, // drop last END
+            real_size,
+        })
     }
 }
 
@@ -429,26 +433,23 @@ const HEADER_SIZE: usize = 48;
 ///
 /// ```
 ///
-/// # Panics
+/// # Errors
 ///
 /// Panics if .
-#[must_use]
-pub fn read_file(file_name: &str) -> Executable {
-    let mut f = File::open(file_name)
-        .unwrap_or_else(|_| panic!("Error: {file_name} not found on disk, aborting..."));
+pub fn read_file(file_name: &str) -> Res<Executable> {
+    let mut f = File::open(file_name)?;
 
     let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)
-        .expect("Error while reading file.");
+    f.read_to_end(&mut buffer)?;
 
-    Executable::from_buffer(&mut buffer)
+    Ok(Executable::from_buffer(&mut buffer)?)
 }
 
 fn read_vars(
     version: u16,
     buf: &mut [u8],
-    max_var: i32,
-) -> (usize, HashMap<i32, Box<VariableEntry>>) {
+    max_var: usize,
+) -> (usize, HashMap<usize, Box<VariableEntry>>) {
     let mut result = HashMap::new();
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
@@ -459,7 +460,7 @@ fn read_vars(
         decrypt(&mut (buf[i..(i + 11)]), version);
         let cur_block = &buf[i..(i + 11)];
 
-        var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as i32;
+        var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
 
         let header = VarHeader::from_bytes(cur_block);
 
@@ -576,36 +577,36 @@ fn read_vars(
         );
     }
 
-    let mut k = (result.len() - 1) as i32;
-    while k >= 0 {
+    let mut k = result.len() - 1;
+    while k > 0 {
         let cur = result.get(&k).unwrap().clone();
         match cur.header.variable_type {
             VariableType::Function => unsafe {
-                let last = cur.variable.data.function_value.local_variables as i32
-                    + cur.variable.data.function_value.return_var as i32;
+                let last = cur.variable.data.function_value.local_variables as usize
+                    + cur.variable.data.function_value.return_var as usize;
                 let mut j = 0;
-                for i in cur.variable.data.function_value.first_var_id as i32..last {
+                for i in cur.variable.data.function_value.first_var_id as usize..last {
                     let fvar = result.get_mut(&i).unwrap();
-                    if i == cur.variable.data.function_value.return_var as i32 - 1 {
+                    if i == cur.variable.data.function_value.return_var as usize - 1 {
                         fvar.set_type(EntryType::FunctionResult);
                         fvar.number = k;
-                    } else if j < cur.variable.data.function_value.parameters as i32 {
+                    } else if j < cur.variable.data.function_value.parameters as usize {
                         fvar.set_type(EntryType::Parameter);
                         fvar.number =
-                            (cur.variable.data.function_value.first_var_id + 1) as i32 - i;
+                            (cur.variable.data.function_value.first_var_id + 1) as usize - i;
                     }
                     j += 1;
                 }
             },
             VariableType::Procedure => unsafe {
                 let mut j = 0;
-                let last = cur.variable.data.procedure_value.local_variables as i32
-                    + cur.variable.data.procedure_value.parameters as i32
-                    + cur.variable.data.procedure_value.first_var_id as i32;
+                let last = cur.variable.data.procedure_value.local_variables as usize
+                    + cur.variable.data.procedure_value.parameters as usize
+                    + cur.variable.data.procedure_value.first_var_id as usize;
 
-                for i in cur.variable.data.procedure_value.first_var_id as i32..last {
+                for i in cur.variable.data.procedure_value.first_var_id as usize..last {
                     if let Some(fvar) = result.get_mut(&i) {
-                        if j < cur.variable.data.procedure_value.parameters as i32 {
+                        if j < cur.variable.data.procedure_value.parameters as usize {
                             fvar.set_type(EntryType::Parameter);
                         }
                         j += 1;
@@ -620,7 +621,9 @@ fn read_vars(
             },
             _ => {}
         }
-
+        if k == 0 {
+            break;
+        }
         k -= 1;
     }
 

@@ -58,7 +58,7 @@ fn run_test(data: &String, output: &str) {
 
     match exec.create_binary(330) {
         Ok(mut buffer) => {
-            let exe = Executable::from_buffer(&mut buffer);
+            let exe = Executable::from_buffer(&mut buffer).unwrap();
             let mut prg = decompile(exe, true, true, false);
             let mut io = MemoryIO::new();
             let mut ctx = TestContext::new();

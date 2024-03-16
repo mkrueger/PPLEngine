@@ -13,7 +13,9 @@ use crate::tables::{
     FuncOpCode, OpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS,
     STATEMENT_SIGNATURE_TABLE, TYPE_NAMES,
 };
+use crate::Res;
 use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasher;
 use std::intrinsics::transmute;
 use std::path::PathBuf;
 use std::vec;
@@ -24,14 +26,15 @@ pub mod rename_visitor;
 const LAST_STMT: i32 = 0x00e2;
 
 struct FuncL {
-    func: i32,
+    func: usize,
 }
 
-#[must_use]
-pub fn load_file(file_name: &str) -> Program {
+/// # Errors
+///
+pub fn load_file(file_name: &str) -> Res<Program> {
     let mut prg = Program::new();
     prg.file_name = PathBuf::from(file_name);
-    let mut d = Decompiler::new(read_file(file_name));
+    let mut d = Decompiler::new(read_file(file_name)?);
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
     d.do_pass2(&mut prg, false);
@@ -39,20 +42,20 @@ pub fn load_file(file_name: &str) -> Program {
     prg.nodes
         .extend(d.statements.iter().map(|s| AstNode::Statement(s.clone())));
 
-    prg
+    Ok(prg)
 }
 
 pub struct Decompiler {
     pub executable: Executable,
     cur_stmt: i32,
-    akt_proc: i32,
+    akt_proc: usize,
 
     pass: i32,
     next_label: i32,
     next_func: i32,
-    func_flag: i32,
-    proc_flag: i32,
-    src_ptr: i32,
+    func_flag: usize,
+    proc_flag: usize,
+    src_ptr: usize,
     symbol: i32,
     valid_buffer: Vec<bool>,
     exp_count: i32,
@@ -60,16 +63,16 @@ pub struct Decompiler {
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
     pub statements: Vec<Statement>,
-    label_used: HashMap<i32, i32>,
-    func_used: HashMap<i32, FuncL>,
-    label_stack: Vec<i32>,
+    label_used: HashMap<usize, i32>,
+    func_used: HashMap<usize, FuncL>,
+    label_stack: Vec<usize>,
     expr_stack: Vec<Expression>,
 }
 
 impl Decompiler {
     pub fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
-        valid_buffer.resize(executable.code_size as usize / 2, false);
+        valid_buffer.resize(executable.code_size / 2, false);
         Decompiler {
             executable,
             cur_stmt: 0,
@@ -112,9 +115,9 @@ impl Decompiler {
         self.statements.push(stmt);
     }
 
-    fn fill_valid(&mut self, i: i32, j: i32) {
+    fn fill_valid(&mut self, i: usize, j: usize) {
         for n in i..j {
-            self.valid_buffer[n as usize] = true;
+            self.valid_buffer[n] = true;
         }
     }
 
@@ -125,7 +128,7 @@ impl Decompiler {
     /// Panics if .
     pub fn do_pass1(&mut self) {
         let mut last_point = 0;
-        let mut if_ptr = -5;
+        let mut if_ptr = usize::MAX;
 
         self.cur_stmt = 0;
         self.next_label = 0;
@@ -136,17 +139,15 @@ impl Decompiler {
             println!("{}: {}", i, s);
         }*/
 
-        while self.src_ptr != -1 && self.src_ptr <= self.executable.code_size / 2 {
-            if self.src_ptr >= self.executable.code_size / 2
-                || self.valid_buffer[self.src_ptr as usize]
-            {
+        while self.src_ptr <= self.executable.code_size / 2 {
+            if self.src_ptr >= self.executable.code_size / 2 || self.valid_buffer[self.src_ptr] {
                 self.fill_valid(last_point, self.src_ptr);
             } else {
                 let prev_stat = self.cur_stmt;
                 if self.src_ptr == if_ptr {
                     self.src_ptr += 2;
                 }
-                self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
+                self.cur_stmt = self.executable.source_buffer[self.src_ptr];
                 assert!(
                     self.cur_stmt < LAST_STMT
                         && (self.cur_stmt as usize) < STATEMENT_SIGNATURE_TABLE.len()
@@ -167,7 +168,7 @@ impl Decompiler {
                     0xf6 => unsafe {
                         self.src_ptr += 2;
                         self.akt_proc =
-                            self.executable.source_buffer[(self.src_ptr - 1) as usize] - 1;
+                            self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
                         self.executable
                             .variable_declarations
                             .get_mut(&self.akt_proc)
@@ -181,7 +182,7 @@ impl Decompiler {
                             .variable
                             .data
                             .function_value
-                            .start_offset as i32;
+                            .start_offset as usize;
                         let act_dec_args = self
                             .executable
                             .variable_declarations
@@ -201,7 +202,7 @@ impl Decompiler {
                             self.executable
                                 .variable_declarations
                                 .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize] - 1),
+                                    &(self.executable.source_buffer[self.src_ptr] as usize - 1),
                                 )
                                 .unwrap()
                                 .report_variable_usage();
@@ -215,7 +216,7 @@ impl Decompiler {
                             self.executable
                                 .variable_declarations
                                 .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize] - 1),
+                                    &(self.executable.source_buffer[self.src_ptr] as usize - 1),
                                 )
                                 .unwrap()
                                 .report_variable_usage();
@@ -228,14 +229,14 @@ impl Decompiler {
                         self.executable
                             .variable_declarations
                             .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr as usize + 1] - 1),
+                                &(self.executable.source_buffer[self.src_ptr + 1] as usize - 1),
                             )
                             .unwrap()
                             .report_variable_usage();
                         self.executable
                             .variable_declarations
                             .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr as usize + 2] - 1),
+                                &(self.executable.source_buffer[self.src_ptr + 2] as usize - 1),
                             )
                             .unwrap()
                             .report_variable_usage();
@@ -243,33 +244,28 @@ impl Decompiler {
                     }
                     0xfe => {
                         self.src_ptr += 1;
-                        trap = !self
-                            .parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0);
+                        trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0);
                     }
                     0xfa => {
                         self.executable
                             .variable_declarations
                             .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr as usize + 2] - 1),
+                                &(self.executable.source_buffer[self.src_ptr + 2] as usize - 1),
                             )
                             .unwrap()
                             .report_variable_usage();
                         self.src_ptr += 2;
-                        trap = !self.parse_expr(
-                            self.executable.source_buffer[self.src_ptr as usize - 1] - 1,
-                            0,
-                        );
+                        trap = !self
+                            .parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0);
                     }
                     0xfc => {
                         self.src_ptr += 1;
-                        trap = !self.parse_expr(
-                            self.executable.source_buffer[self.src_ptr as usize] | 0xf00,
-                            0,
-                        );
+                        trap = !self
+                            .parse_expr(self.executable.source_buffer[self.src_ptr] | 0xf00, 0);
                     }
                     0xfd => {
                         self.src_ptr += 1;
-                        self.labelin(self.executable.source_buffer[self.src_ptr as usize]);
+                        self.labelin(self.executable.source_buffer[self.src_ptr] as usize);
                         self.src_ptr += 1;
                     }
                     0xff => {
@@ -306,13 +302,13 @@ impl Decompiler {
                         => {
                             self.fill_valid(last_point, self.src_ptr);
                             last_point = self.src_ptr;
-                            self.pushlabel(self.executable.source_buffer[self.src_ptr as usize - 1]);
+                            self.pushlabel(self.executable.source_buffer[self.src_ptr - 1] as usize);
                             continue;
                         }
                         0x0007 => {
                             self.fill_valid(last_point, self.src_ptr); // GOTO
                             last_point = self.src_ptr;
-                            self.pushlabel(self.executable.source_buffer[self.src_ptr as usize - 1]);
+                            self.pushlabel(self.executable.source_buffer[self.src_ptr - 1] as usize);
                             if prev_stat == 0x000b {
                                 continue;
                             }
@@ -323,7 +319,7 @@ impl Decompiler {
                     }
                 }
             }
-            self.src_ptr = self.poplabel() / 2;
+            self.src_ptr = (self.poplabel() / 2) as usize;
             last_point = self.src_ptr;
         }
         self.pass += 1;
@@ -347,7 +343,7 @@ impl Decompiler {
         let mut c_proc = 0;
 
         let mut statements = vec![];
-        for i in 0..self.executable.max_var {
+        for i in 0..self.executable.max_var as usize {
             let Some(cur_var) = self.executable.variable_declarations.get_mut(&i) else {
                 continue;
             };
@@ -403,7 +399,7 @@ impl Decompiler {
         }
     }
 
-    fn output_func(&mut self, prg: &mut Program, func: i32) {
+    fn output_func(&mut self, prg: &mut Program, func: usize) {
         let func_name = self
             .executable
             .variable_declarations
@@ -421,7 +417,7 @@ impl Decompiler {
                 .variable
                 .data
                 .function_value
-                .first_var_id as i32;
+                .first_var_id as usize;
             for _ in 0..self
                 .executable
                 .variable_declarations
@@ -484,7 +480,7 @@ impl Decompiler {
         }
     }
 
-    fn output_proc(&mut self, prg: &mut Program, proc: i32) {
+    fn output_proc(&mut self, prg: &mut Program, proc: usize) {
         let proc_name = self
             .executable
             .variable_declarations
@@ -512,7 +508,7 @@ impl Decompiler {
                 .variable
                 .data
                 .procedure_value
-                .first_var_id as i32;
+                .first_var_id as usize;
             for n in 0..self
                 .executable
                 .variable_declarations
@@ -563,11 +559,11 @@ impl Decompiler {
         }
     }
 
-    fn funcin(&mut self, label: i32, func: i32) {
+    fn funcin(&mut self, label: usize, func: usize) {
         self.func_used.insert(label, FuncL { func });
     }
 
-    fn funcout(&mut self, prg: &mut Program, label: i32) {
+    fn funcout(&mut self, prg: &mut Program, label: usize) {
         if let Some(funcl) = self.func_used.get(&label) {
             let func = funcl.func;
             self.func_flag = 0;
@@ -591,7 +587,7 @@ impl Decompiler {
         }
     }
 
-    fn get_function_mut(prg: &mut Program, func: i32) -> Option<&mut FunctionImplementation> {
+    fn get_function_mut(prg: &mut Program, func: usize) -> Option<&mut FunctionImplementation> {
         for f in &mut prg.nodes {
             if let crate::ast::AstNode::Function(decl) = f {
                 if decl.id == func {
@@ -602,7 +598,7 @@ impl Decompiler {
         None
     }
 
-    fn get_procedure_mut(prg: &mut Program, func: i32) -> Option<&mut ProcedureImplementation> {
+    fn get_procedure_mut(prg: &mut Program, func: usize) -> Option<&mut ProcedureImplementation> {
         for f in &mut prg.nodes {
             if let crate::ast::AstNode::Procedure(decl) = f {
                 if decl.id == func {
@@ -613,7 +609,7 @@ impl Decompiler {
         None
     }
 
-    fn dump_locs(&mut self, prg: &mut Program, func: i32) {
+    fn dump_locs(&mut self, prg: &mut Program, func: usize) {
         let mut i;
         let mx_var;
         let mut j = 0;
@@ -621,14 +617,14 @@ impl Decompiler {
             // StackPtr = 0;
             let cur_var = self.executable.variable_declarations.get(&func).unwrap();
             if cur_var.header.variable_type == VariableType::Function {
-                i = cur_var.variable.data.function_value.return_var as i32;
-                mx_var = cur_var.variable.data.function_value.return_var as i32
-                    + cur_var.variable.data.function_value.local_variables as i32;
+                i = cur_var.variable.data.function_value.return_var as usize;
+                mx_var = cur_var.variable.data.function_value.return_var as usize
+                    + cur_var.variable.data.function_value.local_variables as usize;
             } else {
-                i = cur_var.variable.data.procedure_value.first_var_id as i32
-                    + cur_var.variable.data.procedure_value.parameters as i32;
-                mx_var = cur_var.variable.data.procedure_value.first_var_id as i32
-                    + cur_var.variable.data.procedure_value.local_variables as i32;
+                i = cur_var.variable.data.procedure_value.first_var_id as usize
+                    + cur_var.variable.data.procedure_value.parameters as usize;
+                mx_var = cur_var.variable.data.procedure_value.first_var_id as usize
+                    + cur_var.variable.data.procedure_value.local_variables as usize;
                 //+1;
             }
 
@@ -724,7 +720,7 @@ impl Decompiler {
         }
     }
 
-    fn labelin(&mut self, label: i32) {
+    fn labelin(&mut self, label: usize) {
         if self.label_used.contains_key(&label) {
             return;
         }
@@ -732,14 +728,14 @@ impl Decompiler {
             .insert(label, self.label_used.len() as i32 + 1);
     }
 
-    fn labelnr(&mut self, label: i32) -> &i32 {
+    fn labelnr(&mut self, label: usize) -> &i32 {
         match self.label_used.get(&label) {
             Some(x) => x,
             _ => &-1,
         }
     }
 
-    fn labelout(&mut self, prg: &mut Program, label: i32) {
+    fn labelout(&mut self, prg: &mut Program, label: usize) {
         if let Some(x) = self.label_used.get(&label) {
             let label_stmt = LabelStatement::create_empty_statement(unicase::Ascii::new(format!(
                 "LABEL{x:>03}"
@@ -748,13 +744,13 @@ impl Decompiler {
         }
     }
 
-    fn pushlabel(&mut self, label: i32) {
+    fn pushlabel(&mut self, label: usize) {
         self.label_stack.push(label);
     }
 
-    fn poplabel(&mut self) -> i32 {
+    fn poplabel(&mut self) -> usize {
         if self.label_stack.is_empty() {
-            -2
+            usize::MAX
         } else {
             self.label_stack.pop().unwrap()
         }
@@ -902,7 +898,7 @@ impl Decompiler {
     }
 
     fn varout(&mut self, var_number: i32) -> Expression {
-        let var_nr = var_number - 1;
+        let var_nr = var_number as usize - 1;
 
         let cur_var = self.executable.variable_declarations.get(&var_nr).unwrap();
         if cur_var.get_type().use_name() {
@@ -1079,11 +1075,11 @@ impl Decompiler {
             let mut tmp_func = 0;
             self.src_ptr += 1;
 
-            while (self.src_ptr as usize) < self.executable.source_buffer.len()
-                && self.executable.source_buffer[self.src_ptr as usize] != 0
+            while (self.src_ptr) < self.executable.source_buffer.len()
+                && self.executable.source_buffer[self.src_ptr] != 0
             {
                 unsafe {
-                    let curvar = self.executable.source_buffer[self.src_ptr as usize];
+                    let curvar = self.executable.source_buffer[self.src_ptr] as usize;
                     if curvar >= 0 && curvar <= self.executable.max_var {
                         let var_idx = &(curvar - 1);
                         if self
@@ -1103,12 +1099,12 @@ impl Decompiler {
                                     .variable
                                     .data
                                     .function_value
-                                    .start_offset as i32,
+                                    .start_offset as usize,
                             );
                             self.executable
                                 .variable_declarations
                                 .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr as usize - 1]),
+                                    &(self.executable.source_buffer[self.src_ptr - 1] as usize),
                                 )
                                 .unwrap()
                                 .report_variable_usage();
@@ -1120,7 +1116,7 @@ impl Decompiler {
                                     .variable
                                     .data
                                     .function_value
-                                    .start_offset as i32,
+                                    .start_offset as usize,
                                 *var_idx,
                             );
                             if self.pass == 1 {
@@ -1151,7 +1147,7 @@ impl Decompiler {
                                 self.executable
                                     .variable_declarations
                                     .get(
-                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
+                                        &(self.executable.source_buffer[self.src_ptr - 1] as usize
                                             - 1),
                                     )
                                     .unwrap()
@@ -1166,44 +1162,38 @@ impl Decompiler {
                             self.src_ptr -= 1;
                         } else {
                             if self.pass == 1 {
-                                let tmp = self
-                                    .varout(self.executable.source_buffer[self.src_ptr as usize]);
+                                let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
-                            if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                            if self.executable.source_buffer[self.src_ptr] != 0 {
                                 self.executable
                                     .variable_declarations
                                     .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr as usize - 1]
+                                        &(self.executable.source_buffer[self.src_ptr - 1] as usize
                                             - 1),
                                     )
                                     .unwrap()
                                     .report_variable_usage();
-                                if self
-                                    .dimexpr(self.executable.source_buffer[self.src_ptr as usize])
-                                    != 0
-                                {
+                                if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
                                     return 1;
                                 }
                             }
                         }
                     } else {
-                        let x = self.executable.source_buffer[self.src_ptr as usize];
+                        let x = self.executable.source_buffer[self.src_ptr];
 
-                        if self.executable.source_buffer[self.src_ptr as usize]
-                            < crate::tables::LAST_FUNC
-                        {
+                        if self.executable.source_buffer[self.src_ptr] < crate::tables::LAST_FUNC {
                             log::error!(
                                 "Error: Unknown function {} at {} avoiding...",
-                                self.executable.source_buffer[self.src_ptr as usize],
+                                self.executable.source_buffer[self.src_ptr],
                                 self.src_ptr
                             );
                             return 1;
                         }
                         if self.pass == 1 {
                             if self.fnktout(x) != 0 {
-                                tmp_func = self.executable.source_buffer[self.src_ptr as usize];
+                                tmp_func = self.executable.source_buffer[self.src_ptr];
                             } else if tmp_func != 0 && self.fnktout(tmp_func) == 0 {
                                 tmp_func = 0;
                             }
@@ -1255,28 +1245,25 @@ impl Decompiler {
             self.exp_count = 0;
             let mut trash_func = 0;
 
-            while self.executable.source_buffer[self.src_ptr as usize] != 0 {
-                if self.executable.source_buffer[self.src_ptr as usize] >= 0
-                    && self.executable.source_buffer[self.src_ptr as usize]
+            while self.executable.source_buffer[self.src_ptr] != 0 {
+                if self.executable.source_buffer[self.src_ptr] >= 0
+                    && self.executable.source_buffer[self.src_ptr] as usize
                         <= self.executable.max_var
                 {
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
                         self.executable
                             .variable_declarations
-                            .get_mut(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
+                            .get_mut(&(self.executable.source_buffer[self.src_ptr] as usize - 1))
                             .unwrap()
                             .report_variable_usage();
                         if self.pass == 1 {
-                            let tmp =
-                                self.varout(self.executable.source_buffer[self.src_ptr as usize]);
+                            let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
                             self.push_expr(tmp);
                         }
                         self.src_ptr += 1;
 
-                        if self.executable.source_buffer[self.src_ptr as usize] != 0 {
-                            if self.dimexpr(self.executable.source_buffer[self.src_ptr as usize])
-                                != 0
-                            {
+                        if self.executable.source_buffer[self.src_ptr] != 0 {
+                            if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
                                 return false;
                             }
                             if self.pass == 1 {
@@ -1307,7 +1294,7 @@ impl Decompiler {
                                 self.executable
                                     .variable_declarations
                                     .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
+                                        &(self.executable.source_buffer[self.src_ptr] as usize - 1),
                                     )
                                     .unwrap()
                                     .report_variable_usage();
@@ -1316,7 +1303,7 @@ impl Decompiler {
                             if self
                                 .executable
                                 .variable_declarations
-                                .get(&(self.executable.source_buffer[self.src_ptr as usize] - 1))
+                                .get(&(self.executable.source_buffer[self.src_ptr] as usize - 1))
                                 .unwrap()
                                 .header
                                 .variable_type
@@ -1326,19 +1313,19 @@ impl Decompiler {
                                     self.executable
                                         .variable_declarations
                                         .get(
-                                            &(self.executable.source_buffer[self.src_ptr as usize]
+                                            &(self.executable.source_buffer[self.src_ptr] as usize
                                                 - 1),
                                         )
                                         .unwrap()
                                         .variable
                                         .data
                                         .function_value
-                                        .start_offset as i32,
+                                        .start_offset as usize,
                                 );
                                 self.executable
                                     .variable_declarations
                                     .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr as usize] - 1),
+                                        &(self.executable.source_buffer[self.src_ptr] as usize - 1),
                                     )
                                     .unwrap()
                                     .report_variable_usage();
@@ -1346,21 +1333,20 @@ impl Decompiler {
                                     self.executable
                                         .variable_declarations
                                         .get(
-                                            &(self.executable.source_buffer[self.src_ptr as usize]
+                                            &(self.executable.source_buffer[self.src_ptr] as usize
                                                 - 1),
                                         )
                                         .unwrap()
                                         .variable
                                         .data
                                         .function_value
-                                        .start_offset as i32,
-                                    self.executable.source_buffer[self.src_ptr as usize] - 1,
+                                        .start_offset as usize,
+                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
                                 );
                                 let mut stack_len = 0;
                                 if self.pass == 1 {
-                                    let tmp2 = self.varout(
-                                        self.executable.source_buffer[self.src_ptr as usize],
-                                    );
+                                    let tmp2 =
+                                        self.varout(self.executable.source_buffer[self.src_ptr]);
                                     let tmp3 = self.pop_expr();
                                     if let Some(t) = tmp3 {
                                         self.push_expr(t);
@@ -1375,8 +1361,8 @@ impl Decompiler {
                                     self.executable
                                         .variable_declarations
                                         .get(
-                                            &(self.executable.source_buffer
-                                                [self.src_ptr as usize - 1]
+                                            &(self.executable.source_buffer[self.src_ptr - 1]
+                                                as usize
                                                 - 1),
                                         )
                                         .unwrap()
@@ -1408,26 +1394,24 @@ impl Decompiler {
                                 }
                             } else {
                                 if self.pass == 1 {
-                                    let tmp = self.varout(
-                                        self.executable.source_buffer[self.src_ptr as usize],
-                                    );
+                                    let tmp =
+                                        self.varout(self.executable.source_buffer[self.src_ptr]);
                                     self.push_expr(tmp);
                                 }
                                 self.src_ptr += 1;
 
-                                if self.executable.source_buffer[self.src_ptr as usize] != 0 {
+                                if self.executable.source_buffer[self.src_ptr] != 0 {
                                     self.executable
                                         .variable_declarations
                                         .get_mut(
-                                            &(self.executable.source_buffer
-                                                [self.src_ptr as usize - 1]
+                                            &(self.executable.source_buffer[self.src_ptr - 1]
+                                                as usize
                                                 - 1),
                                         )
                                         .unwrap()
                                         .report_variable_usage();
-                                    if self.dimexpr(
-                                        self.executable.source_buffer[self.src_ptr as usize],
-                                    ) != 0
+                                    if self.dimexpr(self.executable.source_buffer[self.src_ptr])
+                                        != 0
                                     {
                                         return false;
                                     }
@@ -1438,8 +1422,8 @@ impl Decompiler {
                     }
                 } else {
                     if self.pass == 1 {
-                        if self.fnktout(self.executable.source_buffer[self.src_ptr as usize]) != 0 {
-                            trash_func = self.executable.source_buffer[self.src_ptr as usize];
+                        if self.fnktout(self.executable.source_buffer[self.src_ptr]) != 0 {
+                            trash_func = self.executable.source_buffer[self.src_ptr];
                         } else if trash_func != 0 && self.fnktout(trash_func) == 0 {
                             trash_func = 0;
                         }
@@ -1462,8 +1446,8 @@ impl Decompiler {
         true
     }
 
-    fn set_if_ptr(&mut self, i: i32) -> i32 {
-        let j = self.executable.source_buffer[self.src_ptr as usize] as usize / 2;
+    fn set_if_ptr(&mut self, i: usize) -> usize {
+        let j = self.executable.source_buffer[self.src_ptr] as usize / 2;
         /*    assert!(
             !(j < 2 || j >= self.executable.source_buffer.len() - 1),
             "Error: Invalid IF pointer at {} buffer length is {}",
@@ -1471,12 +1455,12 @@ impl Decompiler {
             self.executable.source_buffer.len() / 2
         );*/
         if self.executable.source_buffer[j - 2] == 0x0007
-            && self.executable.source_buffer[j - 1] / 2 == i
+            && self.executable.source_buffer[j - 1] / 2 == i as i32
         {
             self.executable.source_buffer[i as usize] = 0;
-            self.executable.source_buffer[self.src_ptr as usize] / 2 - 2
+            (self.executable.source_buffer[self.src_ptr] / 2 - 2) as usize
         } else {
-            i - 5
+            i.wrapping_sub(5)
         }
     }
 
@@ -1524,7 +1508,7 @@ impl Decompiler {
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
-        let mut if_ptr = -1;
+        let mut if_ptr = usize::MAX;
         let mut if_while_stack = vec![];
         let mut last_stmt_offset = 0;
         if disassemble {
@@ -1552,13 +1536,13 @@ impl Decompiler {
 
             self.funcout(prg, self.src_ptr * 2);
             self.labelout(prg, self.src_ptr * 2);
-            if !self.valid_buffer[self.src_ptr as usize] {
+            if !self.valid_buffer[self.src_ptr] {
                 self.src_ptr += 1;
                 continue;
             }
 
             let stmt_ptr = self.src_ptr;
-            self.cur_stmt = self.executable.source_buffer[self.src_ptr as usize];
+            self.cur_stmt = self.executable.source_buffer[self.src_ptr];
             assert!(
                 !(self.cur_stmt > LAST_STMT
                     || STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] == 0xaa),
@@ -1580,7 +1564,7 @@ impl Decompiler {
                     if !self.parse_expr(0x01, 0) {
                         return;
                     }
-                    let tmp = self.varout(*self.executable.source_buffer.get(self.src_ptr as usize).unwrap());
+                    let tmp = self.varout(*self.executable.source_buffer.get(self.src_ptr).unwrap());
                     self.push_expr(tmp);
                     if !self.parse_expr(0x01, 0) {
                         return;
@@ -1590,40 +1574,40 @@ impl Decompiler {
                     if !self.parse_expr(0x03, 0) {
                         return;
                     }
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize]);
+                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
                     self.push_expr(tmp);
                     self.src_ptr += 1;
                 }
                 0xf9 => {// sort
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 1]);
+                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 1]);
                     self.push_expr(tmp);
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 2]);
+                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 2]);
                     self.push_expr(tmp);
                     self.src_ptr += 3;
                 }
                 0xfe => { // variable expressions - Println
                     self.src_ptr += 1;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize], 0) {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0) {
                         return;
                     }
                 }
                 0xfa => { // variable expressions, expr 1 is avar
-                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr as usize + 2]);
+                    let tmp = self.varout(self.executable.source_buffer[self.src_ptr + 2]);
                     self.push_expr(tmp);
                     self.src_ptr += 2;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize - 1] - 1, 0) {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0) {
                         return;
                     }
                 }
                 0xfc => { // varies var
                     self.src_ptr += 1;
-                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr as usize] | 0xf00, 0) {
+                    if !self.parse_expr(self.executable.source_buffer[self.src_ptr] | 0xf00, 0) {
                         return;
                     }
                 }
                 0xfd => { // label (Goto)
                     self.src_ptr += 1;
-                    let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr as usize]);
+                    let tmp = *self.labelnr(self.executable.source_buffer[self.src_ptr] as usize);
                     self.push_expr(IdentifierExpression::create_empty_expression(unicase::Ascii::new(format!("LABEL{tmp:>03}"))));
                     self.src_ptr += 1;
                 }
@@ -1636,12 +1620,9 @@ impl Decompiler {
             let op: OpCode = unsafe { transmute(self.cur_stmt as u8) };
             if disassemble {
                 if stmt_ptr > 0 {
-                    self.print_disassembler_parameters(
-                        last_stmt_offset as usize,
-                        stmt_ptr as usize,
-                    );
+                    self.print_disassembler_parameters(last_stmt_offset, stmt_ptr);
                 }
-                let op_str = format!("{:?}", op);
+                let op_str = format!("{op:?}");
 
                 print!("{:>5X}: {:02X} {:<12}", stmt_ptr * 2, self.cur_stmt, op_str);
 
@@ -1702,8 +1683,7 @@ impl Decompiler {
                     };
 
                     if let Some(var) = self.executable.variable_lookup.get(&identifier) {
-                        let var = *var as i32;
-                        let var = self.executable.variable_declarations.get(&var).unwrap();
+                        let var = self.executable.variable_declarations.get(var).unwrap();
                         if var.header.variable_type == VariableType::Boolean {
                             value = Statement::try_boolean_conversion(&value);
                         }
@@ -1736,7 +1716,7 @@ impl Decompiler {
                 OpCode::PCALL => unsafe {
                     // PCALL
                     self.src_ptr += 2;
-                    self.akt_proc = self.executable.source_buffer[self.src_ptr as usize - 1] - 1;
+                    self.akt_proc = self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
                     let proc_name = self
                         .executable
                         .variable_declarations
@@ -1747,7 +1727,7 @@ impl Decompiler {
                     if !self.parse_expr(
                         self.executable
                             .variable_declarations
-                            .get(&(self.executable.source_buffer[self.src_ptr as usize - 1] - 1))
+                            .get(&(self.executable.source_buffer[self.src_ptr - 1] as usize - 1))
                             .unwrap()
                             .variable
                             .data
@@ -1819,7 +1799,7 @@ impl Decompiler {
 
         if disassemble {
             self.print_disassembler_parameters(
-                last_stmt_offset as usize,
+                last_stmt_offset,
                 self.executable.source_buffer.len(),
             );
         }
@@ -1930,8 +1910,8 @@ impl Decompiler {
     }
 }
 
-pub fn has_user_variables(
-    variable_declarations: &HashMap<i32, Box<VariableEntry>>,
+pub fn has_user_variables<S: BuildHasher>(
+    variable_declarations: &HashMap<usize, Box<VariableEntry>, S>,
     version: u16,
 ) -> bool {
     let has_user_variables = variable_declarations[&0].header.variable_type
@@ -2017,9 +1997,6 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
     let mut declarations = Vec::new();
     for v in &prg.nodes {
         let declaration = match v {
-            AstNode::Comment(_) => {
-                continue;
-            }
             AstNode::Function(f) => {
                 AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
                     f.get_identifier().clone(),
@@ -2072,6 +2049,23 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
                 d.errors.len()
             )),
         );
+        let stmts: Vec<Statement> = d
+            .errors
+            .iter()
+            .map(|err| CommentAstNode::create_empty_statement(format!("ERROR: {err}")))
+            .collect();
+        for err in stmts {
+            d.output_stmt(&mut prg, err);
+        }
+        let stmts: Vec<Statement> = d
+            .warnings
+            .iter()
+            .map(|err| CommentAstNode::create_empty_statement(format!("WARNING: {err}")))
+            .collect();
+        for warn in stmts {
+            d.output_stmt(&mut prg, warn);
+        }
+
         d.output_stmt(
             &mut prg,
             CommentAstNode::create_empty_statement(
@@ -2110,35 +2104,7 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
             if d.warnings.is_empty() && d.errors.is_empty() {
                 println!("NO DECOMPILER ERROR DETECTED");
             } /*else {
-                  for err in &d.errors {
-                      stdout()
-                          .execute(SetForegroundColor(Color::Red))
-                          .unwrap()
-                          .execute(Print("ERROR: "))
-                          .unwrap()
-                          .execute(ResetColor)
-                          .unwrap()
-                          .execute(Print(err))
-                          .unwrap()
-                          .flush()
-                          .unwrap();
-                      println!();
-                  }
 
-                  for warn in &d.warnings {
-                      stdout()
-                          .execute(SetForegroundColor(Color::Yellow))
-                          .unwrap()
-                          .execute(Print("WARNING: "))
-                          .unwrap()
-                          .execute(ResetColor)
-                          .unwrap()
-                          .execute(Print(warn))
-                          .unwrap()
-                          .flush()
-                          .unwrap();
-                      println!();
-                  }
 
                   if !d.warnings.is_empty() {
                       stdout()

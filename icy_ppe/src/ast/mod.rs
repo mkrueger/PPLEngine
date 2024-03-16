@@ -63,7 +63,7 @@ impl AstNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImplementation {
-    pub id: i32,
+    pub id: usize,
     function_token: SpannedToken,
     identifier_token: SpannedToken,
     leftpar_token: SpannedToken,
@@ -80,7 +80,7 @@ pub struct FunctionImplementation {
 impl FunctionImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: i32,
+        id: usize,
         function_token: SpannedToken,
         identifier_token: SpannedToken,
         leftpar_token: SpannedToken,
@@ -106,7 +106,7 @@ impl FunctionImplementation {
     }
 
     pub fn empty(
-        id: i32,
+        id: usize,
         identifier: impl Into<String>,
         parameters: Vec<ParameterSpecifier>,
         return_type: VariableType,
@@ -229,7 +229,7 @@ impl FunctionImplementation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureImplementation {
-    pub id: i32,
+    pub id: usize,
     procedure_token: SpannedToken,
     identifier_token: SpannedToken,
     leftpar_token: SpannedToken,
@@ -249,7 +249,7 @@ impl fmt::Display for FunctionImplementation {
 impl ProcedureImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: i32,
+        id: usize,
         procedure_token: SpannedToken,
         identifier_token: SpannedToken,
         leftpar_token: SpannedToken,
@@ -271,7 +271,7 @@ impl ProcedureImplementation {
     }
 
     pub fn empty(
-        id: i32,
+        id: usize,
         identifier: impl Into<String>,
         parameters: Vec<ParameterSpecifier>,
         statements: Vec<Statement>,

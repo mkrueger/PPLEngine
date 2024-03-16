@@ -31,7 +31,7 @@ pub trait AstVisitor<T: Default>: Sized {
         &mut self,
         call: &PredefinedFunctionCallExpression,
     ) -> T {
-        walk__predefined_function_call_expression(self, call);
+        walk_predefined_function_call_expression(self, call);
         T::default()
     }
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> T {
@@ -229,7 +229,7 @@ pub fn walk_binary_expression<T: Default, V: AstVisitor<T>>(
     binary.get_right_expression().visit(visitor);
 }
 
-pub fn walk__predefined_function_call_expression<T: Default, V: AstVisitor<T>>(
+pub fn walk_predefined_function_call_expression<T: Default, V: AstVisitor<T>>(
     visitor: &mut V,
     call: &PredefinedFunctionCallExpression,
 ) {

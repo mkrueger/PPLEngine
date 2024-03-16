@@ -4,7 +4,7 @@ use crate::{
     ast::{
         AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
         FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Program, Statement, VariableSpecifier, VariableType,
+        ProcedureImplementation, Program, VariableSpecifier, VariableType,
     },
     parser::lexer::LexingError,
 };
@@ -106,6 +106,9 @@ pub enum ParserErrorType {
 
     #[error("No statements allowed after functions (use $USEFUNCS)")]
     NoStatementsAfterFunctions,
+
+    #[error("EOL expected, got '{0}'")]
+    EolExpected(Token),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -451,6 +454,8 @@ impl Parser {
         self.next_token();
 
         if !is_function {
+            self.check_eol();
+
             return Some(AstNode::ProcedureDeclaration(
                 ProcedureDeclarationAstNode::new(
                     declare_token,
@@ -472,9 +477,8 @@ impl Parser {
             return None;
         };
         let return_type_token = self.save_spannedtoken();
-        self.next_token();
-
-        return Some(AstNode::FunctionDeclaration(
+        self.check_eol();
+        Some(AstNode::FunctionDeclaration(
             FunctionDeclarationAstNode::new(
                 declare_token,
                 func_or_proc_token,
@@ -485,7 +489,24 @@ impl Parser {
                 return_type_token,
                 return_type,
             ),
-        ));
+        ))
+    }
+
+    fn check_eol(&mut self) -> bool {
+        if self.get_cur_token() != Some(Token::Eol)
+            && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+        {
+            let err_token = self.save_spannedtoken();
+            self.next_token();
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::EolExpected(err_token.token),
+                    range: err_token.span,
+                }));
+            false
+        } else {
+            true
+        }
     }
 
     /// Returns the parse procedure of this [`Tokenizer`].
@@ -586,7 +607,7 @@ impl Parser {
             self.next_token();
 
             return Some(ProcedureImplementation::new(
-                -1,
+                usize::MAX,
                 procedure_token,
                 identifier_token,
                 leftpar_token,
@@ -708,7 +729,7 @@ impl Parser {
             self.next_token();
 
             return Some(FunctionImplementation::new(
-                -1,
+                usize::MAX,
                 function_token,
                 identifier_token,
                 leftpar_token,
@@ -724,9 +745,9 @@ impl Parser {
     }
 }
 
-pub fn parse_program(file: PathBuf, input: &str) -> Program {
+pub fn parse_program(file_name: PathBuf, input: &str) -> Program {
     let mut nodes = Vec::new();
-    let mut parser = Parser::new(file, input);
+    let mut parser = Parser::new(file_name.clone(), input);
     parser.next_token();
     parser.skip_eol();
     let mut use_funcs = false;
@@ -830,7 +851,7 @@ pub fn parse_program(file: PathBuf, input: &str) -> Program {
 
     Program {
         nodes,
-        file_name: PathBuf::from("/test/test.ppe"),
+        file_name,
         errors: parser.errors,
         warnings: parser.warnings,
     }

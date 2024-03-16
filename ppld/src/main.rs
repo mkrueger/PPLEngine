@@ -5,15 +5,8 @@ use crossterm::style::ResetColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
-use icy_ppe::ast::AstNode;
-use icy_ppe::ast::CommentAstNode;
-use icy_ppe::ast::FunctionDeclarationAstNode;
 use icy_ppe::ast::OutputFunc;
-use icy_ppe::ast::ProcedureDeclarationAstNode;
-use icy_ppe::ast::Program;
 use icy_ppe::decompiler::decompile;
-use icy_ppe::decompiler::reconstruct;
-use icy_ppe::decompiler::Decompiler;
 use icy_ppe::executable::read_file;
 use semver::Version;
 use std::ffi::OsStr;
@@ -75,7 +68,7 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    let executable = read_file(file_name);
+    let executable = read_file(file_name).unwrap();
     let decompilation = decompile(executable, true, arguments.raw, arguments.disassemble);
 
     if arguments.disassemble {

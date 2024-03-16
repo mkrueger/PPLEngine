@@ -130,7 +130,7 @@ impl Parser {
         }
     }
 
-    fn parse_block(&mut self, begin_token: SpannedToken) -> Option<Statement> {
+    fn _parse_block(&mut self, begin_token: SpannedToken) -> Option<Statement> {
         self.next_token();
         self.skip_eol();
         let mut statements = Vec::new();

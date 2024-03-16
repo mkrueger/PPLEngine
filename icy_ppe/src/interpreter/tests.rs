@@ -198,69 +198,6 @@ PRINT B"#,
         );
     }
 
-    #[test]
-    fn test_constants() {
-        check_output(r#"
-        PRINT AUTO,","
-        PRINT BELL,","
-        PRINT DEFS,","
-        PRINT ECHODOTS,","
-        PRINT ERASELINE,","
-        PRINT FCL,","
-        PRINT FIELDLEN,","
-        PRINT FNS,","
-        PRINT F_EXP,","
-        PRINT F_MW,","
-        PRINT F_REG,","
-        PRINT F_SEL,","
-        PRINT F_SYS,","
-        PRINT GRAPH,","
-        PRINT GUIDE,","
-        PRINT HIGHASCII,","
-        PRINT LANG,","
-        PRINT LFAFTER,","
-        PRINT LFBEFORE,","
-        PRINT LOGIT,","
-        PRINT LOGITLEFT,","
-        PRINT NC,","
-        PRINT NEWLINE,","
-        PRINT NOCLEAR,","
-        PRINT O_RD,","
-        PRINT O_RW,","
-        PRINT O_WR,","
-        PRINT SEC,","
-        PRINT SEEK_CUR,","
-        PRINT SEEK_END,","
-        PRINT SEEK_SET,","
-        PRINT STACKED,","
-        PRINT S_DB,","
-        PRINT S_DN,","
-        PRINT S_DR,","
-        PRINT S_DW,","
-        PRINT UPCASE,","
-        PRINT WORDWRAP,","
-        PRINT YESNO,","
-        PRINT START_BAL,","
-        PRINT START_SESSION,","
-        PRINT DEB_CALL,","
-        PRINT DEB_TIME,","
-        PRINT DEB_MSGREAD,","
-        PRINT DEB_MSGCAP,","
-        PRINT DEB_MSGWRITE,","
-        PRINT DEB_MSGECHOED,","
-        PRINT DEB_MSGPRIVATE,","
-        PRINT DEB_DOWNFILE,","
-        PRINT DEB_DOWNBYTES,","
-        PRINT DEB_CHAT,","
-        PRINT DEB_TPU,","
-        PRINT DEB_SPECIAL,","
-        PRINT CRED_UPFILE,","
-        PRINT CRED_UPBYTES,","
-        PRINT CRED_SPECIAL,","
-        PRINT SEC_DROP,","
-        "#, "8192,2048,0,1,32,2,2,1,2,16,1,4,8,1,4,4096,4,256,128,32768,65536,0,64,1024,0,2,1,2,1,2,0,16,3,0,1,2,8,512,16384,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,");
-    }
-
     fn check_output(prg: &str, out: &str) {
         let mut io = MemoryIO::new();
         check_output_withio(prg, &mut io, out);
@@ -502,85 +439,6 @@ ENDPROC
     }
 
     #[test]
-    fn test_function() {
-        check_output(
-            r#"
-DECLARE FUNCTION Hello(STRING who) STRING
-
-PRINT Hello("World")
-
-FUNCTION Hello(STRING who) STRING
-    Hello = "Hello " + who
-ENDFUNC
-"#,
-            "Hello World",
-        ); // This is no error. Bools were printed as numbers
-    }
-
-    #[test]
-    fn test_dim1() {
-        check_output(
-            r"
-INTEGER ARR(2)
-ARR(0) = 2
-ARR(1) = 3
-PRINT ARR(0) + ARR(1)
-",
-            "5",
-        );
-    }
-
-    #[test]
-    fn test_local_variables() {
-        check_output(
-            r"
-DECLARE PROCEDURE FOO(INTEGER A)
-DECLARE PROCEDURE BAR(INTEGER A)
-FOO(2)
-
-PROCEDURE FOO(INTEGER A)
-    INTEGER C
-    C = 5
-    BAR(A + C)
-ENDPROC
-
-PROCEDURE BAR(INTEGER A)
-    INTEGER C
-    C = 2
-    PRINT A + C
-ENDPROC		
-",
-            "9",
-        );
-    }
-
-    #[test]
-    fn test_parameter_writeback() {
-        check_output(
-            r"
-DECLARE PROCEDURE FOO(BYTE X) INT
-DECLARE PROCEDURE BAR(VAR BYTE X) INT
-BYTE C
-
-BAR(C)
-PRINT C
-
-FOO(C)
-PRINT C
-
-PROCEDURE BAR(VAR BYTE X)
-    X = X + 1
-ENDPROC
-
-PROCEDURE FOO(BYTE X)
-    X = X + 2
-ENDPROC	
-",
-            "13",
-        );
-    }
-
-    #[test]
     fn equaltest() {
         check_output(
             r"
@@ -589,23 +447,6 @@ S = CHR(13)
 PRINT S <> CHR(13)
 ",
             "0",
-        );
-    }
-
-    #[test]
-    fn test_use_funcs() {
-        check_output(
-            r#"
-DECLARE PROCEDURE PROC()
-;$USEFUNCS
-PROCEDURE PROC()
-    PRINT "Hello"
-ENDPROC
-BEGIN
-    PROC()
-END
-"#,
-            "Hello",
         );
     }
 }

@@ -197,8 +197,7 @@ impl fmt::Display for Token {
             Token::Case => write!(f, "CASE"),
             Token::EndSelect => write!(f, "ENDSELECT"),
 
-            Token::Comment(ct, s) => write!(f, "{}{}", ct, s),
-            Token::UseFuncs(ct, s) => write!(f, "{}{}", ct, s),
+            Token::Comment(ct, s) | Token::UseFuncs(ct, s) => write!(f, "{ct}{s}"),
             Token::Eol => writeln!(f),
 
             // Token::VarType(t) => write!(f, "{:?}", t),

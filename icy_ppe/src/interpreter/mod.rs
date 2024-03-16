@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::os::linux::raw::stat;
 use std::string::String;
 
 pub mod expressions;
@@ -632,7 +631,7 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
         Statement::IfThen(_) => {
             panic!("unsupported statement IfThen")
         }
-        Statement::Block(block) => {
+        Statement::Block(_) => {
             panic!("unsupported statement Begin…End block")
         }
         Statement::Select(_) => {

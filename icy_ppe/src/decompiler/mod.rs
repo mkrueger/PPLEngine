@@ -23,7 +23,7 @@ use std::vec;
 pub mod reconstruct;
 pub mod rename_visitor;
 
-const LAST_STMT: i32 = 0x00e2;
+const LAST_STMT: i16 = 0x00e2;
 
 struct FuncL {
     func: usize,
@@ -47,9 +47,10 @@ pub fn load_file(file_name: &str) -> Res<Program> {
 
 pub struct Decompiler {
     pub executable: Executable,
-    cur_stmt: i32,
-    akt_proc: usize,
+    variable_lookup_table: HashMap<unicase::Ascii<String>, usize>,
 
+    cur_stmt: i16,
+    akt_proc: usize,
     pass: i32,
     next_label: i32,
     next_func: i32,
@@ -73,8 +74,10 @@ impl Decompiler {
     pub fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
         valid_buffer.resize(executable.code_size / 2, false);
+        let variable_lookup_table = executable.create_variable_lookup_table();
         Decompiler {
             executable,
+            variable_lookup_table,
             cur_stmt: 0,
             akt_proc: 0,
             pass: 0,
@@ -134,10 +137,6 @@ impl Decompiler {
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
-        /*
-        for (i, s) in self.executable.source_buffer.iter().enumerate() {
-            println!("{}: {}", i, s);
-        }*/
 
         while self.src_ptr <= self.executable.code_size / 2 {
             if self.src_ptr >= self.executable.code_size / 2 || self.valid_buffer[self.src_ptr] {
@@ -169,43 +168,29 @@ impl Decompiler {
                         self.src_ptr += 2;
                         self.akt_proc =
                             self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
-                        self.executable
-                            .variable_declarations
-                            .get_mut(&self.akt_proc)
-                            .unwrap()
-                            .report_variable_usage();
+                        self.report_variable_usage(self.akt_proc);
                         let act_dec_start = self
-                            .executable
-                            .variable_declarations
-                            .get(&self.akt_proc)
-                            .unwrap()
-                            .variable
+                            .get_var(self.akt_proc)
+                            .value
                             .data
                             .function_value
                             .start_offset as usize;
                         let act_dec_args = self
-                            .executable
-                            .variable_declarations
-                            .get(&self.akt_proc)
-                            .unwrap()
-                            .variable
+                            .get_var(self.akt_proc)
+                            .value
                             .data
                             .function_value
                             .parameters;
 
                         self.funcin(act_dec_start, self.akt_proc);
                         self.pushlabel(act_dec_start);
-                        trap = !self.parse_expr(act_dec_args as i32, 0);
+                        trap = !self.parse_expr(act_dec_args as i16, 0);
                     },
                     0xf7 => {
                         if self.parse_expr(0x01, 0) {
-                            self.executable
-                                .variable_declarations
-                                .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr] as usize - 1),
-                                )
-                                .unwrap()
-                                .report_variable_usage();
+                            self.report_variable_usage(
+                                self.executable.source_buffer[self.src_ptr] as usize - 1,
+                            );
                             trap = !self.parse_expr(0x01, 0);
                         } else {
                             trap = true;
@@ -213,33 +198,21 @@ impl Decompiler {
                     }
                     0xf8 => {
                         if self.parse_expr(0x03, 0) {
-                            self.executable
-                                .variable_declarations
-                                .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr] as usize - 1),
-                                )
-                                .unwrap()
-                                .report_variable_usage();
+                            self.report_variable_usage(
+                                self.executable.source_buffer[self.src_ptr] as usize - 1,
+                            );
                             self.src_ptr += 1;
                         } else {
                             trap = true;
                         }
                     }
                     0xf9 => {
-                        self.executable
-                            .variable_declarations
-                            .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr + 1] as usize - 1),
-                            )
-                            .unwrap()
-                            .report_variable_usage();
-                        self.executable
-                            .variable_declarations
-                            .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr + 2] as usize - 1),
-                            )
-                            .unwrap()
-                            .report_variable_usage();
+                        self.report_variable_usage(
+                            self.executable.source_buffer[self.src_ptr + 1] as usize - 1,
+                        );
+                        self.report_variable_usage(
+                            self.executable.source_buffer[self.src_ptr + 2] as usize - 1,
+                        );
                         self.src_ptr += 3;
                     }
                     0xfe => {
@@ -247,13 +220,9 @@ impl Decompiler {
                         trap = !self.parse_expr(self.executable.source_buffer[self.src_ptr], 0);
                     }
                     0xfa => {
-                        self.executable
-                            .variable_declarations
-                            .get_mut(
-                                &(self.executable.source_buffer[self.src_ptr + 2] as usize - 1),
-                            )
-                            .unwrap()
-                            .report_variable_usage();
+                        self.report_variable_usage(
+                            self.executable.source_buffer[self.src_ptr + 2] as usize - 1,
+                        );
                         self.src_ptr += 2;
                         trap = !self
                             .parse_expr(self.executable.source_buffer[self.src_ptr - 1] - 1, 0);
@@ -319,7 +288,7 @@ impl Decompiler {
                     }
                 }
             }
-            self.src_ptr = (self.poplabel() / 2) as usize;
+            self.src_ptr = self.poplabel() / 2;
             last_point = self.src_ptr;
         }
         self.pass += 1;
@@ -343,25 +312,22 @@ impl Decompiler {
         let mut c_proc = 0;
 
         let mut statements = vec![];
-        for i in 0..self.executable.max_var as usize {
-            let Some(cur_var) = self.executable.variable_declarations.get_mut(&i) else {
-                continue;
-            };
-
-            if cur_var.get_type() == EntryType::Variable {
-                match cur_var.header.variable_type {
+        for i in 0..self.executable.max_var {
+            if self.get_var(i).get_type() == EntryType::Variable {
+                match self.get_var(i).header.variable_type {
                     VariableType::Function => {
                         c_func += 1;
-                        cur_var.number = c_func;
+                        self.get_var_mut(i).number = c_func;
                     }
                     VariableType::Procedure => {
                         c_proc += 1;
-                        cur_var.number = c_proc;
+                        self.get_var_mut(i).number = c_proc;
                     }
                     _ => {
                         c_vars += 1;
-                        cur_var.number = c_vars;
+                        self.get_var_mut(i).number = c_vars;
                         if self.symbol == 0 {
+                            let cur_var = self.get_var_mut(i);
                             let var_type = TYPE_NAMES[cur_var.header.variable_type as usize];
 
                             let dims = match cur_var.header.dim {
@@ -400,74 +366,25 @@ impl Decompiler {
     }
 
     fn output_func(&mut self, prg: &mut Program, func: usize) {
-        let func_name = self
-            .executable
-            .variable_declarations
-            .get(&func)
-            .unwrap()
-            .get_name()
-            .clone();
+        let func_name = self.get_var(func).get_name().clone();
         let mut func_parameters = vec![];
         unsafe {
-            let mut j = self
-                .executable
-                .variable_declarations
-                .get(&func)
-                .unwrap()
-                .variable
-                .data
-                .function_value
-                .first_var_id as usize;
-            for _ in 0..self
-                .executable
-                .variable_declarations
-                .get(&func)
-                .unwrap()
-                .variable
-                .data
-                .function_value
-                .parameters
-            {
-                let var_name = format!(
-                    "LOC{0:>03}",
-                    self.executable
-                        .variable_declarations
-                        .get(&j)
-                        .unwrap()
-                        .number
-                );
+            let mut j = self.get_var(func).value.data.function_value.first_var_id as usize;
 
-                let var_type = TYPE_NAMES[self
-                    .executable
-                    .variable_declarations
-                    .get(&j)
-                    .unwrap()
-                    .header
-                    .variable_type as usize];
-                self.executable
-                    .variable_declarations
-                    .get_mut(&j)
-                    .unwrap()
-                    .set_name(var_name.clone());
+            for _ in 0..self.get_var(func).value.data.function_value.parameters {
+                let var_name = format!("LOC{0:>03}", self.get_var(j).number);
+
+                let var_type = TYPE_NAMES[self.get_var(j).header.variable_type as usize];
+                self.get_var_mut(j).set_name(var_name.clone());
                 func_parameters.push(ParameterSpecifier::empty(
                     false,
                     var_type,
                     VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
                 ));
-                self.executable
-                    .variable_declarations
-                    .get_mut(&j)
-                    .unwrap()
-                    .function_id = func;
+                self.get_var_mut(j).function_id = func;
                 j += 1;
             }
-            let func_type = TYPE_NAMES[self
-                .executable
-                .variable_declarations
-                .get(&j)
-                .unwrap()
-                .header
-                .variable_type as usize];
+            let func_type = TYPE_NAMES[self.get_var(j).header.variable_type as usize];
             prg.nodes.push(crate::ast::AstNode::Function(
                 FunctionImplementation::empty(
                     func,
@@ -481,64 +398,16 @@ impl Decompiler {
     }
 
     fn output_proc(&mut self, prg: &mut Program, proc: usize) {
-        let proc_name = self
-            .executable
-            .variable_declarations
-            .get(&proc)
-            .unwrap()
-            .get_name()
-            .clone();
+        let proc_name = self.get_var(proc).get_name().clone();
         unsafe {
-            let param_flags = self
-                .executable
-                .variable_declarations
-                .get(&proc)
-                .unwrap()
-                .variable
-                .data
-                .procedure_value
-                .pass_flags;
+            let param_flags = self.get_var(proc).value.data.procedure_value.pass_flags;
 
             let mut proc_parameters = vec![];
-            let mut j = self
-                .executable
-                .variable_declarations
-                .get(&proc)
-                .unwrap()
-                .variable
-                .data
-                .procedure_value
-                .first_var_id as usize;
-            for n in 0..self
-                .executable
-                .variable_declarations
-                .get(&proc)
-                .unwrap()
-                .variable
-                .data
-                .procedure_value
-                .parameters
-            {
-                let var_name = format!(
-                    "LOC{0:>03}",
-                    self.executable
-                        .variable_declarations
-                        .get(&j)
-                        .unwrap()
-                        .number
-                );
-                let var_type = TYPE_NAMES[self
-                    .executable
-                    .variable_declarations
-                    .get(&j)
-                    .unwrap()
-                    .header
-                    .variable_type as usize];
-                self.executable
-                    .variable_declarations
-                    .get_mut(&j)
-                    .unwrap()
-                    .set_name(var_name.clone());
+            let mut j = self.get_var(proc).value.data.procedure_value.first_var_id as usize;
+            for n in 0..self.get_var(proc).value.data.procedure_value.parameters {
+                let var_name = format!("LOC{0:>03}", self.get_var(j).number);
+                let var_type = TYPE_NAMES[self.get_var(j).header.variable_type as usize];
+                self.get_var_mut(j).set_name(var_name.clone());
                 let is_var = (1 << n) & param_flags != 0;
 
                 proc_parameters.push(ParameterSpecifier::empty(
@@ -546,11 +415,7 @@ impl Decompiler {
                     var_type,
                     VariableSpecifier::empty(unicase::Ascii::new(var_name), vec![]),
                 ));
-                self.executable
-                    .variable_declarations
-                    .get_mut(&j)
-                    .unwrap()
-                    .function_id = proc;
+                self.get_var_mut(j).function_id = proc;
                 j += 1;
             }
             prg.nodes.push(crate::ast::AstNode::Procedure(
@@ -568,15 +433,7 @@ impl Decompiler {
             let func = funcl.func;
             self.func_flag = 0;
             self.proc_flag = 0;
-            if self
-                .executable
-                .variable_declarations
-                .get(&func)
-                .unwrap()
-                .header
-                .variable_type
-                == VariableType::Function
-            {
+            if self.get_var(func).header.variable_type == VariableType::Function {
                 self.output_func(prg, func);
                 self.func_flag = func;
             } else {
@@ -615,56 +472,28 @@ impl Decompiler {
         let mut j = 0;
         unsafe {
             // StackPtr = 0;
-            let cur_var = self.executable.variable_declarations.get(&func).unwrap();
+            let cur_var = self.get_var(func);
             if cur_var.header.variable_type == VariableType::Function {
-                i = cur_var.variable.data.function_value.return_var as usize;
-                mx_var = cur_var.variable.data.function_value.return_var as usize
-                    + cur_var.variable.data.function_value.local_variables as usize;
+                i = cur_var.value.data.function_value.return_var as usize;
+                mx_var = cur_var.value.data.function_value.return_var as usize
+                    + cur_var.value.data.function_value.local_variables as usize;
             } else {
-                i = cur_var.variable.data.procedure_value.first_var_id as usize
-                    + cur_var.variable.data.procedure_value.parameters as usize;
-                mx_var = cur_var.variable.data.procedure_value.first_var_id as usize
-                    + cur_var.variable.data.procedure_value.local_variables as usize;
+                i = cur_var.value.data.procedure_value.first_var_id as usize
+                    + cur_var.value.data.procedure_value.parameters as usize;
+                mx_var = cur_var.value.data.procedure_value.first_var_id as usize
+                    + cur_var.value.data.procedure_value.local_variables as usize;
                 //+1;
             }
 
             while i < mx_var {
-                if self
-                    .executable
-                    .variable_declarations
-                    .get(&i)
-                    .unwrap()
-                    .get_type()
-                    == EntryType::Variable
-                {
-                    self.executable
-                        .variable_declarations
-                        .get_mut(&i)
-                        .unwrap()
-                        .function_id = func;
+                if self.get_var(i).get_type() == EntryType::Variable {
+                    self.get_var_mut(i).function_id = func;
                     if self.symbol == 0 {
-                        let var_type = crate::tables::TYPE_NAMES[self
-                            .executable
-                            .variable_declarations
-                            .get(&i)
-                            .unwrap()
-                            .header
-                            .variable_type
-                            as usize];
-                        let var_name = format!(
-                            "LOC{0:>03}",
-                            self.executable
-                                .variable_declarations
-                                .get(&i)
-                                .unwrap()
-                                .number
-                        );
-                        self.executable
-                            .variable_declarations
-                            .get_mut(&i)
-                            .unwrap()
-                            .set_name(var_name.clone());
-                        let cur_var = &self.executable.variable_declarations[&i];
+                        let var_type = crate::tables::TYPE_NAMES
+                            [self.get_var(i).header.variable_type as usize];
+                        let var_name = format!("LOC{0:>03}", self.get_var(i).number);
+                        self.get_var_mut(i).set_name(var_name.clone());
+                        let cur_var = self.get_var(i);
 
                         if let Some(func) = Decompiler::get_function_mut(prg, func) {
                             let dims = match cur_var.header.dim {
@@ -843,7 +672,7 @@ impl Decompiler {
         Self::repl_const(temp_exr, names)
     }
 
-    fn trans_exp(&mut self, cur_expr: i32) -> Expression {
+    fn trans_exp(&mut self, cur_expr: i16) -> Expression {
         match self.cur_stmt {
             0x00c if cur_expr != 2 => self.popstrip().unwrap(),
             0x00d if cur_expr != 2 => self.popstrip().unwrap(),
@@ -897,10 +726,10 @@ impl Decompiler {
         }
     }
 
-    fn varout(&mut self, var_number: i32) -> Expression {
+    fn varout(&mut self, var_number: i16) -> Expression {
         let var_nr = var_number as usize - 1;
 
-        let cur_var = self.executable.variable_declarations.get(&var_nr).unwrap();
+        let cur_var = self.get_var(var_nr);
         if cur_var.get_type().use_name() {
             match cur_var.header.variable_type {
                 VariableType::Function | VariableType::Procedure => {
@@ -919,7 +748,7 @@ impl Decompiler {
         unsafe {
             match cur_var.header.variable_type {
                 VariableType::Boolean => ConstantExpression::create_empty_expression(
-                    Constant::Boolean(cur_var.variable.data.bool_value),
+                    Constant::Boolean(cur_var.value.data.bool_value),
                 ),
                 VariableType::Integer
                 | VariableType::Unsigned
@@ -932,18 +761,18 @@ impl Decompiler {
                 | VariableType::DDate
                 | VariableType::Money
                 | VariableType::Time => ConstantExpression::create_empty_expression(
-                    Constant::Integer(cur_var.variable.data.int_value),
+                    Constant::Integer(cur_var.value.data.int_value),
                 ),
                 VariableType::BigStr | VariableType::String => {
                     ConstantExpression::create_empty_expression(Constant::String(
-                        cur_var.variable.as_string(),
+                        cur_var.value.as_string(),
                     ))
                 }
                 VariableType::Double => ConstantExpression::create_empty_expression(
-                    Constant::Double(cur_var.variable.data.double_value),
+                    Constant::Double(cur_var.value.data.double_value),
                 ),
                 VariableType::Float => ConstantExpression::create_empty_expression(
-                    Constant::Double(cur_var.variable.data.float_value as f64),
+                    Constant::Double(cur_var.value.data.float_value as f64),
                 ),
                 _ => {
                     log::warn!(
@@ -952,14 +781,14 @@ impl Decompiler {
                         self.src_ptr
                     );
                     ConstantExpression::create_empty_expression(Constant::Integer(
-                        cur_var.variable.data.int_value,
+                        cur_var.value.data.int_value,
                     ))
                 }
             }
         }
     }
 
-    fn fnktout(&mut self, func: i32) -> i32 {
+    fn fnktout(&mut self, func: i16) -> i16 {
         let offset = -func as usize;
         if offset >= FUNCTION_DEFINITIONS.len() {
             log::error!("unknown built in function {} at {}", func, self.src_ptr);
@@ -1061,7 +890,7 @@ impl Decompiler {
         0
     }
 
-    fn dimexpr(&mut self, dims: i32) -> i32 {
+    fn dimexpr(&mut self, dims: i16) -> i16 {
         let mut cur_dim = 0;
         let temp_expr = self.exp_count;
 
@@ -1080,44 +909,20 @@ impl Decompiler {
             {
                 unsafe {
                     let curvar = self.executable.source_buffer[self.src_ptr] as usize;
-                    if curvar >= 0 && curvar <= self.executable.max_var {
-                        let var_idx = &(curvar - 1);
-                        if self
-                            .executable
-                            .variable_declarations
-                            .get(var_idx)
-                            .unwrap()
-                            .header
-                            .variable_type
-                            == VariableType::Function
-                        {
+                    if curvar <= self.executable.max_var {
+                        let var_idx = curvar - 1;
+                        if self.get_var(var_idx).header.variable_type == VariableType::Function {
                             self.pushlabel(
-                                self.executable
-                                    .variable_declarations
-                                    .get(var_idx)
-                                    .unwrap()
-                                    .variable
-                                    .data
-                                    .function_value
-                                    .start_offset as usize,
+                                self.get_var(var_idx).value.data.function_value.start_offset
+                                    as usize,
                             );
-                            self.executable
-                                .variable_declarations
-                                .get_mut(
-                                    &(self.executable.source_buffer[self.src_ptr - 1] as usize),
-                                )
-                                .unwrap()
-                                .report_variable_usage();
+                            self.report_variable_usage(
+                                self.executable.source_buffer[self.src_ptr - 1] as usize,
+                            );
                             self.funcin(
-                                self.executable
-                                    .variable_declarations
-                                    .get(var_idx)
-                                    .unwrap()
-                                    .variable
-                                    .data
-                                    .function_value
-                                    .start_offset as usize,
-                                *var_idx,
+                                self.get_var(var_idx).value.data.function_value.start_offset
+                                    as usize,
+                                var_idx,
                             );
                             if self.pass == 1 {
                                 let temp_str2 = self.pop_expr().unwrap();
@@ -1144,17 +949,13 @@ impl Decompiler {
                             }
                             self.src_ptr += 1;
                             if !self.parse_expr(
-                                self.executable
-                                    .variable_declarations
-                                    .get(
-                                        &(self.executable.source_buffer[self.src_ptr - 1] as usize
-                                            - 1),
-                                    )
-                                    .unwrap()
-                                    .variable
-                                    .data
-                                    .function_value
-                                    .parameters as i32,
+                                self.get_var(
+                                    self.executable.source_buffer[self.src_ptr - 1] as usize - 1,
+                                )
+                                .value
+                                .data
+                                .function_value
+                                .parameters as i16,
                                 1,
                             ) {
                                 return 1;
@@ -1167,14 +968,9 @@ impl Decompiler {
                             }
                             self.src_ptr += 1;
                             if self.executable.source_buffer[self.src_ptr] != 0 {
-                                self.executable
-                                    .variable_declarations
-                                    .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr - 1] as usize
-                                            - 1),
-                                    )
-                                    .unwrap()
-                                    .report_variable_usage();
+                                self.report_variable_usage(
+                                    self.executable.source_buffer[self.src_ptr - 1] as usize - 1,
+                                );
                                 if self.dimexpr(self.executable.source_buffer[self.src_ptr]) != 0 {
                                     return 1;
                                 }
@@ -1235,7 +1031,7 @@ impl Decompiler {
         0
     }
 
-    fn parse_expr(&mut self, max_expr: i32, _rec: i32) -> bool {
+    fn parse_expr(&mut self, max_expr: i16, _rec: i32) -> bool {
         let mut cur_expr = 0;
         let temp_expr = self.exp_count;
         self.src_ptr += 1;
@@ -1251,11 +1047,9 @@ impl Decompiler {
                         <= self.executable.max_var
                 {
                     if max_expr / 256 == cur_expr || max_expr / 256 == 0x0f {
-                        self.executable
-                            .variable_declarations
-                            .get_mut(&(self.executable.source_buffer[self.src_ptr] as usize - 1))
-                            .unwrap()
-                            .report_variable_usage();
+                        self.report_variable_usage(
+                            self.executable.source_buffer[self.src_ptr] as usize - 1,
+                        );
                         if self.pass == 1 {
                             let tmp = self.varout(self.executable.source_buffer[self.src_ptr]);
                             self.push_expr(tmp);
@@ -1279,11 +1073,8 @@ impl Decompiler {
                         unsafe {
                             if self.cur_stmt == 0xa8
                                 && ((self
-                                    .executable
-                                    .variable_declarations
-                                    .get(&self.akt_proc)
-                                    .unwrap()
-                                    .variable
+                                    .get_var(self.akt_proc)
+                                    .value
                                     .data
                                     .function_value
                                     .return_var
@@ -1291,56 +1082,37 @@ impl Decompiler {
                                     & 1)
                                     != 0
                             {
-                                self.executable
-                                    .variable_declarations
-                                    .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr] as usize - 1),
-                                    )
-                                    .unwrap()
-                                    .report_variable_usage();
+                                self.report_variable_usage(
+                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                );
                             }
 
                             if self
-                                .executable
-                                .variable_declarations
-                                .get(&(self.executable.source_buffer[self.src_ptr] as usize - 1))
-                                .unwrap()
+                                .get_var(self.executable.source_buffer[self.src_ptr] as usize - 1)
                                 .header
                                 .variable_type
                                 == VariableType::Function
                             {
                                 self.pushlabel(
-                                    self.executable
-                                        .variable_declarations
-                                        .get(
-                                            &(self.executable.source_buffer[self.src_ptr] as usize
-                                                - 1),
-                                        )
-                                        .unwrap()
-                                        .variable
-                                        .data
-                                        .function_value
-                                        .start_offset as usize,
-                                );
-                                self.executable
-                                    .variable_declarations
-                                    .get_mut(
-                                        &(self.executable.source_buffer[self.src_ptr] as usize - 1),
+                                    self.get_var(
+                                        self.executable.source_buffer[self.src_ptr] as usize - 1,
                                     )
-                                    .unwrap()
-                                    .report_variable_usage();
+                                    .value
+                                    .data
+                                    .function_value
+                                    .start_offset as usize,
+                                );
+                                self.report_variable_usage(
+                                    self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                );
                                 self.funcin(
-                                    self.executable
-                                        .variable_declarations
-                                        .get(
-                                            &(self.executable.source_buffer[self.src_ptr] as usize
-                                                - 1),
-                                        )
-                                        .unwrap()
-                                        .variable
-                                        .data
-                                        .function_value
-                                        .start_offset as usize,
+                                    self.get_var(
+                                        self.executable.source_buffer[self.src_ptr] as usize - 1,
+                                    )
+                                    .value
+                                    .data
+                                    .function_value
+                                    .start_offset as usize,
                                     self.executable.source_buffer[self.src_ptr] as usize - 1,
                                 );
                                 let mut stack_len = 0;
@@ -1358,18 +1130,14 @@ impl Decompiler {
                                 self.src_ptr += 1;
 
                                 if !self.parse_expr(
-                                    self.executable
-                                        .variable_declarations
-                                        .get(
-                                            &(self.executable.source_buffer[self.src_ptr - 1]
-                                                as usize
-                                                - 1),
-                                        )
-                                        .unwrap()
-                                        .variable
-                                        .data
-                                        .function_value
-                                        .parameters as i32,
+                                    self.get_var(
+                                        self.executable.source_buffer[self.src_ptr - 1] as usize
+                                            - 1,
+                                    )
+                                    .value
+                                    .data
+                                    .function_value
+                                    .parameters as i16,
                                     1,
                                 ) {
                                     return false;
@@ -1401,15 +1169,10 @@ impl Decompiler {
                                 self.src_ptr += 1;
 
                                 if self.executable.source_buffer[self.src_ptr] != 0 {
-                                    self.executable
-                                        .variable_declarations
-                                        .get_mut(
-                                            &(self.executable.source_buffer[self.src_ptr - 1]
-                                                as usize
-                                                - 1),
-                                        )
-                                        .unwrap()
-                                        .report_variable_usage();
+                                    self.report_variable_usage(
+                                        self.executable.source_buffer[self.src_ptr - 1] as usize
+                                            - 1,
+                                    );
                                     if self.dimexpr(self.executable.source_buffer[self.src_ptr])
                                         != 0
                                     {
@@ -1455,9 +1218,9 @@ impl Decompiler {
             self.executable.source_buffer.len() / 2
         );*/
         if self.executable.source_buffer[j - 2] == 0x0007
-            && self.executable.source_buffer[j - 1] / 2 == i as i32
+            && self.executable.source_buffer[j - 1] / 2 == i as i16
         {
-            self.executable.source_buffer[i as usize] = 0;
+            self.executable.source_buffer[i] = 0;
             (self.executable.source_buffer[self.src_ptr] / 2 - 2) as usize
         } else {
             i.wrapping_sub(5)
@@ -1516,7 +1279,7 @@ impl Decompiler {
             println!("Code size: {}", self.executable.code_size);
 
             for (i, x) in self.executable.source_buffer.iter().enumerate() {
-                print!("{:04X} ", *x as i16);
+                print!("{:04X} ", *x);
                 if i > 0 && (i % 16) == 0 {
                     println!();
                 }
@@ -1617,10 +1380,11 @@ impl Decompiler {
                     }
                 }
             }
-            let op: OpCode = unsafe { transmute(self.cur_stmt as u8) };
+            let op: OpCode = unsafe { transmute(self.cur_stmt) };
             if disassemble {
                 if stmt_ptr > 0 {
-                    self.print_disassembler_parameters(last_stmt_offset, stmt_ptr);
+                    self.executable
+                        .print_disassembler_parameters(last_stmt_offset, stmt_ptr);
                 }
                 let op_str = format!("{op:?}");
 
@@ -1682,9 +1446,8 @@ impl Decompiler {
                         _ => panic!("can't translate func call to let"),
                     };
 
-                    if let Some(var) = self.executable.variable_lookup.get(&identifier) {
-                        let var = self.executable.variable_declarations.get(var).unwrap();
-                        if var.header.variable_type == VariableType::Boolean {
+                    if let Some(var) = self.variable_lookup_table.get(&identifier) {
+                        if self.get_var(*var).header.variable_type == VariableType::Boolean {
                             value = Statement::try_boolean_conversion(&value);
                         }
                     }
@@ -1717,22 +1480,13 @@ impl Decompiler {
                     // PCALL
                     self.src_ptr += 2;
                     self.akt_proc = self.executable.source_buffer[self.src_ptr - 1] as usize - 1;
-                    let proc_name = self
-                        .executable
-                        .variable_declarations
-                        .get(&self.akt_proc)
-                        .unwrap()
-                        .get_name()
-                        .clone();
+                    let proc_name = self.get_var(self.akt_proc).get_name().clone();
                     if !self.parse_expr(
-                        self.executable
-                            .variable_declarations
-                            .get(&(self.executable.source_buffer[self.src_ptr - 1] as usize - 1))
-                            .unwrap()
-                            .variable
+                        self.get_var(self.executable.source_buffer[self.src_ptr - 1] as usize - 1)
+                            .value
                             .data
                             .procedure_value
-                            .parameters as i32,
+                            .parameters as i16,
                         0,
                     ) {
                         self.output_stmt(
@@ -1755,7 +1509,7 @@ impl Decompiler {
                 _ => {
                     let mut found = false;
                     for def in &STATEMENT_DEFINITIONS {
-                        if def.opcode as i32 == self.cur_stmt {
+                        if def.opcode as i16 == self.cur_stmt {
                             let mut parameters = Vec::new();
                             if def.max_args > 0 {
                                 for _ in 0..def.max_args {
@@ -1798,7 +1552,7 @@ impl Decompiler {
         }
 
         if disassemble {
-            self.print_disassembler_parameters(
+            self.executable.print_disassembler_parameters(
                 last_stmt_offset,
                 self.executable.source_buffer.len(),
             );
@@ -1807,147 +1561,96 @@ impl Decompiler {
     }
 
     fn name_variables(&mut self) {
-        let has_user_vars = has_user_variables(
-            &self.executable.variable_declarations,
-            self.executable.version,
-        );
+        let has_user_vars =
+            has_user_variables(&self.executable.variable_table, self.executable.version);
         let mut name_generator: VariableNameGenerator =
             VariableNameGenerator::new(self.executable.version, has_user_vars);
-
-        for i in 0..self.executable.max_var {
-            if let Some(res) = self.executable.variable_declarations.get_mut(&i) {
-                if res.get_type() == EntryType::FunctionResult {
-                    res.set_name(format!("RESULT{i:>03}"));
-                    continue;
-                }
-
-                let (name, is_user_variable) = name_generator.get_next_name(res);
-                if is_user_variable {
-                    res.set_type(EntryType::UserVariable);
-                }
-                res.set_name(name);
+        let mut function_result = 1;
+        for i in 0..self.executable.variable_table.len() {
+            let res = self.get_var_mut(i);
+            if res.get_type() == EntryType::FunctionResult {
+                res.set_name(format!("RESULT{function_result:>03}"));
+                function_result += 1;
+                continue;
             }
+
+            let (name, is_user_variable) = name_generator.get_next_name(res);
+            if is_user_variable {
+                res.set_type(EntryType::UserVariable);
+            }
+
+            if res.header.variable_type == VariableType::Function {
+                res.set_type(EntryType::Function);
+            }
+            if res.header.variable_type == VariableType::Procedure {
+                res.set_type(EntryType::Procedure);
+            }
+            res.set_name(name);
         }
-        for (i, res) in &self.executable.variable_declarations {
-            self.executable
-                .variable_lookup
-                .insert(unicase::Ascii::new(res.get_name().clone()), *i as usize);
-        }
+        self.variable_lookup_table = self.executable.create_variable_lookup_table();
     }
 
     fn get_variable_name(&self, cur_var: &VariableEntry) -> String {
         if cur_var.get_type() == EntryType::FunctionResult {
-            return self
-                .executable
-                .variable_declarations
-                .get(&cur_var.number)
-                .unwrap()
-                .get_name()
-                .clone();
+            return self.get_var(cur_var.number).get_name().clone();
         }
         cur_var.get_name().clone()
     }
 
-    pub fn print_variable_table(&self) {
-        println!();
-        println!(
-            "--- Variable Table ({} variables) ---",
-            self.executable.max_var
-        );
-        println!("   # Type         Flags Role          Name        Value");
-        for i in (0..self.executable.max_var).rev() {
-            let var = self.executable.variable_declarations.get(&i).unwrap();
-
-            let ts = if var.header.dim > 0 {
-                format!("{}({})", var.header.variable_type, var.header.dim)
-            } else {
-                var.header.variable_type.to_string()
-            };
-
-            print!("{:04X} {:<13}", var.header.id, ts);
-
-            let ts = format!("{:?}", var.get_type());
-            print!("{}     {:<14}", var.header.flags, ts);
-            print!("{:<12}", var.get_name());
-
-            if var.header.variable_type == VariableType::Function {
-                unsafe {
-                    print!("{:?}", var.variable.data.function_value);
-                }
-            } else if var.header.variable_type == VariableType::Procedure {
-                unsafe {
-                    print!("{:?}", var.variable.data.procedure_value);
-                }
-            } else {
-                print!("{}", var.variable);
-                if var.header.dim > 0
-                    || var.header.vector_size > 0
-                    || var.header.matrix_size > 0
-                    || var.header.cube_size > 0
-                {
-                    print!(
-                        " ({}, {}, {})",
-                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
-                    );
-                }
-            }
-            println!();
-        }
+    fn report_variable_usage(&mut self, id: usize) {
+        self.get_var_mut(id).report_variable_usage();
     }
 
-    fn print_disassembler_parameters(&self, from: usize, to: usize) {
-        for (i, x) in self.executable.source_buffer[from + 1..to]
-            .iter()
-            .enumerate()
-        {
-            if i > 0 && i % 20 == 0 {
-                println!();
-                print!("                      ");
-            }
-            print!("{:<04X} ", *x);
-        }
-        println!();
+    fn get_var(&self, id: usize) -> &VariableEntry {
+        assert!(
+            id < self.executable.variable_table.len(),
+            "variable id {id:04x} out of range"
+        );
+        &self.executable.variable_table[id]
+    }
+
+    fn get_var_mut(&mut self, id: usize) -> &mut VariableEntry {
+        assert!(
+            id < self.executable.variable_table.len(),
+            "variable id {id:04x} out of range"
+        );
+        &mut self.executable.variable_table[id]
     }
 }
 
-pub fn has_user_variables<S: BuildHasher>(
-    variable_declarations: &HashMap<usize, Box<VariableEntry>, S>,
-    version: u16,
-) -> bool {
-    let has_user_variables = variable_declarations[&0].header.variable_type
-        == VariableType::Boolean
-        && (variable_declarations[&1].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&2].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&3].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&4].header.variable_type == VariableType::Date)
-        && (variable_declarations[&5].header.variable_type == VariableType::Integer)
-        && (variable_declarations[&6].header.variable_type == VariableType::Integer)
-        && (variable_declarations[&7].header.variable_type == VariableType::Integer)
-        && (variable_declarations[&8].header.variable_type == VariableType::String)
-        && (variable_declarations[&9].header.variable_type == VariableType::String)
-        && (variable_declarations[&10].header.variable_type == VariableType::String)
-        && (variable_declarations[&11].header.variable_type == VariableType::String)
-        && (variable_declarations[&12].header.variable_type == VariableType::String)
-        && (variable_declarations[&13].header.variable_type == VariableType::String)
-        && (variable_declarations[&14].header.variable_type == VariableType::String)
-        && (variable_declarations[&15].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&16].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&17].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[&18].header.variable_type == VariableType::String)
-        && (variable_declarations[&19].header.variable_type == VariableType::String)
-        && (variable_declarations[&20].header.variable_type == VariableType::String)
-        && (variable_declarations[&21].header.variable_type == VariableType::String)
-        && (variable_declarations[&22].header.variable_type == VariableType::Date)
-        && (variable_declarations[&20].header.vector_size == 5);
+pub fn has_user_variables(variable_declarations: &[VariableEntry], version: u16) -> bool {
+    let has_user_variables = variable_declarations[0].header.variable_type == VariableType::Boolean
+        && (variable_declarations[1].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[2].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[3].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[4].header.variable_type == VariableType::Date)
+        && (variable_declarations[5].header.variable_type == VariableType::Integer)
+        && (variable_declarations[6].header.variable_type == VariableType::Integer)
+        && (variable_declarations[7].header.variable_type == VariableType::Integer)
+        && (variable_declarations[8].header.variable_type == VariableType::String)
+        && (variable_declarations[9].header.variable_type == VariableType::String)
+        && (variable_declarations[10].header.variable_type == VariableType::String)
+        && (variable_declarations[11].header.variable_type == VariableType::String)
+        && (variable_declarations[12].header.variable_type == VariableType::String)
+        && (variable_declarations[13].header.variable_type == VariableType::String)
+        && (variable_declarations[14].header.variable_type == VariableType::String)
+        && (variable_declarations[15].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[16].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[17].header.variable_type == VariableType::Boolean)
+        && (variable_declarations[18].header.variable_type == VariableType::String)
+        && (variable_declarations[19].header.variable_type == VariableType::String)
+        && (variable_declarations[20].header.variable_type == VariableType::String)
+        && (variable_declarations[21].header.variable_type == VariableType::String)
+        && (variable_declarations[22].header.variable_type == VariableType::Date)
+        && (variable_declarations[20].header.vector_size == 5);
 
     if has_user_variables
         && version >= 300
-        && !(variable_declarations[&23].header.variable_type == VariableType::Integer
-            && variable_declarations[&23].header.vector_size == 16)
+        && !(variable_declarations[23].header.variable_type == VariableType::Integer
+            && variable_declarations[23].header.vector_size == 16)
     {
         return false;
     }
-
     has_user_variables
 }
 
@@ -1978,7 +1681,7 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
     if disassemble {
-        d.print_variable_table();
+        d.executable.print_variable_table();
     }
 
     if to_file && !disassemble {
@@ -2100,44 +1803,6 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
                 "         (or not at all) when being de- and recompiled.".to_string(),
             ),
         );
-        if to_file {
-            if d.warnings.is_empty() && d.errors.is_empty() {
-                println!("NO DECOMPILER ERROR DETECTED");
-            } /*else {
-
-
-                  if !d.warnings.is_empty() {
-                      stdout()
-                          .execute(SetForegroundColor(Color::Yellow))
-                          .unwrap()
-                          .execute(Print(format!("{} WARNING(S)", d.warnings.len())))
-                          .unwrap()
-                          .execute(ResetColor)
-                          .unwrap();
-                  }
-
-                  if !d.errors.is_empty() {
-                      if !d.warnings.is_empty() {
-                          stdout().execute(Print(", ")).unwrap();
-                      }
-
-                      stdout()
-                          .execute(SetForegroundColor(Color::Red))
-                          .unwrap()
-                          .execute(Print(format!("{} ERROR(S)", d.errors.len())))
-                          .unwrap()
-                          .execute(ResetColor)
-                          .unwrap();
-                  }
-
-                  stdout()
-                      .execute(Print(" DURING DECOMPILATION DETECTED"))
-                      .unwrap()
-                      .flush()
-                      .unwrap();
-                  println!();
-              }*/
-        }
     }
     prg
 }

@@ -15,7 +15,7 @@ use crate::ast::{constant::BuiltinConst, BinOp, VariableType};
 //              0xfd = label (goto)
 //			    0xfe = varies exp (println)
 //			    0xff = special case if
-pub const STATEMENT_SIGNATURE_TABLE: [i32; 227] = [
+pub const STATEMENT_SIGNATURE_TABLE: [i16; 227] = [
     0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xfd, //0
     0x12, 0xfe, 0xfe, 0xff, 0x02, 0x02, 0x02, 0x22, 0x04, 0x04, 0x04, 0x01, 0x22, 0xfe, 0xfe,
     0x00, //1
@@ -173,7 +173,7 @@ pub struct StatementDefinition<'a> {
     pub max_args: i8,
 }
 
-#[repr(u8)]
+#[repr(i16)]
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OpCode {
@@ -2039,7 +2039,7 @@ pub enum FuncOpCode {
     GetMsgHdr = -289,
     SetMsgHdr = -290,
 }
-pub const LAST_FUNC: i32 = -290;
+pub const LAST_FUNC: i16 = -290;
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition<'a> {

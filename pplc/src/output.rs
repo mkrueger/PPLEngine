@@ -1,7 +1,7 @@
 use icy_ppe::{
     ast::{Program, Statement, Variable, VariableData, VariableType, VariableValue},
-    crypt::{encode_rle, encrypt},
-    executable::FunctionValue,
+    crypt::encrypt,
+    executable::{FunctionValue, VarHeader},
     parser::lexer::SpannedToken,
     tables::{self, get_function_definition, OpCode},
 };
@@ -10,9 +10,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
-    #[error("Too many declarations: {0}")]
-    TooManyDeclarations(usize),
-
     #[error("Variable not found: {0}")]
     VariableNotFound(String),
 
@@ -48,21 +45,8 @@ pub struct CompilationWarning {
     pub range: core::ops::Range<usize>,
 }
 
-struct VarInfo {
-    pub id: usize,
-    pub var_type: VariableType,
-    pub dims: u8,
-    pub vector_size: usize,
-    pub matrix_size: usize,
-    pub cube_size: usize,
-
-    //  Bit 1 set: tell runtime mod to reinit the var
-    pub flags: u8,
-}
-
 struct VariableId {
-    pub info: VarInfo,
-    pub var_type: VariableType,
+    pub info: VarHeader,
     pub value: icy_ppe::ast::Variable,
 }
 
@@ -83,17 +67,19 @@ impl VariableId {
     fn create_var_header(&self, exe: &PPEOutput, version: u16) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend(u16::to_le_bytes(self.info.id as u16));
-        buffer.push(self.info.dims);
+        buffer.push(self.info.dim);
         buffer.extend(u16::to_le_bytes(self.info.vector_size as u16));
         buffer.extend(u16::to_le_bytes(self.info.matrix_size as u16));
         buffer.extend(u16::to_le_bytes(self.info.cube_size as u16));
 
-        buffer.push(self.info.var_type as u8);
+        buffer.push(self.info.variable_type as u8);
         buffer.push(self.info.flags);
         encrypt(&mut buffer, version);
 
         let b = buffer.len();
-        if self.var_type == VariableType::Procedure || self.var_type == VariableType::Function {
+        if self.info.variable_type == VariableType::Procedure
+            || self.info.variable_type == VariableType::Function
+        {
             let VariableValue::String(s) = &self.value.generic_data else {
                 panic!("Invalid value type {:?}", self.value);
             };
@@ -104,12 +90,12 @@ impl VariableId {
 
             buffer.push(0);
             buffer.push(0);
-            buffer.push(self.var_type as u8);
+            buffer.push(self.info.variable_type as u8);
             buffer.push(0);
             proc.header.append(&mut buffer);
             encrypt(&mut buffer[b..], version);
-        } else if self.var_type == VariableType::String {
-            let s = if self.info.dims == 0 {
+        } else if self.info.variable_type == VariableType::String {
+            let s = if self.info.dim == 0 {
                 let VariableValue::String(s) = &self.value.generic_data else {
                     panic!("Invalid value type {:?}", self.value);
                 };
@@ -140,7 +126,7 @@ impl VariableId {
             buffer.push(0);
 
             // variable type
-            buffer.push(self.var_type as u8);
+            buffer.push(self.info.variable_type as u8);
             buffer.push(0);
 
             buffer.extend_from_slice(&u64::to_le_bytes(self.value.get_u64_value()));
@@ -163,7 +149,7 @@ pub struct PPEOutput {
     variable_table: Vec<VariableId>,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
 
-    script_buffer: Vec<u16>,
+    script_buffer: Vec<i16>,
 
     label_table: HashMap<unicase::Ascii<String>, LabelInfo>,
     pub errors: Vec<CompilationError>,
@@ -191,9 +177,9 @@ impl PPEOutput {
 
     fn add_variable(
         &mut self,
-        var_type: VariableType,
+        variable_type: VariableType,
         name: unicase::Ascii<String>,
-        dims: u8,
+        dim: u8,
         vector_size: usize,
         matrix_size: usize,
         cube_size: usize,
@@ -202,17 +188,16 @@ impl PPEOutput {
         self.variable_lookup
             .insert(name.clone(), self.variable_table.len());
         self.variable_table.push(VariableId {
-            info: VarInfo {
+            info: VarHeader {
                 id,
-                var_type,
-                dims,
+                variable_type,
+                dim,
                 vector_size,
                 matrix_size,
                 cube_size,
                 flags: 0,
             },
-            var_type,
-            value: var_type.create_empty_value(),
+            value: variable_type.create_empty_value(),
         });
     }
 
@@ -223,16 +208,15 @@ impl PPEOutput {
             self.variable_table.len(),
         );
         self.variable_table.push(VariableId {
-            info: VarInfo {
+            info: VarHeader {
                 id,
-                var_type: val.get_type(),
-                dims: val.get_dimensions(),
+                variable_type: val.get_type(),
+                dim: val.get_dimensions(),
                 vector_size: val.get_vector_size(),
                 matrix_size: val.get_matrix_size(),
                 cube_size: val.get_cube_size(),
                 flags: 0,
             },
-            var_type: val.get_type(),
             value: val,
         });
     }
@@ -353,16 +337,15 @@ impl PPEOutput {
                         .insert(proc.get_identifier().clone(), self.variable_table.len());
                     let id: usize = self.next_id();
                     self.variable_table.push(VariableId {
-                        info: VarInfo {
+                        info: VarHeader {
                             id,
-                            var_type: VariableType::Procedure,
-                            dims: 0,
+                            variable_type: VariableType::Procedure,
+                            dim: 0,
                             vector_size: 0,
                             matrix_size: 0,
                             cube_size: 0,
                             flags: 0,
                         },
-                        var_type: VariableType::Procedure,
                         value: Variable::new_string(proc.get_identifier().to_string()),
                     });
 
@@ -394,8 +377,8 @@ impl PPEOutput {
             }
         }
         self.fill_labels();
-        if !self.script_buffer.ends_with(&[OpCode::END as u16]) {
-            self.script_buffer.push(OpCode::END as u16);
+        if !self.script_buffer.ends_with(&[OpCode::END as i16]) {
+            self.script_buffer.push(OpCode::END as i16);
         }
 
         for imp in &prg.nodes {
@@ -417,16 +400,15 @@ impl PPEOutput {
                             self.variable_table.len(),
                         );
                         self.variable_table.push(VariableId {
-                            info: VarInfo {
+                            info: VarHeader {
                                 id,
-                                var_type: param.get_variable_type(),
-                                dims: param.get_variable().get_dimensions().len() as u8,
+                                variable_type: param.get_variable_type(),
+                                dim: param.get_variable().get_dimensions().len() as u8,
                                 vector_size: param.get_variable().get_vector_size(),
                                 matrix_size: param.get_variable().get_matrix_size(),
                                 cube_size: param.get_variable().get_cube_size(),
                                 flags: 0,
                             },
-                            var_type: param.get_variable_type(),
                             value: param.get_variable_type().create_empty_value(),
                         });
                     }
@@ -437,8 +419,8 @@ impl PPEOutput {
 
                     self.fill_labels();
 
-                    self.script_buffer.push(OpCode::FPCLR as u16);
-                    self.script_buffer.push(OpCode::END as u16);
+                    self.script_buffer.push(OpCode::FPCLR as i16);
+                    self.script_buffer.push(OpCode::END as i16);
                     {
                         let decl = self
                             .procedure_declarations
@@ -465,16 +447,15 @@ impl PPEOutput {
                         self.variable_lookup
                             .insert(p.get_identifier().clone(), self.variable_table.len());
                         self.variable_table.push(VariableId {
-                            info: VarInfo {
+                            info: VarHeader {
                                 id,
-                                var_type: VariableType::Function,
-                                dims: 0,
+                                variable_type: VariableType::Function,
+                                dim: 0,
                                 vector_size: 0,
                                 matrix_size: 0,
                                 cube_size: 0,
                                 flags: 0,
                             },
-                            var_type: VariableType::Function,
                             value: Variable::new_string(p.get_identifier().to_string()),
                         });
                         self.cur_function = p.get_identifier().clone();
@@ -487,16 +468,15 @@ impl PPEOutput {
                             self.variable_table.len(),
                         );
                         self.variable_table.push(VariableId {
-                            info: VarInfo {
+                            info: VarHeader {
                                 id,
-                                var_type: param.get_variable_type(),
-                                dims: param.get_variable().get_dimensions().len() as u8,
+                                variable_type: param.get_variable_type(),
+                                dim: param.get_variable().get_dimensions().len() as u8,
                                 vector_size: param.get_variable().get_vector_size(),
                                 matrix_size: param.get_variable().get_matrix_size(),
                                 cube_size: param.get_variable().get_cube_size(),
                                 flags: 0,
                             },
-                            var_type: param.get_variable_type(),
                             value: param.get_variable_type().create_empty_value(),
                         });
                     }
@@ -505,8 +485,8 @@ impl PPEOutput {
                     });
                     self.cur_function_id = -1;
                     self.fill_labels();
-                    self.script_buffer.push(OpCode::FEND as u16);
-                    self.script_buffer.push(OpCode::END as u16);
+                    self.script_buffer.push(OpCode::FEND as i16);
+                    self.script_buffer.push(OpCode::END as i16);
                     {
                         let decl = self
                             .procedure_declarations
@@ -521,13 +501,13 @@ impl PPEOutput {
             }
         }
 
-        if !self.script_buffer.ends_with(&[OpCode::END as u16]) {
-            self.script_buffer.push(OpCode::END as u16);
+        if !self.script_buffer.ends_with(&[OpCode::END as i16]) {
+            self.script_buffer.push(OpCode::END as i16);
         }
 
         for decl in &self.procedure_declarations {
             for idx in &decl.1.usages {
-                self.script_buffer[*idx] = decl.1.id as u16;
+                self.script_buffer[*idx] = decl.1.id as i16;
             }
         }
     }
@@ -535,7 +515,7 @@ impl PPEOutput {
     fn compile_statement(&mut self, s: &Statement) {
         match s {
             Statement::End(_) => {
-                self.script_buffer.push(OpCode::END as u16);
+                self.script_buffer.push(OpCode::END as i16);
             }
             Statement::Comment(_) => {
                 // ignore
@@ -547,7 +527,7 @@ impl PPEOutput {
                     .for_each(|s| self.compile_statement(s));
             }
             Statement::If(if_stmt) => {
-                self.script_buffer.push(OpCode::IF as u16);
+                self.script_buffer.push(OpCode::IF as i16);
 
                 let cond_buffer = self.compile_expression(if_stmt.get_condition());
                 self.script_buffer.extend(cond_buffer);
@@ -558,7 +538,7 @@ impl PPEOutput {
                 self.compile_statement(if_stmt.get_statement());
             }
             Statement::While(while_stmt) => {
-                self.script_buffer.push(OpCode::WHILE as u16);
+                self.script_buffer.push(OpCode::WHILE as i16);
 
                 let cond_buffer = self.compile_expression(while_stmt.get_condition());
                 self.script_buffer.extend(cond_buffer);
@@ -569,14 +549,14 @@ impl PPEOutput {
                 self.compile_statement(while_stmt.get_statement());
             }
             Statement::Return(_) => {
-                self.script_buffer.push(OpCode::RETURN as u16);
+                self.script_buffer.push(OpCode::RETURN as i16);
             }
             Statement::Let(let_smt) => {
-                self.script_buffer.push(OpCode::LET as u16);
+                self.script_buffer.push(OpCode::LET as i16);
                 let var_name = let_smt.get_identifier();
 
                 if self.cur_function_id >= 0 && self.cur_function == *var_name {
-                    self.script_buffer.push(self.cur_function_id as u16);
+                    self.script_buffer.push(self.cur_function_id as i16);
                     self.script_buffer.push(0);
                 } else {
                     let Some(decl_idx) = self.variable_lookup.get(var_name) else {
@@ -589,9 +569,9 @@ impl PPEOutput {
                         return;
                     };
                     let decl = &self.variable_table[*decl_idx];
-                    self.script_buffer.push(decl.info.id as u16);
+                    self.script_buffer.push(decl.info.id as i16);
                     self.script_buffer
-                        .push(let_smt.get_arguments().len() as u16);
+                        .push(let_smt.get_arguments().len() as i16);
                     for arg in let_smt.get_arguments() {
                         let expr_buffer = self.compile_expression(arg);
                         self.script_buffer.extend(expr_buffer);
@@ -602,7 +582,7 @@ impl PPEOutput {
                 self.script_buffer.extend(expr_buffer);
             }
             Statement::Gosub(gosub_stmt) => {
-                self.script_buffer.push(OpCode::GOSUB as u16);
+                self.script_buffer.push(OpCode::GOSUB as i16);
                 self.add_label_usage(
                     gosub_stmt.get_label(),
                     gosub_stmt.get_label_token().clone(),
@@ -611,7 +591,7 @@ impl PPEOutput {
                 self.script_buffer.push(0);
             }
             Statement::Goto(goto_stmt) => {
-                self.script_buffer.push(OpCode::GOTO as u16);
+                self.script_buffer.push(OpCode::GOTO as i16);
                 self.add_label_usage(
                     goto_stmt.get_label(),
                     goto_stmt.get_label_token().clone(),
@@ -629,7 +609,7 @@ impl PPEOutput {
             Statement::PredifinedCall(call_stmt) => {
                 let def = call_stmt.get_func();
                 let op_code = def.opcode as u8;
-                self.script_buffer.push(op_code as u16);
+                self.script_buffer.push(op_code as i16);
                 if (call_stmt.get_arguments().len() as i8) < def.min_args
                     || (call_stmt.get_arguments().len() as i8) > def.max_args
                 {
@@ -637,7 +617,7 @@ impl PPEOutput {
                 }
                 if def.min_args != def.max_args {
                     self.script_buffer
-                        .push(call_stmt.get_arguments().len() as u16);
+                        .push(call_stmt.get_arguments().len() as i16);
                 }
                 for expr in call_stmt.get_arguments() {
                     let expr_buffer = self.compile_expression(expr);
@@ -645,7 +625,7 @@ impl PPEOutput {
                 }
             }
             Statement::Call(call_stmt) => {
-                self.script_buffer.push(OpCode::PCALL as u16);
+                self.script_buffer.push(OpCode::PCALL as i16);
 
                 // will be filled later.
                 if let Some(procedure) = self
@@ -692,74 +672,22 @@ impl PPEOutput {
     }
 
     pub fn create_binary(&self, version: u16) -> Result<Vec<u8>, CompilationErrorType> {
-        let mut buffer = Vec::new();
-        buffer.extend_from_slice(b"PCBoard Programming Language Executable  ");
-        buffer.push(b'0' + (version / 100) as u8);
-        buffer.push(b'.');
-        let minor = version % 100;
-        buffer.push(b'0' + (minor / 10) as u8);
-        buffer.push(b'0' + (minor % 10) as u8);
-        buffer.extend_from_slice(b"\x0D\x0A\x1A");
-
-        if self.variable_table.len() > 65535 {
-            return Err(CompilationErrorType::TooManyDeclarations(
-                self.variable_table.len(),
-            ));
-        }
-        buffer.extend_from_slice(&u16::to_le_bytes(self.variable_table.len() as u16));
-        for d in self.variable_table.iter().rev() {
-            let var = d.create_var_header(self, version);
-            buffer.extend(var);
-        }
-        let mut script_buffer = Vec::new();
-        for s in &self.script_buffer {
-            script_buffer.extend_from_slice(&s.to_le_bytes());
-        }
-        let mut code_data = encode_rle(&script_buffer);
-
-        buffer.extend_from_slice(&u16::to_le_bytes(self.script_buffer.len() as u16 * 2));
-        // in the very unlikely case the rle compressed buffer is larger than the original buffer
-        let use_rle = code_data.len() > script_buffer.len() || version < 300;
-        if use_rle {
-            code_data = script_buffer;
-        }
-
-        let mut offset = 0;
-        while offset < code_data.len() {
-            let chunk_size = 2027;
-            let add_byte = use_rle
-                && offset + chunk_size < code_data.len()
-                && code_data[offset + chunk_size] == 0;
-
-            let end = (offset + chunk_size).min(code_data.len());
-            let chunk = &mut code_data[offset..end];
-
-            offset += chunk_size;
-
-            encrypt(chunk, version);
-            buffer.extend_from_slice(chunk);
-
-            if add_byte {
-                buffer.push(code_data[end]);
-                offset += 1;
-            }
-        }
-        Ok(buffer)
+        Ok(Vec::new())
     }
 
-    fn compile_expression(&mut self, expr: &icy_ppe::ast::Expression) -> Vec<u16> {
+    fn compile_expression(&mut self, expr: &icy_ppe::ast::Expression) -> Vec<i16> {
         let mut stack = Vec::new();
         self.comp_expr(&mut stack, expr);
         stack.push(0); // push end of expression
         stack
     }
 
-    fn comp_expr(&mut self, stack: &mut Vec<u16>, expr: &icy_ppe::ast::Expression) {
+    fn comp_expr(&mut self, stack: &mut Vec<i16>, expr: &icy_ppe::ast::Expression) {
         match expr {
             icy_ppe::ast::Expression::Identifier(id) => {
                 if let Some(decl_idx) = self.variable_lookup.get(id.get_identifier()) {
                     let decl = &self.variable_table[*decl_idx];
-                    stack.push(decl.info.id as u16);
+                    stack.push(decl.info.id as i16);
                     stack.push(0);
                 } else {
                     self.errors.push(CompilationError {
@@ -771,7 +699,7 @@ impl PPEOutput {
                 }
             }
             icy_ppe::ast::Expression::Const(constant) => {
-                stack.push(self.lookup_constant(constant.get_constant_value()) as u16);
+                stack.push(self.lookup_constant(constant.get_constant_value()) as i16);
                 stack.push(0);
             }
             icy_ppe::ast::Expression::Parens(expr) => {
@@ -786,7 +714,7 @@ impl PPEOutput {
                         self.comp_expr(&mut stack2, p);
                         stack.extend(stack2);
                     }
-                    stack.push(tables::FUNCTION_DEFINITIONS[predef as usize].opcode as u16);
+                    stack.push(tables::FUNCTION_DEFINITIONS[predef as usize].opcode as i16);
                 }
             }
             icy_ppe::ast::Expression::FunctionCall(expr) => {
@@ -806,8 +734,8 @@ impl PPEOutput {
                 } else {
                     if let Some(var_idx) = self.variable_lookup.get(expr.get_identifier()) {
                         let var = &self.variable_table[*var_idx];
-                        stack.push(var.info.id as u16);
-                        stack.push(var.info.dims as u16);
+                        stack.push(var.info.id as i16);
+                        stack.push(var.info.dim as i16);
                     } else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::VariableNotFound(
@@ -826,12 +754,12 @@ impl PPEOutput {
 
             icy_ppe::ast::Expression::Unary(expr) => {
                 self.comp_expr(stack, expr.get_expression());
-                stack.push(expr.get_op() as u16);
+                stack.push(expr.get_op() as i16);
             }
             icy_ppe::ast::Expression::Binary(expr) => {
                 self.comp_expr(stack, expr.get_left_expression());
                 self.comp_expr(stack, expr.get_right_expression());
-                stack.push(expr.get_op() as u16);
+                stack.push(expr.get_op() as i16);
             }
         }
     }
@@ -839,16 +767,15 @@ impl PPEOutput {
     fn lookup_constant(&mut self, constant: &icy_ppe::ast::Constant) -> usize {
         let id = self.next_id();
         self.variable_table.push(VariableId {
-            info: VarInfo {
+            info: VarHeader {
                 id,
-                var_type: constant.get_var_type(),
-                dims: 0,
+                variable_type: constant.get_var_type(),
+                dim: 0,
                 vector_size: 0,
                 matrix_size: 0,
                 cube_size: 0,
                 flags: 0,
             },
-            var_type: constant.get_var_type(),
             value: constant.get_value(),
         });
         id
@@ -908,7 +835,7 @@ impl PPEOutput {
             }
 
             for (_token, usage) in &info.usages {
-                self.script_buffer[*usage / 2] = *address_pos as u16;
+                self.script_buffer[*usage / 2] = *address_pos as i16;
             }
         }
         self.label_table.clear();

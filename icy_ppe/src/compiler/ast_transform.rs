@@ -1,10 +1,10 @@
-use crate::ast::{
+/*use crate::ast::{
     BinOp, BinaryExpression, Constant, ConstantExpression, ElseBlock, ElseIfBlock, GotoStatement,
     IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
     ParensExpression, Program, Statement, UnaryExpression,
 };
-
-pub fn transform_ast(prg: &mut Program) {
+*/
+pub fn transform_ast(_prg: &mut crate::ast::Program) {
     /*
     for f in &mut prg.nodes {
         match f {
@@ -22,7 +22,7 @@ pub fn transform_ast(prg: &mut Program) {
     }
     transform_block(&mut prg.statements);*/
 }
-
+/*
 fn transform_block(statements: &mut Vec<Statement>) {
     translate_select_case(statements);
     let mut i = 0;
@@ -356,3 +356,4 @@ fn scan_possible_continues(block: &mut [Statement], break_label: &unicase::Ascii
         }
     }
 }
+*/

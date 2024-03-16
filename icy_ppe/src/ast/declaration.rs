@@ -22,9 +22,11 @@ impl DimensionSpecifier {
         Self { dimension_token }
     }
 
-    pub fn empty(dimension: i32) -> Self {
+    pub fn empty(dimension: usize) -> Self {
         Self {
-            dimension_token: SpannedToken::create_empty(Token::Const(Constant::Integer(dimension))),
+            dimension_token: SpannedToken::create_empty(Token::Const(Constant::Integer(
+                dimension as i32,
+            ))),
         }
     }
 
@@ -69,7 +71,7 @@ impl VariableSpecifier {
         }
     }
 
-    pub fn empty(identifier: unicase::Ascii<String>, dimensions: Vec<i32>) -> Self {
+    pub fn empty(identifier: unicase::Ascii<String>, dimensions: Vec<usize>) -> Self {
         Self {
             identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: None,

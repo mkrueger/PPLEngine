@@ -1,5 +1,3 @@
-use std::backtrace::Backtrace;
-
 use crate::{
     ast::{
         BlockStatement, BreakStatement, CaseBlock, CommentAstNode, Constant, ContinueStatement,

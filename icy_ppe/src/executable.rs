@@ -6,16 +6,16 @@ use std::io::Read;
 use thiserror::Error;
 
 use crate::ast::{Variable, VariableData, VariableType, VariableValue};
-use crate::crypt::{decode_rle, decrypt};
+use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
 use crate::Res;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct VarHeader {
     pub id: usize,
     pub dim: u8,
-    pub vector_size: i32,
-    pub matrix_size: i32,
-    pub cube_size: i32,
+    pub vector_size: usize,
+    pub matrix_size: usize,
+    pub cube_size: usize,
     pub variable_type: VariableType,
     pub flags: u8,
 }
@@ -29,16 +29,29 @@ impl VarHeader {
     pub fn from_bytes(cur_block: &[u8]) -> VarHeader {
         let dim = cur_block[2];
         assert!(dim <= 3, "Invalid dimension: {dim}");
-
         Self {
             id: u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize,
             dim,
-            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as i32,
-            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as i32,
-            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as i32,
+            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as usize,
+            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as usize,
+            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as usize,
             variable_type: unsafe { ::std::mem::transmute(cur_block[9]) },
             flags: cur_block[10],
         }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer.extend(u16::to_le_bytes(self.id as u16));
+        assert!(self.dim <= 3, "Invalid dimension: {}", self.dim);
+        buffer.push(self.dim);
+        buffer.extend(u16::to_le_bytes(self.vector_size as u16));
+        buffer.extend(u16::to_le_bytes(self.matrix_size as u16));
+        buffer.extend(u16::to_le_bytes(self.cube_size as u16));
+
+        buffer.push(self.variable_type as u8);
+        buffer.push(self.flags);
+        buffer
     }
 }
 
@@ -138,7 +151,7 @@ impl VariableNameGenerator {
                 || self.version >= 300 && decl.header.id <= 0x18)
         {
             return (
-                VariableNameGenerator::get_user_variable_name(decl.header.id - 1),
+                VariableNameGenerator::get_user_variable_name(decl.header.id),
                 true,
             );
         }
@@ -199,41 +212,41 @@ impl VariableNameGenerator {
 
     fn get_user_variable_name(number: usize) -> String {
         match number {
-            0 => "U_EXPERT".to_string(),
-            1 => "U_FSE".to_string(),
-            2 => "U_FSEP".to_string(),
-            3 => "U_CLS".to_string(),
-            4 => "U_EXPDATE".to_string(),
-            5 => "U_SEC".to_string(),
-            6 => "U_PAGELEN".to_string(),
-            7 => "U_EXPSEC".to_string(),
-            8 => "U_CITY".to_string(),
-            9 => "U_BDPHONE".to_string(),
-            10 => "U_HVPHONE".to_string(),
-            11 => "U_TRANS".to_string(),
-            12 => "U_CMNT1".to_string(),
-            13 => "U_CMNT2".to_string(),
-            14 => "U_PWD".to_string(),
-            15 => "U_SCROLL".to_string(),
-            16 => "U_LONGHDR".to_string(),
-            17 => "U_DEF79".to_string(),
-            18 => "U_ALIAS".to_string(),
-            19 => "U_VER".to_string(),
-            20 => "U_ADDR".to_string(),
-            21 => "U_NOTES".to_string(),
-            22 => "U_PWDEXP".to_string(),
-            23 => "U_ACCOUNT".to_string(),
+            1 => "U_EXPERT".to_string(),
+            2 => "U_FSE".to_string(),
+            3 => "U_FSEP".to_string(),
+            4 => "U_CLS".to_string(),
+            5 => "U_EXPDATE".to_string(),
+            6 => "U_SEC".to_string(),
+            7 => "U_PAGELEN".to_string(),
+            8 => "U_EXPSEC".to_string(),
+            9 => "U_CITY".to_string(),
+            10 => "U_BDPHONE".to_string(),
+            11 => "U_HVPHONE".to_string(),
+            12 => "U_TRANS".to_string(),
+            13 => "U_CMNT1".to_string(),
+            14 => "U_CMNT2".to_string(),
+            15 => "U_PWD".to_string(),
+            16 => "U_SCROLL".to_string(),
+            17 => "U_LONGHDR".to_string(),
+            18 => "U_DEF79".to_string(),
+            19 => "U_ALIAS".to_string(),
+            20 => "U_VER".to_string(),
+            21 => "U_ADDR".to_string(),
+            22 => "U_NOTES".to_string(),
+            23 => "U_PWDEXP".to_string(),
+            24 => "U_ACCOUNT".to_string(),
 
             // Added in 3.40
-            24 => "U_SHORTDESC".to_string(),
-            25 => "U_GENDER".to_string(),
-            26 => "U_BIRTHDATE".to_string(),
-            27 => "U_EMAIL".to_string(),
-            28 => "U_WEB".to_string(),
+            25 => "U_SHORTDESC".to_string(),
+            26 => "U_GENDER".to_string(),
+            27 => "U_BIRTHDATE".to_string(),
+            28 => "U_EMAIL".to_string(),
+            29 => "U_WEB".to_string(),
 
             _ => {
                 log::error!("Unknown user variable number: {number}");
-                "????".to_string()
+                format!("UNKNOWN_VAR{number}")
             }
         }
     }
@@ -255,6 +268,8 @@ pub enum EntryType {
     Variable,
     FunctionResult,
     Parameter,
+    Function,
+    Procedure,
 }
 impl EntryType {
     pub fn use_name(self) -> bool {
@@ -262,13 +277,13 @@ impl EntryType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct VariableEntry {
     pub header: VarHeader,
     name: String,
     entry_type: EntryType,
     pub number: usize,
-    pub variable: Variable,
+    pub value: Variable,
     pub function_id: usize,
 }
 
@@ -278,7 +293,7 @@ impl VariableEntry {
             header,
             name: "Unnamed".to_string(),
             number: 0,
-            variable,
+            value: variable,
             function_id: 0,
             entry_type: EntryType::Constant,
         }
@@ -311,19 +326,20 @@ impl VariableEntry {
 pub enum ExecutableError {
     #[error("Invalid PPE file")]
     InvalidPPEFile,
+
     #[error("Unsupported version: {0} (Only up to {LAST_PPLC})")]
     UnsupporrtedVersion(u16),
+
+    #[error("Too many declarations: {0}")]
+    TooManyDeclarations(usize),
 }
 
 pub struct Executable {
     pub version: u16,
-    pub variable_declarations: HashMap<usize, Box<VariableEntry>>,
-    pub variable_lookup: HashMap<unicase::Ascii<String>, usize>,
-    pub source_buffer: Vec<i32>,
-    pub max_var: usize,
-
+    pub variable_table: Vec<VariableEntry>,
+    pub source_buffer: Vec<i16>,
     pub code_size: usize,
-    pub real_size: usize,
+    pub max_var: usize,
 }
 
 impl Executable {
@@ -344,7 +360,7 @@ impl Executable {
                 .try_into()
                 .unwrap(),
         ) as usize;
-        let (mut i, variable_declarations) = read_vars(version, buffer, max_var);
+        let (mut i, variable_table) = read_vars(version, buffer, max_var);
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
         let real_size = buffer.len() - i;
@@ -388,38 +404,170 @@ impl Executable {
                 code_size
             );
         }
-        let mut source_buffer = Vec::new();
+        let mut script_buffer = Vec::new();
         let mut i = 0;
         while i < data.len() {
             let k = if i + 1 >= data.len() {
-                data[i] as i32
+                data[i] as i16
             } else {
-                i16::from_le_bytes(data[i..i + 2].try_into().unwrap()) as i32
+                i16::from_le_bytes(data[i..i + 2].try_into().unwrap())
             };
-            source_buffer.push(k);
+            script_buffer.push(k);
             i += 2;
-        }
-
-        let mut variable_lookup = HashMap::new();
-        for (i, var_decl) in &variable_declarations {
-            variable_lookup.insert(
-                unicase::Ascii::new(var_decl.get_name().clone()),
-                *i as usize,
-            );
         }
         Ok(Executable {
             version,
-            variable_declarations,
-            variable_lookup,
-            source_buffer,
+            variable_table,
+            source_buffer: script_buffer,
+            code_size: code_size as usize - 2,
             max_var,
-            code_size: code_size - 2, // drop last END
-            real_size,
         })
+    }
+
+    pub fn to_buffer(&self) -> Result<Vec<u8>, ExecutableError> {
+        if self.version > LAST_PPLC {
+            return Err(ExecutableError::UnsupporrtedVersion(self.version));
+        }
+        let mut buffer = Vec::new();
+        buffer.extend_from_slice(PREAMBLE);
+        buffer.push(b'0' + (self.version / 100) as u8);
+        buffer.push(b'.');
+        let minor = self.version % 100;
+        buffer.push(b'0' + (minor / 10) as u8);
+        buffer.push(b'0' + (minor % 10) as u8);
+        buffer.extend_from_slice(b"\x0D\x0A\x1A");
+
+        /*
+        if self.variable_table.len() > 65535 {
+            return Err(ExecutableError::TooManyDeclarations(
+                self.variable_table.len(),
+            ));
+        }
+        buffer.extend_from_slice(&u16::to_le_bytes(self.variable_table.len() as u16));
+        for d in self.variable_table.iter().rev() {
+            let var = d.create_var_header(self, version);
+            buffer.extend(var);
+        }
+        */
+        let mut script_buffer = Vec::new();
+        for s in &self.source_buffer {
+            script_buffer.extend_from_slice(&s.to_le_bytes());
+        }
+        let mut code_data = encode_rle(&script_buffer);
+
+        buffer.extend_from_slice(&u16::to_le_bytes(self.source_buffer.len() as u16 * 2));
+        // in the very unlikely case the rle compressed buffer is larger than the original buffer
+        let use_rle = code_data.len() > script_buffer.len() || self.version < 300;
+        if use_rle {
+            code_data = script_buffer;
+        }
+
+        let mut offset = 0;
+        while offset < code_data.len() {
+            let chunk_size = 2027;
+            let add_byte = use_rle
+                && offset + chunk_size < code_data.len()
+                && code_data[offset + chunk_size] == 0;
+
+            let end = (offset + chunk_size).min(code_data.len());
+            let chunk = &mut code_data[offset..end];
+
+            offset += chunk_size;
+
+            encrypt(chunk, self.version);
+            buffer.extend_from_slice(chunk);
+
+            if add_byte {
+                buffer.push(code_data[end]);
+                offset += 1;
+            }
+        }
+        Ok(buffer)
+    }
+
+    pub fn create_variable_lookup_table(&self) -> HashMap<unicase::Ascii<String>, usize> {
+        let mut variable_lookup = HashMap::new();
+        for (i, var_decl) in self.variable_table.iter().enumerate() {
+            variable_lookup.insert(unicase::Ascii::new(var_decl.get_name().clone()), i);
+        }
+        variable_lookup
+    }
+
+    pub fn print_variable_table(&self) {
+        println!();
+        println!(
+            "--- Variable Table ({}/{0:02X}h variables) ---",
+            self.variable_table.len()
+        );
+        println!("   # Type         Flags Role           Name        Value");
+        for var in self.variable_table.iter().skip(1).rev() {
+            let ts = if var.header.dim > 0 {
+                format!("{}({})", var.header.variable_type, var.header.dim)
+            } else {
+                var.header.variable_type.to_string()
+            };
+
+            print!("{:04X} {:<13}", var.header.id, ts);
+
+            let ts = format!("{:?}", var.get_type());
+            print!("{}     {:<15}", var.header.flags, ts);
+            print!("{:<12}", var.get_name());
+
+            if var.header.variable_type == VariableType::Function {
+                unsafe {
+                    print!("{:?}", var.value.data.function_value);
+                }
+            } else if var.header.variable_type == VariableType::Procedure {
+                unsafe {
+                    print!("{:?}", var.value.data.procedure_value);
+                }
+            } else {
+                print!("{}", var.value);
+                if var.header.dim > 0
+                    || var.header.vector_size > 0
+                    || var.header.matrix_size > 0
+                    || var.header.cube_size > 0
+                {
+                    print!(
+                        " ({}, {}, {})",
+                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
+                    );
+                }
+            }
+            println!();
+        }
+    }
+
+    pub fn print_disassembler_parameters(&self, from: usize, to: usize) {
+        for (i, x) in self.source_buffer[from + 1..to].iter().enumerate() {
+            if i > 0 && i % 20 == 0 {
+                println!();
+                print!("                      ");
+            }
+            print!("{:<04X} ", *x);
+        }
+        println!();
+    }
+
+    pub fn print_script_buffer_dump(&self) {
+        println!(
+            "Script buffer size: {} ({} bytes)",
+            self.source_buffer.len(),
+            self.source_buffer.len() * 2
+        );
+        print!("{:04X}: ", 0);
+
+        for (i, x) in self.source_buffer.iter().enumerate() {
+            if i > 0 && (i % 16) == 0 {
+                println!();
+                print!("{:04X}: ", i * 2);
+            }
+            print!("{:04X} ", *x);
+        }
     }
 }
 
-static PREAMBLE: &[u8] = "PCBoard Programming Language Executable".as_bytes();
+static PREAMBLE: &[u8] = "PCBoard Programming Language Executable  ".as_bytes();
 
 const LAST_PPLC: u16 = 330;
 const HEADER_SIZE: usize = 48;
@@ -445,12 +593,8 @@ pub fn read_file(file_name: &str) -> Res<Executable> {
     Ok(Executable::from_buffer(&mut buffer)?)
 }
 
-fn read_vars(
-    version: u16,
-    buf: &mut [u8],
-    max_var: usize,
-) -> (usize, HashMap<usize, Box<VariableEntry>>) {
-    let mut result = HashMap::new();
+fn read_vars(version: u16, buf: &mut [u8], max_var: usize) -> (usize, Vec<VariableEntry>) {
+    let mut result = vec![VariableEntry::default(); max_var];
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
         return (i, result);
@@ -461,7 +605,6 @@ fn read_vars(
         let cur_block = &buf[i..(i + 11)];
 
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
-
         let header = VarHeader::from_bytes(cur_block);
 
         i += 11;
@@ -571,52 +714,50 @@ fn read_vars(
                 }
             } // B9 4b
         }
-        result.insert(
-            var_count - 1,
-            Box::new(VariableEntry::new(header, variable)),
-        );
+        result[var_count - 1] = VariableEntry::new(header, variable);
     }
 
     let mut k = result.len() - 1;
     while k > 0 {
-        let cur = result.get(&k).unwrap().clone();
+        let cur = result[k].clone();
         match cur.header.variable_type {
             VariableType::Function => unsafe {
-                let last = cur.variable.data.function_value.local_variables as usize
-                    + cur.variable.data.function_value.return_var as usize;
+                let last = cur.value.data.function_value.local_variables as usize
+                    + cur.value.data.function_value.return_var as usize;
                 let mut j = 0;
-                for i in cur.variable.data.function_value.first_var_id as usize..last {
-                    let fvar = result.get_mut(&i).unwrap();
-                    if i == cur.variable.data.function_value.return_var as usize - 1 {
+                for i in cur.value.data.function_value.first_var_id as usize..last {
+                    let fvar = &mut result[i];
+                    if i == cur.value.data.function_value.return_var as usize - 1 {
                         fvar.set_type(EntryType::FunctionResult);
                         fvar.number = k;
-                    } else if j < cur.variable.data.function_value.parameters as usize {
+                    } else if j < cur.value.data.function_value.parameters as usize {
                         fvar.set_type(EntryType::Parameter);
-                        fvar.number =
-                            (cur.variable.data.function_value.first_var_id + 1) as usize - i;
+                        fvar.number = (cur.value.data.function_value.first_var_id + 1) as usize - i;
                     }
                     j += 1;
                 }
             },
             VariableType::Procedure => unsafe {
                 let mut j = 0;
-                let last = cur.variable.data.procedure_value.local_variables as usize
-                    + cur.variable.data.procedure_value.parameters as usize
-                    + cur.variable.data.procedure_value.first_var_id as usize;
+                let last = cur.value.data.procedure_value.local_variables as usize
+                    + cur.value.data.procedure_value.parameters as usize
+                    + cur.value.data.procedure_value.first_var_id as usize;
 
-                for i in cur.variable.data.procedure_value.first_var_id as usize..last {
-                    if let Some(fvar) = result.get_mut(&i) {
-                        if j < cur.variable.data.procedure_value.parameters as usize {
-                            fvar.set_type(EntryType::Parameter);
-                        }
-                        j += 1;
-                        fvar.number = j;
-                    } else {
+                for i in cur.value.data.procedure_value.first_var_id as usize..last {
+                    let fvar = &mut result[i];
+                    if j < cur.value.data.procedure_value.parameters as usize {
+                        fvar.set_type(EntryType::Parameter);
+                    }
+                    j += 1;
+                    fvar.number = j;
+
+                    /* else {
                         panic!(
                             "Variable {i} not found. Invalid function header {:?}",
-                            cur.variable.data.procedure_value
+                            cur.value.data.procedure_value
                         );
                     }
+                    */
                 }
             },
             _ => {}

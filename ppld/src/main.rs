@@ -7,6 +7,7 @@ use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::OutputFunc;
 use icy_ppe::decompiler::decompile;
+use icy_ppe::executable;
 use icy_ppe::executable::read_file;
 use semver::Version;
 use std::ffi::OsStr;
@@ -46,10 +47,6 @@ lazy_static::lazy_static! {
 
 fn main() {
     pretty_env_logger::init();
-    println!(
-        "PCBoard Programming Language Decompiler^RUST {}",
-        *crate::VERSION
-    );
     let mut arguments = Args::parse();
     let mut output_func = OutputFunc::Upper;
     match arguments.style {
@@ -68,39 +65,56 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    let executable = read_file(file_name).unwrap();
-    let decompilation = decompile(executable, true, arguments.raw, arguments.disassemble);
+    match read_file(file_name) {
+        Ok(executable) => {
+            let decompilation = decompile(executable, true, arguments.raw, arguments.disassemble);
 
-    if arguments.disassemble {
-        return;
-    }
+            if arguments.disassemble {
+                return;
+            }
 
-    let mut output_visitor = output_visitor::OutputVisitor::default();
-    output_visitor.output_func = output_func;
-    decompilation.visit(&mut output_visitor);
+            let mut output_visitor = output_visitor::OutputVisitor::default();
+            output_visitor.output_func = output_func;
+            decompilation.visit(&mut output_visitor);
 
-    if arguments.output {
-        println!("{}", output_visitor.output);
-    } else {
-        let mut output = File::create(&out_file_name).unwrap();
-        if let Err(err) = write!(output, "{}", output_visitor.output) {
+            if arguments.output {
+                println!("{}", output_visitor.output);
+            } else {
+                let mut output = File::create(&out_file_name).unwrap();
+                if let Err(err) = write!(output, "{}", output_visitor.output) {
+                    stdout()
+                        .execute(SetForegroundColor(Color::Red))
+                        .unwrap()
+                        .execute(Print(format!(
+                            "Can't create {:?} on disk, reason: {}",
+                            &out_file_name, err
+                        )))
+                        .unwrap()
+                        .execute(ResetColor)
+                        .unwrap()
+                        .flush()
+                        .unwrap();
+                    return;
+                }
+                println!();
+                println!("Source decompilation complete...");
+                println!("'{}' decompiled to '{:?}'.", &file_name, &out_file_name);
+            }
+        }
+        Err(err) => {
             stdout()
                 .execute(SetForegroundColor(Color::Red))
                 .unwrap()
-                .execute(Print(format!(
-                    "Can't create {:?} on disk, reason: {}",
-                    &out_file_name, err
-                )))
+                .execute(Print("ERROR: ".to_string()))
                 .unwrap()
                 .execute(ResetColor)
                 .unwrap()
+                .execute(Print(format!("{}", err)))
+                .unwrap()
                 .flush()
                 .unwrap();
-            return;
+            println!();
         }
-        println!();
-        println!("Source decompilation complete...");
-        println!("'{}' decompiled to '{:?}'.", &file_name, &out_file_name);
     }
 }
 

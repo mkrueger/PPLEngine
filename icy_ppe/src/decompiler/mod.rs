@@ -468,7 +468,8 @@ impl Decompiler {
             if cur_var.header.variable_type == VariableType::Function {
                 i = cur_var.value.data.function_value.return_var as usize;
                 mx_var = cur_var.value.data.function_value.return_var as usize
-                    + cur_var.value.data.function_value.local_variables as usize;
+                    + cur_var.value.data.function_value.local_variables as usize
+                    - 1;
             } else {
                 i = cur_var.value.data.procedure_value.first_var_id as usize
                     + cur_var.value.data.procedure_value.parameters as usize;

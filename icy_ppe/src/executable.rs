@@ -320,6 +320,75 @@ impl VariableEntry {
             self.entry_type = EntryType::Variable;
         }
     }
+
+    pub fn to_buffer(&self, version: u16) -> Result<Vec<u8>, ExecutableError> {
+        let mut buffer = Vec::new();
+        buffer.extend(u16::to_le_bytes(self.header.id as u16));
+        buffer.push(self.header.dim);
+        buffer.extend(u16::to_le_bytes(self.header.vector_size as u16));
+        buffer.extend(u16::to_le_bytes(self.header.matrix_size as u16));
+        buffer.extend(u16::to_le_bytes(self.header.cube_size as u16));
+
+        buffer.push(self.header.variable_type as u8);
+        buffer.push(self.header.flags);
+        encrypt(&mut buffer, version);
+
+        let b = buffer.len();
+        if self.header.variable_type == VariableType::Procedure
+            || self.header.variable_type == VariableType::Function
+        {
+            let VariableValue::String(s) = &self.value.generic_data else {
+                panic!("Invalid value type {:?}", self.value);
+            };
+
+            buffer.push(0);
+            buffer.push(0);
+            buffer.push(self.header.variable_type as u8);
+            buffer.push(0);
+            unsafe {
+                self.value.data.function_value.append(&mut buffer);
+            }
+            encrypt(&mut buffer[b..], version);
+        } else if self.header.variable_type == VariableType::String {
+            let s = if self.header.dim == 0 {
+                let VariableValue::String(s) = &self.value.generic_data else {
+                    return Err(ExecutableError::StringTypeInvalid(self.value.vtype));
+                };
+                if s.len() > u16::MAX as usize {
+                    return Err(ExecutableError::StringConstantTooLong(s.len()));
+                }
+                s.clone()
+            } else {
+                String::new()
+            };
+            let mut string_buffer: Vec<u8> = Vec::new();
+
+            for c in s.chars() {
+                if let Some(b) = crate::tables::UNICODE_TO_CP437.get(&c) {
+                    string_buffer.push(*b);
+                } else {
+                    string_buffer.push(c as u8);
+                }
+            }
+            string_buffer.push(0);
+
+            buffer.extend_from_slice(&u16::to_le_bytes(string_buffer.len() as u16));
+            encrypt(&mut string_buffer, version);
+            buffer.extend(string_buffer);
+        } else {
+            // VTABLE - get's ignored by PCBoard - pure garbage
+            buffer.push(0);
+            buffer.push(0);
+
+            // variable type
+            buffer.push(self.header.variable_type as u8);
+            buffer.push(0);
+
+            buffer.extend_from_slice(&u64::to_le_bytes(self.value.get_u64_value()));
+            encrypt(&mut buffer[b..], version);
+        }
+        Ok(buffer)
+    }
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -332,6 +401,12 @@ pub enum ExecutableError {
 
     #[error("Too many declarations: {0}")]
     TooManyDeclarations(usize),
+
+    #[error("String constant too long: {0}")]
+    StringConstantTooLong(usize),
+
+    #[error("String type invalid: {0}")]
+    StringTypeInvalid(VariableType),
 }
 
 pub struct Executable {
@@ -358,7 +433,7 @@ impl Executable {
                 .try_into()
                 .unwrap(),
         ) as usize;
-        let (mut i, variable_table) = read_vars(version, buffer, max_var);
+        let (mut i, variable_table) = read_variable_table(version, buffer, max_var);
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
         let real_size = buffer.len() - i;
@@ -420,6 +495,11 @@ impl Executable {
         })
     }
 
+    /// .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
     pub fn to_buffer(&self) -> Result<Vec<u8>, ExecutableError> {
         if self.version > LAST_PPLC {
             return Err(ExecutableError::UnsupporrtedVersion(self.version));
@@ -433,7 +513,6 @@ impl Executable {
         buffer.push(b'0' + (minor % 10) as u8);
         buffer.extend_from_slice(b"\x0D\x0A\x1A");
 
-        /*
         if self.variable_table.len() > 65535 {
             return Err(ExecutableError::TooManyDeclarations(
                 self.variable_table.len(),
@@ -441,10 +520,10 @@ impl Executable {
         }
         buffer.extend_from_slice(&u16::to_le_bytes(self.variable_table.len() as u16));
         for d in self.variable_table.iter().rev() {
-            let var = d.create_var_header(self, version);
-            buffer.extend(var);
+            let var_data = d.to_buffer(self.version)?;
+            buffer.extend(var_data);
         }
-        */
+
         let mut script_buffer = Vec::new();
         for s in &self.script_buffer {
             script_buffer.extend_from_slice(&s.to_le_bytes());
@@ -452,6 +531,7 @@ impl Executable {
         let mut code_data = encode_rle(&script_buffer);
 
         buffer.extend_from_slice(&u16::to_le_bytes(self.script_buffer.len() as u16 * 2));
+
         // in the very unlikely case the rle compressed buffer is larger than the original buffer
         let use_rle = code_data.len() > script_buffer.len() || self.version < 300;
         if use_rle {
@@ -589,7 +669,11 @@ pub fn read_file(file_name: &str) -> Res<Executable> {
     Ok(Executable::from_buffer(&mut buffer)?)
 }
 
-fn read_vars(version: u16, buf: &mut [u8], max_var: usize) -> (usize, Vec<VariableEntry>) {
+fn read_variable_table(
+    version: u16,
+    buf: &mut [u8],
+    max_var: usize,
+) -> (usize, Vec<VariableEntry>) {
     let mut result = vec![VariableEntry::default(); max_var];
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
@@ -622,33 +706,15 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: usize) -> (usize, Vec<Variab
                 };
                 i += string_length;
             }
-            VariableType::Function => {
+            VariableType::Function | VariableType::Procedure => {
                 decrypt(&mut buf[i..(i + 12)], version);
                 let cur_buf = &buf[i..(i + 12)];
                 let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
                 assert!(
-                    !(vtype != VariableType::Function),
+                    !(vtype != header.variable_type),
                     "Invalid function type: {vtype}"
                 );
                 let mut function_value = FunctionValue::from_bytes(cur_buf);
-                function_value.local_variables -= 1;
-                i += 4; // skip vtable + type
-                variable = Variable {
-                    vtype,
-                    data: VariableData { function_value },
-                    ..Default::default()
-                };
-                i += 8;
-            }
-            VariableType::Procedure => {
-                decrypt(&mut buf[i..(i + 12)], version);
-                let cur_buf = &buf[i..(i + 12)];
-                let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
-                assert!(
-                    !(vtype != VariableType::Procedure),
-                    "Invalid function type: {vtype}"
-                );
-                let function_value = FunctionValue::from_bytes(cur_buf);
                 i += 4; // skip vtable + type
                 variable = Variable {
                     vtype,
@@ -674,22 +740,6 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: usize) -> (usize, Vec<Variab
                         ..Default::default()
                     };
                     i += 4;
-                } else if version < 300 {
-                    i += 2; // SKIP VTABLE - seems to get stored by accident.
-                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
-                    assert!(
-                        !(vtype != header.variable_type),
-                        "Invalid variable type: {vtype}"
-                    );
-                    i += 2; // what's stored here ?
-                    variable = Variable {
-                        vtype,
-                        data: VariableData {
-                            u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
-                        },
-                        ..Default::default()
-                    };
-                    i += 8;
                 } else {
                     decrypt(&mut buf[i..(i + 12)], version);
                     i += 2; // SKIP VTABLE - seems to get stored by accident.
@@ -719,7 +769,8 @@ fn read_vars(version: u16, buf: &mut [u8], max_var: usize) -> (usize, Vec<Variab
         match cur.header.variable_type {
             VariableType::Function => unsafe {
                 let last = cur.value.data.function_value.local_variables as usize
-                    + cur.value.data.function_value.return_var as usize;
+                    + cur.value.data.function_value.return_var as usize
+                    - 1;
                 let mut j = 0;
                 for i in cur.value.data.function_value.first_var_id as usize..last {
                     let fvar = &mut result[i];

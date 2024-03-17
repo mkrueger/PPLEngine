@@ -1,7 +1,7 @@
 use crate::{
     ast::{Variable, VariableType},
     executable::{Executable, VariableEntry},
-    tables::{get_statement_definition, OpCode, STATEMENT_DEFINITIONS},
+    tables::{get_statement_definition, OpCode},
 };
 
 use super::{PPECommand, PPEExpr};
@@ -120,8 +120,7 @@ fn test_deserialize(script: &[i16], expected: &PPECommand) {
     }
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();
-    let expr = deserializer.deserialize_command(&mut exe).unwrap().unwrap();
-    println!("{:?}", expr);
-    assert_eq!(expr, *expected);
+    let stmt = deserializer.deserialize_statement(&exe).unwrap().unwrap();
+    assert_eq!(stmt, *expected);
     assert_eq!(deserializer.offset, exe.script_buffer.len());
 }

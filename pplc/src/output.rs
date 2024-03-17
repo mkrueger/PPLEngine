@@ -2,9 +2,7 @@ use icy_ppe::{
     ast::{ParameterSpecifier, Program, Statement, Variable, VariableData, VariableType},
     executable::{Executable, FunctionValue, PPECommand, PPEExpr, VarHeader, VariableEntry},
     parser::lexer::SpannedToken,
-    tables::{
-        self, get_function_definition, FuncOpCode, FunctionDefinition, OpCode, FUNCTION_DEFINITIONS,
-    },
+    tables::{get_function_definition, FuncOpCode, OpCode, FUNCTION_DEFINITIONS},
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -658,12 +656,11 @@ impl PPEOutput {
                     &FUNCTION_DEFINITIONS[predef as usize],
                     expr.get_arguments()
                         .iter()
-                        .map(|e| self.comp_expr(e))
-                        .flatten()
+                        .filter_map(|e| self.comp_expr(e))
                         .collect(),
                 ));
             }
-            icy_ppe::ast::Expression::FunctionCall(expr) => {
+            icy_ppe::ast::Expression::FunctionCall(_expr) => {
                 /*   if self
                     .procedure_declarations
                     .contains_key(expr.get_identifier())

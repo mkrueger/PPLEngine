@@ -1,13 +1,15 @@
 use clap::Parser;
+use crossterm::execute;
+use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::Print;
 use crossterm::style::ResetColor;
+use crossterm::style::SetAttribute;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::OutputFunc;
 use icy_ppe::decompiler::decompile;
-use icy_ppe::executable;
 use icy_ppe::executable::read_file;
 use semver::Version;
 use std::ffi::OsStr;
@@ -102,17 +104,17 @@ fn main() {
             }
         }
         Err(err) => {
-            stdout()
-                .execute(SetForegroundColor(Color::Red))
-                .unwrap()
-                .execute(Print("ERROR: ".to_string()))
-                .unwrap()
-                .execute(ResetColor)
-                .unwrap()
-                .execute(Print(format!("{}", err)))
-                .unwrap()
-                .flush()
-                .unwrap();
+            execute!(
+                stdout(),
+                SetAttribute(Attribute::Bold),
+                SetForegroundColor(Color::Red),
+                Print("ERROR: ".to_string()),
+                SetAttribute(Attribute::Reset),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{}", err)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
             println!();
         }
     }

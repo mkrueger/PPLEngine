@@ -14,7 +14,7 @@ use crate::{
 use super::{Executable, PPECommand, PPEExpr};
 
 #[derive(Error, Debug, Clone, PartialEq)]
-pub enum DeserializationError {
+pub enum DeserializationErrorType {
     #[error("Expressionstack is empty")]
     ExpressionStackEmpty,
 
@@ -74,10 +74,10 @@ impl PPEDeserializer {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn deserialize_command(
+    pub fn deserialize_statement(
         &mut self,
-        executable: &mut Executable,
-    ) -> Result<Option<PPECommand>, DeserializationError> {
+        executable: &Executable,
+    ) -> Result<Option<PPECommand>, DeserializationErrorType> {
         self.stmt_offset = self.offset;
         if self.offset >= executable.script_buffer.len() {
             return Ok(None);
@@ -88,7 +88,7 @@ impl PPEDeserializer {
         if !(0..LAST_STMT).contains(&cur_stmt)
             || STATEMENT_SIGNATURE_TABLE[cur_stmt as usize] == 0xAA
         {
-            return Err(DeserializationError::InvalidStatement(cur_stmt));
+            return Err(DeserializationErrorType::InvalidStatement(cur_stmt));
         }
 
         let op: OpCode = unsafe { transmute(cur_stmt) };
@@ -132,11 +132,11 @@ impl PPEDeserializer {
                 self.offset += 2;
 
                 let Some(var) = executable.variable_table.get(proc_id - 1) else {
-                    return Err(DeserializationError::NoVTableEntry(proc_id));
+                    return Err(DeserializationErrorType::NoVTableEntry(proc_id));
                 };
 
                 if var.value.vtype != VariableType::Procedure {
-                    return Err(DeserializationError::CalledNonProcedureInPCall(
+                    return Err(DeserializationErrorType::CalledNonProcedureInPCall(
                         proc_id,
                         var.value.clone(),
                     ));
@@ -169,7 +169,7 @@ impl PPEDeserializer {
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
                 }
-                Err(DeserializationError::UnknownStatement(cur_stmt))
+                Err(DeserializationErrorType::UnknownStatement(cur_stmt))
             }
         };
         res
@@ -183,7 +183,7 @@ impl PPEDeserializer {
     pub fn deserialize_expression(
         &mut self,
         executable: &Executable,
-    ) -> Result<PPEExpr, DeserializationError> {
+    ) -> Result<PPEExpr, DeserializationErrorType> {
         self.expr_offset = self.offset;
 
         loop {
@@ -211,16 +211,18 @@ impl PPEDeserializer {
                                     FuncOpCode::UMINUS => UnaryOp::Minus,
                                     FuncOpCode::UPLUS => UnaryOp::Plus,
                                     _ => {
-                                        return Err(DeserializationError::UnknownUnaryFunction(
-                                            func_def.opcode,
-                                        ));
+                                        return Err(
+                                            DeserializationErrorType::UnknownUnaryFunction(
+                                                func_def.opcode,
+                                            ),
+                                        );
                                     }
                                 };
                                 self.push_expr(PPEExpr::UnaryExpression(op, Box::new(unary_expr)));
                             }
                             None => {
                                 return Err(
-                                    DeserializationError::TooFewArgumentsForUnaryExpression,
+                                    DeserializationErrorType::TooFewArgumentsForUnaryExpression,
                                 );
                             }
                         }
@@ -228,10 +230,14 @@ impl PPEDeserializer {
                     0x11 => {
                         self.offset += 1;
                         let Some(r_value) = self.pop_expr() else {
-                            return Err(DeserializationError::TooFewArgumentsForBinaryExpression);
+                            return Err(
+                                DeserializationErrorType::TooFewArgumentsForBinaryExpression,
+                            );
                         };
                         let Some(l_value) = self.pop_expr() else {
-                            return Err(DeserializationError::TooFewArgumentsForBinaryExpression);
+                            return Err(
+                                DeserializationErrorType::TooFewArgumentsForBinaryExpression,
+                            );
                         };
 
                         let binop = BIN_EXPR[-(func_def.opcode as i32) as usize];
@@ -244,7 +250,7 @@ impl PPEDeserializer {
                     _ => {
                         self.offset += 1;
                         if (self.expr_stack.len() as i8) < func_def.args {
-                            return Err(DeserializationError::TooFewFunctionArguments(
+                            return Err(DeserializationErrorType::TooFewFunctionArguments(
                                 func_def.opcode,
                                 func_def.args,
                                 self.expr_stack.len(),
@@ -262,7 +268,7 @@ impl PPEDeserializer {
 
         match self.pop_expr() {
             Some(expr) => Ok(expr),
-            None => Err(DeserializationError::ExpressionStackEmpty),
+            None => Err(DeserializationErrorType::ExpressionStackEmpty),
         }
     }
 
@@ -279,11 +285,11 @@ impl PPEDeserializer {
     fn read_variable_expression(
         &mut self,
         executable: &Executable,
-    ) -> Result<PPEExpr, DeserializationError> {
+    ) -> Result<PPEExpr, DeserializationErrorType> {
         let id = executable.script_buffer[self.offset];
         self.offset += 1;
         if self.offset >= executable.script_buffer.len() {
-            return Err(DeserializationError::IndexOutOfBounds);
+            return Err(DeserializationErrorType::IndexOutOfBounds);
         }
         let dim = executable.script_buffer[self.offset];
         self.offset += 1;
@@ -294,6 +300,9 @@ impl PPEDeserializer {
         for _ in 0..dim {
             let e = self.deserialize_expression(executable)?;
             self.push_expr(e);
+        }
+        if self.expr_stack.len() < dim as usize {
+            return Err(DeserializationErrorType::InvalidExpressionStackState);
         }
         let dims = self
             .expr_stack

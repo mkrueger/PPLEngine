@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use thiserror::Error;
 
 use crate::{
@@ -5,7 +7,65 @@ use crate::{
     tables::{FunctionDefinition, OpCode, StatementDefinition},
 };
 
-use super::Executable;
+use super::{DeserializationErrorType, Executable};
+
+pub struct DeserializationError {
+    pub error_type: DeserializationErrorType,
+    pub span: Range<usize>,
+}
+
+pub struct PPEStatement {
+    pub span: Range<usize>,
+    pub command: PPECommand,
+}
+
+#[derive(Default)]
+pub struct PPEScript {
+    pub statements: Vec<PPEStatement>,
+}
+
+impl PPEScript {
+    pub fn serialize(&self) -> Vec<i16> {
+        let mut result = Vec::new();
+        for stmt in &self.statements {
+            stmt.command.serialize(&mut result);
+        }
+        result
+    }
+
+    /// .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
+    pub fn from_ppe_file(exe: &Executable) -> Result<Self, (Self, DeserializationError)> {
+        let mut deserializer = super::PPEDeserializer::default();
+        let mut result = PPEScript::default();
+        loop {
+            match deserializer.deserialize_statement(exe) {
+                Ok(Some(stmt)) => result.statements.push(PPEStatement {
+                    span: deserializer.stmt_span(),
+                    command: stmt,
+                }),
+                Ok(None) => break,
+                Err(err) => {
+                    return Err((
+                        result,
+                        DeserializationError {
+                            error_type: err,
+                            span: deserializer.stmt_span(),
+                        },
+                    ))
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    pub fn visit<T: Sized, V: PPEVisitor<T>>(&self, visitor: &mut V) {
+        visitor.visit_script(self);
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PPECommand {
@@ -171,7 +231,12 @@ impl PPECommand {
 }
 
 #[allow(unused_variables)]
-pub trait PPEVisitor<T> {
+pub trait PPEVisitor<T>: Sized {
+    fn visit_script(&mut self, script: &PPEScript) {
+        for stmt in &script.statements {
+            stmt.command.visit(self);
+        }
+    }
     fn visit_value(&mut self, id: usize) -> T;
     fn visit_unary_expression(&mut self, op: UnaryOp, expr: &PPEExpr) -> T;
     fn visit_binary_expression(&mut self, op: BinOp, left: &PPEExpr, right: &PPEExpr) -> T;

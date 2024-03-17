@@ -5,9 +5,9 @@ use crossterm::{
     style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
 };
 
-use crate::{ast::VariableType, tables::OpCode};
+use crate::ast::VariableType;
 
-use super::{PPECommand, PPEExpr, PPEScript, PPEVisitor};
+use super::{OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, StatementDefinition};
 
 #[derive(Default)]
 pub struct DisassembleVisitor {}
@@ -275,11 +275,7 @@ impl PPEVisitor<()> for DisassembleVisitor {
         self.print_arguments(args);
     }
 
-    fn visit_predefined_call(
-        &mut self,
-        def: &crate::tables::StatementDefinition,
-        args: &[PPEExpr],
-    ) {
+    fn visit_predefined_call(&mut self, def: &StatementDefinition, args: &[PPEExpr]) {
         let name = format!("'{}'", def.name);
         execute!(
             stdout(),

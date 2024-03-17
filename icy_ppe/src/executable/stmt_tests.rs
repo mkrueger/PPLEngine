@@ -1,10 +1,9 @@
 use crate::{
     ast::{Variable, VariableType},
     executable::{Executable, VariableEntry},
-    tables::{get_statement_definition, OpCode},
 };
 
-use super::{PPECommand, PPEExpr};
+use super::{OpCode, PPECommand, PPEExpr};
 
 #[test]
 fn test_end_serialization() {
@@ -39,7 +38,7 @@ fn test_stop_serialization() {
 #[test]
 fn test_predef_serialization() {
     let val = PPECommand::PredefinedCall(
-        get_statement_definition(OpCode::ANSIPOS).unwrap(),
+        OpCode::ANSIPOS.get_definition(),
         vec![PPEExpr::Value(2), PPEExpr::Value(3)],
     );
     test_serialize(&val, &[OpCode::ANSIPOS as i16, 2, 0, 0, 3, 0, 0]);
@@ -90,7 +89,7 @@ fn test_stop_deserialization() {
 #[test]
 fn test_predef_deserialization() {
     let val = PPECommand::PredefinedCall(
-        get_statement_definition(OpCode::ANSIPOS).unwrap(),
+        OpCode::ANSIPOS.get_definition(),
         vec![PPEExpr::Value(2), PPEExpr::Value(3)],
     );
     test_deserialize(&[OpCode::ANSIPOS as i16, 2, 0, 0, 3, 0, 0], &val);

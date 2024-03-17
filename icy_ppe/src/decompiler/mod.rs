@@ -8,16 +8,16 @@ use crate::ast::{
     ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp,
     VariableDeclarationStatement, VariableSpecifier, VariableType, WhileStatement,
 };
-use crate::executable::{read_file, EntryType, Executable, VariableEntry, VariableNameGenerator};
-use crate::tables::{
-    FuncOpCode, OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS, STATEMENT_SIGNATURE_TABLE,
-    TYPE_NAMES,
+use crate::executable::{
+    read_file, EntryType, Executable, OpCode, VariableEntry, VariableNameGenerator,
+    STATEMENT_DEFINITIONS,
 };
+use crate::tables::{FuncOpCode, FUNCTION_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 use crate::Res;
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
 use std::path::PathBuf;
-use std::vec;
+use std::{mem, vec};
 
 pub mod reconstruct;
 pub mod rename_visitor;
@@ -36,7 +36,7 @@ pub fn load_file(file_name: &str) -> Res<Program> {
     let mut d = Decompiler::new(read_file(file_name)?);
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
-    d.do_pass2(&mut prg, false);
+    d.do_pass2(&mut prg);
 
     prg.nodes
         .extend(d.statements.iter().map(|s| AstNode::Statement(s.clone())));
@@ -960,7 +960,9 @@ impl Decompiler {
                                 self.push_expr(tmp);
                             }
                             self.src_ptr += 1;
-                            if self.executable.script_buffer[self.src_ptr] != 0 {
+                            if self.src_ptr < self.executable.script_buffer.len()
+                                && self.executable.script_buffer[self.src_ptr] != 0
+                            {
                                 self.report_variable_usage(
                                     self.executable.script_buffer[self.src_ptr - 1],
                                 );
@@ -1257,19 +1259,13 @@ impl Decompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn do_pass2(&mut self, prg: &mut Program, disassemble: bool) {
+    pub fn do_pass2(&mut self, prg: &mut Program) {
         self.cur_stmt = -1;
         self.next_label = 0;
         self.next_func = 0;
         self.src_ptr = 0;
         let mut if_ptr = usize::MAX;
         let mut if_while_stack = vec![];
-        if disassemble {
-            println!();
-            self.executable.print_script_buffer_dump();
-            println!();
-            self.executable.print_disassembler();
-        }
         while self.src_ptr < self.executable.script_buffer.len() {
             let prev_stat = self.cur_stmt;
             if self.src_ptr == if_ptr {
@@ -1295,7 +1291,7 @@ impl Decompiler {
                 // self.output.push_str("    ");
             }
 
-            let stack_begin = self.expr_stack.len();
+            // let stack_begin = self.expr_stack.len();
             match STATEMENT_SIGNATURE_TABLE[self.cur_stmt as usize] {
                 0x00 |
                 0xff |
@@ -1477,24 +1473,17 @@ impl Decompiler {
                     for def in &STATEMENT_DEFINITIONS {
                         if def.opcode as i16 == self.cur_stmt {
                             let mut parameters = Vec::new();
-                            if def.max_args > 0 {
-                                for _ in 0..def.max_args {
-                                    if self.expr_stack.len() <= stack_begin {
-                                        break;
-                                    }
-                                    parameters.push(self.pop_expr().unwrap());
-                                }
+                            mem::swap(&mut parameters, &mut self.expr_stack);
+                            if parameters.is_empty() {
+                                self.src_ptr += 1;
                             }
-                            parameters.reverse();
+
                             self.outputpass2(
                                 prg,
                                 &mut if_while_stack,
                                 PredefinedCallStatement::create_empty_statement(def, parameters),
                             );
                             found = true;
-                            if def.max_args <= 0 {
-                                self.src_ptr += 1;
-                            }
                             break;
                         }
                     }
@@ -1614,7 +1603,7 @@ pub fn has_user_variables(variable_declarations: &[VariableEntry], version: u16)
 }
 
 #[must_use]
-pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: bool) -> Program {
+pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(executable);
 
@@ -1634,26 +1623,19 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool, disassemble: 
         d.executable.version % 100
     );
 
-    if to_file && !disassemble {
+    if to_file {
         println!("Pass 1 ...");
     }
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
-    if disassemble {
-        d.executable.print_variable_table();
-    }
 
-    if to_file && !disassemble {
+    if to_file {
         println!("Pass 2 ...");
     }
-    d.do_pass2(&mut prg, disassemble);
+    d.do_pass2(&mut prg);
 
     if !prg.nodes.is_empty() {
         // res.push_str("; Function declarations\n");
-    }
-
-    if disassemble {
-        return prg;
     }
 
     let mut declarations = Vec::new();

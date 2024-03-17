@@ -13,10 +13,10 @@ use crate::ast::Variable;
 use crate::ast::VariableData;
 use crate::ast::VariableType;
 use crate::ast::VariableValue;
+use crate::executable::OpCode;
 use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
 use crate::icy_board::data::UserRecord;
-use crate::tables::OpCode;
 use crate::Res;
 
 pub use self::expressions::*;

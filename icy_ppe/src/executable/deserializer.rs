@@ -5,10 +5,8 @@ use thiserror::Error;
 use crate::{
     ast::{UnaryOp, Variable, VariableType},
     decompiler::LAST_STMT,
-    tables::{
-        FuncOpCode, OpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS,
-        STATEMENT_SIGNATURE_TABLE,
-    },
+    executable::{OpCode, STATEMENT_DEFINITIONS},
+    tables::{FuncOpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_SIGNATURE_TABLE},
 };
 
 use super::{Executable, PPECommand, PPEExpr};
@@ -70,10 +68,11 @@ impl PPEDeserializer {
     }
 
     /// .
-    ///
     /// # Errors
     ///
     /// This function will return an error if .
+    /// # Panics
+    ///
     pub fn deserialize_statement(
         &mut self,
         executable: &Executable,
@@ -92,6 +91,7 @@ impl PPEDeserializer {
         }
 
         let op: OpCode = unsafe { transmute(cur_stmt) };
+
         let res = match op {
             OpCode::END => Ok(Some(PPECommand::End)),
             OpCode::RETURN => Ok(Some(PPECommand::Return)),
@@ -152,24 +152,38 @@ impl PPEDeserializer {
                 Ok(Some(PPECommand::ProcedureCall(proc_id, arguments)))
             }
             _ => {
-                for def in &STATEMENT_DEFINITIONS {
-                    if def.opcode == op {
-                        let argument_count = if def.min_args == def.max_args {
-                            def.min_args as i16
-                        } else {
-                            let ac = executable.script_buffer[self.offset];
-                            self.offset += 1;
-                            ac
-                        };
-                        let mut arguments = Vec::new();
-                        for _ in 0..argument_count {
-                            let expr = self.deserialize_expression(executable)?;
-                            arguments.push(expr);
-                        }
-                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
-                    }
+                let idx = op as usize;
+                if idx >= STATEMENT_DEFINITIONS.len() {
+                    return Err(DeserializationErrorType::UnknownStatement(cur_stmt));
                 }
-                Err(DeserializationErrorType::UnknownStatement(cur_stmt))
+                let def = &STATEMENT_DEFINITIONS[idx];
+
+                let (var_idx, argument_count) = match def.sig {
+                    crate::executable::StatementSignature::ArgumentsWithVariable(
+                        var_idx,
+                        argument_count,
+                    ) => (var_idx, argument_count),
+                    crate::executable::StatementSignature::VariableArguments(var_idx) => {
+                        let argument_count = executable.script_buffer[self.offset];
+                        assert!(argument_count >= 0, "negative argument count");
+                        self.offset += 1;
+                        (var_idx, argument_count as usize)
+                    }
+                    _ => {
+                        panic!("unhandled statement signature {:?}", def.sig);
+                    }
+                };
+
+                let mut arguments = Vec::new();
+                for i in 0..argument_count {
+                    let expr = if i + 1 == var_idx {
+                        self.read_variable_expression(executable)?
+                    } else {
+                        self.deserialize_expression(executable)?
+                    };
+                    arguments.push(expr);
+                }
+                return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
             }
         };
         res

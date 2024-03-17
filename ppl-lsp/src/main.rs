@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
 use icy_ppe::ast::{AstVisitor, Program};
+use icy_ppe::executable::OpCode;
 use icy_ppe::parser::parse_program;
-use icy_ppe::tables::OpCode;
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ppl_language_server::{ImCompleteSemanticToken, LANGUAGE_LOADER};
 use ropey::Rope;
@@ -591,7 +591,7 @@ fn get_tooltip(ast: &Program, offset: usize) -> Option<Hover> {
     visitor.tooltip
 }
 
-fn get_statement_hover(opcode: icy_ppe::tables::OpCode) -> Option<Hover> {
+fn get_statement_hover(opcode: OpCode) -> Option<Hover> {
     match opcode {
         OpCode::WHILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-while")),
         OpCode::END => get_hint(fl!(LANGUAGE_LOADER, "hint-func-end")),

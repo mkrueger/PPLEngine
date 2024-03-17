@@ -1,6 +1,6 @@
 use crate::{
     ast::Expression,
-    tables::{OpCode, StatementDefinition},
+    executable::{OpCode, StatementDefinition},
     Res,
 };
 

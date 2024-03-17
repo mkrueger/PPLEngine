@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{walk_for_stmt, walk_for_stmt_mut, AstVisitor, Expression},
-    tables::OpCode,
+    executable::OpCode,
 };
 
 #[derive(Default)]

@@ -1,8 +1,8 @@
 use std::fmt;
 
 use crate::{
+    executable::StatementDefinition,
     parser::lexer::{CommentType, SpannedToken, Token},
-    tables::StatementDefinition,
 };
 
 use super::{

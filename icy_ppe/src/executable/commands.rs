@@ -4,10 +4,10 @@ use thiserror::Error;
 
 use crate::{
     ast::{BinOp, UnaryOp, Variable, VariableValue},
-    tables::{FunctionDefinition, OpCode, StatementDefinition},
+    tables::FunctionDefinition,
 };
 
-use super::{DeserializationErrorType, Executable};
+use super::{DeserializationErrorType, Executable, OpCode, StatementDefinition};
 
 pub struct DeserializationError {
     pub error_type: DeserializationErrorType,
@@ -160,6 +160,11 @@ impl PPEExpr {
 }
 
 impl PPECommand {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn serialize(&self, vec: &mut Vec<i16>) {
         match self {
             PPECommand::End => vec.push(OpCode::END as i16),
@@ -189,12 +194,46 @@ impl PPECommand {
             }
             PPECommand::PredefinedCall(def, args) => {
                 vec.push(def.opcode as i16);
-                if def.min_args != def.max_args {
-                    vec.push(args.len() as i16);
-                }
-                for arg in args {
-                    arg.serialize(vec);
-                    vec.push(0);
+                match def.sig {
+                    super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
+                        assert!(arg_count != args.len(), "Invalid argument count");
+                        for (i, arg) in args.iter().enumerate() {
+                            arg.serialize(vec);
+                            if i + 1 != var_index {
+                                vec.push(0);
+                            }
+                        }
+                    }
+                    super::StatementSignature::SpecialCaseProcedure => {
+                        panic!("SpecialCaseProcedure is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseDlockg => {
+                        panic!("SpecialCaseDlockg is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseDcreate => {
+                        panic!("SpecialCaseDcreate is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseSort => {
+                        panic!("SpecialCaseSort is not allowed here")
+                    }
+                    super::StatementSignature::VariableArguments(var_index) => {
+                        vec.push(args.len() as i16);
+                        for (i, arg) in args.iter().enumerate() {
+                            arg.serialize(vec);
+                            if i + 1 != var_index {
+                                vec.push(0);
+                            }
+                        }
+                    }
+                    super::StatementSignature::SpecialCasePop => {
+                        panic!("SpecialCasePop is not allowed here")
+                    }
+                    super::StatementSignature::Label => {
+                        panic!("Label is not allowed here")
+                    }
+                    super::StatementSignature::SpecialIfWhen => {
+                        panic!("SpecialIfWhen is not allowed here")
+                    }
                 }
             }
             PPECommand::ProcedureCall(proc_id, args) => {

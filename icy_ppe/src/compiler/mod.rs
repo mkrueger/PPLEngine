@@ -10,10 +10,10 @@ use crate::{
         Variable, VariableData, VariableType,
     },
     executable::{
-        EntryType, Executable, FunctionValue, PPECommand, PPEExpr, VarHeader, VariableEntry,
+        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, VarHeader, VariableEntry,
     },
     parser::lexer::SpannedToken,
-    tables::{get_function_definition, FuncOpCode, OpCode, FUNCTION_DEFINITIONS},
+    tables::{get_function_definition, FuncOpCode, FUNCTION_DEFINITIONS},
 };
 
 #[cfg(test)]
@@ -566,6 +566,8 @@ impl PPECompiler {
                 let def = call_stmt.get_func();
                 let op_code = def.opcode as u8;
                 self.script_buffer.push(op_code as i16);
+
+                /*
                 if (call_stmt.get_arguments().len() as i8) < def.min_args
                     || (call_stmt.get_arguments().len() as i8) > def.max_args
                 {
@@ -574,7 +576,8 @@ impl PPECompiler {
                 if def.min_args != def.max_args {
                     self.script_buffer
                         .push(call_stmt.get_arguments().len() as i16);
-                }
+                    }
+                */
                 for expr in call_stmt.get_arguments() {
                     let expr_buffer = self.compile_expression(expr);
                     self.script_buffer.extend(expr_buffer);

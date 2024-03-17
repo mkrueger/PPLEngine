@@ -6,8 +6,8 @@ use crate::{
         LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
         SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
+    executable::STATEMENT_DEFINITIONS,
     parser::{ParserError, ParserErrorType},
-    tables::STATEMENT_DEFINITIONS,
 };
 
 use super::{
@@ -796,9 +796,10 @@ impl Parser {
             if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
                 let mut params = Vec::new();
                 while self.get_cur_token() != Some(Token::Eol) && self.cur_token.is_some() {
-                    if params.len() as i8 >= def.max_args {
+                    // TODO : Signature check
+                    /*If params.len() as i8 >= def.max_args {
                         break;
-                    }
+                    }*/
                     let Some(value) = self.parse_expression() else {
                         self.errors
                             .push(crate::parser::Error::ParserError(ParserError {
@@ -818,7 +819,7 @@ impl Parser {
                         break;
                     }
                 }
-
+                /*  TODO : Signature check.
                 if (params.len() as i8) < def.min_args {
                     self.errors
                         .push(crate::parser::Error::ParserError(ParserError {
@@ -843,7 +844,7 @@ impl Parser {
                             range: self.lex.span(),
                         }));
                     return None;
-                }
+                }*/
                 return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
                     id_token, def, params,
                 )));

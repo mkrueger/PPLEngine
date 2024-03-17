@@ -2,14 +2,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::ops::Range;
 
 use thiserror::Error;
 
 use crate::ast::{Variable, VariableData, VariableType, VariableValue};
 use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
 use crate::executable::disassembler::DisassembleVisitor;
-use crate::tables::OpCode;
 use crate::Res;
 
 pub mod deserializer;
@@ -18,6 +16,9 @@ pub use deserializer::*;
 
 pub mod commands;
 pub use commands::*;
+
+pub mod opcodes;
+pub use opcodes::*;
 
 #[cfg(test)]
 pub mod expr_tests;
@@ -606,7 +607,7 @@ impl Executable {
     pub fn print_script_buffer_dump(&self) {
         DisassembleVisitor::print_script_buffer_dump(self);
     }
-    pub fn print_disassembler(&mut self) {
+    pub fn print_disassembler(&self) {
         DisassembleVisitor::default().print_disassembler(self);
     }
 }

@@ -69,11 +69,17 @@ fn main() {
     let out_file_name = Path::new(&file_name).with_extension("ppd");
     match read_file(file_name) {
         Ok(executable) => {
-            let decompilation = decompile(executable, true, arguments.raw, arguments.disassemble);
-
             if arguments.disassemble {
+                executable.print_variable_table();
+                println!();
+                executable.print_script_buffer_dump();
+                println!();
+                executable.print_disassembler();
+                println!();
                 return;
             }
+
+            let decompilation = decompile(executable, true, arguments.raw);
 
             let mut output_visitor = output_visitor::OutputVisitor::default();
             output_visitor.output_func = output_func;

@@ -92,16 +92,13 @@ impl Expression {
     #[must_use]
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         match self {
-            Expression::Identifier(expr) => {
-                visitor.visit_identifier_expression(expr)
-            }
+            Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),
             Expression::Const(expr) => visitor.visit_constant_expression(expr),
             Expression::Parens(expr) => visitor.visit_parens_expression(expr),
-            Expression::PredefinedFunctionCall(expr) => 
-                visitor.visit_predefined_function_call_expression(expr),
-            Expression::FunctionCall(expr) => {
-                visitor.visit_function_call_expression(expr)
+            Expression::PredefinedFunctionCall(expr) => {
+                visitor.visit_predefined_function_call_expression(expr)
             }
+            Expression::FunctionCall(expr) => visitor.visit_function_call_expression(expr),
             Expression::Unary(expr) => visitor.visit_unary_expression(expr),
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
         }

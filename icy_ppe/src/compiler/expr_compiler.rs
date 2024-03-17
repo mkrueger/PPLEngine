@@ -15,8 +15,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         &mut self,
         identifier: &crate::ast::IdentifierExpression,
     ) -> PPEExpr {
-        if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier())
-        {
+        if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier()) {
             return PPEExpr::Value(decl.header.id);
         }
         self.compiler.errors.push(CompilationError {

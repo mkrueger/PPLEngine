@@ -66,6 +66,7 @@ impl DisassembleVisitor {
             Ok(script) => {
                 println!();
                 println!("Offset  # OpCode      Parameters");
+                println!("---------------------------------------------------------------------------------------");
                 script.visit(self);
                 println!();
             }
@@ -92,43 +93,96 @@ impl DisassembleVisitor {
 
     pub(crate) fn print_variable_table(ppe_file: &super::Executable) {
         println!();
-        println!(
-            "--- Variable Table ({}/{0:02X}h variables) ---",
-            ppe_file.variable_table.len()
-        );
+        execute!(
+            stdout(),
+            Print("Variable Table ".to_string()),
+            SetAttribute(Attribute::Bold),
+            Print(format!("{}", ppe_file.variable_table.len())),
+            SetAttribute(Attribute::Reset),
+            Print(" variables\n\n".to_string())
+        )
+        .unwrap();
+
         println!("   # Type         Flags Role           Name        Value");
+        println!("---------------------------------------------------------------------------------------");
         for var in ppe_file.variable_table.iter().rev() {
             let ts = if var.header.dim > 0 {
                 format!("{}({})", var.header.variable_type, var.header.dim)
             } else {
                 var.header.variable_type.to_string()
             };
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Green),
+                Print(format!("{:04X} ", var.header.id)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
 
-            print!("{:04X} {:<13}", var.header.id, ts);
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Yellow),
+                Print(format!("{ts:<13}")),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
 
             let ts = format!("{:?}", var.get_type());
-            print!("{}     {:<15}", var.header.flags, ts);
+
+            execute!(
+                stdout(),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{}", var.header.flags)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
+
+            print!("     {ts:<15}");
             print!("{:<12}", var.get_name());
 
             if var.header.variable_type == VariableType::Function {
                 unsafe {
-                    print!("{:?}", var.value.data.function_value);
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{:?}", var.value.data.function_value)),
+                        SetAttribute(Attribute::Reset)
+                    )
+                    .unwrap();
                 }
             } else if var.header.variable_type == VariableType::Procedure {
                 unsafe {
-                    print!("{:?}", var.value.data.procedure_value);
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{:?}", var.value.data.procedure_value)),
+                        SetAttribute(Attribute::Reset)
+                    )
+                    .unwrap();
                 }
             } else {
-                print!("{}", var.value);
+                execute!(
+                    stdout(),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("{}", var.value)),
+                    SetAttribute(Attribute::Reset)
+                )
+                .unwrap();
                 if var.header.dim > 0
                     || var.header.vector_size > 0
                     || var.header.matrix_size > 0
                     || var.header.cube_size > 0
                 {
-                    print!(
-                        " ({}, {}, {})",
-                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
-                    );
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!(
+                            " ({}, {}, {})",
+                            var.header.vector_size, var.header.matrix_size, var.header.cube_size
+                        )),
+                        SetAttribute(Attribute::Reset)
+                    )
+                    .unwrap();
                 }
             }
             println!();
@@ -136,11 +190,14 @@ impl DisassembleVisitor {
     }
 
     pub fn print_script_buffer_dump(ppe_file: &super::Executable) {
-        println!(
-            "Script buffer size: {} ({} bytes)",
-            ppe_file.script_buffer.len(),
-            ppe_file.script_buffer.len() * 2
-        );
+        execute!(
+            stdout(),
+            Print("Real uncompressed script buffer size: ".to_string()),
+            SetAttribute(Attribute::Bold),
+            Print(format!("{} bytes\n\n", ppe_file.script_buffer.len() * 2)),
+            SetAttribute(Attribute::Reset)
+        )
+        .unwrap();
         Self::dump_script_data(ppe_file, 0..ppe_file.script_buffer.len());
     }
 }
@@ -150,7 +207,7 @@ impl PPEVisitor<()> for DisassembleVisitor {
         execute!(
             stdout(),
             Print("["),
-            SetForegroundColor(Color::White),
+            SetForegroundColor(Color::Green),
             Print(format!("{id:04X}")),
             SetAttribute(Attribute::Reset),
             Print("]"),

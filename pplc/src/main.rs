@@ -1,10 +1,6 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
-use icy_ppe::{
-    compiler::PPECompiler,
-    executable::LAST_PPLC,
-    parser::parse_program,
-};
+use icy_ppe::{compiler::PPECompiler, executable::LAST_PPLC, parser::parse_program};
 use semver::Version;
 use std::{
     ffi::OsStr,
@@ -142,7 +138,9 @@ fn main() {
                 println!();
                 executable.print_variable_table();
                 println!();
-                compiler.get_script().visit(&mut icy_ppe::executable::disassembler::DisassembleVisitor::default());
+                compiler
+                    .get_script()
+                    .visit(&mut icy_ppe::executable::disassembler::DisassembleVisitor::default());
                 println!();
                 println!("Generated:");
                 executable.print_script_buffer_dump();
@@ -150,7 +148,7 @@ fn main() {
 
                 return;
             }
-        
+
             let bin = executable.to_buffer().unwrap();
             let out_file_name = Path::new(&file_name).with_extension("ppe");
             let len = bin.len();

@@ -144,7 +144,7 @@ impl Constant {
     }
 
     pub fn get_value(&self) -> super::Variable {
-        let mut data =  VariableData::default();
+        let mut data = VariableData::default();
         match self {
             Constant::Money(i) => {
                 data.money_value = *i;
@@ -158,9 +158,7 @@ impl Constant {
                 data.unsigned_value = *i;
                 super::Variable::new(VariableType::Unsigned, data)
             }
-            Constant::String(s) => {
-                super::Variable::new_string(s.clone())
-            },
+            Constant::String(s) => super::Variable::new_string(s.clone()),
             Constant::Double(i) => {
                 data.double_value = *i;
                 super::Variable::new(VariableType::Double, data)

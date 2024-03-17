@@ -15,7 +15,7 @@ pub struct StdStruct {
     pub hi: u32,
 }
 
-#[derive(Clone, Copy, )]
+#[derive(Clone, Copy)]
 pub union VariableData {
     pub bool_value: bool,
     pub unsigned_value: u32,
@@ -40,10 +40,10 @@ pub union VariableData {
 impl VariableData {
     pub fn from_int(r: i32) -> VariableData {
         let mut res = VariableData::default();
-        res.int_value =  r;
+        res.int_value = r;
         res
     }
-    
+
     pub fn from_bool(b: bool) -> VariableData {
         let mut res = VariableData::default();
         res.bool_value = b;

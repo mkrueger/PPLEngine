@@ -75,7 +75,7 @@ pub struct PPECompiler {
 
     label_table: Vec<i32>,
     label_lookup_table: HashMap<unicase::Ascii<String>, usize>,
-    
+
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 
@@ -111,7 +111,7 @@ impl PPECompiler {
         &self.commands
     }
 
-    fn push_variable(&mut self, name: unicase::Ascii<String>,  variable: VariableEntry) {
+    fn push_variable(&mut self, name: unicase::Ascii<String>, variable: VariableEntry) {
         self.variable_lookup.insert(name, self.variable_table.len());
         self.variable_table.push(variable);
     }
@@ -318,9 +318,9 @@ impl PPECompiler {
                 }
             }
         }
-        
+
         self.commands
-        .add_statement(&mut self.cur_offset, PPECommand::End);
+            .add_statement(&mut self.cur_offset, PPECommand::End);
 
         for imp in &prg.nodes {
             match imp {
@@ -440,7 +440,7 @@ impl PPECompiler {
             self.commands.add_statement(&mut self.cur_offset, stmt);
         }
     }
-    
+
     fn add_parameters(&mut self, parameters: &[ParameterSpecifier]) {
         for param in parameters {
             let id = self.next_id();
@@ -651,7 +651,7 @@ impl PPECompiler {
             }
         } else {
             unsafe {
-                let key = (constant.get_var_type() , value.data.u64_value);
+                let key = (constant.get_var_type(), value.data.u64_value);
                 if let Some(id) = self.const_lookup_table.get(&key) {
                     return *id;
                 }
@@ -677,7 +677,7 @@ impl PPECompiler {
             }
         } else {
             unsafe {
-                let key = (constant.get_var_type() , value.data.u64_value);
+                let key = (constant.get_var_type(), value.data.u64_value);
                 self.const_lookup_table.insert(key, id);
             }
         }
@@ -731,7 +731,7 @@ impl PPECompiler {
     fn has_variable(&self, get_identifier: &unicase::Ascii<String>) -> bool {
         self.variable_lookup.contains_key(get_identifier)
     }
-    
+
     fn lookup_variable(&self, get_identifier: &unicase::Ascii<String>) -> Option<&VariableEntry> {
         if let Some(idx) = self.variable_lookup.get(get_identifier) {
             Some(self.get_variable(*idx))
@@ -739,7 +739,7 @@ impl PPECompiler {
             None
         }
     }
-    
+
     fn lookup_variable_index(&self, get_identifier: &unicase::Ascii<String>) -> Option<usize> {
         self.variable_lookup.get(get_identifier).copied()
     }

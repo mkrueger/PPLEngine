@@ -1613,7 +1613,7 @@ pub fn has_user_variables(variable_declarations: &[VariableEntry], version: u16)
 }
 
 #[must_use]
-pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
+pub fn decompile(executable: Executable, raw: bool) -> Program {
     let mut prg = Program::new();
     let mut d = Decompiler::new(executable);
 
@@ -1627,16 +1627,8 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
         "-----------------------------------------",
     )));
 
-
-    if to_file {
-        println!("Pass 1 ...");
-    }
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
-
-    if to_file {
-        println!("Pass 2 ...");
-    }
     d.do_pass2(&mut prg);
 
     if !prg.nodes.is_empty() {
@@ -1676,9 +1668,6 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
     prg.nodes = declarations;
 
     if !raw {
-        if to_file {
-            println!("Pass 3 ...");
-        }
         reconstruct::do_pass3(&mut prg, &mut d.statements);
         prg = reconstruct::do_pass4(&mut prg);
     }

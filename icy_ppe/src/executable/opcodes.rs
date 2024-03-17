@@ -1478,7 +1478,7 @@ fn convert_definitions() {
             }
 
         }
-        println!("}},");
+        print!("}},\n");
     }
 }
 */

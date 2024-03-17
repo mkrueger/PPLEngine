@@ -161,7 +161,6 @@ impl FunctionValue {
         res.function_value = self;
         res
     }
-
 }
 
 #[derive(Clone, Debug, Default)]
@@ -367,7 +366,6 @@ impl VariableEntry {
     /// This function will return an error if .
     pub fn to_buffer(&self, version: u16) -> Result<Vec<u8>, ExecutableError> {
         let mut buffer = Vec::new();
-        println!("write variable: {:?}", self.header.id);
         buffer.extend(u16::to_le_bytes(self.header.id as u16));
         buffer.push(self.header.dim);
         buffer.extend(u16::to_le_bytes(self.header.vector_size as u16));
@@ -469,7 +467,10 @@ impl Executable {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn from_buffer(buffer: &mut [u8], print_header_information: bool) -> Result<Executable, ExecutableError> {
+    pub fn from_buffer(
+        buffer: &mut [u8],
+        print_header_information: bool,
+    ) -> Result<Executable, ExecutableError> {
         if !buffer.starts_with(PREAMBLE) {
             return Err(ExecutableError::InvalidPPEFile);
         }
@@ -496,24 +497,19 @@ impl Executable {
                 stdout(),
                 Print("Format ".to_string()),
                 SetAttribute(Attribute::Bold),
-                Print(format!("{}.{:00}",
-                version / 100,
-                version % 100)),
+                Print(format!("{}.{:00}", version / 100, version % 100)),
                 SetAttribute(Attribute::Reset),
-                Print( " detected ".to_string()),
-
+                Print(" detected ".to_string()),
                 SetAttribute(Attribute::Bold),
                 Print(format!("{max_var}")),
                 SetAttribute(Attribute::Reset),
-                Print( " variables, ".to_string()),
-
+                Print(" variables, ".to_string()),
                 SetAttribute(Attribute::Bold),
                 Print(format!("{code_size}/{real_size} bytes")),
                 SetAttribute(Attribute::Reset),
-                Print( " code/compressed size, ".to_string()),
+                Print(" code/compressed size\n".to_string()),
             )
             .unwrap();
-            println!();
         }
 
         let code_data: &mut [u8] = &mut buffer[i..];
@@ -692,7 +688,10 @@ pub fn read_file(file_name: &str, print_header_information: bool) -> Res<Executa
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer)?;
 
-    Ok(Executable::from_buffer(&mut buffer, print_header_information)?)
+    Ok(Executable::from_buffer(
+        &mut buffer,
+        print_header_information,
+    )?)
 }
 
 fn read_variable_table(
@@ -713,7 +712,9 @@ fn read_variable_table(
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
 
         if var_count > max_var {
-            return Err(ExecutableError::InvalidVariableIndexInTable(max_var, var_count));
+            return Err(ExecutableError::InvalidVariableIndexInTable(
+                max_var, var_count,
+            ));
         }
 
         let header = VarHeader::from_bytes(cur_block);
@@ -783,7 +784,6 @@ fn read_variable_table(
                     let mut data = VariableData::default();
                     data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
 
-
                     variable = Variable {
                         vtype,
                         data,
@@ -793,7 +793,7 @@ fn read_variable_table(
                 }
             } // B9 4b
         }
-        
+
         result[var_count - 1] = VariableEntry::new(header, variable);
     }
 

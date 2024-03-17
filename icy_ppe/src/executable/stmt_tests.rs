@@ -1,6 +1,7 @@
 use crate::{
     ast::{BinOp, Variable, VariableType},
-    executable::{Executable, FunctionValue, VariableEntry}, tables::{FuncOpCode, FUNCTION_DEFINITIONS},
+    executable::{Executable, FunctionValue, VariableEntry},
+    tables::{FuncOpCode, FUNCTION_DEFINITIONS},
 };
 
 use super::{OpCode, PPECommand, PPEExpr};
@@ -56,10 +57,9 @@ fn test_let_serialization() {
     test_serialize(&val, &[OpCode::LET as i16, 1, 1, 2, 0, 0, 3, 0, 0]);
 }
 
-
 #[test]
 fn test_print_midserialization() {
-    let left = PPEExpr::FunctionCall(6, vec![ PPEExpr::Value(2) ]);
+    let left = PPEExpr::FunctionCall(6, vec![PPEExpr::Value(2)]);
     let i: i32 = -(FuncOpCode::MID as i32);
     let right = PPEExpr::PredefinedFunctionCall(
         &FUNCTION_DEFINITIONS[i as usize],
@@ -68,18 +68,28 @@ fn test_print_midserialization() {
 
     let val = PPECommand::PredefinedCall(
         OpCode::PRINT.get_definition(),
-        vec![PPEExpr::BinaryExpression(BinOp::Add, Box::new(left), Box::new(right))],
+        vec![PPEExpr::BinaryExpression(
+            BinOp::Add,
+            Box::new(left),
+            Box::new(right),
+        )],
     );
     test_serialize(&val, &[9, 1, 6, 0, 2, 0, 0, 3, 0, 2, 0, 2, 0, -23, -8, 0]);
 }
 
-
 fn test_serialize(val: &PPECommand, expected: &[i16]) {
     let mut result = Vec::new();
     val.serialize(&mut result);
-    assert_eq!(val.get_size(), result.len(), "Serialization length differs expected: {expected:?}, got: {result:?}");
-    assert_eq!(result, expected, "Serialization result differs expected: {expected:?}, got: {result:?}");
-    test_deserialize(val, &result); 
+    assert_eq!(
+        val.get_size(),
+        result.len(),
+        "Serialization length differs expected: {expected:?}, got: {result:?}"
+    );
+    assert_eq!(
+        result, expected,
+        "Serialization result differs expected: {expected:?}, got: {result:?}"
+    );
+    test_deserialize(val, &result);
 }
 
 fn test_deserialize(expected: &PPECommand, script: &[i16]) {
@@ -126,7 +136,14 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();
     let result = deserializer.deserialize_statement(&exe).unwrap().unwrap();
-   // assert_eq!(result.get_size(), exe.script_buffer.len(), "Deserialization length differs expected: {expected:?}, got: {result:?}");
-    assert_eq!(result, *expected, "Deserialization result differs expected: {expected:?}, got: {result:?}");
-    assert_eq!(deserializer.offset, exe.script_buffer.len(), "Deserialization offset differs expected: {expected:?}, got: {result:?}");
+    // assert_eq!(result.get_size(), exe.script_buffer.len(), "Deserialization length differs expected: {expected:?}, got: {result:?}");
+    assert_eq!(
+        result, *expected,
+        "Deserialization result differs expected: {expected:?}, got: {result:?}"
+    );
+    assert_eq!(
+        deserializer.offset,
+        exe.script_buffer.len(),
+        "Deserialization offset differs expected: {expected:?}, got: {result:?}"
+    );
 }

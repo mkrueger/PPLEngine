@@ -56,12 +56,8 @@ impl AstNode {
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => AstNode::Statement(s.visit_mut(visitor)),
-            AstNode::ProcedureDeclaration(p) => {
-                visitor.visit_procedure_declaration(p)
-            }
-            AstNode::FunctionDeclaration(f) => {
-                visitor.visit_function_declaration(f)
-            }
+            AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
+            AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
         }
     }
 }

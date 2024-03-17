@@ -67,7 +67,7 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    match read_file(file_name, true) {
+    match read_file(file_name, !arguments.output) {
         Ok(executable) => {
             if arguments.disassemble {
                 executable.print_variable_table();
@@ -79,7 +79,7 @@ fn main() {
                 return;
             }
 
-            let decompilation = decompile(executable, true, arguments.raw);
+            let decompilation = decompile(executable, arguments.raw);
 
             let mut output_visitor = output_visitor::OutputVisitor::default();
             output_visitor.output_func = output_func;
@@ -104,9 +104,18 @@ fn main() {
                         .unwrap();
                     return;
                 }
-                println!();
-                println!("Source decompilation complete...");
-                println!("'{}' decompiled to '{:?}'.", &file_name, &out_file_name);
+                execute!(
+                    stdout(),
+                    Print("\nSource decompilation complete: ".to_string()),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("{file_name}\n")),
+                    SetAttribute(Attribute::Reset),
+                    Print("decompiled to: ".to_string()),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("{out_file_name:?}\n")),
+                    SetAttribute(Attribute::Reset),
+                )
+                .unwrap();
             }
         }
         Err(err) => {

@@ -216,14 +216,18 @@ impl PPEDeserializer {
                 match executable.variable_table[id as usize - 1].value.vtype {
                     VariableType::Function => unsafe {
                         self.offset += 2;
-                        let parameters = executable.variable_table[id as usize - 1].value.data.function_value.parameters;
+                        let parameters = executable.variable_table[id as usize - 1]
+                            .value
+                            .data
+                            .function_value
+                            .parameters;
                         let mut arguments = Vec::new();
                         for _ in 0..parameters {
                             let expr = self.deserialize_expression(executable)?;
                             arguments.push(expr);
                         }
                         self.push_expr(PPEExpr::FunctionCall(id as usize, arguments));
-                    }
+                    },
                     VariableType::Procedure => {
                         self.offset += 1;
 

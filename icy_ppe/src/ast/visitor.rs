@@ -1,7 +1,14 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement
+    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode,
+    ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, Expression,
+    ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
+    GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement,
+    LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement,
+    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
+    ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+    VariableDeclarationStatement, WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -294,11 +301,10 @@ pub trait AstVisitorMut: Sized {
     }
 
     // visit expressions
-    fn visit_identifier_expression(
-        &mut self,
-        identifier: &IdentifierExpression,
-    ) -> Expression {
-        Expression::Identifier(IdentifierExpression::empty(self.visit_identifier(identifier.get_identifier())))
+    fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) -> Expression {
+        Expression::Identifier(IdentifierExpression::empty(
+            self.visit_identifier(identifier.get_identifier()),
+        ))
     }
 
     fn visit_constant_expression(&mut self, constant: &ConstantExpression) -> Expression {
@@ -307,7 +313,11 @@ pub trait AstVisitorMut: Sized {
     fn visit_binary_expression(&mut self, binary: &BinaryExpression) -> Expression {
         let left = binary.get_left_expression().visit_mut(self);
         let right = binary.get_right_expression().visit_mut(self);
-        Expression::Binary(BinaryExpression::empty(Box::new(left), binary.get_op(), Box::new(right)))
+        Expression::Binary(BinaryExpression::empty(
+            Box::new(left),
+            binary.get_op(),
+            Box::new(right),
+        ))
     }
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> Expression {
         let expr = unary.get_expression().visit_mut(self);
@@ -327,10 +337,7 @@ pub trait AstVisitorMut: Sized {
         ))
     }
 
-    fn visit_function_call_expression(
-        &mut self,
-        call: &FunctionCallExpression,
-    ) -> Expression {
+    fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> Expression {
         Expression::FunctionCall(FunctionCallExpression::empty(
             self.visit_identifier(call.get_identifier()),
             call.get_arguments()
@@ -340,7 +347,9 @@ pub trait AstVisitorMut: Sized {
         ))
     }
     fn visit_parens_expression(&mut self, parens: &ParensExpression) -> Expression {
-        Expression::Parens(ParensExpression::empty(Box::new(parens.get_expression().visit_mut(self))))
+        Expression::Parens(ParensExpression::empty(Box::new(
+            parens.get_expression().visit_mut(self),
+        )))
     }
 
     // visit statements
@@ -424,7 +433,7 @@ pub trait AstVisitorMut: Sized {
                 .map(|else_block| else_block.visit_mut(self)),
         ))
     }
-    
+
     fn visit_case_block(&mut self, case_block: &CaseBlock) -> CaseBlock {
         CaseBlock::empty(
             Box::new(case_block.get_expression().visit_mut(self)),
@@ -470,7 +479,7 @@ pub trait AstVisitorMut: Sized {
                 .collect(),
         ))
     }
-    
+
     fn visit_break_statement(&mut self, break_stmt: &BreakStatement) -> Statement {
         Statement::Break(break_stmt.clone())
     }
@@ -502,10 +511,7 @@ pub trait AstVisitorMut: Sized {
     fn visit_label_statement(&mut self, label: &LabelStatement) -> Statement {
         Statement::Label(label.clone())
     }
-    fn visit_procedure_call_statement(
-        &mut self,
-        call: &ProcedureCallStatement,
-    ) -> Statement {
+    fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) -> Statement {
         Statement::Call(ProcedureCallStatement::empty(
             self.visit_identifier(call.get_identifier()),
             call.get_arguments()
@@ -514,10 +520,7 @@ pub trait AstVisitorMut: Sized {
                 .collect(),
         ))
     }
-    fn visit_predefined_call_statement(
-        &mut self,
-        call: &PredefinedCallStatement,
-    ) -> Statement {
+    fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) -> Statement {
         Statement::PredifinedCall(PredefinedCallStatement::empty(
             call.get_func(),
             call.get_arguments()
@@ -534,16 +537,10 @@ pub trait AstVisitorMut: Sized {
     ) -> Statement {
         Statement::VariableDeclaration(var_decl.clone())
     }
-    fn visit_procedure_declaration(
-        &mut self,
-        proc_decl: &ProcedureDeclarationAstNode,
-    ) -> AstNode {
+    fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) -> AstNode {
         AstNode::ProcedureDeclaration(proc_decl.clone())
     }
-    fn visit_function_declaration(
-        &mut self,
-        func_decl: &FunctionDeclarationAstNode,
-    ) -> AstNode {
+    fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) -> AstNode {
         AstNode::FunctionDeclaration(func_decl.clone())
     }
 
@@ -553,10 +550,7 @@ pub trait AstVisitorMut: Sized {
         comment.clone()
     }
 
-    fn visit_function_implementation(
-        &mut self,
-        function: &FunctionImplementation,
-    ) -> AstNode {
+    fn visit_function_implementation(&mut self, function: &FunctionImplementation) -> AstNode {
         AstNode::Function(FunctionImplementation::empty(
             function.id,
             self.visit_identifier(function.get_identifier()),
@@ -578,10 +572,7 @@ pub trait AstVisitorMut: Sized {
         param.clone()
     }
 
-    fn visit_procedure_implementation(
-        &mut self,
-        procedure: &ProcedureImplementation,
-    ) -> AstNode {
+    fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) -> AstNode {
         AstNode::Procedure(ProcedureImplementation::empty(
             procedure.id,
             self.visit_identifier(procedure.get_identifier()),

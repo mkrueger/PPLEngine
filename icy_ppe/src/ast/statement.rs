@@ -81,12 +81,8 @@ impl Statement {
             Statement::Goto(s) => visitor.visit_goto_statement(s),
             Statement::Label(s) => visitor.visit_label_statement(s),
             Statement::Call(s) => visitor.visit_procedure_call_statement(s),
-            Statement::PredifinedCall(s) => {
-                visitor.visit_predefined_call_statement(s)
-            }
-            Statement::VariableDeclaration(s) => {
-                visitor.visit_variable_declaration_statement(s)
-            }
+            Statement::PredifinedCall(s) => visitor.visit_predefined_call_statement(s),
+            Statement::VariableDeclaration(s) => visitor.visit_variable_declaration_statement(s),
         }
     }
 }

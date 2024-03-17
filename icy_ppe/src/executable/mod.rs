@@ -623,7 +623,7 @@ impl Default for Executable {
 
 static PREAMBLE: &[u8] = "PCBoard Programming Language Executable  ".as_bytes();
 
-const LAST_PPLC: u16 = 330;
+pub const LAST_PPLC: u16 = 330;
 const HEADER_SIZE: usize = 48;
 
 /// .

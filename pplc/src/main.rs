@@ -1,17 +1,16 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
-use icy_ppe::{compiler::transform_ast, parser::parse_program};
+use icy_ppe::{
+    compiler::{transform_ast, PPECompiler},
+    executable::LAST_PPLC,
+    parser::parse_program,
+};
 use semver::Version;
 use std::{
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
 };
-mod output;
-pub mod parser;
-
-#[cfg(test)]
-pub mod tests;
 
 #[derive(Parser, Debug)]
 #[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
@@ -48,13 +47,13 @@ fn main() {
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
     transform_ast(&mut prg);
-    let mut exec = output::PPEOutput::new();
-    exec.compile(&prg, arguments.no_user_variables);
+    let mut compiler = PPECompiler::new();
+    compiler.compile(&prg, arguments.no_user_variables);
 
     if !prg.errors.is_empty()
         || !prg.warnings.is_empty()
-        || !exec.warnings.is_empty()
-        || !exec.errors.is_empty()
+        || !compiler.warnings.is_empty()
+        || !compiler.errors.is_empty()
     {
         let mut errors = 0;
         let mut warnings = 0;
@@ -103,7 +102,7 @@ fn main() {
                 .unwrap();
         }
 
-        for err in &exec.errors {
+        for err in &compiler.errors {
             errors += 1;
             Report::build(ReportKind::Error, &file_name, 12)
                 .with_code(errors)
@@ -116,7 +115,7 @@ fn main() {
                 .unwrap();
         }
 
-        for err in &exec.warnings {
+        for err in &compiler.warnings {
             warnings += 1;
             Report::build(ReportKind::Warning, &file_name, 12)
                 .with_code(warnings)
@@ -133,7 +132,7 @@ fn main() {
     }
 
     println!();
-    match exec.create_binary(330) {
+    match compiler.create_executable(LAST_PPLC) {
         Ok(executable) => {
             let bin = executable.to_buffer().unwrap();
             let out_file_name = Path::new(&file_name).with_extension("ppe");

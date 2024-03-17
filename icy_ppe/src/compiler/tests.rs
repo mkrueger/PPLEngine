@@ -1,7 +1,7 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
-use icy_ppe::{
-    compiler::transform_ast,
+use crate::{
+    compiler::{self, transform_ast},
     decompiler::decompile,
     executable::Executable,
     icy_board::data::IcyBoardData,
@@ -9,8 +9,6 @@ use icy_ppe::{
     parser::parse_program,
     Res,
 };
-
-use crate::output;
 
 #[test]
 fn test_compiler() {
@@ -53,9 +51,9 @@ fn run_test(data: &String, output: &str) {
     let mut prg = parse_program(PathBuf::from("."), data);
     transform_ast(&mut prg);
 
-    let mut exec = output::PPEOutput::new();
+    let mut exec = compiler::PPECompiler::new();
     exec.compile(&prg, false);
-    let binary = exec.create_binary(330).unwrap();
+    let binary = exec.create_executable(330).unwrap();
     let mut buffer = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer).unwrap();
     let mut prg = decompile(exe, true, true, false);
@@ -71,9 +69,9 @@ fn run_test(data: &String, output: &str) {
         exe.print_disassembler();
     }
     assert!(!error);
-    println!("{}", output);
+    println!("{output}");
     println!("------------)");
-    println!("{}", data);
+    println!("{data}");
 }
 
 struct TestContext {

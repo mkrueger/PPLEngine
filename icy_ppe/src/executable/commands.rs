@@ -65,6 +65,12 @@ impl PPEScript {
     pub fn visit<T: Sized, V: PPEVisitor<T>>(&self, visitor: &mut V) {
         visitor.visit_script(self);
     }
+    
+    pub(crate) fn add_statement(&mut self, cur_offset: &mut usize, command: PPECommand){
+        let size = command.get_size();
+        self.statements.push(PPEStatement { span: *cur_offset..*cur_offset + size, command });
+        *cur_offset += size;
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -83,8 +89,11 @@ pub enum PPECommand {
     Let(Box<PPEExpr>, Box<PPEExpr>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub enum PPEExpr {
+    #[default]
+    Invalid,
+
     Value(usize),
     UnaryExpression(UnaryOp, Box<PPEExpr>),
     BinaryExpression(BinOp, Box<PPEExpr>, Box<PPEExpr>),
@@ -94,8 +103,16 @@ pub enum PPEExpr {
 }
 
 impl PPEExpr {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if expression is invalid.
     pub fn serialize(&self, vec: &mut Vec<i16>) {
         match self {
+            PPEExpr::Invalid => {
+                panic!("Invalid expression");
+            }
             PPEExpr::Value(id) => {
                 vec.push(*id as i16);
                 vec.push(0);
@@ -134,6 +151,24 @@ impl PPEExpr {
         }
     }
 
+    pub fn get_size(&self) -> usize {
+        match self {
+            PPEExpr::Invalid => 0,
+            PPEExpr::Value(_) => 2,
+            PPEExpr::Dim(_, args) => 2 + Self::count_size(args) + args.len(),
+            PPEExpr::PredefinedFunctionCall(_, args) => Self::count_size(args) + 1,
+            PPEExpr::FunctionCall(_, args) => Self::count_size(args) + 3,
+            PPEExpr::UnaryExpression(_, expr) => expr.get_size() + 1,
+            PPEExpr::BinaryExpression(_, left_expr, right_expr) => {
+                left_expr.get_size() + right_expr.get_size() + 1
+            }
+        }
+    }
+
+    pub fn count_size(args: &[PPEExpr]) -> usize {
+        args.iter().map(PPEExpr::get_size).sum()
+    }
+
     /// .
     ///
     /// # Errors
@@ -143,8 +178,14 @@ impl PPEExpr {
         PPEConstantValueVisitor::new(executable).visit_value(0)
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if expression is invalid.
     pub fn visit<T, V: PPEVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
+            PPEExpr::Invalid => panic!("Invalid expression"),
             PPEExpr::Value(id) => visitor.visit_value(*id),
             PPEExpr::UnaryExpression(op, expr) => visitor.visit_unary_expression(*op, expr),
             PPEExpr::BinaryExpression(op, left, right) => {
@@ -196,7 +237,7 @@ impl PPECommand {
                 vec.push(def.opcode as i16);
                 match def.sig {
                     super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
-                        assert!(arg_count != args.len(), "Invalid argument count");
+                        assert!(arg_count == args.len(), "Invalid argument count");
                         for (i, arg) in args.iter().enumerate() {
                             arg.serialize(vec);
                             if i + 1 != var_index {
@@ -251,6 +292,45 @@ impl PPECommand {
         }
     }
 
+    /// Returns the get size of this [`PPECommand`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_size(&self) -> usize {
+        match self {
+            PPECommand::End
+            | PPECommand::Return
+            | PPECommand::EndFunc
+            | PPECommand::EndProc
+            | PPECommand::Stop => 1,
+
+            PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
+            PPECommand::If(expr, _) => 1 + expr.get_size() + 1,
+            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 1 + stmt.get_size(),
+            PPECommand::ProcedureCall(_, args) => 2 + PPEExpr::count_size(args),
+            PPECommand::PredefinedCall(def, args) => match def.sig {
+                super::StatementSignature::ArgumentsWithVariable(var_index, _) => {
+                    1 + PPEExpr::count_size(args)
+                        + if var_index > 0 {
+                            args.len() - 1
+                        } else {
+                            args.len()
+                        }
+                }
+                super::StatementSignature::VariableArguments(var_index) => {
+                    2 + PPEExpr::count_size(args)
+                        + if var_index > 0 {
+                            args.len() - 1
+                        } else {
+                            args.len()
+                        }
+                }
+                _ => panic!("Invalid signature"),
+            },
+            PPECommand::Let(target, value) => 1 + target.get_size() + value.get_size(),
+        }
+    }
     pub fn visit<T, V: PPEVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
             PPECommand::End => visitor.visit_end(),

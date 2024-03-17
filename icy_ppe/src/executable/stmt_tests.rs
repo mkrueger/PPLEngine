@@ -53,6 +53,7 @@ fn test_let_serialization() {
 fn test_serialize(val: &PPECommand, expected: &[i16]) {
     let mut result = Vec::new();
     val.serialize(&mut result);
+    assert_eq!(val.get_size(), result.len());
     assert_eq!(result, expected);
 }
 
@@ -120,6 +121,7 @@ fn test_deserialize(script: &[i16], expected: &PPECommand) {
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();
     let stmt = deserializer.deserialize_statement(&exe).unwrap().unwrap();
+    assert_eq!(stmt.get_size(), exe.script_buffer.len());
     assert_eq!(stmt, *expected);
     assert_eq!(deserializer.offset, exe.script_buffer.len());
 }

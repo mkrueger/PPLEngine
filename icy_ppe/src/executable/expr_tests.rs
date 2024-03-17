@@ -65,6 +65,7 @@ fn test_function_call_serialization() {
 }
 
 fn test_serialize(val: &PPEExpr, expected: &[i16]) {
+    assert_eq!(val.get_size(), expected.len());
     let mut result = Vec::new();
     val.serialize(&mut result);
     assert_eq!(result, expected);
@@ -122,5 +123,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
     let expr = deserializer.deserialize_expression(&exe).unwrap();
 
     assert_eq!(expr, *expected);
+    assert_eq!(expr.get_size(), exe.script_buffer.len());
+
     assert_eq!(deserializer.offset, exe.script_buffer.len());
 }

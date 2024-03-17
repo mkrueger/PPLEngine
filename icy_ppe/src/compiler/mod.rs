@@ -6,15 +6,18 @@ use thiserror::Error;
 
 use crate::{
     ast::{
-        AstNode, BinOp, Constant, Expression, ParameterSpecifier, Program, Statement, UnaryOp,
-        Variable, VariableData, VariableType,
+        AstNode, Constant, Expression, ParameterSpecifier, Program, Statement, Variable,
+        VariableData, VariableType,
     },
     executable::{
-        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, VarHeader, VariableEntry,
+        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript, VarHeader, VariableEntry
     },
-    parser::lexer::SpannedToken,
-    tables::{get_function_definition, FuncOpCode, FUNCTION_DEFINITIONS},
+    parser::lexer::{SpannedToken, Token},
 };
+
+use self::expr_compiler::ExpressionCompiler;
+
+pub mod expr_compiler;
 
 #[cfg(test)]
 pub mod tests;
@@ -38,6 +41,12 @@ pub enum CompilationErrorType {
 
     #[error("Procedure {0} already defined.")]
     ProcedureAlreadyDefined(String),
+
+    #[error("Function {0} not found.")]
+    FunctionNotFound(String),
+
+    #[error("Invalid number of dimension parameters for '{0}' should be {1}. was {2}")]
+    InvalidDimensions(String, u8, usize),
 }
 
 pub struct CompilationError {
@@ -70,8 +79,7 @@ impl Function {
 
 #[derive(Debug)]
 struct LabelInfo {
-    pub address: Option<(SpannedToken, usize)>,
-    pub usages: Vec<(SpannedToken, usize)>,
+    pub offset: usize,
 }
 
 pub struct PPECompiler {
@@ -81,16 +89,18 @@ pub struct PPECompiler {
     variable_table: Vec<VariableEntry>,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
 
-    script_buffer: Vec<i16>,
+    cur_offset: usize,
 
-    label_table: HashMap<unicase::Ascii<String>, LabelInfo>,
+    label_table: Vec<i32>,
+    label_lookup_table: HashMap<unicase::Ascii<String>, usize>,
+
     pub errors: Vec<CompilationError>,
     pub warnings: Vec<CompilationWarning>,
 
     cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
 
-    commands: Vec<PPECommand>,
+    commands: PPEScript,
 }
 
 impl PPECompiler {
@@ -99,13 +109,13 @@ impl PPECompiler {
             variable_table: Vec::new(),
             variable_lookup: HashMap::new(),
             procedure_declarations: HashMap::new(),
-            script_buffer: Vec::new(),
-            label_table: HashMap::new(),
+            label_table: Vec::new(),
+            label_lookup_table: HashMap::new(),
             errors: Vec::new(),
             warnings: Vec::new(),
-            commands: Vec::new(),
+            commands: PPEScript::default(),
             cur_function: unicase::Ascii::new(String::new()),
-
+            cur_offset: 0,
             cur_function_id: -1,
             variable_id: 0,
         }
@@ -233,7 +243,6 @@ impl PPECompiler {
                 AstNode::Comment(_) => {}
                 AstNode::Function(_func) => {}
                 AstNode::Procedure(_proc) => {}
-
                 AstNode::FunctionDeclaration(func) => {
                     if self
                         .procedure_declarations
@@ -281,7 +290,6 @@ impl PPECompiler {
                         },
                     );
                 }
-
                 AstNode::ProcedureDeclaration(proc) => {
                     if self
                         .procedure_declarations
@@ -340,11 +348,6 @@ impl PPECompiler {
                 }
             }
         }
-        self.fill_labels();
-        if !self.script_buffer.ends_with(&[OpCode::END as i16]) {
-            self.script_buffer.push(OpCode::END as i16);
-        }
-
         for imp in &prg.nodes {
             match imp {
                 AstNode::Procedure(p) => {
@@ -353,19 +356,20 @@ impl PPECompiler {
                             .procedure_declarations
                             .get_mut(p.get_identifier())
                             .unwrap();
-                        decl.header.start_offset = self.script_buffer.len() as u16 * 2;
+                        decl.header.start_offset = self.cur_offset as u16 * 2;
                         decl.header.first_var_id = self.variable_table.len() as i16;
                     }
                     self.add_parameters(p.get_parameters());
 
                     p.get_statements().iter().for_each(|s| {
-                        self.compile_statement(s);
+                        if let Some(stmt) = self.compile_statement(s) {
+                            self.commands.add_statement(&mut self.cur_offset, stmt);
+                        }
                     });
 
-                    self.fill_labels();
+                    self.commands.add_statement(&mut self.cur_offset, PPECommand::EndProc);
+                    self.commands.add_statement(&mut self.cur_offset,PPECommand::End);
 
-                    self.script_buffer.push(OpCode::FPCLR as i16);
-                    self.script_buffer.push(OpCode::END as i16);
                     {
                         let decl = self
                             .procedure_declarations
@@ -387,7 +391,7 @@ impl PPECompiler {
                             .procedure_declarations
                             .get_mut(func.get_identifier())
                             .unwrap();
-                        decl.header.start_offset = self.script_buffer.len() as u16 * 2;
+                        decl.header.start_offset = self.cur_offset as u16 * 2;
                         decl.header.first_var_id = id as i16;
                         self.variable_lookup
                             .insert(func.get_identifier().clone(), self.variable_table.len());
@@ -414,12 +418,13 @@ impl PPECompiler {
                     self.variable_table.push(entry);
 
                     func.get_statements().iter().for_each(|s| {
-                        self.compile_statement(s);
+                        if let Some(stmt) = self.compile_statement(s) {
+                            self.commands.add_statement(&mut self.cur_offset, stmt);
+                        }
                     });
                     self.cur_function_id = -1;
-                    self.fill_labels();
-                    self.script_buffer.push(OpCode::FEND as i16);
-                    self.script_buffer.push(OpCode::END as i16);
+                    self.commands.add_statement(&mut self.cur_offset, PPECommand::EndFunc);
+                    self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
                     {
                         let decl = self
                             .procedure_declarations
@@ -433,16 +438,7 @@ impl PPECompiler {
                 _ => {}
             }
         }
-
-        if !self.script_buffer.ends_with(&[OpCode::END as i16]) {
-            self.script_buffer.push(OpCode::END as i16);
-        }
-
-        for decl in &self.procedure_declarations {
-            for idx in &decl.1.usages {
-                self.script_buffer[*idx] = decl.1.id as i16;
-            }
-        }
+        self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
     }
 
     fn add_parameters(&mut self, parameters: &[ParameterSpecifier]) {
@@ -470,103 +466,93 @@ impl PPECompiler {
         }
     }
 
-    fn compile_statement(&mut self, s: &Statement) {
+    fn compile_statement(&mut self, s: &Statement) -> Option<PPECommand> {
         match s {
-            Statement::End(_) => {
-                self.commands.push(PPECommand::End);
-            }
-            Statement::Comment(_) => {
-                // ignore
-            }
-            Statement::Block(block_stmt) => {
-                block_stmt
-                    .get_statements()
-                    .iter()
-                    .for_each(|s| self.compile_statement(s));
+            Statement::End(_) => Some(PPECommand::End),
+            Statement::Return(_) => Some(PPECommand::Return),
+            Statement::Comment(_) => None,
+
+            Statement::Gosub(gosub_stmt) => Some(PPECommand::Gosub(
+                self.get_label_index(gosub_stmt.get_label()),
+            )),
+            Statement::Goto(goto_stmt) => Some(PPECommand::Goto(
+                self.get_label_index(goto_stmt.get_label()),
+            )),
+            Statement::Label(label) => {
+                self.set_label_address(label.get_label_token());
+                None
             }
             Statement::If(if_stmt) => {
-                self.script_buffer.push(OpCode::IF as i16);
+                let Statement::Goto(goto_stmt) = if_stmt.get_statement() else {
+                    panic!("Invalid if statement without goto.");
+                };
 
-                let cond_buffer = self.compile_expression(if_stmt.get_condition());
-                self.script_buffer.extend(cond_buffer);
-
-                // MAGIC?
-                self.script_buffer.push(26);
-
-                self.compile_statement(if_stmt.get_statement());
+                let cond_buffer = self.comp_expr(if_stmt.get_condition());
+                Some(PPECommand::If(
+                    Box::new(cond_buffer),
+                    self.get_label_index(goto_stmt.get_label()),
+                ))
             }
             Statement::While(while_stmt) => {
-                self.script_buffer.push(OpCode::WHILE as i16);
+                let cond = self.comp_expr(while_stmt.get_condition());
+                let Some(stmt) = self.compile_statement(while_stmt.get_statement()) else {
+                    return None;
+                };
+                let while_offset = 1 + 1; // While token + label token
+                let stmt_size = stmt.get_size();
+                let cond_size = cond.get_size();
 
-                let cond_buffer = self.compile_expression(while_stmt.get_condition());
-                self.script_buffer.extend(cond_buffer);
-
-                // MAGIC?
-                self.script_buffer.push(30);
-
-                self.compile_statement(while_stmt.get_statement());
+                Some(PPECommand::While(
+                    Box::new(cond),
+                    Box::new(stmt),
+                    (while_offset + self.cur_offset + stmt_size + cond_size) * 2,
+                ))
             }
-            Statement::Return(_) => {
-                self.commands.push(PPECommand::Return);
-            }
+
             Statement::Let(let_smt) => {
-                self.script_buffer.push(OpCode::LET as i16);
                 let var_name = let_smt.get_identifier();
 
-                if self.cur_function_id >= 0 && self.cur_function == *var_name {
-                    self.script_buffer.push(self.cur_function_id as i16);
-                    self.script_buffer.push(0);
+                let decl_idx = if let Some(decl_idx) = self.variable_lookup.get(var_name) {
+                    *decl_idx
                 } else {
-                    let Some(decl_idx) = self.variable_lookup.get(var_name) else {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::VariableNotFound(
-                                let_smt.get_identifier().to_string(),
-                            ),
-                            range: let_smt.get_identifier_token().span.clone(),
-                        });
-                        return;
-                    };
-                    let decl = &self.variable_table[*decl_idx];
-                    self.script_buffer.push(decl.header.id as i16);
-                    self.script_buffer
-                        .push(let_smt.get_arguments().len() as i16);
-                    for arg in let_smt.get_arguments() {
-                        let expr_buffer = self.compile_expression(arg);
-                        self.script_buffer.extend(expr_buffer);
-                    }
-                }
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::VariableNotFound(
+                            let_smt.get_identifier().to_string(),
+                        ),
+                        range: let_smt.get_identifier_token().span.clone(),
+                    });
+                    return None;
+                };
 
-                let expr_buffer = self.compile_expression(let_smt.get_value_expression());
-                self.script_buffer.extend(expr_buffer);
+                let decl = &self.variable_table[decl_idx];
+                if decl.header.dim != let_smt.get_arguments().len() as u8 {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::InvalidDimensions(
+                            let_smt.get_identifier().to_string(),
+                            decl.header.dim,
+                            let_smt.get_arguments().len(),
+                        ),
+                        range: let_smt.get_identifier_token().span.clone(),
+                    });
+                    return None;
+                }
+                let variable = if decl.header.dim == 0 {
+                    PPEExpr::Value(decl_idx)
+                } else {
+                    let mut arguments = Vec::new();
+                    for arg in let_smt.get_arguments() {
+                        let expr_buffer = self.comp_expr(arg);
+                        arguments.push(expr_buffer);
+                    }
+                    PPEExpr::Dim(decl_idx, arguments)
+                };
+                let value = self.comp_expr(let_smt.get_value_expression());
+
+                Some(PPECommand::Let(Box::new(variable), Box::new(value)))
             }
-            Statement::Gosub(gosub_stmt) => {
-                self.commands.push(PPECommand::Gosub(0));
-                self.add_label_usage(
-                    gosub_stmt.get_label(),
-                    gosub_stmt.get_label_token().clone(),
-                    self.commands.len(),
-                );
-            }
-            Statement::Goto(goto_stmt) => {
-                self.commands.push(PPECommand::Goto(0));
-                self.add_label_usage(
-                    goto_stmt.get_label(),
-                    goto_stmt.get_label_token().clone(),
-                    self.commands.len(),
-                );
-            }
-            Statement::Label(label) => {
-                self.add_label_address(
-                    label.get_label(),
-                    label.get_label_token().clone(),
-                    self.script_buffer.len() * 2,
-                );
-            }
+
             Statement::PredifinedCall(call_stmt) => {
                 let def = call_stmt.get_func();
-                let op_code = def.opcode as u8;
-                self.script_buffer.push(op_code as i16);
-
                 /*
                 if (call_stmt.get_arguments().len() as i8) < def.min_args
                     || (call_stmt.get_arguments().len() as i8) > def.max_args
@@ -578,36 +564,53 @@ impl PPECompiler {
                         .push(call_stmt.get_arguments().len() as i16);
                     }
                 */
-                for expr in call_stmt.get_arguments() {
-                    let expr_buffer = self.compile_expression(expr);
-                    self.script_buffer.extend(expr_buffer);
+                let mut arguments = Vec::new();
+                for arg in call_stmt.get_arguments() {
+                    let expr_buffer = self.comp_expr(arg);
+                    arguments.push(expr_buffer);
                 }
+
+                Some(PPECommand::PredefinedCall(def, arguments))
             }
+
             Statement::Call(call_stmt) => {
-                self.script_buffer.push(OpCode::PCALL as i16);
+                let decl_idx =
+                    if let Some(decl_idx) = self.variable_lookup.get(call_stmt.get_identifier()) {
+                        *decl_idx
+                    } else {
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::ProcedureNotFound(
+                                call_stmt.get_identifier().to_string(),
+                            ),
+                            range: call_stmt.get_identifier_token().span.clone(),
+                        });
+                        return None;
+                    };
+                let mut arguments = Vec::new();
+                for arg in call_stmt.get_arguments() {
+                    let expr_buffer = self.comp_expr(arg);
+                    arguments.push(expr_buffer);
+                }
 
-                // will be filled later.
-                if let Some(procedure) = self
-                    .procedure_declarations
-                    .get_mut(call_stmt.get_identifier())
-                {
-                    procedure.add_usage(self.script_buffer.len());
-                    self.script_buffer.push(0);
-
-                    for p in call_stmt.get_arguments() {
-                        let expr_buffer = self.compile_expression(p);
-                        self.script_buffer.extend(expr_buffer);
-                    }
-                    self.script_buffer.push(0);
+                let decl = &self.variable_table[decl_idx];
+                if decl.header.variable_type == VariableType::Procedure {
+                    Some(PPECommand::ProcedureCall(decl_idx, arguments))
+                } else if decl.header.variable_type == VariableType::Function {
+                    Some(PPECommand::PredefinedCall(
+                        OpCode::EVAL.get_definition(),
+                        vec![PPEExpr::FunctionCall(decl_idx, arguments)],
+                    ))
                 } else {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::ProcedureNotFound(
                             call_stmt.get_identifier().to_string(),
                         ),
-                        range: 0..0, // TODO :Range
+                        range: call_stmt.get_identifier_token().span.clone(),
                     });
+                    return None;
                 }
             }
+
             Statement::VariableDeclaration(var_decl) => {
                 for v in var_decl.get_variables() {
                     self.add_variable(
@@ -619,8 +622,9 @@ impl PPECompiler {
                         v.get_cube_size(),
                     );
                 }
+                None
             }
-
+            Statement::Block(_) => panic!("Block not allowed in output AST."),
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),
             Statement::Break(_) => panic!("Break not allowed in output AST."),
             Statement::IfThen(_) => panic!("if then not allowed in output AST."),
@@ -639,128 +643,12 @@ impl PPECompiler {
         Ok(Executable {
             version,
             variable_table: self.variable_table.clone(),
-            script_buffer: self.script_buffer.clone(),
+            script_buffer: self.commands.serialize(),
         })
     }
-
-    fn compile_expression(&mut self, expr: &Expression) -> Vec<i16> {
-        let mut stack = Vec::new();
-        self.comp_expr(expr);
-        stack.push(0); // push end of expression
-        stack
-    }
-
-    fn comp_expr(&mut self, expr: &Expression) -> Option<PPEExpr> {
-        match expr {
-            Expression::Identifier(id) => {
-                if let Some(decl_idx) = self.variable_lookup.get(id.get_identifier()) {
-                    let decl = &self.variable_table[*decl_idx];
-                    return Some(PPEExpr::Value(decl.header.id));
-                }
-                self.errors.push(CompilationError {
-                    error: CompilationErrorType::VariableNotFound(id.get_identifier().to_string()),
-                    range: id.get_identifier_token().span.clone(),
-                });
-            }
-            Expression::Const(constant) => {
-                let table_id = self.lookup_constant(constant.get_constant_value());
-                return Some(PPEExpr::Value(table_id));
-            }
-            Expression::Parens(expr) => {
-                return self.comp_expr(expr.get_expression());
-            }
-            Expression::PredefinedFunctionCall(expr) => {
-                let predef = get_function_definition(expr.get_identifier());
-                // TODO: Check parameter signature
-                return Some(PPEExpr::PredefinedFunctionCall(
-                    &FUNCTION_DEFINITIONS[predef as usize],
-                    expr.get_arguments()
-                        .iter()
-                        .filter_map(|e| self.comp_expr(e))
-                        .collect(),
-                ));
-            }
-            Expression::FunctionCall(_expr) => {
-                /*   if self
-                    .procedure_declarations
-                    .contains_key(expr.get_identifier())
-                {
-                    for p in expr.get_arguments() {
-                        let expr_buffer = self.compile_expression(p);
-                        stack.extend(expr_buffer);
-                    }
-                    if let Some(decl) = self.procedure_declarations.get_mut(expr.get_identifier()) {
-                        // will be filled later.
-                        decl.add_usage(self.script_buffer.len());
-                        stack.push(0);
-                    }
-                } else {
-                    if let Some(var_idx) = self.variable_lookup.get(expr.get_identifier()) {
-                        let var = &self.variable_table[*var_idx];
-                        stack.push(var.header.id as i16);
-                        stack.push(var.header.dim as i16);
-                    } else {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::VariableNotFound(
-                                expr.get_identifier().to_string(),
-                            ),
-                            range: 0..0, // TODO :Range
-                        });
-                    }
-
-                    for p in expr.get_arguments() {
-                        let expr_buffer = self.compile_expression(p);
-                        stack.extend(expr_buffer);
-                    }
-                }*/
-            }
-
-            Expression::Unary(unary_expr) => {
-                let Some(expr) = self.comp_expr(unary_expr.get_expression()) else {
-                    return None;
-                };
-                let func = match unary_expr.get_op() {
-                    UnaryOp::Plus => FuncOpCode::UPLUS,
-                    UnaryOp::Minus => FuncOpCode::UMINUS,
-                    UnaryOp::Not => FuncOpCode::NOT,
-                };
-                let offset = -(func as i32);
-                return Some(PPEExpr::PredefinedFunctionCall(
-                    &FUNCTION_DEFINITIONS[offset as usize],
-                    vec![expr],
-                ));
-            }
-            Expression::Binary(bin_expr) => {
-                let Some(left) = self.comp_expr(bin_expr.get_left_expression()) else {
-                    return None;
-                };
-                let Some(right) = self.comp_expr(bin_expr.get_right_expression()) else {
-                    return None;
-                };
-                let func = match bin_expr.get_op() {
-                    BinOp::PoW => FuncOpCode::EXP,
-                    BinOp::Mul => FuncOpCode::TIMES,
-                    BinOp::Div => FuncOpCode::DIVIDE,
-                    BinOp::Mod => FuncOpCode::MOD,
-                    BinOp::Add => FuncOpCode::PLUS,
-                    BinOp::Sub => FuncOpCode::MINUS,
-                    BinOp::Eq => FuncOpCode::EQ,
-                    BinOp::NotEq => FuncOpCode::NE,
-                    BinOp::Lower => FuncOpCode::LT,
-                    BinOp::LowerEq => FuncOpCode::LE,
-                    BinOp::Greater => FuncOpCode::GT,
-                    BinOp::GreaterEq => FuncOpCode::GE,
-                    BinOp::And => FuncOpCode::AND,
-                    BinOp::Or => FuncOpCode::OR,
-                };
-                let offset = -(func as i32);
-                return Some(PPEExpr::PredefinedFunctionCall(
-                    &FUNCTION_DEFINITIONS[offset as usize],
-                    vec![left, right],
-                ));
-            }
-        }
-        None
+    
+    fn comp_expr(&mut self, expr: &Expression) -> PPEExpr {
+        expr.visit(&mut ExpressionCompiler { compiler: self })
     }
 
     fn lookup_constant(&mut self, constant: &Constant) -> usize {
@@ -781,69 +669,41 @@ impl PPECompiler {
         id
     }
 
-    fn add_label_address(
-        &mut self,
-        label: &unicase::Ascii<String>,
-        token: SpannedToken,
-        len: usize,
-    ) {
-        if self.get_label_info(label).address.is_some() {
-            self.errors.push(CompilationError {
-                error: CompilationErrorType::LabelAlreadyDefined(label.to_string()),
-                range: token.span.clone(),
-            });
-            return;
-        }
-
-        self.get_label_info(label).address = Some((token, len));
-    }
-
-    fn add_label_usage(&mut self, label: &unicase::Ascii<String>, token: SpannedToken, len: usize) {
-        self.get_label_info(label).usages.push((token, len));
-    }
-
-    fn get_label_info(&mut self, label: &unicase::Ascii<String>) -> &mut LabelInfo {
-        if !self.label_table.contains_key(label) {
-            self.label_table.insert(
-                label.clone(),
-                LabelInfo {
-                    address: None,
-                    usages: Vec::new(),
-                },
-            );
-        }
-        self.label_table.get_mut(label).unwrap()
-    }
-
-    fn fill_labels(&mut self) {
-        for info in self.label_table.values() {
-            let Some((address_token, address_pos)) = &info.address else {
-                let label = &info.usages.first().unwrap().0;
-                self.errors.push(CompilationError {
-                    error: CompilationErrorType::UndefinedLabel(label.token.to_string()),
-                    range: label.span.clone(),
-                });
-                continue;
-            };
-
-            if info.usages.is_empty() {
-                self.warnings.push(CompilationWarning {
-                    error: CompilationWarningType::UnusedLabel(address_token.token.to_string()),
-                    range: address_token.span.clone(),
-                });
-                continue;
-            }
-
-            for (_token, usage) in &info.usages {
-                self.script_buffer[*usage / 2] = *address_pos as i16;
-            }
-        }
-        self.label_table.clear();
-    }
-
     fn next_id(&mut self) -> usize {
         self.variable_id += 1;
         self.variable_id
+    }
+
+    fn get_label_index(&mut self, label: &unicase::Ascii<String>) -> usize {
+        if let Some(idx) = self.label_lookup_table.get(label) {
+            *idx
+        } else {
+            let idx = self.label_table.len();
+            self.label_lookup_table.insert(label.clone(), idx);
+            self.label_table.push(-1);
+            idx
+        }
+    }
+
+    fn set_label_address(&mut self, label_token: &SpannedToken) {
+        let Token::Label(identifier) = &label_token.token else {
+            log::error!("Invalid label token {:?}", label_token);
+            return;
+        };
+        if let Some(idx) = self.label_lookup_table.get_mut(identifier) {
+            if self.label_table[*idx] >= 0 {
+                self.errors.push(CompilationError {
+                    error: CompilationErrorType::LabelAlreadyDefined(identifier.to_string()),
+                    range: label_token.span.clone(),
+                });
+                return;
+            }
+            self.label_table[*idx] = self.cur_offset as i32;
+        } else {
+            let idx = self.label_table.len();
+            self.label_lookup_table.insert(identifier.clone(), idx);
+            self.label_table.push(self.cur_offset as i32);
+        }
     }
 }
 

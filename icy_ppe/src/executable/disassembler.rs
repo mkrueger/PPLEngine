@@ -10,7 +10,9 @@ use crate::ast::VariableType;
 use super::{OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, StatementDefinition};
 
 #[derive(Default)]
-pub struct DisassembleVisitor {}
+pub struct DisassembleVisitor {
+    pub show_statement_data: bool,
+}
 
 impl DisassembleVisitor {
     fn output_op_code(end: OpCode) {
@@ -64,11 +66,7 @@ impl DisassembleVisitor {
     pub fn print_disassembler(&mut self, ppe_file: &super::Executable) {
         match PPEScript::from_ppe_file(ppe_file) {
             Ok(script) => {
-                println!();
-                println!("Offset  # OpCode      Parameters");
-                println!("---------------------------------------------------------------------------------------");
                 script.visit(self);
-                println!();
             }
             Err((script, e)) => {
                 script.visit(self);
@@ -84,6 +82,10 @@ impl DisassembleVisitor {
                     SetAttribute(Attribute::Reset),
                 )
                 .unwrap();
+                if let Some(last) = script.statements.last() {
+                    println!();
+                    Self::dump_script_data(ppe_file, last.span.clone());
+                }
                 println!();
                 Self::dump_script_data(ppe_file, e.span);
                 println!();
@@ -160,6 +162,34 @@ impl DisassembleVisitor {
                     )
                     .unwrap();
                 }
+            } else if var.header.dim > 0 {
+                let d = match var.header.dim {
+                    1 => format!("{}", var.header.vector_size),
+                    2 => format!("{}, {}", var.header.vector_size, var.header.matrix_size),
+                    _ => format!(
+                        "{}, {}, {}",
+                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
+                    ),
+                };
+                execute!(
+                    stdout(),
+                    Print("[".to_string()),
+                    SetAttribute(Attribute::Bold),
+                    Print(d),
+                    SetAttribute(Attribute::Reset),
+                    Print("]".to_string()),
+                )
+                .unwrap();
+            } else if var.header.variable_type == VariableType::String
+                || var.header.variable_type == VariableType::BigStr
+            {
+                execute!(
+                    stdout(),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("\"{}\"", var.value)),
+                    SetAttribute(Attribute::Reset)
+                )
+                .unwrap();
             } else {
                 execute!(
                     stdout(),
@@ -168,22 +198,6 @@ impl DisassembleVisitor {
                     SetAttribute(Attribute::Reset)
                 )
                 .unwrap();
-                if var.header.dim > 0
-                    || var.header.vector_size > 0
-                    || var.header.matrix_size > 0
-                    || var.header.cube_size > 0
-                {
-                    execute!(
-                        stdout(),
-                        SetAttribute(Attribute::Bold),
-                        Print(format!(
-                            " ({}, {}, {})",
-                            var.header.vector_size, var.header.matrix_size, var.header.cube_size
-                        )),
-                        SetAttribute(Attribute::Reset)
-                    )
-                    .unwrap();
-                }
             }
             println!();
         }
@@ -246,7 +260,7 @@ impl PPEVisitor<()> for DisassembleVisitor {
             Print("["),
             SetForegroundColor(Color::Yellow),
             Print("#"),
-            SetForegroundColor(Color::White),
+            SetForegroundColor(Color::Green),
             Print(format!("{id:04X}")),
             SetAttribute(Attribute::Reset),
         )
@@ -397,6 +411,10 @@ impl PPEVisitor<()> for DisassembleVisitor {
     }
 
     fn visit_script(&mut self, script: &PPEScript) {
+        println!();
+        println!("Offset  # OpCode      Parameters");
+        println!("---------------------------------------------------------------------------------------");
+
         for stmt in &script.statements {
             execute!(
                 stdout(),
@@ -407,6 +425,19 @@ impl PPEVisitor<()> for DisassembleVisitor {
             .unwrap();
             stmt.command.visit(self);
             println!();
+            if self.show_statement_data {
+                let mut vec = Vec::new();
+                stmt.command.serialize(&mut vec);
+                for (i, x) in vec.iter().enumerate() {
+                    if i > 0 && (i % 16) == 0 {
+                        println!();
+                    }
+                    print!("{:04X} ", *x);
+                }
+
+                println!();
+            }
         }
+        println!();
     }
 }

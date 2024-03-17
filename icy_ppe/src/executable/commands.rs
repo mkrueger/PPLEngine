@@ -291,8 +291,8 @@ impl PPEExpr {
                 vec.push(0);
                 for arg in args {
                     arg.serialize(vec);
+                    vec.push(0);
                 }
-                vec.push(0);
             }
             PPEExpr::UnaryExpression(op, expr) => {
                 expr.serialize(vec);
@@ -312,7 +312,7 @@ impl PPEExpr {
             PPEExpr::Value(_) => 2,
             PPEExpr::Dim(_, args) => 2 + Self::count_size(args) + args.len(),
             PPEExpr::PredefinedFunctionCall(_, args) => Self::count_size(args) + 1,
-            PPEExpr::FunctionCall(_, args) => Self::count_size(args) + 3,
+            PPEExpr::FunctionCall(_, args) => Self::count_size(args) + 2 + args.len(),
             PPEExpr::UnaryExpression(_, expr) => expr.get_size() + 1,
             PPEExpr::BinaryExpression(_, left_expr, right_expr) => {
                 left_expr.get_size() + right_expr.get_size() + 1
@@ -321,7 +321,9 @@ impl PPEExpr {
     }
 
     pub fn count_size(args: &[PPEExpr]) -> usize {
-        args.iter().map(PPEExpr::get_size).sum()
+        let r = args.iter().map(PPEExpr::get_size).sum();
+        println!("arg size {}", r);
+        r
     }
 
     /// .

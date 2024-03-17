@@ -222,11 +222,13 @@ impl PPEDeserializer {
                             .function_value
                             .parameters;
                         let mut arguments = Vec::new();
+                        println!("parameters: {}", parameters);
                         for _ in 0..parameters {
                             let expr = self.deserialize_expression(executable)?;
                             arguments.push(expr);
                         }
                         self.push_expr(PPEExpr::FunctionCall(id as usize, arguments));
+                        continue;
                     },
                     VariableType::Procedure => {
                         self.offset += 1;
@@ -241,6 +243,7 @@ impl PPEDeserializer {
             } else {
                 let func = -id as usize;
                 let func_def = &FUNCTION_DEFINITIONS[func];
+                println!("func_def: {:?}", func_def.args);
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;

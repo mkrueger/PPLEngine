@@ -814,7 +814,9 @@ fn read_variable_table(
                         fvar.number = k;
                     } else if j < cur.value.data.function_value.parameters as usize {
                         fvar.set_type(EntryType::Parameter);
-                        fvar.number = (cur.value.data.function_value.first_var_id + 1) as usize - i;
+                        println!("{} i:{i}", cur.value.data.function_value.first_var_id + 1);
+                        fvar.number = ((cur.value.data.function_value.first_var_id + 1) as usize)
+                            .saturating_sub(i);
                     }
                 }
             },

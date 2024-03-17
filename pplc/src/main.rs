@@ -138,9 +138,10 @@ fn main() {
                 println!();
                 executable.print_variable_table();
                 println!();
-                compiler
-                    .get_script()
-                    .visit(&mut icy_ppe::executable::disassembler::DisassembleVisitor::default());
+                let mut visitor = icy_ppe::executable::disassembler::DisassembleVisitor::default();
+                visitor.show_statement_data = true;
+
+                compiler.get_script().visit(&mut visitor);
                 println!();
                 println!("Generated:");
                 executable.print_script_buffer_dump();

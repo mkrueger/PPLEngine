@@ -379,7 +379,7 @@ impl Decompiler {
             prg.nodes.push(crate::ast::AstNode::Function(
                 FunctionImplementation::empty(
                     func,
-                    func_name,
+                    unicase::Ascii::new(func_name),
                     func_parameters,
                     func_type,
                     Vec::new(),
@@ -410,7 +410,12 @@ impl Decompiler {
                 j += 1;
             }
             prg.nodes.push(crate::ast::AstNode::Procedure(
-                ProcedureImplementation::empty(proc, proc_name, proc_parameters, Vec::new()),
+                ProcedureImplementation::empty(
+                    proc,
+                    unicase::Ascii::new(proc_name),
+                    proc_parameters,
+                    Vec::new(),
+                ),
             ));
         }
     }
@@ -1453,7 +1458,10 @@ impl Decompiler {
                     ) {
                         self.output_stmt(
                             prg,
-                            ProcedureCallStatement::create_empty_statement(proc_name, vec![]),
+                            ProcedureCallStatement::create_empty_statement(
+                                unicase::Ascii::new(proc_name),
+                                vec![],
+                            ),
                         );
                         return;
                     }
@@ -1465,7 +1473,10 @@ impl Decompiler {
                     params.reverse();
                     self.output_stmt(
                         prg,
-                        ProcedureCallStatement::create_empty_statement(proc_name, params),
+                        ProcedureCallStatement::create_empty_statement(
+                            unicase::Ascii::new(proc_name),
+                            params,
+                        ),
                     );
                 },
                 _ => {

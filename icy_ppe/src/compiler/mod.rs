@@ -10,7 +10,8 @@ use crate::{
         VariableData, VariableType,
     },
     executable::{
-        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript, VarHeader, VariableEntry
+        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript,
+        ProcedureValue, VarHeader, VariableEntry,
     },
     parser::lexer::{SpannedToken, Token},
 };
@@ -65,26 +66,7 @@ pub struct CompilationWarning {
     pub range: core::ops::Range<usize>,
 }
 
-#[derive(Debug)]
-struct Function {
-    pub id: usize,
-    pub header: FunctionValue,
-    pub usages: Vec<usize>,
-}
-impl Function {
-    fn add_usage(&mut self, len: usize) {
-        self.usages.push(len);
-    }
-}
-
-#[derive(Debug)]
-struct LabelInfo {
-    pub offset: usize,
-}
-
 pub struct PPECompiler {
-    procedure_declarations: HashMap<unicase::Ascii<String>, Function>,
-
     variable_id: usize,
     variable_table: Vec<VariableEntry>,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
@@ -108,7 +90,6 @@ impl PPECompiler {
         Self {
             variable_table: Vec::new(),
             variable_lookup: HashMap::new(),
-            procedure_declarations: HashMap::new(),
             label_table: Vec::new(),
             label_lookup_table: HashMap::new(),
             errors: Vec::new(),
@@ -244,10 +225,7 @@ impl PPECompiler {
                 AstNode::Function(_func) => {}
                 AstNode::Procedure(_proc) => {}
                 AstNode::FunctionDeclaration(func) => {
-                    if self
-                        .procedure_declarations
-                        .contains_key(func.get_identifier())
-                    {
+                    if self.has_variable(func.get_identifier()) {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::FunctionAlreadyDefined(
                                 func.get_identifier().to_string(),
@@ -269,32 +247,22 @@ impl PPECompiler {
                         cube_size: 0,
                         flags: 0,
                     };
-                    let mut entry =
-                        VariableEntry::new(header, VariableType::Function.create_empty_value());
+
+                    let value = FunctionValue {
+                        parameters: func.get_parameters().len() as u8,
+                        local_variables: 0,
+                        start_offset: 0,
+                        first_var_id: 0,
+                        return_var: func.get_return_type() as i16,
+                    };
+
+                    let mut entry = VariableEntry::new(header, Variable::new_function(value));
                     entry.set_name(func.get_identifier().to_string());
                     entry.set_type(EntryType::Procedure);
                     self.variable_table.push(entry);
-
-                    self.procedure_declarations.insert(
-                        func.get_identifier().clone(),
-                        Function {
-                            id: 0,
-                            header: FunctionValue {
-                                parameters: func.get_parameters().len() as u8,
-                                local_variables: 0,
-                                start_offset: 0,
-                                first_var_id: 0,
-                                return_var: func.get_return_type() as i16,
-                            },
-                            usages: Vec::new(),
-                        },
-                    );
                 }
                 AstNode::ProcedureDeclaration(proc) => {
-                    if self
-                        .procedure_declarations
-                        .contains_key(proc.get_identifier())
-                    {
+                    if self.has_variable(proc.get_identifier()) {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::ProcedureAlreadyDefined(
                                 proc.get_identifier().to_string(),
@@ -315,49 +283,55 @@ impl PPECompiler {
                         cube_size: 0,
                         flags: 0,
                     };
-                    let mut entry =
-                        VariableEntry::new(header, VariableType::Procedure.create_empty_value());
+
+                    let mut pass_flags = 0;
+                    for (i, p) in proc.get_parameters().iter().enumerate() {
+                        if p.is_var() {
+                            pass_flags |= 1 << i;
+                        }
+                    }
+                    let value = ProcedureValue {
+                        parameters: proc.get_parameters().len() as u8,
+                        local_variables: 0,
+                        start_offset: 0,
+                        first_var_id: 0,
+                        pass_flags,
+                    };
+
+                    let mut entry = VariableEntry::new(header, Variable::new_procedure(value));
                     entry.set_name(proc.get_identifier().to_string());
                     entry.set_type(EntryType::Procedure);
                     self.variable_table.push(entry);
-
-                    let mut var_params = 0;
-                    for (i, p) in proc.get_parameters().iter().enumerate() {
-                        if p.is_var() {
-                            var_params |= 1 << i;
-                        }
-                    }
-                    self.procedure_declarations.insert(
-                        proc.get_identifier().clone(),
-                        Function {
-                            id,
-                            header: FunctionValue {
-                                parameters: proc.get_parameters().len() as u8,
-                                local_variables: 0,
-                                start_offset: 0,
-                                first_var_id: 0,
-                                return_var: var_params,
-                            },
-                            usages: Vec::new(),
-                        },
-                    );
                 }
 
                 AstNode::Statement(stmt) => {
-                    self.compile_statement(stmt);
+                    if let Some(stmt) = self.compile_statement(stmt) {
+                        self.commands.add_statement(&mut self.cur_offset, stmt);
+                    }
                 }
             }
         }
         for imp in &prg.nodes {
             match imp {
                 AstNode::Procedure(p) => {
+                    let idx = if let Some(idx) = self.variable_lookup.get(p.get_identifier()) {
+                        *idx
+                    } else {
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::ProcedureNotFound(
+                                p.get_identifier().to_string(),
+                            ),
+                            range: p.get_identifier_token().span.clone(),
+                        });
+                        continue;
+                    };
+
                     {
-                        let decl = self
-                            .procedure_declarations
-                            .get_mut(p.get_identifier())
-                            .unwrap();
-                        decl.header.start_offset = self.cur_offset as u16 * 2;
-                        decl.header.first_var_id = self.variable_table.len() as i16;
+                        let start_offset = self.cur_offset as u16 * 2;
+                        let id = self.variable_table.len() as i16;
+                        let decl = self.get_variable_mut(idx);
+                        decl.value.data.procedure_value.start_offset = start_offset;
+                        decl.value.data.procedure_value.first_var_id = id;
                     }
                     self.add_parameters(p.get_parameters());
 
@@ -367,32 +341,48 @@ impl PPECompiler {
                         }
                     });
 
-                    self.commands.add_statement(&mut self.cur_offset, PPECommand::EndProc);
-                    self.commands.add_statement(&mut self.cur_offset,PPECommand::End);
+                    self.commands
+                        .add_statement(&mut self.cur_offset, PPECommand::EndProc);
+                    self.commands
+                        .add_statement(&mut self.cur_offset, PPECommand::End);
 
-                    {
-                        let decl = self
-                            .procedure_declarations
-                            .get_mut(p.get_identifier())
-                            .unwrap();
+                    unsafe {
+                        let decl = self.get_variable(idx).clone();
 
-                        for i in decl.header.first_var_id as usize..self.variable_table.len() {
+                        for i in decl.value.data.procedure_value.first_var_id as usize
+                            ..self.variable_table.len()
+                        {
                             self.variable_table[i].header.flags |= 1;
                         }
 
-                        decl.header.local_variables =
-                            (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
+                        self.get_variable_mut(idx)
+                            .value
+                            .data
+                            .procedure_value
+                            .local_variables = (self.variable_table.len() as i16
+                            - decl.value.data.procedure_value.first_var_id)
+                            as u8;
                     }
                 }
                 AstNode::Function(func) => {
+                    let idx = if let Some(idx) = self.variable_lookup.get(func.get_identifier()) {
+                        *idx
+                    } else {
+                        self.errors.push(CompilationError {
+                            error: CompilationErrorType::FunctionNotFound(
+                                func.get_identifier().to_string(),
+                            ),
+                            range: func.get_identifier_token().span.clone(),
+                        });
+                        continue;
+                    };
+
                     {
-                        let id = self.next_id();
-                        let decl = self
-                            .procedure_declarations
-                            .get_mut(func.get_identifier())
-                            .unwrap();
-                        decl.header.start_offset = self.cur_offset as u16 * 2;
-                        decl.header.first_var_id = id as i16;
+                        let id: usize = self.next_id();
+                        let co = self.cur_offset;
+                        let decl = self.get_variable_mut(idx);
+                        decl.value.data.function_value.start_offset = co as u16 * 2;
+                        decl.value.data.function_value.first_var_id = id as i16;
                         self.variable_lookup
                             .insert(func.get_identifier().clone(), self.variable_table.len());
                         self.cur_function = func.get_identifier().clone();
@@ -423,22 +413,24 @@ impl PPECompiler {
                         }
                     });
                     self.cur_function_id = -1;
-                    self.commands.add_statement(&mut self.cur_offset, PPECommand::EndFunc);
-                    self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
-                    {
-                        let decl = self
-                            .procedure_declarations
-                            .get_mut(func.get_identifier())
-                            .unwrap();
-                        decl.header.local_variables =
-                            (self.variable_table.len() as i16 - decl.header.first_var_id) as u8;
+                    self.commands
+                        .add_statement(&mut self.cur_offset, PPECommand::EndFunc);
+                    self.commands
+                        .add_statement(&mut self.cur_offset, PPECommand::End);
+                    unsafe {
+                        let var_count = self.variable_table.len() as i16;
+                        let decl = self.get_variable_mut(idx);
+                        let locals =
+                            (var_count - decl.value.data.function_value.first_var_id) as u8;
+                        decl.value.data.function_value.local_variables = locals;
                     }
                 }
 
                 _ => {}
             }
         }
-        self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
+        self.commands
+            .add_statement(&mut self.cur_offset, PPECommand::End);
     }
 
     fn add_parameters(&mut self, parameters: &[ParameterSpecifier]) {
@@ -524,7 +516,7 @@ impl PPECompiler {
                     return None;
                 };
 
-                let decl = &self.variable_table[decl_idx];
+                let decl = &self.get_variable(decl_idx);
                 if decl.header.dim != let_smt.get_arguments().len() as u8 {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::InvalidDimensions(
@@ -592,7 +584,7 @@ impl PPECompiler {
                     arguments.push(expr_buffer);
                 }
 
-                let decl = &self.variable_table[decl_idx];
+                let decl = self.get_variable(decl_idx);
                 if decl.header.variable_type == VariableType::Procedure {
                     Some(PPECommand::ProcedureCall(decl_idx, arguments))
                 } else if decl.header.variable_type == VariableType::Function {
@@ -646,7 +638,7 @@ impl PPECompiler {
             script_buffer: self.commands.serialize(),
         })
     }
-    
+
     fn comp_expr(&mut self, expr: &Expression) -> PPEExpr {
         expr.visit(&mut ExpressionCompiler { compiler: self })
     }
@@ -704,6 +696,17 @@ impl PPECompiler {
             self.label_lookup_table.insert(identifier.clone(), idx);
             self.label_table.push(self.cur_offset as i32);
         }
+    }
+
+    fn get_variable(&self, idx: usize) -> &VariableEntry {
+        &self.variable_table[idx - 1]
+    }
+    fn get_variable_mut(&mut self, idx: usize) -> &mut VariableEntry {
+        &mut self.variable_table[idx - 1]
+    }
+
+    fn has_variable(&self, get_identifier: &unicase::Ascii<String>) -> bool {
+        self.variable_lookup.contains_key(get_identifier)
     }
 }
 

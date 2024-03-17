@@ -49,14 +49,19 @@ impl AstNode {
         }
     }
 
-    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) -> T {
+    #[must_use]
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&self, visitor: &mut V) -> AstNode {
         match self {
-            AstNode::Comment(c) => visitor.visit_comment(c),
-            AstNode::Function(f) => visitor.visit_function_implementation(f),
-            AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
-            AstNode::Statement(s) => s.visit_mut(visitor),
-            AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
-            AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
+            AstNode::Comment(c) => AstNode::Comment(visitor.visit_comment(c)),
+            AstNode::Function(f) => AstNode::Function(visitor.visit_function_implementation(f)),
+            AstNode::Procedure(p) => AstNode::Procedure(visitor.visit_procedure_implementation(p)),
+            AstNode::Statement(s) => AstNode::Statement(s.visit_mut(visitor)),
+            AstNode::ProcedureDeclaration(p) => {
+                AstNode::ProcedureDeclaration(visitor.visit_procedure_declaration(p))
+            }
+            AstNode::FunctionDeclaration(f) => {
+                AstNode::FunctionDeclaration(visitor.visit_function_declaration(f))
+            }
         }
     }
 }
@@ -107,7 +112,7 @@ impl FunctionImplementation {
 
     pub fn empty(
         id: usize,
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,
         return_type: VariableType,
         statements: Vec<Statement>,
@@ -115,9 +120,7 @@ impl FunctionImplementation {
         Self {
             id,
             function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                identifier.into(),
-            ))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),
@@ -272,16 +275,14 @@ impl ProcedureImplementation {
 
     pub fn empty(
         id: usize,
-        identifier: impl Into<String>,
+        identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,
         statements: Vec<Statement>,
     ) -> Self {
         Self {
             id,
             procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                identifier.into(),
-            ))),
+            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             parameters,
             rightpar_token: SpannedToken::create_empty(Token::RPar),

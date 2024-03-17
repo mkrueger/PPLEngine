@@ -15,7 +15,7 @@ fn test_compiler() {
     use std::fs::{self};
 
     let mut data_path = env::current_dir().unwrap();
-    data_path.push("test_data");
+    data_path.push("src/compiler/test_data");
     //let mut success = 0;
     //let mut skipped = 0;
     for entry in fs::read_dir(data_path).expect("Error reading test_data directory.") {

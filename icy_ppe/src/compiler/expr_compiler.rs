@@ -20,7 +20,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             .variable_lookup
             .get(identifier.get_identifier())
         {
-            let decl = &self.compiler.variable_table[*decl_idx];
+            let decl = &self.compiler.get_variable(*decl_idx);
             return PPEExpr::Value(decl.header.id);
         }
         self.compiler.errors.push(CompilationError {
@@ -75,11 +75,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             .map(|e| e.visit(self))
             .collect();
 
-        if self
-            .compiler
-            .procedure_declarations
-            .contains_key(func_call.get_identifier())
-        {
+        if self.compiler.has_variable(func_call.get_identifier()) {
             let Some(table_idx) = self
                 .compiler
                 .variable_lookup
@@ -109,7 +105,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             });
             return PPEExpr::Value(0);
         };
-        let var = &self.compiler.variable_table[*table_idx];
+        let var = &self.compiler.get_variable(*table_idx);
         if var.header.dim as usize != arguments.len() {
             self.compiler.errors.push(CompilationError {
                 error: CompilationErrorType::InvalidDimensions(

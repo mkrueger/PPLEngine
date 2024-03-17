@@ -65,10 +65,13 @@ impl PPEScript {
     pub fn visit<T: Sized, V: PPEVisitor<T>>(&self, visitor: &mut V) {
         visitor.visit_script(self);
     }
-    
-    pub(crate) fn add_statement(&mut self, cur_offset: &mut usize, command: PPECommand){
+
+    pub(crate) fn add_statement(&mut self, cur_offset: &mut usize, command: PPECommand) {
         let size = command.get_size();
-        self.statements.push(PPEStatement { span: *cur_offset..*cur_offset + size, command });
+        self.statements.push(PPEStatement {
+            span: *cur_offset..*cur_offset + size,
+            command,
+        });
         *cur_offset += size;
     }
 }
@@ -87,6 +90,156 @@ pub enum PPECommand {
     EndProc,
     Stop,
     Let(Box<PPEExpr>, Box<PPEExpr>),
+}
+
+impl PPECommand {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn serialize(&self, vec: &mut Vec<i16>) {
+        match self {
+            PPECommand::End => vec.push(OpCode::END as i16),
+            PPECommand::Return => vec.push(OpCode::RETURN as i16),
+            PPECommand::EndFunc => vec.push(OpCode::FEND as i16),
+            PPECommand::EndProc => vec.push(OpCode::FPCLR as i16),
+            PPECommand::Stop => vec.push(OpCode::STOP as i16),
+
+            PPECommand::Goto(pos) => {
+                vec.push(OpCode::GOTO as i16);
+                vec.push(*pos as i16);
+            }
+            PPECommand::Gosub(pos) => {
+                vec.push(OpCode::GOSUB as i16);
+                vec.push(*pos as i16);
+            }
+            PPECommand::If(expr, label) => {
+                vec.push(OpCode::IF as i16);
+                expr.serialize(vec);
+                vec.push(*label as i16);
+            }
+            PPECommand::While(expr, stmt, label) => {
+                vec.push(OpCode::WHILE as i16);
+                expr.serialize(vec);
+                vec.push(*label as i16);
+                stmt.serialize(vec);
+            }
+            PPECommand::PredefinedCall(def, args) => {
+                vec.push(def.opcode as i16);
+                match def.sig {
+                    super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
+                        assert!(arg_count == args.len(), "Invalid argument count");
+                        for (i, arg) in args.iter().enumerate() {
+                            arg.serialize(vec);
+                            if i + 1 != var_index {
+                                vec.push(0);
+                            }
+                        }
+                    }
+                    super::StatementSignature::SpecialCaseProcedure => {
+                        panic!("SpecialCaseProcedure is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseDlockg => {
+                        panic!("SpecialCaseDlockg is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseDcreate => {
+                        panic!("SpecialCaseDcreate is not allowed here")
+                    }
+                    super::StatementSignature::SpecialCaseSort => {
+                        panic!("SpecialCaseSort is not allowed here")
+                    }
+                    super::StatementSignature::VariableArguments(var_index) => {
+                        vec.push(args.len() as i16);
+                        for (i, arg) in args.iter().enumerate() {
+                            arg.serialize(vec);
+                            if i + 1 != var_index {
+                                vec.push(0);
+                            }
+                        }
+                    }
+                    super::StatementSignature::SpecialCasePop => {
+                        panic!("SpecialCasePop is not allowed here")
+                    }
+                    super::StatementSignature::Label => {
+                        panic!("Label is not allowed here")
+                    }
+                    super::StatementSignature::SpecialIfWhen => {
+                        panic!("SpecialIfWhen is not allowed here")
+                    }
+                }
+            }
+            PPECommand::ProcedureCall(proc_id, args) => {
+                vec.push(OpCode::PCALL as i16);
+                vec.push(*proc_id as i16);
+                for arg in args {
+                    arg.serialize(vec);
+                }
+            }
+            PPECommand::Let(target, value) => {
+                vec.push(OpCode::LET as i16);
+                target.serialize(vec);
+                value.serialize(vec);
+                vec.push(0);
+            }
+        }
+    }
+
+    /// Returns the get size of this [`PPECommand`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_size(&self) -> usize {
+        match self {
+            PPECommand::End
+            | PPECommand::Return
+            | PPECommand::EndFunc
+            | PPECommand::EndProc
+            | PPECommand::Stop => 1,
+
+            PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
+            PPECommand::If(expr, _) => 1 + expr.get_size() + 1,
+            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 1 + stmt.get_size(),
+            PPECommand::ProcedureCall(_, args) => 2 + PPEExpr::count_size(args),
+            PPECommand::PredefinedCall(def, args) => match def.sig {
+                super::StatementSignature::ArgumentsWithVariable(var_index, _) => {
+                    1 + PPEExpr::count_size(args)
+                        + if var_index > 0 {
+                            args.len() - 1
+                        } else {
+                            args.len()
+                        }
+                }
+                super::StatementSignature::VariableArguments(var_index) => {
+                    2 + PPEExpr::count_size(args)
+                        + if var_index > 0 {
+                            args.len() - 1
+                        } else {
+                            args.len()
+                        }
+                }
+                _ => panic!("Invalid signature"),
+            },
+            PPECommand::Let(target, value) => 2 + target.get_size() + value.get_size(),
+        }
+    }
+    pub fn visit<T, V: PPEVisitor<T>>(&self, visitor: &mut V) -> T {
+        match self {
+            PPECommand::End => visitor.visit_end(),
+            PPECommand::Return => visitor.visit_return(),
+            PPECommand::If(cond, label) => visitor.visit_if(cond, label),
+            PPECommand::While(cond, stmt, label) => visitor.visit_while(cond, stmt, label),
+            PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(id, args),
+            PPECommand::PredefinedCall(def, args) => visitor.visit_predefined_call(def, args),
+            PPECommand::Goto(label) => visitor.visit_goto(label),
+            PPECommand::Gosub(label) => visitor.visit_gosub(label),
+            PPECommand::EndFunc => visitor.visit_end_func(),
+            PPECommand::EndProc => visitor.visit_end_proc(),
+            PPECommand::Stop => visitor.visit_stop(),
+            PPECommand::Let(target, value) => visitor.visit_let(target, value),
+        }
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Clone)]
@@ -199,156 +352,6 @@ impl PPEExpr {
         }
     }
 }
-
-impl PPECommand {
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn serialize(&self, vec: &mut Vec<i16>) {
-        match self {
-            PPECommand::End => vec.push(OpCode::END as i16),
-            PPECommand::Return => vec.push(OpCode::RETURN as i16),
-            PPECommand::EndFunc => vec.push(OpCode::FEND as i16),
-            PPECommand::EndProc => vec.push(OpCode::FPCLR as i16),
-            PPECommand::Stop => vec.push(OpCode::STOP as i16),
-
-            PPECommand::Goto(pos) => {
-                vec.push(OpCode::GOTO as i16);
-                vec.push(*pos as i16);
-            }
-            PPECommand::Gosub(pos) => {
-                vec.push(OpCode::GOSUB as i16);
-                vec.push(*pos as i16);
-            }
-            PPECommand::If(expr, label) => {
-                vec.push(OpCode::IF as i16);
-                expr.serialize(vec);
-                vec.push(*label as i16);
-            }
-            PPECommand::While(expr, stmt, label) => {
-                vec.push(OpCode::WHILE as i16);
-                expr.serialize(vec);
-                vec.push(*label as i16);
-                stmt.serialize(vec);
-            }
-            PPECommand::PredefinedCall(def, args) => {
-                vec.push(def.opcode as i16);
-                match def.sig {
-                    super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
-                        assert!(arg_count == args.len(), "Invalid argument count");
-                        for (i, arg) in args.iter().enumerate() {
-                            arg.serialize(vec);
-                            if i + 1 != var_index {
-                                vec.push(0);
-                            }
-                        }
-                    }
-                    super::StatementSignature::SpecialCaseProcedure => {
-                        panic!("SpecialCaseProcedure is not allowed here")
-                    }
-                    super::StatementSignature::SpecialCaseDlockg => {
-                        panic!("SpecialCaseDlockg is not allowed here")
-                    }
-                    super::StatementSignature::SpecialCaseDcreate => {
-                        panic!("SpecialCaseDcreate is not allowed here")
-                    }
-                    super::StatementSignature::SpecialCaseSort => {
-                        panic!("SpecialCaseSort is not allowed here")
-                    }
-                    super::StatementSignature::VariableArguments(var_index) => {
-                        vec.push(args.len() as i16);
-                        for (i, arg) in args.iter().enumerate() {
-                            arg.serialize(vec);
-                            if i + 1 != var_index {
-                                vec.push(0);
-                            }
-                        }
-                    }
-                    super::StatementSignature::SpecialCasePop => {
-                        panic!("SpecialCasePop is not allowed here")
-                    }
-                    super::StatementSignature::Label => {
-                        panic!("Label is not allowed here")
-                    }
-                    super::StatementSignature::SpecialIfWhen => {
-                        panic!("SpecialIfWhen is not allowed here")
-                    }
-                }
-            }
-            PPECommand::ProcedureCall(proc_id, args) => {
-                vec.push(OpCode::PCALL as i16);
-                vec.push(*proc_id as i16);
-                for arg in args {
-                    arg.serialize(vec);
-                }
-            }
-            PPECommand::Let(target, value) => {
-                vec.push(OpCode::LET as i16);
-                target.serialize(vec);
-                value.serialize(vec);
-            }
-        }
-    }
-
-    /// Returns the get size of this [`PPECommand`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    pub fn get_size(&self) -> usize {
-        match self {
-            PPECommand::End
-            | PPECommand::Return
-            | PPECommand::EndFunc
-            | PPECommand::EndProc
-            | PPECommand::Stop => 1,
-
-            PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
-            PPECommand::If(expr, _) => 1 + expr.get_size() + 1,
-            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 1 + stmt.get_size(),
-            PPECommand::ProcedureCall(_, args) => 2 + PPEExpr::count_size(args),
-            PPECommand::PredefinedCall(def, args) => match def.sig {
-                super::StatementSignature::ArgumentsWithVariable(var_index, _) => {
-                    1 + PPEExpr::count_size(args)
-                        + if var_index > 0 {
-                            args.len() - 1
-                        } else {
-                            args.len()
-                        }
-                }
-                super::StatementSignature::VariableArguments(var_index) => {
-                    2 + PPEExpr::count_size(args)
-                        + if var_index > 0 {
-                            args.len() - 1
-                        } else {
-                            args.len()
-                        }
-                }
-                _ => panic!("Invalid signature"),
-            },
-            PPECommand::Let(target, value) => 1 + target.get_size() + value.get_size(),
-        }
-    }
-    pub fn visit<T, V: PPEVisitor<T>>(&self, visitor: &mut V) -> T {
-        match self {
-            PPECommand::End => visitor.visit_end(),
-            PPECommand::Return => visitor.visit_return(),
-            PPECommand::If(cond, label) => visitor.visit_if(cond, label),
-            PPECommand::While(cond, stmt, label) => visitor.visit_while(cond, stmt, label),
-            PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(id, args),
-            PPECommand::PredefinedCall(def, args) => visitor.visit_predefined_call(def, args),
-            PPECommand::Goto(label) => visitor.visit_goto(label),
-            PPECommand::Gosub(label) => visitor.visit_gosub(label),
-            PPECommand::EndFunc => visitor.visit_end_func(),
-            PPECommand::EndProc => visitor.visit_end_proc(),
-            PPECommand::Stop => visitor.visit_stop(),
-            PPECommand::Let(target, value) => visitor.visit_let(target, value),
-        }
-    }
-}
-
 #[allow(unused_variables)]
 pub trait PPEVisitor<T>: Sized {
     fn visit_script(&mut self, script: &PPEScript) {

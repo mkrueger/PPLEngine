@@ -1,9 +1,7 @@
 use crate::ast::{
-    walk_function_call_expression_mut, walk_if_then_stmt_mut, walk_predefined_call_statement_mut,
-    walk_procedure_call_statement_mut, walk_while_do_stmt_mut, walk_while_stmt_mut, AstNode,
-    AstVisitorMut, BinOp, BreakStatement, CaseBlock, Constant, ConstantExpression,
-    ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement,
-    IfThenStatement, SelectStatement, UnaryExpression, WhileDoStatement,
+    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock,
+    ForStatement, IdentifierExpression, IfStatement, IfThenStatement, SelectStatement,
+    UnaryExpression, WhileDoStatement,
 };
 
 use super::{
@@ -39,94 +37,9 @@ pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
         p..p,
         statements.iter().map(|s| AstNode::Statement(s.clone())),
     );
-
-    prg.visit_mut(&mut RemoveNotNotVisitor {});
 }
 
-struct RemoveNotNotVisitor {}
-
-fn simplify_condition(cond: &mut Expression) {
-    if let Expression::Unary(unaryexpr1) = cond {
-        if unaryexpr1.get_op() == crate::ast::UnaryOp::Not {
-            match unaryexpr1.get_expression_mut() {
-                Expression::Unary(unary_expr) => {
-                    if unary_expr.get_op() == crate::ast::UnaryOp::Not {
-                        *cond = unary_expr.get_expression().clone();
-                    }
-                }
-                Expression::Const(c) => match c.get_constant_value() {
-                    Constant::Boolean(b) => {
-                        *cond = ConstantExpression::create_empty_expression(Constant::Boolean(!b));
-                    }
-                    Constant::Builtin(&crate::ast::constant::BuiltinConst::TRUE) => {
-                        *cond = ConstantExpression::create_empty_expression(Constant::Builtin(
-                            &crate::ast::constant::BuiltinConst::FALSE,
-                        ));
-                    }
-                    Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE) => {
-                        *cond = ConstantExpression::create_empty_expression(Constant::Builtin(
-                            &crate::ast::constant::BuiltinConst::TRUE,
-                        ));
-                    }
-                    _ => (),
-                },
-                _ => (),
-            }
-        }
-    }
-    while let Expression::Parens(p) = cond {
-        *cond = p.get_expression().clone();
-    }
-}
-
-impl AstVisitorMut<()> for RemoveNotNotVisitor {
-    fn visit_function_call_expression(&mut self, call: &mut crate::ast::FunctionCallExpression) {
-        for arg in call.get_arguments_mut() {
-            optimize_argument(arg);
-        }
-        walk_function_call_expression_mut(self, call);
-    }
-    fn visit_procedure_call_statement(&mut self, call: &mut crate::ast::ProcedureCallStatement) {
-        for arg in call.get_arguments_mut() {
-            optimize_argument(arg);
-        }
-        walk_procedure_call_statement_mut(self, call);
-    }
-
-    fn visit_predefined_call_statement(&mut self, call: &mut crate::ast::PredefinedCallStatement) {
-        for arg in call.get_arguments_mut() {
-            optimize_argument(arg);
-        }
-        walk_predefined_call_statement_mut(self, call);
-    }
-
-    fn visit_while_statement(&mut self, while_stmt: &mut crate::ast::WhileStatement) {
-        simplify_condition(while_stmt.get_condition_mut());
-        walk_while_stmt_mut(self, while_stmt);
-    }
-
-    fn visit_while_do_statement(&mut self, while_do: &mut WhileDoStatement) {
-        simplify_condition(while_do.get_condition_mut());
-        walk_while_do_stmt_mut(self, while_do);
-    }
-
-    fn visit_if_then_statement(&mut self, if_then: &mut IfThenStatement) {
-        simplify_condition(if_then.get_condition_mut());
-        if let Expression::Parens(expr) = if_then.get_condition_mut() {
-            *if_then.get_condition_mut() = expr.get_expression().clone();
-        }
-        for else_if in if_then.get_else_if_blocks_mut() {
-            simplify_condition(else_if.get_condition_mut());
-            if let Expression::Parens(expr) = else_if.get_condition_mut() {
-                *else_if.get_condition_mut() = expr.get_expression().clone();
-            }
-        }
-
-        walk_if_then_stmt_mut(self, if_then);
-    }
-}
-
-fn optimize_argument(arg: &mut Expression) {
+fn _optimize_argument(arg: &mut Expression) {
     if let Expression::Parens(expr) = arg {
         *arg = expr.get_expression().clone();
     }

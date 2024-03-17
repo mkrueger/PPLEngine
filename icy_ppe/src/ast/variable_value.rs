@@ -930,6 +930,26 @@ impl Variable {
     pub fn get_second(&self) -> Self {
         Variable::new_int(unsafe { self.data.time_value % 60 })
     }
+
+    pub(crate) fn new_function(value: FunctionValue) -> Variable {
+        Variable {
+            vtype: VariableType::Function,
+            data: VariableData {
+                function_value: value,
+            },
+            generic_data: VariableValue::None,
+        }
+    }
+
+    pub(crate) fn new_procedure(value: ProcedureValue) -> Variable {
+        Variable {
+            vtype: VariableType::Procedure,
+            data: VariableData {
+                procedure_value: value,
+            },
+            generic_data: VariableValue::None,
+        }
+    }
 }
 
 /// .

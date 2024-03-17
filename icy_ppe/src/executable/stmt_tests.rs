@@ -47,7 +47,13 @@ fn test_predef_serialization() {
 #[test]
 fn test_let_serialization() {
     let val = PPECommand::Let(Box::new(PPEExpr::Value(2)), Box::new(PPEExpr::Value(3)));
-    test_serialize(&val, &[OpCode::LET as i16, 2, 0, 3, 0]);
+    test_serialize(&val, &[OpCode::LET as i16, 2, 0, 3, 0, 0]);
+
+    let val = PPECommand::Let(
+        Box::new(PPEExpr::Dim(1, vec![PPEExpr::Value(2)])),
+        Box::new(PPEExpr::Value(3)),
+    );
+    test_serialize(&val, &[OpCode::LET as i16, 1, 1, 2, 0, 0, 3, 0, 0]);
 }
 
 fn test_serialize(val: &PPECommand, expected: &[i16]) {
@@ -99,7 +105,13 @@ fn test_predef_deserialization() {
 #[test]
 fn test_let_deserialization() {
     let val = PPECommand::Let(Box::new(PPEExpr::Value(2)), Box::new(PPEExpr::Value(3)));
-    test_deserialize(&[OpCode::LET as i16, 2, 0, 3, 0], &val);
+    test_deserialize(&[OpCode::LET as i16, 2, 0, 3, 0, 0], &val);
+
+    let val = PPECommand::Let(
+        Box::new(PPEExpr::Dim(1, vec![PPEExpr::Value(2)])),
+        Box::new(PPEExpr::Value(3)),
+    );
+    test_deserialize(&[OpCode::LET as i16, 1, 1, 2, 0, 0, 3, 0, 0], &val);
 }
 
 fn test_deserialize(script: &[i16], expected: &PPECommand) {

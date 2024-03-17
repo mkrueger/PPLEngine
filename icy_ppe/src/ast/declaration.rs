@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::parser::lexer::{SpannedToken, Token};
 
-use super::{Constant, Statement, Variable, VariableType};
+use super::{AstVisitorMut, Constant, Statement, Variable, VariableType};
 #[derive(Debug, PartialEq, Clone)]
 pub struct DimensionSpecifier {
     dimension_token: SpannedToken,
@@ -300,6 +300,11 @@ impl ParameterSpecifier {
             variable_type,
             variables,
         ))
+    }
+
+    #[must_use]
+    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&self, visitor: &mut V) -> Self {
+        visitor.visit_parameter_specifier(self)
     }
 }
 

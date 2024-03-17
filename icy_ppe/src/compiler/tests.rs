@@ -1,7 +1,7 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
 use crate::{
-    compiler::{self, transform_ast},
+    compiler,
     decompiler::decompile,
     executable::Executable,
     icy_board::data::IcyBoardData,
@@ -48,14 +48,13 @@ fn test_compiler() {
 }
 
 fn run_test(data: &String, output: &str) {
-    let mut prg = parse_program(PathBuf::from("."), data);
-    transform_ast(&mut prg);
+    let prg = parse_program(PathBuf::from("."), data);
 
     let mut exec = compiler::PPECompiler::new();
     exec.compile(&prg, false);
     let binary = exec.create_executable(330).unwrap();
     let mut buffer = binary.to_buffer().unwrap();
-    let exe = Executable::from_buffer(&mut buffer).unwrap();
+    let exe = Executable::from_buffer(&mut buffer, false).unwrap();
     let mut prg = decompile(exe, true, true);
     let mut io = MemoryIO::new();
     let mut ctx = TestContext::new();
@@ -63,7 +62,7 @@ fn run_test(data: &String, output: &str) {
 
     let error = output != ctx.output;
     if error {
-        let exe = Executable::from_buffer(&mut buffer).unwrap();
+        let exe = Executable::from_buffer(&mut buffer, false).unwrap();
         exe.print_variable_table();
         exe.print_script_buffer_dump();
         exe.print_disassembler();

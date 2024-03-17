@@ -303,7 +303,7 @@ impl ParameterSpecifier {
     }
 
     #[must_use]
-    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&self, visitor: &mut V) -> Self {
+    pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         visitor.visit_parameter_specifier(self)
     }
 }

@@ -58,7 +58,7 @@ impl RenameVisitor {
     }
 }
 
-impl AstVisitorMut<()> for RenameVisitor {
+impl AstVisitorMut for RenameVisitor {
     fn visit_identifier(&mut self, id: &unicase::Ascii<String>) -> unicase::Ascii<String> {
         if let Some(rename) = self.rename_map.get(id) {
             rename.clone()

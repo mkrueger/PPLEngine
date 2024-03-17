@@ -864,9 +864,10 @@ fn strip_unused_labels2(
     }
 }
 
-pub fn do_pass4(prg: &mut Program) {
+#[must_use]
+pub fn do_pass4(prg: &mut Program) -> Program {
     let mut scanner = RenameScanVistitor::default();
     prg.visit(&mut scanner);
     let mut renamer = RenameVisitor::new(scanner.rename_map);
-    prg.visit_mut(&mut renamer);
+    prg.visit_mut(&mut renamer)
 }

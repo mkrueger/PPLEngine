@@ -30,7 +30,6 @@ fn get_token(src: &str) -> Token {
             t
         }
         Err(e) => {
-            println!("error parsing '{src}'");
             panic!("Error: {e:?}")
         }
     }

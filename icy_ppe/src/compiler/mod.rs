@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{
     ast::{
         AstNode, Constant, Expression, ParameterSpecifier, Program, Statement, Variable,
-        VariableData, VariableType,
+        VariableData, VariableType, VariableValue,
     },
     executable::{
         EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript,
@@ -75,6 +75,9 @@ pub struct PPECompiler {
 
     label_table: Vec<i32>,
     label_lookup_table: HashMap<unicase::Ascii<String>, usize>,
+    
+    const_lookup_table: HashMap<(VariableType, u64), usize>,
+    string_lookup_table: HashMap<String, usize>,
 
     pub errors: Vec<CompilationError>,
     pub warnings: Vec<CompilationWarning>,
@@ -99,13 +102,27 @@ impl PPECompiler {
             cur_offset: 0,
             cur_function_id: -1,
             variable_id: 0,
+            const_lookup_table: HashMap::new(),
+            string_lookup_table: HashMap::new(),
         }
+    }
+
+    pub fn get_script(&self) -> &PPEScript {
+        &self.commands
+    }
+
+    fn push_variable(&mut self, name: unicase::Ascii<String>,  variable: VariableEntry) {
+        self.variable_lookup.insert(name, self.variable_table.len());
+        self.variable_table.push(variable);
+    }
+    fn variable_count(&self) -> usize {
+        self.variable_table.len()
     }
 
     fn add_variable(
         &mut self,
         variable_type: VariableType,
-        name: unicase::Ascii<String>,
+        name: &unicase::Ascii<String>,
         dim: u8,
         vector_size: usize,
         matrix_size: usize,
@@ -124,17 +141,10 @@ impl PPECompiler {
         let mut entry = VariableEntry::new(header, variable_type.create_empty_value());
         entry.set_name(name.to_string());
         entry.set_type(EntryType::Variable);
-        self.variable_table.push(entry);
-
-        self.variable_lookup.insert(name, self.variable_table.len());
     }
 
     fn add_predefined_variable(&mut self, name: &str, val: Variable) {
         let id = self.next_id();
-        self.variable_lookup.insert(
-            unicase::Ascii::new(name.to_string()),
-            self.variable_table.len(),
-        );
         let header = VarHeader {
             id,
             variable_type: val.get_type(),
@@ -147,7 +157,7 @@ impl PPECompiler {
         let mut entry = VariableEntry::new(header, val);
         entry.set_name(name.to_string());
         entry.set_type(EntryType::UserVariable);
-        self.variable_table.push(entry);
+        self.push_variable(unicase::Ascii::new(name.to_string()), entry);
     }
 
     fn initialize_variables(&mut self) {
@@ -219,6 +229,8 @@ impl PPECompiler {
             self.initialize_variables();
         }
 
+        let prg = prg.visit_mut(&mut AstTransformationVisitor::default());
+
         for d in &prg.nodes {
             match d {
                 AstNode::Comment(_) => {}
@@ -235,8 +247,6 @@ impl PPECompiler {
                         return;
                     }
 
-                    self.variable_lookup
-                        .insert(func.get_identifier().clone(), self.variable_table.len());
                     let id: usize = self.next_id();
                     let header: VarHeader = VarHeader {
                         id,
@@ -258,8 +268,8 @@ impl PPECompiler {
 
                     let mut entry = VariableEntry::new(header, Variable::new_function(value));
                     entry.set_name(func.get_identifier().to_string());
-                    entry.set_type(EntryType::Procedure);
-                    self.variable_table.push(entry);
+                    entry.set_type(EntryType::Function);
+                    self.push_variable(func.get_identifier().clone(), entry);
                 }
                 AstNode::ProcedureDeclaration(proc) => {
                     if self.has_variable(proc.get_identifier()) {
@@ -271,8 +281,6 @@ impl PPECompiler {
                         });
                         return;
                     }
-                    self.variable_lookup
-                        .insert(proc.get_identifier().clone(), self.variable_table.len());
                     let id: usize = self.next_id();
                     let header: VarHeader = VarHeader {
                         id,
@@ -301,22 +309,23 @@ impl PPECompiler {
                     let mut entry = VariableEntry::new(header, Variable::new_procedure(value));
                     entry.set_name(proc.get_identifier().to_string());
                     entry.set_type(EntryType::Procedure);
-                    self.variable_table.push(entry);
+
+                    self.push_variable(proc.get_identifier().clone(), entry);
                 }
 
                 AstNode::Statement(stmt) => {
-                    if let Some(stmt) = self.compile_statement(stmt) {
-                        self.commands.add_statement(&mut self.cur_offset, stmt);
-                    }
+                    self.add_compile_statement(stmt);
                 }
             }
         }
+        
+        self.commands
+        .add_statement(&mut self.cur_offset, PPECommand::End);
+
         for imp in &prg.nodes {
             match imp {
                 AstNode::Procedure(p) => {
-                    let idx = if let Some(idx) = self.variable_lookup.get(p.get_identifier()) {
-                        *idx
-                    } else {
+                    let Some(idx) = self.lookup_variable_index(p.get_identifier()) else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::ProcedureNotFound(
                                 p.get_identifier().to_string(),
@@ -328,7 +337,7 @@ impl PPECompiler {
 
                     {
                         let start_offset = self.cur_offset as u16 * 2;
-                        let id = self.variable_table.len() as i16;
+                        let id = self.variable_count() as i16;
                         let decl = self.get_variable_mut(idx);
                         decl.value.data.procedure_value.start_offset = start_offset;
                         decl.value.data.procedure_value.first_var_id = id;
@@ -336,9 +345,7 @@ impl PPECompiler {
                     self.add_parameters(p.get_parameters());
 
                     p.get_statements().iter().for_each(|s| {
-                        if let Some(stmt) = self.compile_statement(s) {
-                            self.commands.add_statement(&mut self.cur_offset, stmt);
-                        }
+                        self.add_compile_statement(s);
                     });
 
                     self.commands
@@ -350,7 +357,7 @@ impl PPECompiler {
                         let decl = self.get_variable(idx).clone();
 
                         for i in decl.value.data.procedure_value.first_var_id as usize
-                            ..self.variable_table.len()
+                            ..self.variable_count()
                         {
                             self.variable_table[i].header.flags |= 1;
                         }
@@ -359,15 +366,13 @@ impl PPECompiler {
                             .value
                             .data
                             .procedure_value
-                            .local_variables = (self.variable_table.len() as i16
+                            .local_variables = (self.variable_count() as i16
                             - decl.value.data.procedure_value.first_var_id)
                             as u8;
                     }
                 }
                 AstNode::Function(func) => {
-                    let idx = if let Some(idx) = self.variable_lookup.get(func.get_identifier()) {
-                        *idx
-                    } else {
+                    let Some(idx) = self.lookup_variable_index(func.get_identifier()) else {
                         self.errors.push(CompilationError {
                             error: CompilationErrorType::FunctionNotFound(
                                 func.get_identifier().to_string(),
@@ -376,21 +381,16 @@ impl PPECompiler {
                         });
                         continue;
                     };
-
+                    let id = self.next_id();
                     {
-                        let id: usize = self.next_id();
                         let co = self.cur_offset;
                         let decl = self.get_variable_mut(idx);
                         decl.value.data.function_value.start_offset = co as u16 * 2;
                         decl.value.data.function_value.first_var_id = id as i16;
-                        self.variable_lookup
-                            .insert(func.get_identifier().clone(), self.variable_table.len());
                         self.cur_function = func.get_identifier().clone();
                         self.cur_function_id = id as i32;
                     }
                     self.add_parameters(func.get_parameters());
-
-                    let id = self.next_id();
 
                     let header: VarHeader = VarHeader {
                         id,
@@ -403,14 +403,12 @@ impl PPECompiler {
                     };
                     let mut entry =
                         VariableEntry::new(header, func.get_return_type().create_empty_value());
-                    entry.set_name(format!("RESULT_FOR_{}", func.get_identifier()));
+                    entry.set_name(format!("#{}", func.get_identifier()));
                     entry.set_type(EntryType::FunctionResult);
-                    self.variable_table.push(entry);
+                    self.push_variable(func.get_identifier().clone(), entry);
 
                     func.get_statements().iter().for_each(|s| {
-                        if let Some(stmt) = self.compile_statement(s) {
-                            self.commands.add_statement(&mut self.cur_offset, stmt);
-                        }
+                        self.add_compile_statement(s);
                     });
                     self.cur_function_id = -1;
                     self.commands
@@ -418,7 +416,7 @@ impl PPECompiler {
                     self.commands
                         .add_statement(&mut self.cur_offset, PPECommand::End);
                     unsafe {
-                        let var_count = self.variable_table.len() as i16;
+                        let var_count = self.variable_count() as i16;
                         let decl = self.get_variable_mut(idx);
                         let locals =
                             (var_count - decl.value.data.function_value.first_var_id) as u8;
@@ -429,18 +427,23 @@ impl PPECompiler {
                 _ => {}
             }
         }
-        self.commands
-            .add_statement(&mut self.cur_offset, PPECommand::End);
     }
 
+    fn add_compile_statement(&mut self, stmt: &Statement) {
+        if let Statement::Block(block) = stmt {
+            for s in block.get_statements() {
+                self.add_compile_statement(s);
+            }
+            return;
+        }
+        if let Some(stmt) = self.compile_statement(stmt) {
+            self.commands.add_statement(&mut self.cur_offset, stmt);
+        }
+    }
+    
     fn add_parameters(&mut self, parameters: &[ParameterSpecifier]) {
         for param in parameters {
             let id = self.next_id();
-            self.variable_lookup.insert(
-                param.get_variable().get_identifier().clone(),
-                self.variable_table.len(),
-            );
-
             let header: VarHeader = VarHeader {
                 id,
                 variable_type: param.get_variable_type(),
@@ -454,7 +457,7 @@ impl PPECompiler {
                 VariableEntry::new(header, param.get_variable_type().create_empty_value());
             entry.set_name(param.get_variable().get_identifier().to_string());
             entry.set_type(crate::executable::EntryType::Parameter);
-            self.variable_table.push(entry);
+            self.push_variable(param.get_variable().get_identifier().clone(), entry);
         }
     }
 
@@ -504,9 +507,7 @@ impl PPECompiler {
             Statement::Let(let_smt) => {
                 let var_name = let_smt.get_identifier();
 
-                let decl_idx = if let Some(decl_idx) = self.variable_lookup.get(var_name) {
-                    *decl_idx
-                } else {
+                let Some(decl_idx) = self.lookup_variable_index(var_name) else {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::VariableNotFound(
                             let_smt.get_identifier().to_string(),
@@ -566,18 +567,15 @@ impl PPECompiler {
             }
 
             Statement::Call(call_stmt) => {
-                let decl_idx =
-                    if let Some(decl_idx) = self.variable_lookup.get(call_stmt.get_identifier()) {
-                        *decl_idx
-                    } else {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::ProcedureNotFound(
-                                call_stmt.get_identifier().to_string(),
-                            ),
-                            range: call_stmt.get_identifier_token().span.clone(),
-                        });
-                        return None;
-                    };
+                let Some(decl_idx) = self.lookup_variable_index(call_stmt.get_identifier()) else {
+                    self.errors.push(CompilationError {
+                        error: CompilationErrorType::ProcedureNotFound(
+                            call_stmt.get_identifier().to_string(),
+                        ),
+                        range: call_stmt.get_identifier_token().span.clone(),
+                    });
+                    return None;
+                };
                 let mut arguments = Vec::new();
                 for arg in call_stmt.get_arguments() {
                     let expr_buffer = self.comp_expr(arg);
@@ -607,7 +605,7 @@ impl PPECompiler {
                 for v in var_decl.get_variables() {
                     self.add_variable(
                         var_decl.get_variable_type(),
-                        v.get_identifier().clone(),
+                        v.get_identifier(),
                         v.get_dimensions().len() as u8,
                         v.get_vector_size(),
                         v.get_matrix_size(),
@@ -616,7 +614,8 @@ impl PPECompiler {
                 }
                 None
             }
-            Statement::Block(_) => panic!("Block not allowed in output AST."),
+            Statement::Block(_) => panic!("Block not handled by compile statement."),
+
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),
             Statement::Break(_) => panic!("Break not allowed in output AST."),
             Statement::IfThen(_) => panic!("if then not allowed in output AST."),
@@ -644,6 +643,20 @@ impl PPECompiler {
     }
 
     fn lookup_constant(&mut self, constant: &Constant) -> usize {
+        let value = constant.get_value();
+
+        if let VariableValue::String(str) = &value.generic_data {
+            if let Some(id) = self.string_lookup_table.get(str) {
+                return *id;
+            }
+        } else {
+            unsafe {
+                let key = (constant.get_var_type() , value.data.u64_value);
+                if let Some(id) = self.const_lookup_table.get(&key) {
+                    return *id;
+                }
+            }
+        }
         let id = self.next_id();
         let header: VarHeader = VarHeader {
             id,
@@ -654,10 +667,20 @@ impl PPECompiler {
             cube_size: 0,
             flags: 0,
         };
-        let mut entry = VariableEntry::new(header, constant.get_value());
+        let mut entry = VariableEntry::new(header, value.clone());
         entry.set_name(format!("CONST_{id}"));
         entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
+        if let VariableValue::String(str) = value.generic_data {
+            if let Some(id) = self.string_lookup_table.get(&str) {
+                return *id;
+            }
+        } else {
+            unsafe {
+                let key = (constant.get_var_type() , value.data.u64_value);
+                self.const_lookup_table.insert(key, id);
+            }
+        }
         id
     }
 
@@ -699,14 +722,26 @@ impl PPECompiler {
     }
 
     fn get_variable(&self, idx: usize) -> &VariableEntry {
-        &self.variable_table[idx - 1]
+        &self.variable_table[idx]
     }
     fn get_variable_mut(&mut self, idx: usize) -> &mut VariableEntry {
-        &mut self.variable_table[idx - 1]
+        &mut self.variable_table[idx]
     }
 
     fn has_variable(&self, get_identifier: &unicase::Ascii<String>) -> bool {
         self.variable_lookup.contains_key(get_identifier)
+    }
+    
+    fn lookup_variable(&self, get_identifier: &unicase::Ascii<String>) -> Option<&VariableEntry> {
+        if let Some(idx) = self.variable_lookup.get(get_identifier) {
+            Some(self.get_variable(*idx))
+        } else {
+            None
+        }
+    }
+    
+    fn lookup_variable_index(&self, get_identifier: &unicase::Ascii<String>) -> Option<usize> {
+        self.variable_lookup.get(get_identifier).copied()
     }
 }
 

@@ -3,7 +3,7 @@ use std::fmt;
 use super::{Variable, VariableData};
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Eq, Hash)]
 #[allow(dead_code)]
 pub enum VariableType {
     /// unsigned character (1 byte) 0 = FALSE, non-0 = TRUE
@@ -59,7 +59,7 @@ impl VariableType {
     pub fn create_empty_value(&self) -> Variable {
         match self {
             VariableType::String | VariableType::BigStr => Variable::new_string(String::new()),
-            _ => Variable::new(*self, VariableData { unsigned_value: 0 }),
+            _ => Variable::new(*self, VariableData::default()),
         }
     }
 }

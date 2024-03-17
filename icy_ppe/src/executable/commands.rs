@@ -117,11 +117,13 @@ impl PPECommand {
             PPECommand::If(expr, label) => {
                 vec.push(OpCode::IF as i16);
                 expr.serialize(vec);
+                vec.push(0);
                 vec.push(*label as i16);
             }
             PPECommand::While(expr, stmt, label) => {
                 vec.push(OpCode::WHILE as i16);
                 expr.serialize(vec);
+                vec.push(0);
                 vec.push(*label as i16);
                 stmt.serialize(vec);
             }
@@ -199,8 +201,8 @@ impl PPECommand {
             | PPECommand::Stop => 1,
 
             PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
-            PPECommand::If(expr, _) => 1 + expr.get_size() + 1,
-            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 1 + stmt.get_size(),
+            PPECommand::If(expr, _) => 1 + expr.get_size() + 2,
+            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 2 + stmt.get_size(),
             PPECommand::ProcedureCall(_, args) => 2 + PPEExpr::count_size(args),
             PPECommand::PredefinedCall(def, args) => match def.sig {
                 super::StatementSignature::ArgumentsWithVariable(var_index, _) => {

@@ -1,7 +1,7 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
 use icy_ppe::{
-    compiler::{transform_ast, PPECompiler},
+    compiler::PPECompiler,
     executable::LAST_PPLC,
     parser::parse_program,
 };
@@ -18,6 +18,10 @@ struct Args {
     /// Disable automatic user variable generation
     #[arg(long = "nouvar")]
     no_user_variables: bool,
+
+    /// Don't egnerate a binary just output the disassembly
+    #[arg(short, long)]
+    disassemble: bool,
 
     /// file[.pps] to compile (extension defaults to .pps if not specified)
     input: String,
@@ -43,10 +47,9 @@ fn main() {
     let src = fs::read_to_string(&file_name).expect("Failed to read file");
     println!();
     println!("Parsing...");
-    let mut prg = parse_program(PathBuf::from(&file_name), &src);
+    let prg = parse_program(PathBuf::from(&file_name), &src);
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
-    transform_ast(&mut prg);
     let mut compiler = PPECompiler::new();
     compiler.compile(&prg, arguments.no_user_variables);
 
@@ -132,8 +135,22 @@ fn main() {
     }
 
     println!();
+
     match compiler.create_executable(LAST_PPLC) {
         Ok(executable) => {
+            if arguments.disassemble {
+                println!();
+                executable.print_variable_table();
+                println!();
+                compiler.get_script().visit(&mut icy_ppe::executable::disassembler::DisassembleVisitor::default());
+                println!();
+                println!("Generated:");
+                executable.print_script_buffer_dump();
+                println!();
+
+                return;
+            }
+        
             let bin = executable.to_buffer().unwrap();
             let out_file_name = Path::new(&file_name).with_extension("ppe");
             let len = bin.len();

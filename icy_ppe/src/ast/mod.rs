@@ -50,17 +50,17 @@ impl AstNode {
     }
 
     #[must_use]
-    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&self, visitor: &mut V) -> AstNode {
+    pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         match self {
-            AstNode::Comment(c) => AstNode::Comment(visitor.visit_comment(c)),
-            AstNode::Function(f) => AstNode::Function(visitor.visit_function_implementation(f)),
-            AstNode::Procedure(p) => AstNode::Procedure(visitor.visit_procedure_implementation(p)),
+            AstNode::Comment(c) => visitor.visit_comment(c),
+            AstNode::Function(f) => visitor.visit_function_implementation(f),
+            AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => AstNode::Statement(s.visit_mut(visitor)),
             AstNode::ProcedureDeclaration(p) => {
-                AstNode::ProcedureDeclaration(visitor.visit_procedure_declaration(p))
+                visitor.visit_procedure_declaration(p)
             }
             AstNode::FunctionDeclaration(f) => {
-                AstNode::FunctionDeclaration(visitor.visit_function_declaration(f))
+                visitor.visit_function_declaration(f)
             }
         }
     }

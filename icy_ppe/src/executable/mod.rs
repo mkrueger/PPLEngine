@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use std::io::Read;
+use std::io::{stdout, Read};
 
+use crossterm::execute;
+use crossterm::style::{Attribute, Print, SetAttribute};
 use thiserror::Error;
 
 use crate::ast::{Variable, VariableData, VariableType, VariableValue};
@@ -11,7 +13,7 @@ use crate::executable::disassembler::DisassembleVisitor;
 use crate::Res;
 
 pub mod deserializer;
-mod disassembler;
+pub mod disassembler;
 pub use deserializer::*;
 
 pub mod commands;
@@ -108,6 +110,14 @@ pub struct ProcedureValue {
     pub pass_flags: u16,
 }
 
+impl ProcedureValue {
+    pub fn to_data(self) -> VariableData {
+        let mut res = VariableData::default();
+        res.procedure_value = self;
+        res
+    }
+}
+
 impl fmt::Debug for ProcedureValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -145,6 +155,13 @@ impl FunctionValue {
         buffer.extend(i16::to_le_bytes(self.first_var_id));
         buffer.extend(i16::to_le_bytes(self.return_var));
     }
+
+    pub fn to_data(self) -> VariableData {
+        let mut res = VariableData::default();
+        res.function_value = self;
+        res
+    }
+
 }
 
 #[derive(Clone, Debug, Default)]
@@ -350,6 +367,7 @@ impl VariableEntry {
     /// This function will return an error if .
     pub fn to_buffer(&self, version: u16) -> Result<Vec<u8>, ExecutableError> {
         let mut buffer = Vec::new();
+        println!("write variable: {:?}", self.header.id);
         buffer.extend(u16::to_le_bytes(self.header.id as u16));
         buffer.push(self.header.dim);
         buffer.extend(u16::to_le_bytes(self.header.vector_size as u16));
@@ -430,6 +448,9 @@ pub enum ExecutableError {
 
     #[error("String type invalid: {0}")]
     StringTypeInvalid(VariableType),
+
+    #[error("Invalid index in variable table: {0} > max:{1}")]
+    InvalidVariableIndexInTable(usize, usize),
 }
 
 pub struct Executable {
@@ -448,7 +469,7 @@ impl Executable {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn from_buffer(buffer: &mut [u8]) -> Result<Executable, ExecutableError> {
+    pub fn from_buffer(buffer: &mut [u8], print_header_information: bool) -> Result<Executable, ExecutableError> {
         if !buffer.starts_with(PREAMBLE) {
             return Err(ExecutableError::InvalidPPEFile);
         }
@@ -465,10 +486,35 @@ impl Executable {
                 .try_into()
                 .unwrap(),
         ) as usize;
-        let (mut i, variable_table) = read_variable_table(version, buffer, max_var);
+        let (mut i, variable_table) = read_variable_table(version, buffer, max_var)?;
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
         let real_size = buffer.len() - i;
+
+        if print_header_information {
+            execute!(
+                stdout(),
+                Print("Format ".to_string()),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{}.{:00}",
+                version / 100,
+                version % 100)),
+                SetAttribute(Attribute::Reset),
+                Print( " detected ".to_string()),
+
+                SetAttribute(Attribute::Bold),
+                Print(format!("{max_var}")),
+                SetAttribute(Attribute::Reset),
+                Print( " variables, ".to_string()),
+
+                SetAttribute(Attribute::Bold),
+                Print(format!("{code_size}/{real_size} bytes")),
+                SetAttribute(Attribute::Reset),
+                Print( " code/compressed size, ".to_string()),
+            )
+            .unwrap();
+            println!();
+        }
 
         let code_data: &mut [u8] = &mut buffer[i..];
         let mut decrypted_data: Vec<u8> = Vec::new();
@@ -545,12 +591,13 @@ impl Executable {
         buffer.push(b'0' + (minor % 10) as u8);
         buffer.extend_from_slice(b"\x0D\x0A\x1A");
 
-        if self.variable_table.len() > 65535 {
+        if self.variable_table.len() >= 65535 {
             return Err(ExecutableError::TooManyDeclarations(
                 self.variable_table.len(),
             ));
         }
-        buffer.extend_from_slice(&u16::to_le_bytes(self.variable_table.len() as u16));
+        let max_var = u16::to_le_bytes(self.variable_table.len() as u16);
+        buffer.extend_from_slice(&max_var);
         for d in self.variable_table.iter().rev() {
             let var_data = d.to_buffer(self.version)?;
             buffer.extend(var_data);
@@ -639,24 +686,24 @@ const HEADER_SIZE: usize = 48;
 /// # Errors
 ///
 /// Panics if .
-pub fn read_file(file_name: &str) -> Res<Executable> {
+pub fn read_file(file_name: &str, print_header_information: bool) -> Res<Executable> {
     let mut f = File::open(file_name)?;
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer)?;
 
-    Ok(Executable::from_buffer(&mut buffer)?)
+    Ok(Executable::from_buffer(&mut buffer, print_header_information)?)
 }
 
 fn read_variable_table(
     version: u16,
     buf: &mut [u8],
     max_var: usize,
-) -> (usize, Vec<VariableEntry>) {
+) -> Result<(usize, Vec<VariableEntry>), ExecutableError> {
     let mut result = vec![VariableEntry::default(); max_var];
     let mut i = HEADER_SIZE + 2;
     if max_var == 0 {
-        return (i, result);
+        return Ok((i, result));
     }
     let mut var_count = max_var + 1;
     while var_count > 1 {
@@ -664,6 +711,11 @@ fn read_variable_table(
         let cur_block = &buf[i..(i + 11)];
 
         var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
+
+        if var_count > max_var {
+            return Err(ExecutableError::InvalidVariableIndexInTable(max_var, var_count));
+        }
+
         let header = VarHeader::from_bytes(cur_block);
 
         i += 11;
@@ -711,11 +763,11 @@ fn read_variable_table(
                         "Invalid variable type: {vtype}"
                     );
                     i += 2; // what's stored here ?
+                    let mut data = VariableData::default();
+                    data.unsigned_value = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap());
                     variable = Variable {
                         vtype,
-                        data: VariableData {
-                            unsigned_value: u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap()),
-                        },
+                        data,
                         ..Default::default()
                     };
                     i += 4;
@@ -728,17 +780,20 @@ fn read_variable_table(
                         "Invalid variable type: {vtype}"
                     );
                     i += 2; // what's stored here ?
+                    let mut data = VariableData::default();
+                    data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
+
+
                     variable = Variable {
                         vtype,
-                        data: VariableData {
-                            u64_value: u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap()),
-                        },
+                        data,
                         ..Default::default()
                     };
                     i += 8;
                 }
             } // B9 4b
         }
+        
         result[var_count - 1] = VariableEntry::new(header, variable);
     }
 
@@ -776,14 +831,6 @@ fn read_variable_table(
                     }
                     j += 1;
                     fvar.number = j;
-
-                    /* else {
-                        panic!(
-                            "Variable {i} not found. Invalid function header {:?}",
-                            cur.value.data.procedure_value
-                        );
-                    }
-                    */
                 });
             },
             _ => {}
@@ -794,5 +841,5 @@ fn read_variable_table(
         k -= 1;
     }
 
-    (i, result)
+    Ok((i, result))
 }

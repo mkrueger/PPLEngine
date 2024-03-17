@@ -62,10 +62,10 @@ impl DisassembleVisitor {
     }
 
     pub fn print_disassembler(&mut self, ppe_file: &super::Executable) {
-        println!();
-        println!("Offset  # OpCode      Parameters");
         match PPEScript::from_ppe_file(ppe_file) {
             Ok(script) => {
+                println!();
+                println!("Offset  # OpCode      Parameters");
                 script.visit(self);
                 println!();
             }

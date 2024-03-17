@@ -23,8 +23,9 @@ impl Program {
         visitor.visit_program(self);
     }
 
-    pub fn visit_mut<T: Default, V: AstVisitorMut<T>>(&mut self, visitor: &mut V) {
-        visitor.visit_program(self);
+    #[must_use]
+    pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
+        visitor.visit_program(self)
     }
 }
 

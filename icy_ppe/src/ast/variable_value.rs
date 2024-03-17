@@ -15,7 +15,7 @@ pub struct StdStruct {
     pub hi: u32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, )]
 pub union VariableData {
     pub bool_value: bool,
     pub unsigned_value: u32,
@@ -37,10 +37,23 @@ pub union VariableData {
 
     pub std_struct: StdStruct,
 }
+impl VariableData {
+    pub fn from_int(r: i32) -> VariableData {
+        let mut res = VariableData::default();
+        res.int_value =  r;
+        res
+    }
+    
+    pub fn from_bool(b: bool) -> VariableData {
+        let mut res = VariableData::default();
+        res.bool_value = b;
+        res
+    }
+}
 
 impl Default for VariableData {
     fn default() -> Self {
-        VariableData { unsigned_value: 0 }
+        unsafe { std::mem::zeroed::<VariableData>() }
     }
 }
 
@@ -234,9 +247,7 @@ impl Sub<Variable> for Variable {
                 let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData {
-                        int_value: l.wrapping_sub(r),
-                    },
+                    data: VariableData::from_int(l.wrapping_sub(r)),
                     generic_data: VariableValue::None,
                 };
             }
@@ -305,9 +316,7 @@ impl Mul<Variable> for Variable {
                 let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData {
-                        int_value: l.wrapping_mul(r),
-                    },
+                    data: VariableData::from_int(l.wrapping_mul(r)),
                     generic_data: VariableValue::None,
                 };
             }
@@ -376,9 +385,7 @@ impl Div<Variable> for Variable {
                 let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData {
-                        int_value: l.wrapping_div(r),
-                    },
+                    data: VariableData::from_int(l.wrapping_div(r)),
                     generic_data: VariableValue::None,
                 };
             }
@@ -450,9 +457,7 @@ impl Rem<Variable> for Variable {
                 let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData {
-                        int_value: l.wrapping_rem(r),
-                    },
+                    data: VariableData::from_int(l.wrapping_rem(r)),
                     generic_data: VariableValue::None,
                 };
             }
@@ -552,7 +557,7 @@ impl Neg for Variable {
                 let l = self.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData { int_value: -l },
+                    data: VariableData::from_int(-l),
                     generic_data: VariableValue::None,
                 };
             }
@@ -642,7 +647,7 @@ impl Variable {
     pub fn new_int(i: i32) -> Self {
         Self {
             vtype: VariableType::Integer,
-            data: VariableData { int_value: i },
+            data: VariableData::from_int(i),
             generic_data: VariableValue::None,
         }
     }
@@ -650,7 +655,7 @@ impl Variable {
     pub fn new_bool(b: bool) -> Self {
         Self {
             vtype: VariableType::Boolean,
-            data: VariableData { bool_value: b },
+            data: VariableData::from_bool(b),
             generic_data: VariableValue::None,
         }
     }
@@ -746,9 +751,7 @@ impl Variable {
                 let r = other.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData {
-                        int_value: l.wrapping_pow(r as u32),
-                    },
+                    data: VariableData::from_int(l.wrapping_pow(r as u32)),
                     generic_data: VariableValue::None,
                 };
             }
@@ -805,9 +808,7 @@ impl Variable {
         unsafe {
             Self {
                 vtype: VariableType::Boolean,
-                data: VariableData {
-                    bool_value: !self.data.bool_value,
-                },
+                data: VariableData::from_bool(!self.data.bool_value),
                 generic_data: VariableValue::None,
             }
         }
@@ -838,7 +839,7 @@ impl Variable {
                 let l = self.as_string().parse::<i32>().unwrap_or_default();
                 return Self {
                     vtype: VariableType::Integer,
-                    data: VariableData { int_value: l.abs() },
+                    data: VariableData::from_int(l.abs()),
                     generic_data: VariableValue::None,
                 };
             }
@@ -934,9 +935,7 @@ impl Variable {
     pub(crate) fn new_function(value: FunctionValue) -> Variable {
         Variable {
             vtype: VariableType::Function,
-            data: VariableData {
-                function_value: value,
-            },
+            data: value.to_data(),
             generic_data: VariableValue::None,
         }
     }
@@ -944,9 +943,7 @@ impl Variable {
     pub(crate) fn new_procedure(value: ProcedureValue) -> Variable {
         Variable {
             vtype: VariableType::Procedure,
-            data: VariableData {
-                procedure_value: value,
-            },
+            data: value.to_data(),
             generic_data: VariableValue::None,
         }
     }

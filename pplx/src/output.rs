@@ -411,7 +411,6 @@ impl ExecutionContext for Output {
     fn set_color(&mut self, color: u8) {
         let fg_color = color as usize & 0b1111;
         let bg_color = (color >> 4) as usize & 0b0111;
-        //println!("Setting color: {} fg: {} bg: {}", color, fg_color, bg_color);
         stdout()
             .execute(SetForegroundColor(get_color(fg_color)))
             .unwrap()

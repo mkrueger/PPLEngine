@@ -30,10 +30,10 @@ struct FuncL {
 
 /// # Errors
 ///
-pub fn load_file(file_name: &str) -> Res<Program> {
+pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Program> {
     let mut prg = Program::new();
     prg.file_name = PathBuf::from(file_name);
-    let mut d = Decompiler::new(read_file(file_name)?);
+    let mut d = Decompiler::new(read_file(file_name, print_header_information)?);
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);
     d.do_pass2(&mut prg);
@@ -481,7 +481,6 @@ impl Decompiler {
                     + cur_var.value.data.procedure_value.local_variables as usize;
                 //+1;
             }
-
             while i < mx_var {
                 if self.get_var(i).get_type() == EntryType::Variable {
                     self.get_var_mut(i).function_id = func;
@@ -1628,11 +1627,6 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
         "-----------------------------------------",
     )));
 
-    println!(
-        "Format: {}.{:00} detected",
-        d.executable.version / 100,
-        d.executable.version % 100
-    );
 
     if to_file {
         println!("Pass 1 ...");
@@ -1686,7 +1680,7 @@ pub fn decompile(executable: Executable, to_file: bool, raw: bool) -> Program {
             println!("Pass 3 ...");
         }
         reconstruct::do_pass3(&mut prg, &mut d.statements);
-        reconstruct::do_pass4(&mut prg);
+        prg = reconstruct::do_pass4(&mut prg);
     }
 
     if !d.warnings.is_empty() || !d.errors.is_empty() {

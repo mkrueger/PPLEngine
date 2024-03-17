@@ -44,7 +44,6 @@ fn is_match(output: &str, original: &str) -> bool {
     if j >= original.len() {
         return true;
     }
-    //        println!("at {} {}", j, String::from_utf8_lossy(&output[j..]));
     false
 }
 
@@ -76,11 +75,10 @@ fn test_decompiler() {
             .unwrap()
             .eq("for_next.ppe")
         {
-            // println!("skip.");
             //skipped += 1;
             continue;
         }*/
-        let executable = read_file(file_name.to_str().unwrap()).unwrap();
+        let executable = read_file(file_name.to_str().unwrap(), false).unwrap();
         let d = decompile(executable, false, false);
         let source_file = cur_entry.with_extension("pps");
         let orig_text = fs::read_to_string(source_file).unwrap();
@@ -93,7 +91,6 @@ fn test_decompiler() {
         let are_equal = is_match(&output_visitor.output, &orig_text);
 
         if are_equal {
-            // println!(" match.");
             //success += 1;
         } else {
             println!(
@@ -106,5 +103,4 @@ fn test_decompiler() {
 
         assert!(are_equal);
     }
-    // println!("successful {} skipped {}", success, skipped);
 }

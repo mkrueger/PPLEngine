@@ -67,7 +67,7 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    match read_file(file_name) {
+    match read_file(file_name, true) {
         Ok(executable) => {
             if arguments.disassemble {
                 executable.print_variable_table();

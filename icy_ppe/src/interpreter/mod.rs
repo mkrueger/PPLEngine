@@ -145,9 +145,7 @@ impl<'a> Interpreter<'a> {
             unicase::Ascii::new("self".to_string()),
             Variable::new(
                 VariableType::Integer,
-                VariableData {
-                    int_value: cur_user.page_len,
-                },
+                VariableData::from_int(cur_user.page_len),
             ),
         );
         self.cur_frame[0].values.insert(
@@ -158,9 +156,7 @@ impl<'a> Interpreter<'a> {
             unicase::Ascii::new("U_PWDEXP".to_string()),
             Variable::new(
                 VariableType::Date,
-                VariableData {
-                    int_value: cur_user.security_level,
-                },
+                VariableData::from_int(cur_user.security_level),
             ),
         );
         self.cur_frame[0].values.insert(
@@ -171,9 +167,7 @@ impl<'a> Interpreter<'a> {
             unicase::Ascii::new("U_SEC".to_string()),
             Variable::new(
                 VariableType::Integer,
-                VariableData {
-                    int_value: cur_user.security_level,
-                },
+                VariableData::from_int(cur_user.security_level),
             ),
         );
         self.cur_frame[0].values.insert(

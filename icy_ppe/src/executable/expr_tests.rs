@@ -34,7 +34,17 @@ fn test_predefined_functions_serialization() {
         vec![PPEExpr::Value(2), PPEExpr::Value(3)],
     );
     test_serialize(&val, &[2, 0, 3, 0, FuncOpCode::PLUS as i16]);
+
+
+    let i = -(FuncOpCode::MID as i32);
+    let val = PPEExpr::PredefinedFunctionCall(
+        &FUNCTION_DEFINITIONS[i as usize],
+        vec![PPEExpr::Value(2), PPEExpr::Value(3), PPEExpr::Value(4)],
+    );
+    test_serialize(&val, &[2, 0, 3, 0, 4, 0, FuncOpCode::MID as i16]);
+
 }
+
 
 #[test]
 fn test_binary_expression_serialization() {
@@ -100,6 +110,16 @@ fn test_binary_functions_deserialization() {
         Box::new(PPEExpr::Value(3)),
     );
     test_deserialization(&[2, 0, 3, 0, FuncOpCode::PLUS as i16], &val);
+}
+
+#[test]
+fn test_predefined_functions_deserialization() {
+    let i: i32 = -(FuncOpCode::MID as i32);
+    let val = PPEExpr::PredefinedFunctionCall(
+        &FUNCTION_DEFINITIONS[i as usize],
+        vec![PPEExpr::Value(1), PPEExpr::Value(2), PPEExpr::Value(3)],
+    );
+    test_deserialization( &[1, 0, 2, 0, 3, 0, FuncOpCode::MID as i16], &val);
 }
 
 fn test_deserialization(script: &[i16], expected: &PPEExpr) {

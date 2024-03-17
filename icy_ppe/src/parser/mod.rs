@@ -452,7 +452,6 @@ impl Parser {
         }
         let rightpar_token = self.save_spannedtoken();
         self.next_token();
-
         if !is_function {
             self.check_eol();
 
@@ -477,6 +476,7 @@ impl Parser {
             return None;
         };
         let return_type_token = self.save_spannedtoken();
+        self.next_token();
         self.check_eol();
         Some(AstNode::FunctionDeclaration(
             FunctionDeclarationAstNode::new(

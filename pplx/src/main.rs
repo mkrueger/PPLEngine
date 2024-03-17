@@ -69,7 +69,7 @@ fn main() {
         no_char: 'N',
     };
 
-    let mut prg = icy_ppe::decompiler::load_file(&file_name).unwrap();
+    let mut prg = icy_ppe::decompiler::load_file(&file_name, false).unwrap();
     let mut io = DiskIO::new(".");
     let mut output = Output::default();
 

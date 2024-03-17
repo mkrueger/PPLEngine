@@ -1,14 +1,7 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode,
-    ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement,
-    FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement,
-    GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-    LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement,
-    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-    ProcedureImplementation, Program, ReturnStatement, SelectStatement, UnaryExpression,
-    VariableDeclarationStatement, WhileDoStatement, WhileStatement,
+    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, WhileDoStatement, WhileStatement
 };
 
 #[allow(unused_variables)]
@@ -295,7 +288,7 @@ pub fn walk_block_stmt<T: Default, V: AstVisitor<T>>(visitor: &mut V, block: &Bl
 }
 
 #[allow(unused_variables)]
-pub trait AstVisitorMut<T: Default>: Sized {
+pub trait AstVisitorMut: Sized {
     fn visit_identifier(&mut self, id: &unicase::Ascii<String>) -> unicase::Ascii<String> {
         id.clone()
     }
@@ -304,76 +297,80 @@ pub trait AstVisitorMut<T: Default>: Sized {
     fn visit_identifier_expression(
         &mut self,
         identifier: &IdentifierExpression,
-    ) -> IdentifierExpression {
-        IdentifierExpression::empty(self.visit_identifier(identifier.get_identifier()))
+    ) -> Expression {
+        Expression::Identifier(IdentifierExpression::empty(self.visit_identifier(identifier.get_identifier())))
     }
 
-    fn visit_constant_expression(&mut self, constant: &ConstantExpression) -> ConstantExpression {
-        constant.clone()
+    fn visit_constant_expression(&mut self, constant: &ConstantExpression) -> Expression {
+        Expression::Const(constant.clone())
     }
-    fn visit_binary_expression(&mut self, binary: &BinaryExpression) -> BinaryExpression {
+    fn visit_binary_expression(&mut self, binary: &BinaryExpression) -> Expression {
         let left = binary.get_left_expression().visit_mut(self);
         let right = binary.get_right_expression().visit_mut(self);
-        BinaryExpression::empty(Box::new(left), binary.get_op(), Box::new(right))
+        Expression::Binary(BinaryExpression::empty(Box::new(left), binary.get_op(), Box::new(right)))
     }
-    fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> UnaryExpression {
+    fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> Expression {
         let expr = unary.get_expression().visit_mut(self);
-        UnaryExpression::empty(unary.get_op(), Box::new(expr))
+        Expression::Unary(UnaryExpression::empty(unary.get_op(), Box::new(expr)))
     }
+
     fn visit_predefined_function_call_expression(
         &mut self,
         call: &PredefinedFunctionCallExpression,
-    ) -> PredefinedFunctionCallExpression {
-        PredefinedFunctionCallExpression::empty(
+    ) -> Expression {
+        Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::empty(
             call.get_func(),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
     fn visit_function_call_expression(
         &mut self,
         call: &FunctionCallExpression,
-    ) -> FunctionCallExpression {
-        FunctionCallExpression::empty(
+    ) -> Expression {
+        Expression::FunctionCall(FunctionCallExpression::empty(
             self.visit_identifier(call.get_identifier()),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
-    fn visit_parens_expression(&mut self, parens: &ParensExpression) -> ParensExpression {
-        ParensExpression::empty(Box::new(parens.get_expression().visit_mut(self)))
+    fn visit_parens_expression(&mut self, parens: &ParensExpression) -> Expression {
+        Expression::Parens(ParensExpression::empty(Box::new(parens.get_expression().visit_mut(self))))
     }
 
     // visit statements
-    fn visit_comment(&mut self, comment: &CommentAstNode) -> CommentAstNode {
-        comment.clone()
+    fn visit_comment(&mut self, comment: &CommentAstNode) -> AstNode {
+        AstNode::Comment(comment.clone())
     }
-    fn visit_end_statement(&mut self, end: &EndStatement) -> EndStatement {
-        end.clone()
+    fn visit_comment_statement(&mut self, comment: &CommentAstNode) -> Statement {
+        Statement::Comment(comment.clone())
     }
-    fn visit_block_statement(&mut self, block: &BlockStatement) -> BlockStatement {
-        BlockStatement::empty(
+    fn visit_end_statement(&mut self, end: &EndStatement) -> Statement {
+        Statement::End(EndStatement::empty())
+    }
+    fn visit_block_statement(&mut self, block: &BlockStatement) -> Statement {
+        Statement::Block(BlockStatement::empty(
             block
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
-    fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> IfStatement {
-        IfStatement::empty(
+    fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
+        Statement::If(IfStatement::empty(
             Box::new(if_stmt.get_condition().visit_mut(self)),
             Box::new(if_stmt.get_statement().visit_mut(self)),
-        )
+        ))
     }
 
-    fn visit_if_then_statement(&mut self, if_then: &IfThenStatement) -> IfThenStatement {
-        IfThenStatement::empty(
+    fn visit_if_then_statement(&mut self, if_then: &IfThenStatement) -> Statement {
+        Statement::IfThen(IfThenStatement::empty(
             Box::new(if_then.get_condition().visit_mut(self)),
             if_then
                 .get_statements()
@@ -389,7 +386,7 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .get_else_block()
                 .as_ref()
                 .map(|else_block| else_block.visit_mut(self)),
-        )
+        ))
     }
 
     fn visit_else_if_block(&mut self, else_if: &ElseIfBlock) -> ElseIfBlock {
@@ -413,8 +410,8 @@ pub trait AstVisitorMut<T: Default>: Sized {
         )
     }
 
-    fn visit_select_statement(&mut self, select_stmt: &SelectStatement) -> SelectStatement {
-        SelectStatement::empty(
+    fn visit_select_statement(&mut self, select_stmt: &SelectStatement) -> Statement {
+        Statement::Select(SelectStatement::empty(
             Box::new(select_stmt.get_expression().visit_mut(self)),
             select_stmt
                 .get_case_blocks()
@@ -425,8 +422,9 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .get_case_else_block()
                 .as_ref()
                 .map(|else_block| else_block.visit_mut(self)),
-        )
+        ))
     }
+    
     fn visit_case_block(&mut self, case_block: &CaseBlock) -> CaseBlock {
         CaseBlock::empty(
             Box::new(case_block.get_expression().visit_mut(self)),
@@ -438,26 +436,26 @@ pub trait AstVisitorMut<T: Default>: Sized {
         )
     }
 
-    fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> WhileStatement {
-        WhileStatement::empty(
+    fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> Statement {
+        Statement::While(WhileStatement::empty(
             Box::new(while_stmt.get_condition().visit_mut(self)),
             Box::new(while_stmt.get_statement().visit_mut(self)),
-        )
+        ))
     }
 
-    fn visit_while_do_statement(&mut self, while_do: &WhileDoStatement) -> WhileDoStatement {
-        WhileDoStatement::empty(
+    fn visit_while_do_statement(&mut self, while_do: &WhileDoStatement) -> Statement {
+        Statement::WhileDo(WhileDoStatement::empty(
             Box::new(while_do.get_condition().visit_mut(self)),
             while_do
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
-    fn visit_for_statement(&mut self, for_stmt: &ForStatement) -> ForStatement {
-        ForStatement::empty(
+    fn visit_for_statement(&mut self, for_stmt: &ForStatement) -> Statement {
+        Statement::For(ForStatement::empty(
             self.visit_identifier(for_stmt.get_identifier()),
             Box::new(for_stmt.get_start_expr().visit_mut(self)),
             Box::new(for_stmt.get_end_expr().visit_mut(self)),
@@ -470,23 +468,24 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
-    fn visit_break_statement(&mut self, break_stmt: &BreakStatement) -> BreakStatement {
-        break_stmt.clone()
+    
+    fn visit_break_statement(&mut self, break_stmt: &BreakStatement) -> Statement {
+        Statement::Break(break_stmt.clone())
     }
-    fn visit_continue_statement(&mut self, continue_stmt: &ContinueStatement) -> ContinueStatement {
-        continue_stmt.clone()
+    fn visit_continue_statement(&mut self, continue_stmt: &ContinueStatement) -> Statement {
+        Statement::Continue(continue_stmt.clone())
     }
-    fn visit_gosub_statement(&mut self, gosub: &GosubStatement) -> GosubStatement {
-        gosub.clone()
+    fn visit_gosub_statement(&mut self, gosub: &GosubStatement) -> Statement {
+        Statement::Gosub(gosub.clone())
     }
-    fn visit_return_statement(&mut self, return_stmt: &ReturnStatement) -> ReturnStatement {
-        return_stmt.clone()
+    fn visit_return_statement(&mut self, return_stmt: &ReturnStatement) -> Statement {
+        Statement::Return(return_stmt.clone())
     }
 
-    fn visit_let_statement(&mut self, let_stmt: &LetStatement) -> LetStatement {
-        LetStatement::empty(
+    fn visit_let_statement(&mut self, let_stmt: &LetStatement) -> Statement {
+        Statement::Let(LetStatement::empty(
             self.visit_identifier(let_stmt.get_identifier()),
             let_stmt
                 .get_arguments()
@@ -494,58 +493,58 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
             Box::new(let_stmt.get_value_expression().visit_mut(self)),
-        )
+        ))
     }
 
-    fn visit_goto_statement(&mut self, goto: &GotoStatement) -> GotoStatement {
-        goto.clone()
+    fn visit_goto_statement(&mut self, goto: &GotoStatement) -> Statement {
+        Statement::Goto(goto.clone())
     }
-    fn visit_label_statement(&mut self, label: &LabelStatement) -> LabelStatement {
-        label.clone()
+    fn visit_label_statement(&mut self, label: &LabelStatement) -> Statement {
+        Statement::Label(label.clone())
     }
     fn visit_procedure_call_statement(
         &mut self,
         call: &ProcedureCallStatement,
-    ) -> ProcedureCallStatement {
-        ProcedureCallStatement::empty(
+    ) -> Statement {
+        Statement::Call(ProcedureCallStatement::empty(
             self.visit_identifier(call.get_identifier()),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
     fn visit_predefined_call_statement(
         &mut self,
         call: &PredefinedCallStatement,
-    ) -> PredefinedCallStatement {
-        PredefinedCallStatement::empty(
+    ) -> Statement {
+        Statement::PredifinedCall(PredefinedCallStatement::empty(
             call.get_func(),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
     // visit declarations
     fn visit_variable_declaration_statement(
         &mut self,
         var_decl: &VariableDeclarationStatement,
-    ) -> VariableDeclarationStatement {
-        var_decl.clone()
+    ) -> Statement {
+        Statement::VariableDeclaration(var_decl.clone())
     }
     fn visit_procedure_declaration(
         &mut self,
         proc_decl: &ProcedureDeclarationAstNode,
-    ) -> ProcedureDeclarationAstNode {
-        proc_decl.clone()
+    ) -> AstNode {
+        AstNode::ProcedureDeclaration(proc_decl.clone())
     }
     fn visit_function_declaration(
         &mut self,
         func_decl: &FunctionDeclarationAstNode,
-    ) -> FunctionDeclarationAstNode {
-        func_decl.clone()
+    ) -> AstNode {
+        AstNode::FunctionDeclaration(func_decl.clone())
     }
 
     // visit implementations
@@ -557,8 +556,8 @@ pub trait AstVisitorMut<T: Default>: Sized {
     fn visit_function_implementation(
         &mut self,
         function: &FunctionImplementation,
-    ) -> FunctionImplementation {
-        FunctionImplementation::empty(
+    ) -> AstNode {
+        AstNode::Function(FunctionImplementation::empty(
             function.id,
             self.visit_identifier(function.get_identifier()),
             function
@@ -572,7 +571,7 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
     fn visit_parameter_specifier(&mut self, param: &ParameterSpecifier) -> ParameterSpecifier {
@@ -582,8 +581,8 @@ pub trait AstVisitorMut<T: Default>: Sized {
     fn visit_procedure_implementation(
         &mut self,
         procedure: &ProcedureImplementation,
-    ) -> ProcedureImplementation {
-        ProcedureImplementation::empty(
+    ) -> AstNode {
+        AstNode::Procedure(ProcedureImplementation::empty(
             procedure.id,
             self.visit_identifier(procedure.get_identifier()),
             procedure
@@ -596,7 +595,7 @@ pub trait AstVisitorMut<T: Default>: Sized {
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
     fn visit_program(&mut self, program: &Program) -> Program {

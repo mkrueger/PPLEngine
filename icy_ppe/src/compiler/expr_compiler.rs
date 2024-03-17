@@ -15,12 +15,8 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         &mut self,
         identifier: &crate::ast::IdentifierExpression,
     ) -> PPEExpr {
-        if let Some(decl_idx) = self
-            .compiler
-            .variable_lookup
-            .get(identifier.get_identifier())
+        if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier())
         {
-            let decl = &self.compiler.get_variable(*decl_idx);
             return PPEExpr::Value(decl.header.id);
         }
         self.compiler.errors.push(CompilationError {
@@ -78,8 +74,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         if self.compiler.has_variable(func_call.get_identifier()) {
             let Some(table_idx) = self
                 .compiler
-                .variable_lookup
-                .get(func_call.get_identifier())
+                .lookup_variable_index(func_call.get_identifier())
             else {
                 self.compiler.errors.push(CompilationError {
                     error: CompilationErrorType::FunctionNotFound(
@@ -89,13 +84,12 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 });
                 return PPEExpr::Value(0);
             };
-            return PPEExpr::FunctionCall(*table_idx, arguments);
+            return PPEExpr::FunctionCall(table_idx + 1, arguments);
         }
 
         let Some(table_idx) = self
             .compiler
-            .variable_lookup
-            .get(func_call.get_identifier())
+            .lookup_variable_index(func_call.get_identifier())
         else {
             self.compiler.errors.push(CompilationError {
                 error: CompilationErrorType::VariableNotFound(
@@ -105,7 +99,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             });
             return PPEExpr::Value(0);
         };
-        let var = &self.compiler.get_variable(*table_idx);
+        let var = &self.compiler.get_variable(table_idx);
         if var.header.dim as usize != arguments.len() {
             self.compiler.errors.push(CompilationError {
                 error: CompilationErrorType::InvalidDimensions(
@@ -117,7 +111,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             });
             return PPEExpr::Value(0);
         }
-        PPEExpr::Dim(*table_idx, arguments)
+        PPEExpr::Dim(table_idx, arguments)
     }
 
     fn visit_parens_expression(&mut self, parens: &crate::ast::ParensExpression) -> PPEExpr {

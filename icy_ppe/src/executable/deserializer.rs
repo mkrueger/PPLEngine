@@ -48,6 +48,9 @@ pub enum DeserializationErrorType {
 
     #[error("Invalid statement {0}")]
     InvalidStatement(i16),
+
+    #[error("Got procedure call in expression {0}")]
+    GotProcedureCallInExpression(i16),
 }
 
 #[derive(Default)]
@@ -210,6 +213,25 @@ impl PPEDeserializer {
                 break;
             }
             if id > 0 {
+                match executable.variable_table[id as usize - 1].value.vtype {
+                    VariableType::Function => unsafe {
+                        self.offset += 2;
+                        let parameters = executable.variable_table[id as usize - 1].value.data.function_value.parameters;
+                        let mut arguments = Vec::new();
+                        for _ in 0..parameters {
+                            let expr = self.deserialize_expression(executable)?;
+                            arguments.push(expr);
+                        }
+                        self.push_expr(PPEExpr::FunctionCall(id as usize, arguments));
+                    }
+                    VariableType::Procedure => {
+                        self.offset += 1;
+
+                        return Err(DeserializationErrorType::GotProcedureCallInExpression(id));
+                    }
+                    _ => {}
+                }
+
                 let var = self.read_variable_expression(executable)?;
                 self.push_expr(var);
             } else {
@@ -287,12 +309,10 @@ impl PPEDeserializer {
     }
 
     fn push_expr(&mut self, expr: PPEExpr) {
-        // println!("push {expr:?}");
         self.expr_stack.push(expr);
     }
 
     fn pop_expr(&mut self) -> Option<PPEExpr> {
-        // println!("pop len {}", self.expr_stack.len());
         self.expr_stack.pop()
     }
 

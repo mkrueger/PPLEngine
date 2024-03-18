@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env::var;
 use std::path::PathBuf;
 use std::string::String;
 
@@ -407,7 +408,7 @@ impl<'a> VirtualMachine<'a> {
                 let left_value = self.eval_expr(left)?;
                 let right_value = self.eval_expr(right)?;
 
-                let res = match op {
+                match op {
                     BinOp::Add => Ok(left_value + right_value),
                     BinOp::Sub => Ok(left_value - right_value),
                     BinOp::Mul => Ok(left_value * right_value),
@@ -426,9 +427,7 @@ impl<'a> VirtualMachine<'a> {
                     BinOp::LowerEq => Ok(Variable::new_bool(left_value <= right_value)),
                     BinOp::Greater => Ok(Variable::new_bool(left_value > right_value)),
                     BinOp::GreaterEq => Ok(Variable::new_bool(left_value >= right_value)),
-                };
-
-                res
+                }
             }
             PPEExpr::Dim(id, dims) => {
                 let dim_1 = self.eval_expr(&dims[0])?.as_int() as usize;
@@ -448,13 +447,13 @@ impl<'a> VirtualMachine<'a> {
                     if dim_1 < data.len() {
                         Ok(data[dim_1].clone())
                     } else {
-                        Ok(Variable::default())
+                        Ok(var.value.vtype.create_empty_value())
                     }
                 } else if let GenericVariableData::Dim2(data) = &var.value.generic_data {
                     if dim_1 < data.len() && dim_2 < data[dim_1].len() {
                         Ok(data[dim_1][dim_2].clone())
                     } else {
-                        Ok(Variable::default())
+                        Ok(var.value.vtype.create_empty_value())
                     }
                 } else if let GenericVariableData::Dim3(data) = &var.value.generic_data {
                     if dim_1 < data.len()
@@ -463,10 +462,10 @@ impl<'a> VirtualMachine<'a> {
                     {
                         Ok(data[dim_1][dim_2][dim_3].clone())
                     } else {
-                        Ok(Variable::default())
+                        Ok(var.value.vtype.create_empty_value())
                     }
                 } else {
-                    Ok(Variable::default())
+                    Ok(var.value.vtype.create_empty_value())
                 }
             }
             PPEExpr::PredefinedFunctionCall(func, arguments) => {
@@ -510,17 +509,26 @@ impl<'a> VirtualMachine<'a> {
                 match dims.len() {
                     1 => {
                         if let GenericVariableData::Dim1(v) = &mut var.value.generic_data {
-                            v[dim_1] = expr;
+                            if dim_1 < v.len() {
+                                v[dim_1] = expr;
+                            }
                         }
                     }
                     2 => {
                         if let GenericVariableData::Dim2(v) = &mut var.value.generic_data {
-                            v[dim_1][dim_2] = expr;
+                            if dim_1 < v.len() && dim_2 < v[dim_1].len() {
+                                v[dim_1][dim_2] = expr;
+                            }
                         }
                     }
                     3 => {
                         if let GenericVariableData::Dim3(v) = &mut var.value.generic_data {
-                            v[dim_1][dim_2][dim_3] = expr;
+                            if dim_1 < v.len()
+                                && dim_2 < v[dim_1].len()
+                                && dim_3 < v[dim_1][dim_2].len()
+                            {
+                                v[dim_1][dim_2][dim_3] = expr;
+                            }
                         }
                     }
                     _ => {
@@ -554,14 +562,14 @@ impl<'a> VirtualMachine<'a> {
 
             PPECommand::IfNot(expr, label) => {
                 if !self.eval_expr(expr)?.as_bool() {
-                    self.goto(*label);
+                    self.goto(*label)?;
                 }
             }
             PPECommand::While(exp, stmt, label) => {
                 while self.eval_expr(exp)?.as_bool() {
                     self.execute_statement(stmt)?;
                 }
-                self.goto(*label);
+                self.goto(*label)?;
             }
             PPECommand::ProcedureCall(proc_id, arguments) => {}
             PPECommand::PredefinedCall(proc, arguments) => {
@@ -574,11 +582,11 @@ impl<'a> VirtualMachine<'a> {
                 // TODO: Write back the arguments.
             }
             PPECommand::Goto(label) => {
-                self.goto(*label);
+                self.goto(*label)?;
             }
             PPECommand::Gosub(label) => {
                 self.gosub_stack.push(self.cur_ptr);
-                self.goto(*label);
+                self.goto(*label)?;
             }
             PPECommand::EndFunc => {
                 self.cur_ptr = self.func_stack.pop().unwrap();

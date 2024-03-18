@@ -79,6 +79,34 @@ impl VarHeader {
         buffer.push(self.flags);
         buffer
     }
+
+    fn create_generic_data(&self) -> GenericVariableData {
+        match self.dim {
+            0 => GenericVariableData::None,
+            1 => GenericVariableData::Dim1(vec![
+                self.variable_type.create_empty_value();
+                self.vector_size
+            ]),
+            2 => GenericVariableData::Dim2(vec![
+                vec![
+                    self.variable_type.create_empty_value();
+                    self.matrix_size
+                ];
+                self.vector_size
+            ]),
+            3 => GenericVariableData::Dim3(vec![
+                vec![
+                    vec![
+                        self.variable_type.create_empty_value();
+                        self.cube_size
+                    ];
+                    self.matrix_size
+                ];
+                self.vector_size
+            ]),
+            _ => panic!("Invalid dimension: {}", self.dim),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -730,13 +758,18 @@ fn read_variable_table(
                     u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
                 i += 2;
                 decrypt(&mut (buf[i..(i + string_length)]), version);
-                let mut str = String::new();
-                for c in &buf[i..(i + string_length - 1)] {
-                    str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
-                }
+                let generic_data = if header.dim > 0 {
+                    header.create_generic_data()
+                } else {
+                    let mut str = String::new();
+                    for c in &buf[i..(i + string_length - 1)] {
+                        str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
+                    }
+                    GenericVariableData::String(str)
+                };
                 variable = Variable {
                     vtype: VariableType::String,
-                    generic_data: GenericVariableData::String(str),
+                    generic_data,
                     ..Default::default()
                 };
                 i += string_length;
@@ -790,7 +823,7 @@ fn read_variable_table(
                     variable = Variable {
                         vtype,
                         data,
-                        ..Default::default()
+                        generic_data: header.create_generic_data(),
                     };
                     i += 8;
                 }

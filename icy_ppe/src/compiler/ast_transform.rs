@@ -31,10 +31,33 @@ impl AstVisitorMut for AstTransformationVisitor {
         GotoStatement::create_empty_statement(break_label.clone())
     }
 
+    fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
+        if matches!(if_stmt.get_statement(), Statement::Goto(_)) {
+            return Statement::If(IfStatement::empty(
+                Box::new(if_stmt.get_condition().visit_mut(self)),
+                Box::new(if_stmt.get_statement().visit_mut(self)),
+            ));
+        }
+        let mut statements = Vec::new();
+        let if_exit_label = self.next_label();
+        statements.push(IfStatement::create_empty_statement(
+            Box::new(UnaryExpression::create_empty_expression(
+                crate::ast::UnaryOp::Not,
+                Box::new(if_stmt.get_condition().clone()),
+            )),
+            Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
+        ));
+        statements.push(if_stmt.get_statement().visit_mut(self));
+        statements.push(LabelStatement::create_empty_statement(
+            if_exit_label.clone(),
+        ));
+        Statement::Block(BlockStatement::empty(statements))
+    }
+
     fn visit_if_then_statement(&mut self, if_then: &crate::ast::IfThenStatement) -> Statement {
         let mut statements = Vec::new();
 
-        let mut last_exit_label = self.next_label();
+        let last_exit_label = self.next_label();
         let mut if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
             Box::new(if_then.get_condition().clone()),

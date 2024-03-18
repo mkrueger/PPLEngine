@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::string::String;
-
 use thiserror::Error;
 
 use crate::ast::BinOp;
 use crate::ast::GenericVariableData;
 use crate::ast::Statement;
 use crate::ast::UnaryOp;
+use crate::ast::VariableType;
 use crate::ast::VariableValue;
 use crate::executable::Executable;
 use crate::executable::PPECommand;
@@ -162,8 +162,10 @@ pub struct VirtualMachine<'a> {
     pub file_name: PathBuf,
     pub variable_table: Vec<VariableEntry>,
 
+    pub script: PPEScript,
     pub cur_ptr: usize,
     pub is_running: bool,
+    pub fpclear: bool,
 
     pub icy_board_data: IcyBoardData,
     pub cur_user: usize,
@@ -422,13 +424,7 @@ impl<'a> VirtualMachine<'a> {
     fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
         match expr {
             PPEExpr::Invalid => Err(VMError::InternalVMError),
-            PPEExpr::Value(id) => {
-                let var = &self.variable_table[*id - 1];
-                unsafe {
-                    //                    print!(" get id {:02X}: {}\n", *id - 1, var.value.data.byte_value);
-                }
-                Ok(var.value.clone())
-            }
+            PPEExpr::Value(id) => Ok((&self.variable_table[*id - 1]).value.clone()),
             PPEExpr::UnaryExpression(op, expr) => {
                 let val = self.eval_expr(expr)?;
                 match op {
@@ -506,18 +502,54 @@ impl<'a> VirtualMachine<'a> {
                 for arg in arguments {
                     args.push(self.eval_expr(arg)?);
                 }
-
                 Ok((func.function)(self, &args).unwrap())
             }
-            PPEExpr::FunctionCall(id, arguments) => {
-                let mut args = Vec::new();
-                for arg in arguments {
-                    args.push(self.eval_expr(arg)?);
-                }
 
-                panic!("Not implemented");
+            PPEExpr::FunctionCall(func_id, arguments) => {
+                let proc_offset;
+                let locals;
+                let parameters;
+                let first;
+                let return_var_id;
+                unsafe {
+                    let proc = &self.variable_table[*func_id - 1];
+                    proc_offset = proc.value.data.function_value.start_offset as usize;
+                    first = (proc.value.data.function_value.first_var_id + 1) as usize;
+                    locals = proc.value.data.function_value.local_variables as usize;
+                    parameters = proc.value.data.function_value.parameters as usize;
+                    return_var_id = proc.value.data.function_value.return_var as usize - 1;
+                }
+                for i in 0..locals {
+                    let id = first + i - 1;
+                    if self.variable_table[id].header.flags & 0x1 == 0x0 && id != return_var_id {
+                        self.parameter_stack
+                            .push(self.variable_table[id].value.clone());
+                    }
+
+                    if i < parameters {
+                        let expr = self.eval_expr(&arguments[i])?;
+                        self.variable_table[id].value.data = expr.data;
+                    }
+                }
+                self.return_addresses
+                    .push(ReturnAddress::func_call(self.cur_ptr, *func_id));
+                self.goto(proc_offset)?;
+                self.run()?;
+                self.fpclear = false;
+                Ok(self.variable_table[return_var_id].value.clone())
             }
         }
+    }
+
+    fn run(&mut self) -> Result<(), VMError> {
+        let max_ptr = self.script.statements.len();
+        while !self.fpclear && self.is_running && self.cur_ptr < max_ptr {
+            let p = self.cur_ptr;
+            self.cur_ptr += 1;
+            let c = self.script.statements[p].command.clone();
+            self.execute_statement(&c)?;
+        }
+        Ok(())
     }
 
     fn set_variable(&mut self, variable: &PPEExpr, expr: &PPEExpr) -> Result<(), VMError> {
@@ -592,16 +624,28 @@ impl<'a> VirtualMachine<'a> {
                     if proc_id > 0 {
                         let locals;
                         let first;
+                        let return_var_id;
                         unsafe {
                             let proc = &self.variable_table[proc_id - 1];
                             first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
                             locals = proc.value.data.procedure_value.local_variables as usize;
+                            if proc.header.variable_type == VariableType::Function {
+                                return_var_id =
+                                    proc.value.data.function_value.return_var as usize - 1;
+                            } else {
+                                return_var_id = 0;
+                            }
                         }
                         for i in (0..locals).rev() {
                             let id = first + i - 1;
-                            if self.variable_table[id].header.flags & 0x1 == 0x0 {
+                            if self.variable_table[id].header.flags & 0x1 == 0x0
+                                && return_var_id != id
+                            {
                                 self.variable_table[id].value = self.parameter_stack.pop().unwrap();
                             }
+                        }
+                        if stmt == &PPECommand::EndFunc {
+                            self.fpclear = true;
                         }
                     }
                 } else {
@@ -655,7 +699,6 @@ impl<'a> VirtualMachine<'a> {
                     args.push(expr);
                 }
                 (proc.function)(self, &mut args);
-                // TODO: Write back the arguments.
             }
             PPECommand::Goto(label) => {
                 self.goto(*label)?;
@@ -730,12 +773,19 @@ pub fn run(
         return Ok(false);
     };
 
+    let mut label_table = calc_labe_table(&script.statements);
+    for (i, stmt) in script.statements.iter().enumerate() {
+        label_table.insert(stmt.span.start * 2, i);
+    }
+
     let mut vm = VirtualMachine {
         file_name,
         ctx,
         return_addresses: Vec::new(),
+        script,
         io,
         is_running: true,
+        fpclear: false,
         cur_tokens: Vec::new(),
         icy_board_data,
         cur_user: 0,
@@ -743,21 +793,12 @@ pub fn run(
         pcb_node: None,
         variable_table: prg.variable_table.clone(),
         cur_ptr: 0,
-        label_table: calc_labe_table(&script.statements),
+        label_table,
         parameter_stack: Vec::new(),
     };
 
-    for (i, stmt) in script.statements.iter().enumerate() {
-        vm.label_table.insert(stmt.span.start * 2, i);
-    }
-
     vm.set_user_variables(&UserRecord::default());
-    while vm.is_running && vm.cur_ptr < script.statements.len() {
-        let p = vm.cur_ptr;
-        vm.cur_ptr += 1;
-        let c = &script.statements[p].command;
-        vm.execute_statement(c)?;
-    }
+    vm.run()?;
     Ok(true)
 }
 

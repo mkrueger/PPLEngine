@@ -138,7 +138,8 @@ fn main() {
                 println!();
                 executable.print_variable_table();
                 println!();
-                let mut visitor = icy_ppe::executable::disassembler::DisassembleVisitor::new(&executable);
+                let mut visitor =
+                    icy_ppe::executable::disassembler::DisassembleVisitor::new(&executable);
                 visitor.show_statement_data = true;
 
                 compiler.get_script().visit(&mut visitor);

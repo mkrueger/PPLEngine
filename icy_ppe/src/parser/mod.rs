@@ -15,9 +15,13 @@ use unicase::Ascii;
 
 mod expression;
 pub mod lexer;
+mod statements;
+
 #[cfg(test)]
 mod lexer_tests;
-mod statements;
+
+// #[cfg(test)]
+// mod parser_tests;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
@@ -861,108 +865,3 @@ pub fn parse_program(file_name: PathBuf, input: &str) -> Program {
 }
 
 // type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
-
-#[cfg(test)]
-mod tests {
-    /*  use super::*;
-
-    #[test]
-    fn test_procedure() {
-        let prg = parse_program("Procedure Proc() PRINT 5 EndProc");
-        assert_eq!(1, prg.procedure_implementations.len());
-    }
-
-    #[test]
-    fn test_function() {
-        let prg = parse_program("Function Func() BOOLEAN PRINT 5 EndFunc");
-        assert_eq!(1, prg.function_implementations.len());
-    }*/
-
-    #[test]
-    fn test_var_declarations() {
-        /*
-        let prg = parse_program("BOOLEAN VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Boolean, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("INTEGER VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Integer, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("DATE VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Date, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("STRING VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::String, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("MONEY VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Money, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("BYTE VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Byte, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("SBYTE VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::SByte, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("WORD VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::Word, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-        let prg = parse_program("SWORD VAR001");
-        assert_eq!(
-            Declaration::create_variable(VariableType::SWord, "VAR001".to_string()),
-            prg.declarations[0]
-        );
-
-        let prg = parse_program("INTEGER VAR001(5)");
-        assert_eq!(
-            Declaration::create_variable1(VariableType::Integer, "VAR001".to_string(), 5),
-            prg.declarations[0]
-        );
-        let prg = parse_program("INTEGER VAR001(5, 10)");
-        assert_eq!(
-            Declaration::create_variable2(VariableType::Integer, "VAR001".to_string(), 5, 10),
-            prg.declarations[0]
-        );
-        let prg = parse_program("INTEGER VAR001(5, 10, 42)");
-        assert_eq!(
-            Declaration::create_variable3(VariableType::Integer, "VAR001".to_string(), 5, 10, 42),
-            prg.declarations[0]
-        );*/
-    }
-    /*
-    #[test]
-    fn test_func_declarations() {
-        let prg = parse_program("DECLARE PROCEDURE PROC001()");
-        assert_eq!(
-            Declaration::Procedure("PROC001".to_string(), vec![]),
-            prg.declarations[0]
-        );
-
-        let prg = parse_program("DECLARE FUNCTION FUNC001(INTEGER LOC001) INTEGER");
-        assert_eq!(
-            Declaration::Function(
-                "FUNC001".to_string(),
-                vec![Declaration::create_variable(
-                    VariableType::Integer,
-                    "LOC001".to_string()
-                )],
-                VariableType::Integer
-            ),
-            prg.declarations[0]
-        );
-    }*/
-}

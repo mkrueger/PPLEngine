@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinOp, Variable, VariableType},
-    executable::{Executable, FunctionValue, VariableEntry},
+    executable::{Executable, FunctionValue, ProcedureValue, VariableEntry},
     tables::{FuncOpCode, FUNCTION_DEFINITIONS},
 };
 
@@ -77,6 +77,12 @@ fn test_print_midserialization() {
     test_serialize(&val, &[9, 1, 6, 0, 2, 0, 0, 3, 0, 2, 0, 2, 0, -23, -8, 0]);
 }
 
+#[test]
+fn test_procedure_call() {
+    let val = PPECommand::ProcedureCall(10, vec![PPEExpr::Value(3)]);
+    test_serialize(&val, &[0xA8, 10, 0, 3, 0, 0]);
+}
+
 fn test_serialize(val: &PPECommand, expected: &[i16]) {
     let mut result = Vec::new();
     val.serialize(&mut result);
@@ -108,30 +114,60 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
             function_id: 0,
         });
     }
-    let func = FunctionValue {
-        parameters: 1,
-        local_variables: 1,
-        start_offset: 1,
-        first_var_id: 5,
-        return_var: 6,
-    };
 
-    exe.variable_table.push(VariableEntry {
-        name: "func1".to_string(),
-        value: Variable {
-            vtype: VariableType::Function,
-            data: func.to_data(),
-            ..Default::default()
-        },
-        header: super::VarHeader {
-            id: 6,
-            variable_type: VariableType::Function,
-            ..Default::default()
-        },
-        entry_type: super::EntryType::Constant,
-        number: 0,
-        function_id: 0,
-    });
+    for id in 6..9 {
+        let func = FunctionValue {
+            parameters: id - 6,
+            local_variables: 1,
+            start_offset: 1,
+            first_var_id: 5,
+            return_var: 6,
+        };
+
+        exe.variable_table.push(VariableEntry {
+            name: format!("func{}", id - 5),
+            value: Variable {
+                vtype: VariableType::Function,
+                data: func.to_data(),
+                ..Default::default()
+            },
+            header: super::VarHeader {
+                id: id as usize,
+                variable_type: VariableType::Function,
+                ..Default::default()
+            },
+            entry_type: super::EntryType::Constant,
+            number: 0,
+            function_id: 0,
+        });
+    }
+
+    for id in 9..12 {
+        let func = ProcedureValue {
+            parameters: id - 9,
+            local_variables: 1,
+            start_offset: 1,
+            first_var_id: 5,
+            pass_flags: 0,
+        };
+
+        exe.variable_table.push(VariableEntry {
+            name: format!("proc{}", id - 8),
+            value: Variable {
+                vtype: VariableType::Procedure,
+                data: func.to_data(),
+                ..Default::default()
+            },
+            header: super::VarHeader {
+                id: id as usize,
+                variable_type: VariableType::Procedure,
+                ..Default::default()
+            },
+            entry_type: super::EntryType::Constant,
+            number: 0,
+            function_id: 0,
+        });
+    }
 
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();

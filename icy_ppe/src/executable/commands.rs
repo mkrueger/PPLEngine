@@ -80,7 +80,7 @@ impl PPEScript {
 pub enum PPECommand {
     End,
     Return,
-    If(Box<PPEExpr>, usize),
+    IfNot(Box<PPEExpr>, usize),
     While(Box<PPEExpr>, Box<PPECommand>, usize),
     ProcedureCall(usize, Vec<PPEExpr>),
     PredefinedCall(&'static StatementDefinition<'static>, Vec<PPEExpr>),
@@ -114,8 +114,8 @@ impl PPECommand {
                 vec.push(OpCode::GOSUB as i16);
                 vec.push(*pos as i16);
             }
-            PPECommand::If(expr, label) => {
-                vec.push(OpCode::IF as i16);
+            PPECommand::IfNot(expr, label) => {
+                vec.push(OpCode::IFNOT as i16);
                 expr.serialize(vec);
                 vec.push(0);
                 vec.push(*label as i16);
@@ -174,8 +174,10 @@ impl PPECommand {
             PPECommand::ProcedureCall(proc_id, args) => {
                 vec.push(OpCode::PCALL as i16);
                 vec.push(*proc_id as i16);
+                vec.push(0);
                 for arg in args {
                     arg.serialize(vec);
+                    vec.push(0);
                 }
             }
             PPECommand::Let(target, value) => {
@@ -201,9 +203,9 @@ impl PPECommand {
             | PPECommand::Stop => 1,
 
             PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
-            PPECommand::If(expr, _) => 1 + expr.get_size() + 2,
+            PPECommand::IfNot(expr, _) => 1 + expr.get_size() + 2,
             PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 2 + stmt.get_size(),
-            PPECommand::ProcedureCall(_, args) => 2 + PPEExpr::count_size(args),
+            PPECommand::ProcedureCall(_, args) => 3 + PPEExpr::count_size(args) + args.len(),
             PPECommand::PredefinedCall(def, args) => match def.sig {
                 super::StatementSignature::ArgumentsWithVariable(var_index, _) => {
                     1 + PPEExpr::count_size(args)
@@ -230,7 +232,7 @@ impl PPECommand {
         match self {
             PPECommand::End => visitor.visit_end(),
             PPECommand::Return => visitor.visit_return(),
-            PPECommand::If(cond, label) => visitor.visit_if(cond, label),
+            PPECommand::IfNot(cond, label) => visitor.visit_if(cond, label),
             PPECommand::While(cond, stmt, label) => visitor.visit_while(cond, stmt, label),
             PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(id, args),
             PPECommand::PredefinedCall(def, args) => visitor.visit_predefined_call(def, args),

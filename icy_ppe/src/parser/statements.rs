@@ -664,12 +664,11 @@ impl Parser {
                 let mut leftpar_token = None;
                 let mut rightpar_token = None;
                 let mut params = Vec::new();
-        
+
                 if self.get_cur_token() == Some(Token::LPar) {
                     leftpar_token = Some(self.save_spannedtoken());
                     self.next_token();
 
-                    
                     loop {
                         let Some(token) = self.get_cur_token() else {
                             self.errors
@@ -680,7 +679,7 @@ impl Parser {
                             return None;
                         };
 
-                        if self.get_cur_token() == Some(Token::RPar) {
+                        if token == Token::RPar {
                             break;
                         }
                         let Some(expr) = self.parse_expression() else {
@@ -693,7 +692,7 @@ impl Parser {
                         };
                         params.push(expr);
                         self.skip_eol();
-                        
+
                         if self.get_cur_token() == Some(Token::RPar) {
                             break;
                         }

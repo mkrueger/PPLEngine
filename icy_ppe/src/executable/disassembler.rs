@@ -11,15 +11,14 @@ use super::{Executable, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, Stat
 
 pub struct DisassembleVisitor<'a> {
     pub show_statement_data: bool,
-    pub ppe_file: &'a Executable
+    pub ppe_file: &'a Executable,
 }
 
 impl<'a> DisassembleVisitor<'a> {
-
     pub fn new(ppe_file: &'a Executable) -> Self {
         Self {
             show_statement_data: false,
-            ppe_file
+            ppe_file,
         }
     }
 
@@ -316,7 +315,7 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
     }
 
     fn visit_if(&mut self, cond: &PPEExpr, label: &usize) {
-        Self::output_op_code(OpCode::IF);
+        Self::output_op_code(OpCode::IFNOT);
         print!(" (");
         cond.visit(self);
         print!(")");
@@ -444,7 +443,10 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
                 }
                 println!();
             } else {
-                for (i, x) in self.ppe_file.script_buffer[stmt.span.clone()].iter().enumerate() {
+                for (i, x) in self.ppe_file.script_buffer[stmt.span.clone()]
+                    .iter()
+                    .enumerate()
+                {
                     if i > 0 && (i % 16) == 0 {
                         println!();
                     }

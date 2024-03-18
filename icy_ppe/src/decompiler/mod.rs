@@ -1040,7 +1040,9 @@ impl Decompiler {
             self.exp_count = 0;
             let mut trash_func = 0;
 
-            while self.src_ptr < self.executable.script_buffer.len() && self.executable.script_buffer[self.src_ptr] != 0 {
+            while self.src_ptr < self.executable.script_buffer.len()
+                && self.executable.script_buffer[self.src_ptr] != 0
+            {
                 if self.executable.script_buffer[self.src_ptr] >= 0
                     && self.executable.script_buffer[self.src_ptr] as usize
                         <= self.executable.variable_table.len()
@@ -1243,7 +1245,7 @@ impl Decompiler {
                             WhileStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
                         );
                     }
-                    OpCode::IF => self.output_stmt(
+                    OpCode::IFNOT => self.output_stmt(
                         prg,
                         IfStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
                     ),
@@ -1428,7 +1430,7 @@ impl Decompiler {
                         ),
                     );
                 }
-                OpCode::WHILE | OpCode::IF => {
+                OpCode::WHILE | OpCode::IFNOT => {
                     if_ptr = self.src_ptr;
                     if !self.parse_expr(0x001, 0) {
                         return;

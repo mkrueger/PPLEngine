@@ -107,17 +107,17 @@ impl PPEDeserializer {
 
                 Ok(Some(PPECommand::Let(Box::new(target), Box::new(value))))
             }
-            OpCode::IF => {
+            OpCode::IFNOT => {
                 let expr = self.deserialize_expression(executable)?;
                 let label = executable.script_buffer[self.offset] as usize;
                 self.offset += 1;
-                Ok(Some(PPECommand::If(Box::new(expr), label)))
+                Ok(Some(PPECommand::IfNot(Box::new(expr), label)))
             }
             OpCode::WHILE => {
                 let expr = self.deserialize_expression(executable)?;
                 let label = executable.script_buffer[self.offset] as usize;
                 self.offset += 1;
-                Ok(Some(PPECommand::If(Box::new(expr), label)))
+                Ok(Some(PPECommand::IfNot(Box::new(expr), label)))
             }
             OpCode::GOSUB => {
                 let label = executable.script_buffer[self.offset] as usize;
@@ -146,7 +146,6 @@ impl PPEDeserializer {
                 }
 
                 let argument_count = unsafe { var.value.data.procedure_value.parameters };
-
                 let mut arguments = Vec::new();
                 for _ in 0..argument_count {
                     let expr = self.deserialize_expression(executable)?;

@@ -33,7 +33,7 @@ pub enum OpCode {
     LET = 8,
     PRINT = 9,
     PRINTLN = 10,
-    IF = 11,
+    IFNOT = 11,
     CONFFLAG = 12,
     CONFUNFLAG = 13,
     DISPFILE = 14,
@@ -332,7 +332,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 231] = [
     },
     StatementDefinition {
         name: "IF",
-        opcode: OpCode::IF,
+        opcode: OpCode::IFNOT,
         sig: StatementSignature::SpecialIfWhen,
     },
     StatementDefinition {

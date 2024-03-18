@@ -491,7 +491,7 @@ impl PPECompiler {
                 };
 
                 let cond_buffer = self.comp_expr(if_stmt.get_condition());
-                Some(PPECommand::If(
+                Some(PPECommand::IfNot(
                     Box::new(cond_buffer),
                     self.get_label_index(goto_stmt.get_label()),
                 ))
@@ -536,15 +536,16 @@ impl PPECompiler {
                     });
                     return None;
                 }
+                let decl_id = decl.header.id;
                 let variable = if decl.header.dim == 0 {
-                    PPEExpr::Value(decl_idx)
+                    PPEExpr::Value(decl_id)
                 } else {
                     let mut arguments = Vec::new();
                     for arg in let_smt.get_arguments() {
                         let expr_buffer = self.comp_expr(arg);
                         arguments.push(expr_buffer);
                     }
-                    PPEExpr::Dim(decl_idx, arguments)
+                    PPEExpr::Dim(decl_id, arguments)
                 };
                 let value = self.comp_expr(let_smt.get_value_expression());
 
@@ -589,11 +590,11 @@ impl PPECompiler {
 
                 let decl = self.get_variable(decl_idx);
                 if decl.header.variable_type == VariableType::Procedure {
-                    Some(PPECommand::ProcedureCall(decl_idx, arguments))
+                    Some(PPECommand::ProcedureCall(decl.header.id, arguments))
                 } else if decl.header.variable_type == VariableType::Function {
                     Some(PPECommand::PredefinedCall(
                         OpCode::EVAL.get_definition(),
-                        vec![PPEExpr::FunctionCall(decl_idx, arguments)],
+                        vec![PPEExpr::FunctionCall(decl.header.id, arguments)],
                     ))
                 } else {
                     self.errors.push(CompilationError {
@@ -651,6 +652,7 @@ impl PPECompiler {
 
         if let VariableValue::String(str) = &value.generic_data {
             if let Some(id) = self.string_lookup_table.get(str) {
+                println!("found string lookup {str}!!!");
                 return *id;
             }
         } else {
@@ -676,9 +678,8 @@ impl PPECompiler {
         entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
         if let VariableValue::String(str) = value.generic_data {
-            if let Some(id) = self.string_lookup_table.get(&str) {
-                return *id;
-            }
+            println!("insert string lookup {str}!!!");
+            self.string_lookup_table.insert(str, id);
         } else {
             unsafe {
                 let key = (constant.get_var_type(), value.data.u64_value);
@@ -751,7 +752,7 @@ impl PPECompiler {
     fn fill_labels(&mut self) {
         for stmt in &mut self.commands.statements {
             match &mut stmt.command {
-                PPECommand::If(_, idx) | PPECommand::Goto(idx) | PPECommand::Gosub(idx) => {
+                PPECommand::IfNot(_, idx) | PPECommand::Goto(idx) | PPECommand::Gosub(idx) => {
                     *idx = self.label_table[*idx] as usize * 2;
                 }
                 _ => {}

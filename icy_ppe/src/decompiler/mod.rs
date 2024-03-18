@@ -9,7 +9,7 @@ use crate::ast::{
     VariableDeclarationStatement, VariableSpecifier, WhileStatement,
 };
 use crate::executable::{
-    read_file, EntryType, Executable, FuncOpCode, OpCode, VariableEntry, VariableNameGenerator,
+    read_file, EntryType, Executable, FuncOpCode, OpCode, TableEntry, VariableNameGenerator,
     VariableType, FUNCTION_DEFINITIONS, LAST_FUNC, STATEMENT_DEFINITIONS,
 };
 use crate::tables::{STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
@@ -73,7 +73,7 @@ impl Decompiler {
     pub fn new(executable: Executable) -> Self {
         let mut valid_buffer = Vec::new();
         valid_buffer.resize(executable.script_buffer.len(), false);
-        let variable_lookup_table = executable.create_variable_lookup_table();
+        let variable_lookup_table = executable.variable_table.create_variable_lookup_table();
         Decompiler {
             executable,
             variable_lookup_table,
@@ -1521,8 +1521,7 @@ impl Decompiler {
     }
 
     fn name_variables(&mut self) {
-        let has_user_vars =
-            has_user_variables(&self.executable.variable_table, self.executable.version);
+        let has_user_vars = self.executable.variable_table.has_user_variables();
         let mut name_generator: VariableNameGenerator =
             VariableNameGenerator::new(self.executable.version, has_user_vars);
         let mut function_result = 1;
@@ -1547,10 +1546,13 @@ impl Decompiler {
             }
             res.set_name(name);
         }
-        self.variable_lookup_table = self.executable.create_variable_lookup_table();
+        self.variable_lookup_table = self
+            .executable
+            .variable_table
+            .create_variable_lookup_table();
     }
 
-    fn get_variable_name(&self, cur_var: &VariableEntry) -> String {
+    fn get_variable_name(&self, cur_var: &TableEntry) -> String {
         if cur_var.get_type() == EntryType::FunctionResult {
             return self.get_var(cur_var.number).get_name().clone();
         }
@@ -1561,57 +1563,21 @@ impl Decompiler {
         self.get_var_mut(id as usize - 1).report_variable_usage();
     }
 
-    fn get_var(&self, id: usize) -> &VariableEntry {
+    fn get_var(&self, id: usize) -> &TableEntry {
         assert!(
             id < self.executable.variable_table.len(),
             "variable id {id:04x} out of range"
         );
-        &self.executable.variable_table[id]
+        self.executable.variable_table.get_var_entry(id + 1)
     }
 
-    fn get_var_mut(&mut self, id: usize) -> &mut VariableEntry {
+    fn get_var_mut(&mut self, id: usize) -> &mut TableEntry {
         assert!(
             id < self.executable.variable_table.len(),
             "variable id {id:04x} out of range"
         );
-        &mut self.executable.variable_table[id]
+        self.executable.variable_table.get_var_entry_mut(id + 1)
     }
-}
-
-pub fn has_user_variables(variable_declarations: &[VariableEntry], version: u16) -> bool {
-    let has_user_variables = variable_declarations[0].header.variable_type == VariableType::Boolean
-        && (variable_declarations[1].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[2].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[3].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[4].header.variable_type == VariableType::Date)
-        && (variable_declarations[5].header.variable_type == VariableType::Integer)
-        && (variable_declarations[6].header.variable_type == VariableType::Integer)
-        && (variable_declarations[7].header.variable_type == VariableType::Integer)
-        && (variable_declarations[8].header.variable_type == VariableType::String)
-        && (variable_declarations[9].header.variable_type == VariableType::String)
-        && (variable_declarations[10].header.variable_type == VariableType::String)
-        && (variable_declarations[11].header.variable_type == VariableType::String)
-        && (variable_declarations[12].header.variable_type == VariableType::String)
-        && (variable_declarations[13].header.variable_type == VariableType::String)
-        && (variable_declarations[14].header.variable_type == VariableType::String)
-        && (variable_declarations[15].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[16].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[17].header.variable_type == VariableType::Boolean)
-        && (variable_declarations[18].header.variable_type == VariableType::String)
-        && (variable_declarations[19].header.variable_type == VariableType::String)
-        && (variable_declarations[20].header.variable_type == VariableType::String)
-        && (variable_declarations[21].header.variable_type == VariableType::String)
-        && (variable_declarations[22].header.variable_type == VariableType::Date)
-        && (variable_declarations[20].header.vector_size == 5);
-
-    if has_user_variables
-        && version >= 300
-        && !(variable_declarations[23].header.variable_type == VariableType::Integer
-            && variable_declarations[23].header.vector_size == 16)
-    {
-        return false;
-    }
-    has_user_variables
 }
 
 #[must_use]

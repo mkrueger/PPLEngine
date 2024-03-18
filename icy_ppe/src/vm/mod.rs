@@ -12,7 +12,7 @@ use crate::executable::PPECommand;
 use crate::executable::PPEExpr;
 use crate::executable::PPEScript;
 use crate::executable::PPEStatement;
-use crate::executable::VariableEntry;
+use crate::executable::VariableTable;
 use crate::executable::VariableType;
 use crate::executable::VariableValue;
 use crate::icy_board::data::IcyBoardData;
@@ -160,7 +160,7 @@ pub struct VirtualMachine<'a> {
     ctx: &'a mut dyn ExecutionContext,
     io: &'a mut dyn PCBoardIO,
     pub file_name: PathBuf,
-    pub variable_table: Vec<VariableEntry>,
+    pub variable_table: VariableTable,
 
     pub script: PPEScript,
     pub cur_ptr: usize,
@@ -254,7 +254,7 @@ impl<'a> VirtualMachine<'a> {
         /// # Panics
         ///
         /// Panics if .
-        pub fn get_variable_mut(&mut self, var_name: &unicase::Ascii<String>) -> Option<&mut Variable> {
+        pub fn variable_table.get_var_entry_mut(&mut self, var_name: &unicase::Ascii<String>) -> Option<&mut Variable> {
             let cf = &mut self.cur_frame;
             if cf.len() > 1 && cf.last().unwrap().values.contains_key(var_name) {
                 if let Some(last) = cf.last_mut() {
@@ -334,7 +334,7 @@ impl<'a> VirtualMachine<'a> {
         fn set_variable_value(&mut self, params: &Expression, value: &Variable) -> Res<()> {
             match params {
                 Expression::Identifier(ident) => {
-                    if let Some(val) = self.get_variable_mut(ident.get_identifier()) {
+                    if let Some(val) = self.variable_table.get_var_entry_mut(ident.get_identifier()) {
                         *val = convert_to(val.get_type(), value);
                     } else {
                         panic!("variable not found {}", ident.get_identifier());
@@ -353,7 +353,7 @@ impl<'a> VirtualMachine<'a> {
                                 let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
                                     as usize;
                                 if dim1 < args.len() {
-                                    if let Some(v) = self.get_variable_mut(func_call.get_identifier()) {
+                                    if let Some(v) = self.variable_table.get_var_entry_mut(func_call.get_identifier()) {
                                         if let VariableValue::Dim1(args) = &mut v.generic_data {
                                             args[dim1] = convert_to(var_type, value);
                                         }
@@ -372,7 +372,7 @@ impl<'a> VirtualMachine<'a> {
                                         .as_int() as usize;
                                     if dim2 < args[dim1].len() {
                                         if let Some(v) =
-                                            self.get_variable_mut(func_call.get_identifier())
+                                            self.variable_table.get_var_entry_mut(func_call.get_identifier())
                                         {
                                             if let VariableValue::Dim2(args) = &mut v.generic_data {
                                                 args[dim1][dim2] = convert_to(var_type, value);
@@ -397,7 +397,7 @@ impl<'a> VirtualMachine<'a> {
                                             as usize;
                                         if dim3 < args[dim1][dim2].len() {
                                             if let Some(v) =
-                                                self.get_variable_mut(func_call.get_identifier())
+                                                self.variable_table.get_var_entry_mut(func_call.get_identifier())
                                             {
                                                 if let VariableValue::Dim3(args) = &mut v.generic_data {
                                                     args[dim1][dim2][dim3] =
@@ -425,7 +425,7 @@ impl<'a> VirtualMachine<'a> {
     fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
         match expr {
             PPEExpr::Invalid => Err(VMError::InternalVMError),
-            PPEExpr::Value(id) => Ok(self.get_value(*id).clone()),
+            PPEExpr::Value(id) => Ok(self.variable_table.get_value(*id).clone()),
             PPEExpr::UnaryExpression(op, expr) => {
                 let val = self.eval_expr(expr)?;
                 match op {
@@ -472,7 +472,7 @@ impl<'a> VirtualMachine<'a> {
                     0
                 };
 
-                let var = &self.get_value(*id);
+                let var = &self.variable_table.get_value(*id);
                 if let GenericVariableData::Dim1(data) = &var.generic_data {
                     if dim_1 < data.len() {
                         Ok(data[dim_1].clone())
@@ -513,7 +513,7 @@ impl<'a> VirtualMachine<'a> {
                 let first;
                 let return_var_id;
                 unsafe {
-                    let proc = &self.get_var_entry(*func_id);
+                    let proc = &self.variable_table.get_var_entry(*func_id);
                     proc_offset = proc.value.data.function_value.start_offset as usize;
                     first = (proc.value.data.function_value.first_var_id + 1) as usize;
                     locals = proc.value.data.function_value.local_variables as usize;
@@ -522,14 +522,16 @@ impl<'a> VirtualMachine<'a> {
                 }
                 for i in 0..locals {
                     let id = first + i;
-                    if self.get_var_entry(id).header.flags & 0x1 == 0x0 && id != return_var_id {
-                        let value = self.get_value(id).clone();
+                    if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0
+                        && id != return_var_id
+                    {
+                        let value = self.variable_table.get_value(id).clone();
                         self.parameter_stack.push(value);
                     }
 
                     if i < parameters && id != return_var_id {
                         let expr = self.eval_expr(&arguments[i])?;
-                        self.set_value(id, expr);
+                        self.variable_table.set_value(id, expr);
                     }
                 }
                 self.return_addresses
@@ -537,7 +539,7 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(proc_offset)?;
                 self.run()?;
                 self.fpclear = false;
-                Ok(self.get_value(return_var_id).clone())
+                Ok(self.variable_table.get_value(return_var_id).clone())
             }
         }
     }
@@ -554,21 +556,10 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    fn set_value(&mut self, id: usize, value: VariableValue) {
-        self.variable_table[id - 1].value = value;
-    }
-
-    fn get_value(&mut self, id: usize) -> &VariableValue {
-        &self.variable_table[id - 1].value
-    }
-    fn get_var_entry(&mut self, id: usize) -> &VariableEntry {
-        &self.variable_table[id - 1]
-    }
-
     fn set_variable(&mut self, variable: &PPEExpr, value: VariableValue) -> Result<(), VMError> {
         match variable {
             PPEExpr::Value(id) => {
-                self.set_value(*id, value);
+                self.variable_table.set_value(*id, value);
             }
             PPEExpr::Dim(id, dims) => {
                 let dim_1 = self.eval_expr(&dims[0])?.as_int() as usize;
@@ -583,8 +574,8 @@ impl<'a> VirtualMachine<'a> {
                     0
                 };
 
-                let var = &mut self.variable_table[*id - 1].value;
-                Self::set_array_value(var, value, dim_1, dim_2, dim_3);
+                self.variable_table
+                    .set_array_value(*id, dim_1, dim_2, dim_3, value);
             }
             _ => {
                 return Err(VMError::InternalVMError);
@@ -612,7 +603,7 @@ impl<'a> VirtualMachine<'a> {
                         let return_var_id;
                         let pass_flags;
                         unsafe {
-                            let proc = &self.get_var_entry(proc_id);
+                            let proc = &self.variable_table.get_var_entry(proc_id);
                             first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
                             locals = proc.value.data.procedure_value.local_variables as usize;
                             parameters = proc.value.data.procedure_value.parameters as usize;
@@ -629,7 +620,7 @@ impl<'a> VirtualMachine<'a> {
                             for i in 0..parameters {
                                 let id = first + i;
                                 if (1 << i) & pass_flags != 0 {
-                                    let val = self.get_value(id).clone();
+                                    let val = self.variable_table.get_value(id).clone();
                                     let argument_expr = self.write_back_stack.pop().unwrap();
                                     self.set_variable(&argument_expr, val)?;
                                 }
@@ -638,11 +629,11 @@ impl<'a> VirtualMachine<'a> {
 
                         for i in (0..locals).rev() {
                             let id = first + i;
-                            if self.get_var_entry(id).header.flags & 0x1 == 0x0
+                            if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0
                                 && return_var_id != id
                             {
                                 let value = self.parameter_stack.pop().unwrap();
-                                self.set_value(id, value);
+                                self.variable_table.set_value(id, value);
                             }
                         }
                         if stmt == &PPECommand::EndFunc {
@@ -673,7 +664,7 @@ impl<'a> VirtualMachine<'a> {
                 let pass_flags;
 
                 unsafe {
-                    let proc = &self.get_var_entry(*proc_id);
+                    let proc = &self.variable_table.get_var_entry(*proc_id);
                     proc_offset = proc.value.data.procedure_value.start_offset as usize;
                     first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
                     locals = proc.value.data.procedure_value.local_variables as usize;
@@ -682,8 +673,8 @@ impl<'a> VirtualMachine<'a> {
                 }
                 for i in 0..locals {
                     let id = first + i;
-                    if self.get_var_entry(id).header.flags & 0x1 == 0x0 {
-                        let val = self.get_value(id).clone();
+                    if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {
+                        let val = self.variable_table.get_value(id).clone();
                         self.parameter_stack.push(val);
                     }
                     if (1 << i) & pass_flags != 0 {
@@ -692,7 +683,7 @@ impl<'a> VirtualMachine<'a> {
 
                     if i < parameters {
                         let expr = self.eval_expr(&arguments[i])?;
-                        self.set_value(id, expr);
+                        self.variable_table.set_value(id, expr);
                     }
                 }
                 self.return_addresses
@@ -722,40 +713,6 @@ impl<'a> VirtualMachine<'a> {
         }
 
         Ok(())
-    }
-
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    /// # Errors
-    /// Errors if the variable is not found.
-    pub fn set_array_value(
-        arr: &mut VariableValue,
-        val: VariableValue,
-        dim1: usize,
-        dim2: usize,
-        dim3: usize,
-    ) {
-        match &mut arr.generic_data {
-            GenericVariableData::Dim1(data) => {
-                if dim1 < data.len() {
-                    data[dim1] = val;
-                }
-            }
-            GenericVariableData::Dim2(data) => {
-                if dim1 < data.len() && dim2 < data[dim1].len() {
-                    data[dim2][dim1] = val;
-                }
-            }
-            GenericVariableData::Dim3(data) => {
-                if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
-                    data[dim3][dim2][dim1] = val;
-                }
-            }
-            _ => panic!("no array variable: {arr}"),
-        }
     }
 
     fn goto(&mut self, label: usize) -> Result<(), VMError> {

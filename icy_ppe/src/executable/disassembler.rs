@@ -5,8 +5,6 @@ use crossterm::{
     style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
 };
 
-use crate::executable::VariableType;
-
 use super::{
     Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor,
     StatementDefinition,
@@ -100,116 +98,6 @@ impl<'a> DisassembleVisitor<'a> {
                 Self::dump_script_data(self.ppe_file, e.span);
                 println!();
             }
-        }
-    }
-
-    pub(crate) fn print_variable_table(ppe_file: &super::Executable) {
-        println!();
-        execute!(
-            stdout(),
-            Print("Variable Table ".to_string()),
-            SetAttribute(Attribute::Bold),
-            Print(format!("{}", ppe_file.variable_table.len())),
-            SetAttribute(Attribute::Reset),
-            Print(" variables\n\n".to_string())
-        )
-        .unwrap();
-
-        println!("   # Type         Flags Role           Name        Value");
-        println!("---------------------------------------------------------------------------------------");
-        for var in ppe_file.variable_table.iter().rev() {
-            let ts = if var.header.dim > 0 {
-                format!("{}({})", var.header.variable_type, var.header.dim)
-            } else {
-                var.header.variable_type.to_string()
-            };
-            execute!(
-                stdout(),
-                SetForegroundColor(Color::Green),
-                Print(format!("{:04X} ", var.header.id)),
-                SetAttribute(Attribute::Reset),
-            )
-            .unwrap();
-
-            execute!(
-                stdout(),
-                SetForegroundColor(Color::Yellow),
-                Print(format!("{ts:<13}")),
-                SetAttribute(Attribute::Reset),
-            )
-            .unwrap();
-
-            let ts = format!("{:?}", var.get_type());
-
-            execute!(
-                stdout(),
-                SetAttribute(Attribute::Bold),
-                Print(format!("{}", var.header.flags)),
-                SetAttribute(Attribute::Reset),
-            )
-            .unwrap();
-
-            print!("     {ts:<15}");
-            print!("{:<12}", var.get_name());
-
-            if var.header.variable_type == VariableType::Function {
-                unsafe {
-                    execute!(
-                        stdout(),
-                        SetAttribute(Attribute::Bold),
-                        Print(format!("{:?}", var.value.data.function_value)),
-                        SetAttribute(Attribute::Reset)
-                    )
-                    .unwrap();
-                }
-            } else if var.header.variable_type == VariableType::Procedure {
-                unsafe {
-                    execute!(
-                        stdout(),
-                        SetAttribute(Attribute::Bold),
-                        Print(format!("{:?}", var.value.data.procedure_value)),
-                        SetAttribute(Attribute::Reset)
-                    )
-                    .unwrap();
-                }
-            } else if var.header.dim > 0 {
-                let d = match var.header.dim {
-                    1 => format!("{}", var.header.vector_size),
-                    2 => format!("{}, {}", var.header.vector_size, var.header.matrix_size),
-                    _ => format!(
-                        "{}, {}, {}",
-                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
-                    ),
-                };
-                execute!(
-                    stdout(),
-                    Print("[".to_string()),
-                    SetAttribute(Attribute::Bold),
-                    Print(d),
-                    SetAttribute(Attribute::Reset),
-                    Print("]".to_string()),
-                )
-                .unwrap();
-            } else if var.header.variable_type == VariableType::String
-                || var.header.variable_type == VariableType::BigStr
-            {
-                execute!(
-                    stdout(),
-                    SetAttribute(Attribute::Bold),
-                    Print(format!("\"{}\"", var.value)),
-                    SetAttribute(Attribute::Reset)
-                )
-                .unwrap();
-            } else {
-                execute!(
-                    stdout(),
-                    SetAttribute(Attribute::Bold),
-                    Print(format!("{}", var.value)),
-                    SetAttribute(Attribute::Reset)
-                )
-                .unwrap();
-            }
-            println!();
         }
     }
 

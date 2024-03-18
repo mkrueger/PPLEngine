@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{stdout, Read};
 
@@ -54,7 +53,7 @@ pub struct VariableNameGenerator {
 }
 
 impl VariableNameGenerator {
-    pub fn get_next_name(&mut self, decl: &VariableEntry) -> (String, bool) {
+    pub fn get_next_name(&mut self, decl: &TableEntry) -> (String, bool) {
         if self.has_user_vars
             && (self.version < 300 && decl.header.id <= 0x17
                 || self.version >= 300 && decl.header.id <= 0x18)
@@ -192,7 +191,7 @@ pub enum ExecutableError {
 
 pub struct Executable {
     pub version: u16,
-    pub variable_table: Vec<VariableEntry>,
+    pub variable_table: VariableTable,
     pub script_buffer: Vec<i16>,
 }
 
@@ -221,17 +220,11 @@ impl Executable {
             return Err(ExecutableError::UnsupporrtedVersion(version));
         }
 
-        let max_var = u16::from_le_bytes(
-            (buffer[HEADER_SIZE..=(HEADER_SIZE + 1)])
-                .try_into()
-                .unwrap(),
-        ) as usize;
+        let (mut i, variable_table) = VariableTable::deserialize(version, buffer)?;
 
-        let (mut i, variable_table) = read_variable_table(version, buffer, max_var)?;
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
         let real_size = buffer.len() - i;
-
         if print_header_information {
             execute!(
                 stdout(),
@@ -241,7 +234,7 @@ impl Executable {
                 SetAttribute(Attribute::Reset),
                 Print(" detected ".to_string()),
                 SetAttribute(Attribute::Bold),
-                Print(format!("{max_var}")),
+                Print(format!("{}", variable_table.len())),
                 SetAttribute(Attribute::Reset),
                 Print(" variables, ".to_string()),
                 SetAttribute(Attribute::Bold),
@@ -332,17 +325,7 @@ impl Executable {
         buffer.push(b'0' + (minor % 10) as u8);
         buffer.extend_from_slice(b"\x0D\x0A\x1A");
 
-        if self.variable_table.len() >= 65535 {
-            return Err(ExecutableError::TooManyDeclarations(
-                self.variable_table.len(),
-            ));
-        }
-        let max_var = u16::to_le_bytes(self.variable_table.len() as u16);
-        buffer.extend_from_slice(&max_var);
-        for d in self.variable_table.iter().rev() {
-            let var_data = d.to_buffer(self.version)?;
-            buffer.extend(var_data);
-        }
+        self.variable_table.serialize(&mut buffer)?;
 
         let mut script_buffer = Vec::new();
         for s in &self.script_buffer {
@@ -380,16 +363,8 @@ impl Executable {
         Ok(buffer)
     }
 
-    pub fn create_variable_lookup_table(&self) -> HashMap<unicase::Ascii<String>, usize> {
-        let mut variable_lookup = HashMap::new();
-        for (i, var_decl) in self.variable_table.iter().enumerate() {
-            variable_lookup.insert(unicase::Ascii::new(var_decl.get_name().clone()), i);
-        }
-        variable_lookup
-    }
-
     pub fn print_variable_table(&self) {
-        DisassembleVisitor::print_variable_table(self);
+        self.variable_table.print_variable_table();
     }
     pub fn print_script_buffer_dump(&self) {
         DisassembleVisitor::print_script_buffer_dump(self);
@@ -403,7 +378,7 @@ impl Default for Executable {
     fn default() -> Self {
         Self {
             version: LAST_PPLC,
-            variable_table: Vec::new(),
+            variable_table: VariableTable::default(),
             script_buffer: Vec::new(),
         }
     }
@@ -436,161 +411,4 @@ pub fn read_file(file_name: &str, print_header_information: bool) -> Res<Executa
         &mut buffer,
         print_header_information,
     )?)
-}
-
-fn read_variable_table(
-    version: u16,
-    buf: &mut [u8],
-    max_var: usize,
-) -> Result<(usize, Vec<VariableEntry>), ExecutableError> {
-    let mut result = vec![VariableEntry::default(); max_var];
-    let mut i = HEADER_SIZE + 2;
-    if max_var == 0 {
-        return Ok((i, result));
-    }
-    let mut var_count = max_var + 1;
-    while var_count > 1 {
-        decrypt(&mut (buf[i..(i + 11)]), version);
-        let cur_block = &buf[i..(i + 11)];
-
-        var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
-
-        if var_count > max_var {
-            return Err(ExecutableError::InvalidVariableIndexInTable(
-                max_var, var_count,
-            ));
-        }
-
-        let header = VarHeader::from_bytes(cur_block);
-
-        i += 11;
-        let variable;
-        match header.variable_type {
-            VariableType::String => {
-                let string_length =
-                    u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
-                i += 2;
-                decrypt(&mut (buf[i..(i + string_length)]), version);
-                let generic_data = if header.dim > 0 {
-                    header.create_generic_data()
-                } else {
-                    let mut str = String::new();
-                    for c in &buf[i..(i + string_length - 1)] {
-                        str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
-                    }
-                    GenericVariableData::String(str)
-                };
-                variable = VariableValue {
-                    vtype: VariableType::String,
-                    generic_data,
-                    ..Default::default()
-                };
-                i += string_length;
-            }
-            VariableType::Function | VariableType::Procedure => {
-                decrypt(&mut buf[i..(i + 12)], version);
-                let cur_buf = &buf[i..(i + 12)];
-                let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
-                assert!(
-                    !(vtype != header.variable_type),
-                    "Invalid function type: {vtype}"
-                );
-                let function_value = FunctionValue::from_bytes(cur_buf);
-                i += 4; // skip vtable + type
-                variable = VariableValue {
-                    vtype,
-                    data: VariableData { function_value },
-                    ..Default::default()
-                };
-                i += 8;
-            }
-            _ => {
-                if version <= 100 {
-                    i += 2; // SKIP VTABLE - seems to get stored by accident.
-                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
-                    assert!(
-                        !(vtype != header.variable_type),
-                        "Invalid variable type: {vtype}"
-                    );
-                    i += 2; // what's stored here ?
-                    let mut data = VariableData::default();
-                    data.unsigned_value = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap());
-                    variable = VariableValue {
-                        vtype,
-                        data,
-                        ..Default::default()
-                    };
-                    i += 4;
-                } else {
-                    decrypt(&mut buf[i..(i + 12)], version);
-                    i += 2; // SKIP VTABLE - seems to get stored by accident.
-                    let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
-                    assert!(
-                        !(vtype != header.variable_type),
-                        "Invalid variable type: {vtype}"
-                    );
-                    i += 2; // what's stored here ?
-                    let mut data = VariableData::default();
-                    data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
-
-                    variable = VariableValue {
-                        vtype,
-                        data,
-                        generic_data: header.create_generic_data(),
-                    };
-                    i += 8;
-                }
-            } // B9 4b
-        }
-
-        result[var_count - 1] = VariableEntry::new(header, variable);
-    }
-
-    let mut k = result.len() - 1;
-    while k > 0 {
-        let cur = result[k].clone();
-        match cur.header.variable_type {
-            VariableType::Function => unsafe {
-                let last = cur.value.data.function_value.local_variables as usize
-                    + cur.value.data.function_value.return_var as usize
-                    - 1;
-                for (j, i) in
-                    (cur.value.data.function_value.first_var_id as usize..last).enumerate()
-                {
-                    let fvar = &mut result[i];
-                    if i == cur.value.data.function_value.return_var as usize - 1 {
-                        fvar.set_type(EntryType::FunctionResult);
-                        fvar.number = k;
-                    } else if j < cur.value.data.function_value.parameters as usize {
-                        fvar.set_type(EntryType::Parameter);
-                        println!("{} i:{i}", cur.value.data.function_value.first_var_id + 1);
-                        fvar.number = ((cur.value.data.function_value.first_var_id + 1) as usize)
-                            .saturating_sub(i);
-                    }
-                }
-            },
-            VariableType::Procedure => unsafe {
-                let mut j = 0;
-                let last = cur.value.data.procedure_value.local_variables as usize
-                    + cur.value.data.procedure_value.parameters as usize
-                    + cur.value.data.procedure_value.first_var_id as usize;
-
-                (cur.value.data.procedure_value.first_var_id as usize..last).for_each(|i| {
-                    let fvar = &mut result[i];
-                    if j < cur.value.data.procedure_value.parameters as usize {
-                        fvar.set_type(EntryType::Parameter);
-                    }
-                    j += 1;
-                    fvar.number = j;
-                });
-            },
-            _ => {}
-        }
-        if k == 0 {
-            break;
-        }
-        k -= 1;
-    }
-
-    Ok((i, result))
 }

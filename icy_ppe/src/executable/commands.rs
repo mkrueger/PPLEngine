@@ -465,7 +465,7 @@ pub enum PPEError {
 
 impl<'a> PPEVisitor<Result<VariableValue, PPEError>> for PPEConstantValueVisitor<'a> {
     fn visit_value(&mut self, id: usize) -> Result<VariableValue, PPEError> {
-        Ok(self.executable.variable_table[id].value.clone())
+        Ok(self.executable.variable_table.get_value(id).clone())
     }
 
     fn visit_unary_expression(
@@ -515,7 +515,7 @@ impl<'a> PPEVisitor<Result<VariableValue, PPEError>> for PPEConstantValueVisitor
         id: usize,
         dim: &[PPEExpr],
     ) -> Result<VariableValue, PPEError> {
-        let var_value = self.executable.variable_table[id].value.clone();
+        let var_value = self.executable.variable_table.get_value(id).clone();
         match dim.len() {
             1 => {
                 let vector = dim[0].visit(self)?.as_int();

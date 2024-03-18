@@ -1,6 +1,6 @@
 use crate::executable::{EntryType, FunctionValue, VariableType, VariableValue};
 
-use super::{Executable, FuncOpCode, PPEExpr, VariableEntry, FUNCTION_DEFINITIONS};
+use super::{Executable, FuncOpCode, PPEExpr, TableEntry, FUNCTION_DEFINITIONS};
 
 #[test]
 fn test_value_serialization() {
@@ -83,7 +83,7 @@ fn test_serialize(val: &PPEExpr, expected: &[i16]) {
 fn test_deserialization(script: &[i16], expected: &PPEExpr) {
     let mut exe = Executable::default();
     for i in 0..5 {
-        exe.variable_table.push(VariableEntry {
+        exe.variable_table.push(TableEntry {
             name: format!("int{i}"),
             value: VariableValue::new_int(i),
             header: super::VarHeader {
@@ -105,7 +105,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
             return_var: 6,
         };
 
-        exe.variable_table.push(VariableEntry {
+        exe.variable_table.push(TableEntry {
             name: format!("func{}", id - 5),
             value: VariableValue {
                 vtype: VariableType::Function,

@@ -55,6 +55,13 @@ fn run_test(data: &str, output: &str) {
     let prg = parse_program(PathBuf::from("."), data);
     let mut exec = compiler::PPECompiler::new();
     exec.compile(&prg, false);
+    if !exec.errors.is_empty() {
+        println!("Errors:");
+        for e in &exec.errors {
+            println!("{}", e.error);
+        }
+        panic!();
+    }
     let binary = exec.create_executable(330).unwrap();
     let mut buffer = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();

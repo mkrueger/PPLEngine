@@ -134,7 +134,7 @@ impl PPEDeserializer {
                 let proc_id = executable.script_buffer[self.offset] as usize;
                 self.offset += 2;
 
-                let Some(var) = executable.variable_table.get(proc_id - 1) else {
+                let Some(var) = executable.variable_table.try_get_entry(proc_id) else {
                     return Err(DeserializationErrorType::NoVTableEntry(proc_id));
                 };
 
@@ -211,11 +211,13 @@ impl PPEDeserializer {
                 break;
             }
             if id > 0 {
-                match executable.variable_table[id as usize - 1].value.vtype {
+                let id = id as usize;
+                match executable.variable_table.get_value(id).vtype {
                     VariableType::Function => unsafe {
                         self.offset += 2;
-                        let parameters = executable.variable_table[id as usize - 1]
-                            .value
+                        let parameters = executable
+                            .variable_table
+                            .get_value(id)
                             .data
                             .function_value
                             .parameters;
@@ -224,13 +226,14 @@ impl PPEDeserializer {
                             let expr = self.deserialize_expression(executable)?;
                             arguments.push(expr);
                         }
-                        self.push_expr(PPEExpr::FunctionCall(id as usize, arguments));
+                        self.push_expr(PPEExpr::FunctionCall(id, arguments));
                         continue;
                     },
                     VariableType::Procedure => {
                         self.offset += 1;
-
-                        return Err(DeserializationErrorType::GotProcedureCallInExpression(id));
+                        return Err(DeserializationErrorType::GotProcedureCallInExpression(
+                            id as i16,
+                        ));
                     }
                     _ => {}
                 }

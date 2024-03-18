@@ -1,8 +1,15 @@
-use std::fmt;
+use std::{collections::HashMap, fmt, io::stdout};
 
-use crate::crypt::encrypt;
+use crossterm::{
+    execute,
+    style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
+};
 
-use super::{ExecutableError, GenericVariableData, VariableData, VariableType, VariableValue};
+use crate::crypt::{decrypt, encrypt};
+
+use super::{
+    ExecutableError, GenericVariableData, VariableData, VariableType, VariableValue, HEADER_SIZE,
+};
 
 #[derive(Clone, Default, Debug)]
 pub struct VarHeader {
@@ -191,7 +198,7 @@ impl EntryType {
 }
 
 #[derive(Clone, Default, Debug)]
-pub struct VariableEntry {
+pub struct TableEntry {
     pub header: VarHeader,
     pub name: String,
     pub entry_type: EntryType,
@@ -200,7 +207,7 @@ pub struct VariableEntry {
     pub function_id: usize,
 }
 
-impl VariableEntry {
+impl TableEntry {
     pub fn new(header: VarHeader, variable: VariableValue) -> Self {
         Self {
             header,
@@ -300,5 +307,446 @@ impl VariableEntry {
             encrypt(&mut buffer[b..], version);
         }
         Ok(buffer)
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct VariableTable {
+    version: u16,
+    entries: Vec<TableEntry>,
+}
+
+impl VariableTable {
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
+    pub fn deserialize(version: u16, buf: &mut [u8]) -> Result<(usize, Self), ExecutableError> {
+        let mut i = HEADER_SIZE;
+        let max_var = u16::from_le_bytes((buf[i..=(i + 1)]).try_into().unwrap()) as usize;
+        i += 2;
+
+        let mut result = vec![TableEntry::default(); max_var];
+        if max_var == 0 {
+            return Ok((
+                i,
+                VariableTable {
+                    version,
+                    entries: result,
+                },
+            ));
+        }
+        let mut var_count = max_var + 1;
+        while var_count > 1 {
+            decrypt(&mut (buf[i..(i + 11)]), version);
+            let cur_block = &buf[i..(i + 11)];
+
+            var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
+
+            if var_count > max_var {
+                return Err(ExecutableError::InvalidVariableIndexInTable(
+                    max_var, var_count,
+                ));
+            }
+
+            let header = VarHeader::from_bytes(cur_block);
+
+            i += 11;
+            let variable;
+            match header.variable_type {
+                VariableType::String => {
+                    let string_length =
+                        u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
+                    i += 2;
+                    decrypt(&mut (buf[i..(i + string_length)]), version);
+                    let generic_data = if header.dim > 0 {
+                        header.create_generic_data()
+                    } else {
+                        let mut str = String::new();
+                        for c in &buf[i..(i + string_length - 1)] {
+                            str.push(crate::tables::CP437_TO_UNICODE[*c as usize]);
+                        }
+                        GenericVariableData::String(str)
+                    };
+                    variable = VariableValue {
+                        vtype: VariableType::String,
+                        generic_data,
+                        ..Default::default()
+                    };
+                    i += string_length;
+                }
+                VariableType::Function | VariableType::Procedure => {
+                    decrypt(&mut buf[i..(i + 12)], version);
+                    let cur_buf = &buf[i..(i + 12)];
+                    let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
+                    assert!(
+                        !(vtype != header.variable_type),
+                        "Invalid function type: {vtype}"
+                    );
+                    let function_value = FunctionValue::from_bytes(cur_buf);
+                    i += 4; // skip vtable + type
+                    variable = VariableValue {
+                        vtype,
+                        data: VariableData { function_value },
+                        ..Default::default()
+                    };
+                    i += 8;
+                }
+                _ => {
+                    if version <= 100 {
+                        i += 2; // SKIP VTABLE - seems to get stored by accident.
+                        let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                        assert!(
+                            !(vtype != header.variable_type),
+                            "Invalid variable type: {vtype}"
+                        );
+                        i += 2; // what's stored here ?
+                        let mut data = VariableData::default();
+                        data.unsigned_value =
+                            u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap());
+                        variable = VariableValue {
+                            vtype,
+                            data,
+                            ..Default::default()
+                        };
+                        i += 4;
+                    } else {
+                        decrypt(&mut buf[i..(i + 12)], version);
+                        i += 2; // SKIP VTABLE - seems to get stored by accident.
+                        let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                        assert!(
+                            !(vtype != header.variable_type),
+                            "Invalid variable type: {vtype}"
+                        );
+                        i += 2; // what's stored here ?
+                        let mut data = VariableData::default();
+                        data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
+
+                        variable = VariableValue {
+                            vtype,
+                            data,
+                            generic_data: header.create_generic_data(),
+                        };
+                        i += 8;
+                    }
+                } // B9 4b
+            }
+
+            result[var_count - 1] = TableEntry::new(header, variable);
+        }
+
+        let mut k = result.len() - 1;
+        while k > 0 {
+            let cur = result[k].clone();
+            match cur.header.variable_type {
+                VariableType::Function => unsafe {
+                    let last = cur.value.data.function_value.local_variables as usize
+                        + cur.value.data.function_value.return_var as usize
+                        - 1;
+                    for (j, i) in
+                        (cur.value.data.function_value.first_var_id as usize..last).enumerate()
+                    {
+                        let fvar = &mut result[i];
+                        if i == cur.value.data.function_value.return_var as usize - 1 {
+                            fvar.set_type(EntryType::FunctionResult);
+                            fvar.number = k;
+                        } else if j < cur.value.data.function_value.parameters as usize {
+                            fvar.set_type(EntryType::Parameter);
+                            println!("{} i:{i}", cur.value.data.function_value.first_var_id + 1);
+                            fvar.number = ((cur.value.data.function_value.first_var_id + 1)
+                                as usize)
+                                .saturating_sub(i);
+                        }
+                    }
+                },
+                VariableType::Procedure => unsafe {
+                    let mut j = 0;
+                    let last = cur.value.data.procedure_value.local_variables as usize
+                        + cur.value.data.procedure_value.parameters as usize
+                        + cur.value.data.procedure_value.first_var_id as usize;
+
+                    (cur.value.data.procedure_value.first_var_id as usize..last).for_each(|i| {
+                        let fvar = &mut result[i];
+                        if j < cur.value.data.procedure_value.parameters as usize {
+                            fvar.set_type(EntryType::Parameter);
+                        }
+                        j += 1;
+                        fvar.number = j;
+                    });
+                },
+                _ => {}
+            }
+            if k == 0 {
+                break;
+            }
+            k -= 1;
+        }
+
+        Ok((
+            i,
+            VariableTable {
+                version,
+                entries: result,
+            },
+        ))
+    }
+
+    pub fn push(&mut self, entry: TableEntry) {
+        self.entries.push(entry);
+    }
+
+    pub fn set_value(&mut self, id: usize, value: VariableValue) {
+        self.entries[id - 1].value = value;
+    }
+
+    pub fn get_value(&self, id: usize) -> &VariableValue {
+        &self.entries[id - 1].value
+    }
+
+    pub fn try_get_value(&self, id: usize) -> Option<&VariableValue> {
+        if id > self.entries.len() {
+            return None;
+        }
+        Some(&self.entries[id - 1].value)
+    }
+
+    pub fn get_var_entry(&self, id: usize) -> &TableEntry {
+        &self.entries[id - 1]
+    }
+
+    pub fn try_get_entry(&self, id: usize) -> Option<&TableEntry> {
+        if id > self.entries.len() {
+            return None;
+        }
+        Some(&self.entries[id - 1])
+    }
+
+    pub fn get_var_entry_mut(&mut self, id: usize) -> &mut TableEntry {
+        &mut self.entries[id - 1]
+    }
+
+    pub fn has_user_variables(&self) -> bool {
+        let has_user_variables = self.entries[0].header.variable_type == VariableType::Boolean
+            && (self.entries[1].header.variable_type == VariableType::Boolean)
+            && (self.entries[2].header.variable_type == VariableType::Boolean)
+            && (self.entries[3].header.variable_type == VariableType::Boolean)
+            && (self.entries[4].header.variable_type == VariableType::Date)
+            && (self.entries[5].header.variable_type == VariableType::Integer)
+            && (self.entries[6].header.variable_type == VariableType::Integer)
+            && (self.entries[7].header.variable_type == VariableType::Integer)
+            && (self.entries[8].header.variable_type == VariableType::String)
+            && (self.entries[9].header.variable_type == VariableType::String)
+            && (self.entries[10].header.variable_type == VariableType::String)
+            && (self.entries[11].header.variable_type == VariableType::String)
+            && (self.entries[12].header.variable_type == VariableType::String)
+            && (self.entries[13].header.variable_type == VariableType::String)
+            && (self.entries[14].header.variable_type == VariableType::String)
+            && (self.entries[15].header.variable_type == VariableType::Boolean)
+            && (self.entries[16].header.variable_type == VariableType::Boolean)
+            && (self.entries[17].header.variable_type == VariableType::Boolean)
+            && (self.entries[18].header.variable_type == VariableType::String)
+            && (self.entries[19].header.variable_type == VariableType::String)
+            && (self.entries[20].header.variable_type == VariableType::String)
+            && (self.entries[21].header.variable_type == VariableType::String)
+            && (self.entries[22].header.variable_type == VariableType::Date)
+            && (self.entries[20].header.vector_size == 5);
+
+        if has_user_variables
+            && self.version >= 300
+            && !(self.entries[23].header.variable_type == VariableType::Integer
+                && self.entries[23].header.vector_size == 16)
+        {
+            return false;
+        }
+        has_user_variables
+    }
+
+    pub fn print_variable_table(&self) {
+        println!();
+        execute!(
+            stdout(),
+            Print("Variable Table ".to_string()),
+            SetAttribute(Attribute::Bold),
+            Print(format!("{}", self.len())),
+            SetAttribute(Attribute::Reset),
+            Print(" variables\n\n".to_string())
+        )
+        .unwrap();
+
+        println!("   # Type         Flags Role           Name        Value");
+        println!("---------------------------------------------------------------------------------------");
+        for var in self.entries.iter().rev() {
+            let ts = if var.header.dim > 0 {
+                format!("{}({})", var.header.variable_type, var.header.dim)
+            } else {
+                var.header.variable_type.to_string()
+            };
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Green),
+                Print(format!("{:04X} ", var.header.id)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
+
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Yellow),
+                Print(format!("{ts:<13}")),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
+
+            let ts = format!("{:?}", var.get_type());
+
+            execute!(
+                stdout(),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{}", var.header.flags)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
+
+            print!("     {ts:<15}");
+            print!("{:<12}", var.get_name());
+
+            if var.header.variable_type == VariableType::Function {
+                unsafe {
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{:?}", var.value.data.function_value)),
+                        SetAttribute(Attribute::Reset)
+                    )
+                    .unwrap();
+                }
+            } else if var.header.variable_type == VariableType::Procedure {
+                unsafe {
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{:?}", var.value.data.procedure_value)),
+                        SetAttribute(Attribute::Reset)
+                    )
+                    .unwrap();
+                }
+            } else if var.header.dim > 0 {
+                let d = match var.header.dim {
+                    1 => format!("{}", var.header.vector_size),
+                    2 => format!("{}, {}", var.header.vector_size, var.header.matrix_size),
+                    _ => format!(
+                        "{}, {}, {}",
+                        var.header.vector_size, var.header.matrix_size, var.header.cube_size
+                    ),
+                };
+                execute!(
+                    stdout(),
+                    Print("[".to_string()),
+                    SetAttribute(Attribute::Bold),
+                    Print(d),
+                    SetAttribute(Attribute::Reset),
+                    Print("]".to_string()),
+                )
+                .unwrap();
+            } else if var.header.variable_type == VariableType::String
+                || var.header.variable_type == VariableType::BigStr
+            {
+                execute!(
+                    stdout(),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("\"{}\"", var.value)),
+                    SetAttribute(Attribute::Reset)
+                )
+                .unwrap();
+            } else {
+                execute!(
+                    stdout(),
+                    SetAttribute(Attribute::Bold),
+                    Print(format!("{}", var.value)),
+                    SetAttribute(Attribute::Reset)
+                )
+                .unwrap();
+            }
+            println!();
+        }
+    }
+
+    /// .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
+    pub fn serialize(&self, buffer: &mut Vec<u8>) -> Result<(), ExecutableError> {
+        if self.entries.len() > u16::MAX as usize {
+            return Err(ExecutableError::TooManyDeclarations(self.entries.len()));
+        }
+        let max_var = u16::to_le_bytes(self.entries.len() as u16);
+        buffer.extend_from_slice(&max_var);
+
+        for d in self.entries.iter().rev() {
+            let var_data = d.to_buffer(self.version)?;
+            buffer.extend(var_data);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn create_variable_lookup_table(
+        &self,
+    ) -> std::collections::HashMap<unicase::Ascii<String>, usize> {
+        let mut variable_lookup = HashMap::new();
+        for (i, var_decl) in self.entries.iter().enumerate() {
+            variable_lookup.insert(unicase::Ascii::new(var_decl.get_name().clone()), i);
+        }
+        variable_lookup
+    }
+
+    pub fn get_version(&self) -> u16 {
+        self.version
+    }
+    pub fn set_version(&mut self, version: u16) {
+        self.version = version;
+    }
+
+    pub(crate) fn set_array_value(
+        &mut self,
+        id: usize,
+        dim1: usize,
+        dim2: usize,
+        dim3: usize,
+        val: VariableValue,
+    ) {
+        let arr = &mut self.entries[id - 1].value;
+        match &mut arr.generic_data {
+            GenericVariableData::Dim1(data) => {
+                if dim1 < data.len() {
+                    data[dim1] = val;
+                }
+            }
+            GenericVariableData::Dim2(data) => {
+                if dim1 < data.len() && dim2 < data[dim1].len() {
+                    data[dim2][dim1] = val;
+                }
+            }
+            GenericVariableData::Dim3(data) => {
+                if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
+                    data[dim3][dim2][dim1] = val;
+                }
+            }
+            _ => panic!("no array variable: {arr}"),
+        }
     }
 }

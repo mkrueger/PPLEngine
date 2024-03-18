@@ -83,7 +83,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 return PPEExpr::Value(0);
             };
 
-            let var = self.compiler.get_variable(table_idx);
+            let var = self.compiler.variable_table.get_var_entry(table_idx);
             if var.value.get_type() == VariableType::Function {
                 return PPEExpr::FunctionCall(var.header.id, arguments);
             }
@@ -119,7 +119,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             });
             return PPEExpr::Value(0);
         };
-        let var = &self.compiler.get_variable(table_idx);
+        let var = &self.compiler.variable_table.get_var_entry(table_idx);
         if var.header.dim as usize != arguments.len() {
             self.compiler.errors.push(CompilationError {
                 error: CompilationErrorType::InvalidDimensions(

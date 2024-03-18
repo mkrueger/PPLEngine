@@ -8,8 +8,8 @@ use crate::{
     ast::{AstNode, Constant, Expression, ParameterSpecifier, Program, Statement},
     executable::{
         EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
-        PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableData,
-        VariableTable, VariableType, VariableValue,
+        PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, 
+        VariableTable, VariableType, VariableValue, USER_VARIABLES,
     },
     parser::lexer::{SpannedToken, Token},
 };
@@ -161,62 +161,9 @@ impl PPECompiler {
     }
 
     fn initialize_variables(&mut self) {
-        self.add_predefined_variable("U_EXPERT", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_FSE", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_FSEP", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_CLS", VariableValue::new_bool(false));
-        self.add_predefined_variable(
-            "U_EXPDATE",
-            VariableValue::new(VariableType::Date, VariableData::default()),
-        );
-        self.add_predefined_variable("U_SEC", VariableValue::new_int(0));
-        self.add_predefined_variable("U_PAGELEN", VariableValue::new_int(0));
-        self.add_predefined_variable("U_EXPSEC", VariableValue::new_int(0));
-        self.add_predefined_variable("U_CITY", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_BDPHONE", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_HVPHONE", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_TRANS", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_CMNT1", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_CMNT2", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_PWD", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_SCROLL", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_LONGHDR", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_DEF79", VariableValue::new_bool(false));
-        self.add_predefined_variable("U_ALIAS", VariableValue::new_string(String::new()));
-        self.add_predefined_variable("U_VER", VariableValue::new_string(String::new()));
-        self.add_predefined_variable(
-            "U_ADDR",
-            VariableValue::new_vector(
-                VariableType::String,
-                vec![VariableValue::new_string(String::new()); 5],
-            ),
-        );
-        self.add_predefined_variable(
-            "U_NOTES",
-            VariableValue::new_vector(
-                VariableType::String,
-                vec![VariableValue::new_string(String::new()); 4],
-            ),
-        );
-
-        self.add_predefined_variable(
-            "U_PWDEXP",
-            VariableValue::new(VariableType::Date, VariableData::default()),
-        );
-
-        self.add_predefined_variable(
-            "U_ACCOUNT",
-            VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]),
-        );
-
-        // 3.40 variables
-        /*
-        self.add_predefined_variable("U_SHORTDESC", Variable::new_bool(false));
-        self.add_predefined_variable("U_GENDER", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_BIRTHDATE", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_EMAIL", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_WEB", Variable::new_string(String::new()));
-        */
+        for user_var in USER_VARIABLES.iter() {
+            self.add_predefined_variable(user_var.name, user_var.value.clone());
+        }
     }
 
     /// .

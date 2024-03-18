@@ -11,6 +11,7 @@ use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::OutputFunc;
 use icy_ppe::decompiler::decompile;
 use icy_ppe::executable::read_file;
+use icy_ppe::executable::PPEScript;
 use semver::Version;
 use std::ffi::OsStr;
 use std::fs::*;
@@ -68,8 +69,13 @@ fn main() {
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
     match read_file(file_name, !arguments.output) {
-        Ok(executable) => {
+        Ok(mut executable) => {
             if arguments.disassemble {
+                if let Ok(script) = PPEScript::from_ppe_file(&executable) {
+                    executable.variable_table.analyze_usage(&script);
+                    executable.variable_table.generate_names();
+                }
+
                 executable.print_variable_table();
                 println!();
                 executable.print_script_buffer_dump();

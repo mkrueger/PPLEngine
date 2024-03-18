@@ -327,6 +327,14 @@ impl PPEExpr {
         r
     }
 
+    pub fn get_id(&self) -> Option<usize> {
+        match self {
+            PPEExpr::Value(id) | 
+            PPEExpr::Dim(id, _) => Some(*id),
+            _ => None,
+        }
+    }
+
     /// .
     ///
     /// # Errors

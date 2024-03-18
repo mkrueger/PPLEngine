@@ -119,44 +119,11 @@ impl VariableNameGenerator {
     }
 
     fn get_user_variable_name(number: usize) -> String {
-        match number {
-            1 => "U_EXPERT".to_string(),
-            2 => "U_FSE".to_string(),
-            3 => "U_FSEP".to_string(),
-            4 => "U_CLS".to_string(),
-            5 => "U_EXPDATE".to_string(),
-            6 => "U_SEC".to_string(),
-            7 => "U_PAGELEN".to_string(),
-            8 => "U_EXPSEC".to_string(),
-            9 => "U_CITY".to_string(),
-            10 => "U_BDPHONE".to_string(),
-            11 => "U_HVPHONE".to_string(),
-            12 => "U_TRANS".to_string(),
-            13 => "U_CMNT1".to_string(),
-            14 => "U_CMNT2".to_string(),
-            15 => "U_PWD".to_string(),
-            16 => "U_SCROLL".to_string(),
-            17 => "U_LONGHDR".to_string(),
-            18 => "U_DEF79".to_string(),
-            19 => "U_ALIAS".to_string(),
-            20 => "U_VER".to_string(),
-            21 => "U_ADDR".to_string(),
-            22 => "U_NOTES".to_string(),
-            23 => "U_PWDEXP".to_string(),
-            24 => "U_ACCOUNT".to_string(),
-
-            // Added in 3.40
-            25 => "U_SHORTDESC".to_string(),
-            26 => "U_GENDER".to_string(),
-            27 => "U_BIRTHDATE".to_string(),
-            28 => "U_EMAIL".to_string(),
-            29 => "U_WEB".to_string(),
-
-            _ => {
-                log::error!("Unknown user variable number: {number}");
-                format!("UNKNOWN_VAR{number}")
-            }
+        if let Some(name) = USER_VARIABLES.get(number -1) {
+            return name.name.to_string();
         }
+        log::error!("Unknown user variable number: {number}");
+        format!("UNKNOWN_VAR{number}")
     }
 
     pub fn new(version: u16, has_user_vars: bool) -> Self {

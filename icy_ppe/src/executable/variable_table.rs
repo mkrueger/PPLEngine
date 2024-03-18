@@ -8,7 +8,7 @@ use crossterm::{
 use crate::crypt::{decrypt, encrypt};
 
 use super::{
-    ExecutableError, GenericVariableData, VariableData, VariableType, VariableValue, HEADER_SIZE,
+    ExecutableError, GenericVariableData, PPEExpr, PPEScript, VariableData, VariableNameGenerator, VariableType, VariableValue, HEADER_SIZE
 };
 
 #[derive(Clone, Default, Debug)]
@@ -399,6 +399,7 @@ impl VariableTable {
                     );
                     let function_value = FunctionValue::from_bytes(cur_buf);
                     i += 4; // skip vtable + type
+
                     variable = VariableValue {
                         vtype,
                         data: VariableData { function_value },
@@ -449,8 +450,7 @@ impl VariableTable {
             result[var_count - 1] = TableEntry::new(header, variable);
         }
 
-        let mut k = result.len() - 1;
-        while k > 0 {
+        for k in (0..result.len()).rev() {
             let cur = result[k].clone();
             match cur.header.variable_type {
                 VariableType::Function => unsafe {
@@ -466,12 +466,12 @@ impl VariableTable {
                             fvar.number = k;
                         } else if j < cur.value.data.function_value.parameters as usize {
                             fvar.set_type(EntryType::Parameter);
-                            println!("{} i:{i}", cur.value.data.function_value.first_var_id + 1);
                             fvar.number = ((cur.value.data.function_value.first_var_id + 1)
                                 as usize)
                                 .saturating_sub(i);
                         }
                     }
+                    result[k].set_type(EntryType::Function);
                 },
                 VariableType::Procedure => unsafe {
                     let mut j = 0;
@@ -487,22 +487,80 @@ impl VariableTable {
                         j += 1;
                         fvar.number = j;
                     });
+                    result[k].set_type(EntryType::Procedure);
                 },
                 _ => {}
             }
-            if k == 0 {
-                break;
-            }
-            k -= 1;
         }
 
-        Ok((
-            i,
-            VariableTable {
-                version,
-                entries: result,
+        let mut table =  VariableTable {
+            version,
+            entries: result,
+        };
+        table.generate_names();
+        Ok((i,  table))
+    }
+
+    pub fn generate_names(&mut self) {
+        let has_user_vars = self.has_user_variables();
+        let mut name_generator =
+            VariableNameGenerator::new(self.version, has_user_vars);
+        let mut function_result = 1;
+        for res in &mut self.entries {
+            if res.get_type() == EntryType::FunctionResult {
+                res.set_name(format!("RESULT{function_result:>03}"));
+                function_result += 1;
+                continue;
+            }
+
+            let (name, is_user_variable) = name_generator.get_next_name(res);
+            if is_user_variable {
+                res.set_type(EntryType::UserVariable);
+            }
+
+            res.set_name(name);
+        }
+    }
+
+    pub fn analyze_usage(&mut self, script: &PPEScript) {
+        for stmt in &script.statements {
+            self.analyze_statement(&stmt.command);
+        }
+    }
+    fn analyze_statement(&mut self, stmt: &super::PPECommand) {
+        match stmt {
+            super::PPECommand::While(_, stmt, _) => self.analyze_statement(stmt),
+            super::PPECommand::ProcedureCall(id, args) => {
+                unsafe { 
+                    let flags = self.get_value(*id).data.procedure_value.pass_flags;
+                    for (i, arg) in args.iter().enumerate() {
+                        if flags & (1 << i) != 0 {
+                            self.report_usage(arg);
+                        }
+                    }
+                }
             },
-        ))
+            super::PPECommand::PredefinedCall(id, args) => {
+                if let super::StatementSignature::ArgumentsWithVariable(var_arg, _) = id.sig {
+                    if var_arg > 0 {
+                        self.report_usage(&args[var_arg - 1]);
+                    }
+                }
+            },
+            super::PPECommand::Let(variable, _) => {
+                self.report_usage(variable);
+            },
+            _ => {
+    
+            }
+        }
+    }
+
+    fn report_usage(&mut self, variable: &PPEExpr) {
+        if let Some(id) = variable.get_id() {
+            self.get_var_entry_mut(id).report_variable_usage();
+        }
+
     }
 
     pub fn push(&mut self, entry: TableEntry) {
@@ -539,40 +597,14 @@ impl VariableTable {
         &mut self.entries[id - 1]
     }
 
+    
     pub fn has_user_variables(&self) -> bool {
-        let has_user_variables = self.entries[0].header.variable_type == VariableType::Boolean
-            && (self.entries[1].header.variable_type == VariableType::Boolean)
-            && (self.entries[2].header.variable_type == VariableType::Boolean)
-            && (self.entries[3].header.variable_type == VariableType::Boolean)
-            && (self.entries[4].header.variable_type == VariableType::Date)
-            && (self.entries[5].header.variable_type == VariableType::Integer)
-            && (self.entries[6].header.variable_type == VariableType::Integer)
-            && (self.entries[7].header.variable_type == VariableType::Integer)
-            && (self.entries[8].header.variable_type == VariableType::String)
-            && (self.entries[9].header.variable_type == VariableType::String)
-            && (self.entries[10].header.variable_type == VariableType::String)
-            && (self.entries[11].header.variable_type == VariableType::String)
-            && (self.entries[12].header.variable_type == VariableType::String)
-            && (self.entries[13].header.variable_type == VariableType::String)
-            && (self.entries[14].header.variable_type == VariableType::String)
-            && (self.entries[15].header.variable_type == VariableType::Boolean)
-            && (self.entries[16].header.variable_type == VariableType::Boolean)
-            && (self.entries[17].header.variable_type == VariableType::Boolean)
-            && (self.entries[18].header.variable_type == VariableType::String)
-            && (self.entries[19].header.variable_type == VariableType::String)
-            && (self.entries[20].header.variable_type == VariableType::String)
-            && (self.entries[21].header.variable_type == VariableType::String)
-            && (self.entries[22].header.variable_type == VariableType::Date)
-            && (self.entries[20].header.vector_size == 5);
-
-        if has_user_variables
-            && self.version >= 300
-            && !(self.entries[23].header.variable_type == VariableType::Integer
-                && self.entries[23].header.vector_size == 16)
-        {
-            return false;
+        for i in 0..20 {
+            if self.entries[i].header.variable_type != USER_VARIABLES[i].value.vtype || self.entries[i].header.vector_size != USER_VARIABLES[i].value.get_vector_size(){
+                return false;
+            }
         }
-        has_user_variables
+        true
     }
 
     pub fn print_variable_table(&self) {
@@ -749,4 +781,51 @@ impl VariableTable {
             _ => panic!("no array variable: {arr}"),
         }
     }
+}
+
+
+pub struct UserVariable {
+    pub name: &'static str,
+    pub value: VariableValue,
+}
+
+lazy_static::lazy_static! {
+    pub static ref USER_VARIABLES: [UserVariable;29] = [
+        UserVariable { name: "U_EXPERT", value: VariableValue::new_bool(false)  },
+        UserVariable { name: "U_FSE", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_FSEP", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_CLS", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_EXPDATE", value:VariableValue::new(VariableType::Date, VariableData::default()) },
+        UserVariable { name: "U_SEC", value:VariableValue::new_int(0) },
+        UserVariable { name: "U_PAGELEN", value:VariableValue::new_int(0) },
+        UserVariable { name: "U_EXPSEC", value:VariableValue::new_int(0) },
+        UserVariable { name: "U_CITY", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BDPHONE", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_HVPHONE", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_TRANS", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_CMNT1", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_CMNT2", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_PWD", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_SCROLL", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_LONGHDR", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_DEF79", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_ALIAS", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_VER", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_ADDR", value:VariableValue::new_vector(
+            VariableType::String,
+            vec![VariableValue::new_string(String::new()); 5],
+        )  },
+        UserVariable { name: "U_NOTES", value:VariableValue::new_vector(VariableType::String, vec![VariableValue::new_string(String::new()); 4], ), },
+        UserVariable { name: "U_PWDEXP", value:VariableValue::new(VariableType::Date, VariableData::default()),  },
+        
+        // 3.10
+        UserVariable { name: "U_ACCOUNT", value:VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]), },
+        
+        // 3.40 
+        UserVariable { name: "U_SHORTDESC", value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_GENDER", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BIRTHDATE", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_EMAIL", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_WEB", value:VariableValue::new_string(String::new()) },
+    ];
 }

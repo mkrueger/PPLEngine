@@ -1538,12 +1538,6 @@ impl Decompiler {
                 res.set_type(EntryType::UserVariable);
             }
 
-            if res.header.variable_type == VariableType::Function {
-                res.set_type(EntryType::Function);
-            }
-            if res.header.variable_type == VariableType::Procedure {
-                res.set_type(EntryType::Procedure);
-            }
             res.set_name(name);
         }
         self.variable_lookup_table = self

@@ -117,6 +117,9 @@ pub enum ParserErrorType {
 
     #[error("Expected comma, got '{0}'")]
     CommaExpected(Token),
+
+    #[error("Expected 'THEN', got '{0}'")]
+    ThenExpected(Token),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -608,8 +611,6 @@ impl Parser {
                     return None;
                 }
                 statements.push(self.parse_statement());
-                self.next_token();
-
                 self.skip_eol();
             }
             let endproc_token = self.save_spannedtoken();

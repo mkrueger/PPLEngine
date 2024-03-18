@@ -119,7 +119,7 @@ impl VariableNameGenerator {
     }
 
     fn get_user_variable_name(number: usize) -> String {
-        if let Some(name) = USER_VARIABLES.get(number -1) {
+        if let Some(name) = USER_VARIABLES.get(number - 1) {
             return name.name.to_string();
         }
         log::error!("Unknown user variable number: {number}");

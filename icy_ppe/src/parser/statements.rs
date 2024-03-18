@@ -89,7 +89,6 @@ impl Parser {
                     continue;
                 }
                 statements.push(self.parse_statement());
-                self.next_token();
                 self.skip_eol();
             }
             if end_while_token.is_none() {
@@ -145,7 +144,6 @@ impl Parser {
                 break;
             }
             statements.push(self.parse_statement());
-            self.next_token();
             self.skip_eol();
         }
         let end_token = self.save_spannedtoken();
@@ -343,7 +341,6 @@ impl Parser {
                 continue;
             }
             statements.push(self.parse_statement());
-            self.next_token();
             self.skip_eol();
         }
         let mut else_if_blocks = Vec::new();
@@ -383,6 +380,16 @@ impl Parser {
                 }
                 let else_if_rightpar_token = self.save_spannedtoken();
                 self.next_token();
+                if self.get_cur_token() != Some(Token::Then) {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::ThenExpected(self.save_token()),
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+                let then_token = self.save_spannedtoken();
+                self.next_token();
 
                 let mut statements = Vec::new();
                 while self.get_cur_token() != Some(Token::EndIf)
@@ -413,7 +420,6 @@ impl Parser {
                         continue;
                     }
                     statements.push(self.parse_statement());
-                    self.next_token();
                     self.skip_eol();
                 }
                 else_if_blocks.push(ElseIfBlock::new(
@@ -421,6 +427,7 @@ impl Parser {
                     else_if_lpar_token,
                     Box::new(cond),
                     else_if_rightpar_token,
+                    then_token,
                     statements.into_iter().flatten().collect(),
                 ));
             }
@@ -460,7 +467,6 @@ impl Parser {
                 if let Some(stmt) = self.parse_statement() {
                     statements.push(stmt);
                 }
-                self.next_token();
                 self.skip_eol();
             }
             Some(ElseBlock::new(else_token, statements))
@@ -548,7 +554,6 @@ impl Parser {
                         continue;
                     }
                     statements.push(self.parse_statement());
-                    self.next_token();
                     self.skip_eol();
                 }
                 else_block = Some(CaseBlock::new(
@@ -592,7 +597,6 @@ impl Parser {
                 }
 
                 statements.push(self.parse_statement());
-                self.next_token();
                 self.skip_eol();
             }
             case_blocks.push(CaseBlock::new(
@@ -622,8 +626,14 @@ impl Parser {
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
+            Some(Token::Begin) => {
+                // Just ignore begin
+                self.next_token();
+                None
+            }
             Some(Token::Comment(_, _)) => {
                 let cmt = self.save_spannedtoken();
+                self.next_token();
                 Some(Statement::Comment(CommentAstNode::new(cmt)))
             }
             Some(Token::UseFuncs(_, _)) => {
@@ -631,10 +641,12 @@ impl Parser {
                     error: ParserWarningType::UsefuncsIgnored,
                     range: self.lex.span(),
                 });
+                self.next_token();
                 None
             }
             Some(Token::End) => {
                 let ct = self.save_spannedtoken();
+                self.next_token();
                 Some(Statement::End(EndStatement::new(ct)))
             }
             /*
@@ -740,15 +752,21 @@ impl Parser {
                     }));
                 None
             }
-            Some(Token::Break) => Some(Statement::Break(BreakStatement::new(
-                self.save_spannedtoken(),
-            ))),
-            Some(Token::Continue) => Some(Statement::Continue(ContinueStatement::new(
-                self.save_spannedtoken(),
-            ))),
-            Some(Token::EndProc | Token::EndFunc | Token::Return) => Some(Statement::Return(
-                ReturnStatement::new(self.save_spannedtoken()),
-            )),
+            Some(Token::Break) => {
+                let tok = self.save_spannedtoken();
+                self.next_token();
+                Some(Statement::Break(BreakStatement::new(tok)))
+            }
+            Some(Token::Continue) => {
+                let tok = self.save_spannedtoken();
+                self.next_token();
+                Some(Statement::Continue(ContinueStatement::new(tok)))
+            }
+            Some(Token::EndProc | Token::EndFunc | Token::Return) => {
+                let tok = self.save_spannedtoken();
+                self.next_token();
+                Some(Statement::Return(ReturnStatement::new(tok)))
+            }
             Some(Token::Gosub) => {
                 let gosub_token = self.save_spannedtoken();
                 self.next_token();
@@ -825,7 +843,11 @@ impl Parser {
                 Some(Statement::Label(LabelStatement::new(label_token)))
             }
 
-            Some(Token::Eol) | None => None,
+            Some(Token::Eol) => {
+                self.next_token();
+                None
+            }
+            None => None,
             _ => {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {

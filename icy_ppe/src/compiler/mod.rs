@@ -8,8 +8,8 @@ use crate::{
     ast::{AstNode, Constant, Expression, ParameterSpecifier, Program, Statement},
     executable::{
         EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
-        PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, 
-        VariableTable, VariableType, VariableValue, USER_VARIABLES,
+        PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
+        VariableType, VariableValue, USER_VARIABLES,
     },
     parser::lexer::{SpannedToken, Token},
 };

@@ -1,6 +1,7 @@
 use clap::Parser;
 use crossterm::cursor::MoveTo;
 use crossterm::ExecutableCommand;
+use icy_ppe::executable::read_file;
 use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
 use icy_ppe::icy_board::data::PcbDataType;
@@ -12,6 +13,7 @@ use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
+use std::path::PathBuf;
 
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
@@ -69,7 +71,7 @@ fn main() {
         no_char: 'N',
     };
 
-    let mut prg = icy_ppe::decompiler::load_file(&file_name, false).unwrap();
+    let exe = read_file(&file_name, false).unwrap();
     let mut io = DiskIO::new(".");
     let mut output = Output::default();
 
@@ -100,7 +102,14 @@ fn main() {
         .unwrap()
         .execute(MoveTo(0, 0))
         .unwrap();
-    run(&mut prg, &mut output, &mut io, icy_board_data).unwrap();
+    run(
+        PathBuf::from(file_name),
+        &exe,
+        &mut output,
+        &mut io,
+        icy_board_data,
+    )
+    .unwrap();
 
     disable_raw_mode().unwrap();
 }

@@ -6,11 +6,12 @@ use thiserror::Error;
 
 use crate::{
     ast::{
-        AstNode, Constant, Expression, ParameterSpecifier, Program, Statement, Variable,
-        VariableData, VariableType, GenericVariableData,
+        AstNode, Constant, Expression, GenericVariableData, ParameterSpecifier, Program, Statement,
+        Variable, VariableData, VariableType,
     },
     executable::{
-        EntryType, Executable, ExpressionNegator, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript, ProcedureValue, VarHeader, VariableEntry
+        EntryType, Executable, ExpressionNegator, FunctionValue, OpCode, PPECommand, PPEExpr,
+        PPEScript, ProcedureValue, VarHeader, VariableEntry,
     },
     parser::lexer::{SpannedToken, Token},
 };
@@ -489,7 +490,9 @@ impl PPECompiler {
                     panic!("Invalid if statement without goto.");
                 };
 
-                let cond_buffer = self.comp_expr(if_stmt.get_condition()).visit_mut(&mut ExpressionNegator::default());
+                let cond_buffer = self
+                    .comp_expr(if_stmt.get_condition())
+                    .visit_mut(&mut ExpressionNegator::default());
                 Some(PPECommand::IfNot(
                     Box::new(cond_buffer),
                     self.get_label_index(goto_stmt.get_label()),

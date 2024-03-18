@@ -2,8 +2,8 @@ use std::fmt;
 
 use super::{AstVisitor, AstVisitorMut, Constant};
 use crate::{
+    executable::FunctionDefinition,
     parser::lexer::{SpannedToken, Token},
-    tables::FunctionDefinition,
 };
 
 #[repr(i16)]
@@ -354,7 +354,7 @@ impl fmt::Display for FunctionCallExpression {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PredefinedFunctionCallExpression {
     identifier_token: SpannedToken,
-    func: &'static FunctionDefinition<'static>,
+    func: &'static FunctionDefinition,
 
     lpar_token: SpannedToken,
     arguments: Vec<Expression>,
@@ -364,7 +364,7 @@ pub struct PredefinedFunctionCallExpression {
 impl PredefinedFunctionCallExpression {
     pub fn new(
         identifier_token: SpannedToken,
-        func: &'static FunctionDefinition<'static>,
+        func: &'static FunctionDefinition,
         leftpar_token: SpannedToken,
         arguments: Vec<Expression>,
         rightpar_token: SpannedToken,
@@ -378,7 +378,7 @@ impl PredefinedFunctionCallExpression {
         }
     }
 
-    pub fn empty(func: &'static FunctionDefinition<'static>, arguments: Vec<Expression>) -> Self {
+    pub fn empty(func: &'static FunctionDefinition, arguments: Vec<Expression>) -> Self {
         Self {
             identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 func.name.to_string(),
@@ -422,13 +422,13 @@ impl PredefinedFunctionCallExpression {
     }
 
     pub(crate) fn create_empty_expression(
-        func: &'static FunctionDefinition<'static>,
+        func: &'static FunctionDefinition,
         arguments: Vec<Expression>,
     ) -> Expression {
         Expression::PredefinedFunctionCall(PredefinedFunctionCallExpression::empty(func, arguments))
     }
 
-    pub fn get_func(&self) -> &'static FunctionDefinition<'static> {
+    pub fn get_func(&self) -> &'static FunctionDefinition {
         self.func
     }
 }

@@ -2,12 +2,11 @@ use std::ops::Range;
 
 use thiserror::Error;
 
-use crate::{
-    ast::{BinOp, UnaryOp, Variable, GenericVariableData},
-    tables::FunctionDefinition,
-};
+use crate::ast::{BinOp, GenericVariableData, UnaryOp, Variable};
 
-use super::{DeserializationErrorType, Executable, OpCode, StatementDefinition};
+use super::{
+    DeserializationErrorType, Executable, FunctionDefinition, OpCode, StatementDefinition,
+};
 
 pub struct DeserializationError {
     pub error_type: DeserializationErrorType,
@@ -83,7 +82,7 @@ pub enum PPECommand {
     IfNot(Box<PPEExpr>, usize),
     While(Box<PPEExpr>, Box<PPECommand>, usize),
     ProcedureCall(usize, Vec<PPEExpr>),
-    PredefinedCall(&'static StatementDefinition<'static>, Vec<PPEExpr>),
+    PredefinedCall(&'static StatementDefinition, Vec<PPEExpr>),
     Goto(usize),
     Gosub(usize),
     EndFunc,
@@ -255,7 +254,7 @@ pub enum PPEExpr {
     UnaryExpression(UnaryOp, Box<PPEExpr>),
     BinaryExpression(BinOp, Box<PPEExpr>, Box<PPEExpr>),
     Dim(usize, Vec<PPEExpr>),
-    PredefinedFunctionCall(&'static FunctionDefinition<'static>, Vec<PPEExpr>),
+    PredefinedFunctionCall(&'static FunctionDefinition, Vec<PPEExpr>),
     FunctionCall(usize, Vec<PPEExpr>),
 }
 
@@ -362,6 +361,7 @@ impl PPEExpr {
     /// # Panics
     ///
     /// Panics if expression is invalid.
+    #[must_use]
     pub fn visit_mut<V: PPEVisitorMut>(&self, visitor: &mut V) -> PPEExpr {
         match self {
             PPEExpr::Invalid => panic!("Invalid expression"),
@@ -426,30 +426,19 @@ pub trait PPEVisitorMut: Sized {
         )
     }
     fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) -> PPEExpr {
-        PPEExpr::Dim(
-            id,
-            dim.iter().map(|e| e.visit_mut(self)).collect(),
-        )
+        PPEExpr::Dim(id, dim.iter().map(|e| e.visit_mut(self)).collect())
     }
     fn visit_predefined_function_call(
         &mut self,
-        def: &'static FunctionDefinition<'static>,
+        def: &'static FunctionDefinition,
         arguments: &[PPEExpr],
     ) -> PPEExpr {
-        PPEExpr::PredefinedFunctionCall(
-            def,
-            arguments.iter().map(|e| e.visit_mut(self)).collect(),
-        )
+        PPEExpr::PredefinedFunctionCall(def, arguments.iter().map(|e| e.visit_mut(self)).collect())
     }
     fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) -> PPEExpr {
-        PPEExpr::FunctionCall(
-            id,
-            arguments.iter().map(|e| e.visit_mut(self)).collect(),
-        )
-    
+        PPEExpr::FunctionCall(id, arguments.iter().map(|e| e.visit_mut(self)).collect())
     }
 }
-
 
 struct PPEConstantValueVisitor<'a> {
     executable: &'a Executable,
@@ -641,7 +630,6 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
     }
 }
 
-
 #[derive(Default)]
 pub struct ExpressionNegator {}
 
@@ -654,82 +642,72 @@ impl PPEVisitorMut for ExpressionNegator {
         if op == UnaryOp::Not {
             expr.clone()
         } else {
-            PPEExpr::UnaryExpression(UnaryOp::Not, 
-                Box::new(PPEExpr::UnaryExpression(op, Box::new(expr.clone()))))
+            PPEExpr::UnaryExpression(
+                UnaryOp::Not,
+                Box::new(PPEExpr::UnaryExpression(op, Box::new(expr.clone()))),
+            )
         }
     }
 
     fn visit_binary_expression(&mut self, op: BinOp, left: &PPEExpr, right: &PPEExpr) -> PPEExpr {
-
         match op {
-            BinOp::PoW |
-            BinOp::Mul |
-            BinOp::Div |
-            BinOp::Mod |
-            BinOp::Add |
-            BinOp::Sub => {
-                PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
-                    PPEExpr::BinaryExpression(
+            BinOp::PoW | BinOp::Mul | BinOp::Div | BinOp::Mod | BinOp::Add | BinOp::Sub => {
+                PPEExpr::UnaryExpression(
+                    UnaryOp::Not,
+                    Box::new(PPEExpr::BinaryExpression(
                         op,
                         Box::new(left.clone()),
                         Box::new(right.clone()),
-                    )
-                ))
+                    )),
+                )
             }
 
-            BinOp::Eq => {
-                PPEExpr::BinaryExpression(
-                    BinOp::NotEq,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::NotEq => {
-                PPEExpr::BinaryExpression(
-                    BinOp::Eq,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::Lower => {
-                PPEExpr::BinaryExpression(
-                    BinOp::GreaterEq,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::LowerEq => {
-                PPEExpr::BinaryExpression(
-                    BinOp::Greater,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::Greater => {
-                PPEExpr::BinaryExpression(
-                    BinOp::LowerEq,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::GreaterEq => {
-                PPEExpr::BinaryExpression(
-                    BinOp::Lower,
-                    Box::new(left.clone()),
-                    Box::new(right.clone()),
-                )
-            }
-            BinOp::And | BinOp::Or=> {
-                let variant1  = PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
-                    PPEExpr::BinaryExpression(
+            BinOp::Eq => PPEExpr::BinaryExpression(
+                BinOp::NotEq,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::NotEq => PPEExpr::BinaryExpression(
+                BinOp::Eq,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::Lower => PPEExpr::BinaryExpression(
+                BinOp::GreaterEq,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::LowerEq => PPEExpr::BinaryExpression(
+                BinOp::Greater,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::Greater => PPEExpr::BinaryExpression(
+                BinOp::LowerEq,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::GreaterEq => PPEExpr::BinaryExpression(
+                BinOp::Lower,
+                Box::new(left.clone()),
+                Box::new(right.clone()),
+            ),
+            BinOp::And | BinOp::Or => {
+                let variant1 = PPEExpr::UnaryExpression(
+                    UnaryOp::Not,
+                    Box::new(PPEExpr::BinaryExpression(
                         op,
                         Box::new(left.clone()),
                         Box::new(right.clone()),
-                    )
-                ));
+                    )),
+                );
 
                 let variant2 = PPEExpr::BinaryExpression(
-                    if op == BinOp::Or { BinOp::And } else { BinOp::Or },
+                    if op == BinOp::Or {
+                        BinOp::And
+                    } else {
+                        BinOp::Or
+                    },
                     Box::new(left.visit_mut(self)),
                     Box::new(right.visit_mut(self)),
                 );
@@ -743,33 +721,24 @@ impl PPEVisitorMut for ExpressionNegator {
     }
 
     fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) -> PPEExpr {
-        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
-            PPEExpr::Dim(
-                id,
-                dim.to_vec(),
-            )
-        ))
+        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(PPEExpr::Dim(id, dim.to_vec())))
     }
 
     fn visit_predefined_function_call(
         &mut self,
-        def: &'static FunctionDefinition<'static>,
+        def: &'static FunctionDefinition,
         arguments: &[PPEExpr],
     ) -> PPEExpr {
-        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(  
-            PPEExpr::PredefinedFunctionCall(
-                def,
-                arguments.to_vec(),
-            )
-        ))
+        PPEExpr::UnaryExpression(
+            UnaryOp::Not,
+            Box::new(PPEExpr::PredefinedFunctionCall(def, arguments.to_vec())),
+        )
     }
 
     fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) -> PPEExpr {
-        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
-            PPEExpr::FunctionCall(
-                id,
-                arguments.to_vec(),
-            )
-        ))
+        PPEExpr::UnaryExpression(
+            UnaryOp::Not,
+            Box::new(PPEExpr::FunctionCall(id, arguments.to_vec())),
+        )
     }
 }

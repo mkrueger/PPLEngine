@@ -4,6 +4,7 @@ use crate::{
         BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
         IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression,
     },
+    executable::{get_function_definition, FUNCTION_DEFINITIONS},
     parser::{Error, ParserError, ParserErrorType},
 };
 
@@ -258,13 +259,13 @@ impl Parser {
 
                     self.next_token();
 
-                    let predef = crate::tables::get_function_definition(id);
+                    let predef = get_function_definition(id);
                     // TODO: Check parameter signature
                     if predef >= 0 {
                         return Some(Expression::PredefinedFunctionCall(
                             PredefinedFunctionCallExpression::new(
                                 identifier_token,
-                                &crate::tables::FUNCTION_DEFINITIONS[predef as usize],
+                                &FUNCTION_DEFINITIONS[predef as usize],
                                 leftpar_token,
                                 arguments,
                                 rightpar_token,

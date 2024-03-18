@@ -1,10 +1,9 @@
 use crate::{
     ast::{BinOp, Variable, VariableType},
     executable::{Executable, FunctionValue, ProcedureValue, VariableEntry},
-    tables::{FuncOpCode, FUNCTION_DEFINITIONS},
 };
 
-use super::{OpCode, PPECommand, PPEExpr};
+use super::{FuncOpCode, OpCode, PPECommand, PPEExpr, FUNCTION_DEFINITIONS};
 
 #[test]
 fn test_end_serialization() {

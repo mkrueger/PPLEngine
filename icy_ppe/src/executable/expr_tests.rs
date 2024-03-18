@@ -1,10 +1,9 @@
 use crate::{
     ast::{Variable, VariableType},
     executable::FunctionValue,
-    tables::{FuncOpCode, FUNCTION_DEFINITIONS},
 };
 
-use super::{Executable, PPEExpr, VariableEntry};
+use super::{Executable, FuncOpCode, PPEExpr, VariableEntry, FUNCTION_DEFINITIONS};
 
 #[test]
 fn test_value_serialization() {

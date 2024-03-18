@@ -34,35 +34,47 @@ impl AstVisitorMut for AstTransformationVisitor {
     fn visit_if_then_statement(&mut self, if_then: &crate::ast::IfThenStatement) -> Statement {
         let mut statements = Vec::new();
 
-        let if_exit_label = self.next_label();
+        let mut last_exit_label = self.next_label();
+        let mut if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
+            Box::new(if_then.get_condition().clone()),
+            /*
             Box::new(UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
                 Box::new(if_then.get_condition().clone()),
             )),
+            */
             Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
         ));
         statements.extend(if_then.get_statements().iter().map(|s| s.visit_mut(self)));
-        statements.push(GotoStatement::create_empty_statement(if_exit_label.clone()));
+        statements.push(GotoStatement::create_empty_statement(
+            last_exit_label.clone(),
+        ));
         for else_if in if_then.get_else_if_blocks() {
-            let else_if_exit_label = self.next_label();
+            statements.push(LabelStatement::create_empty_statement(
+                if_exit_label.clone(),
+            ));
+
+            if_exit_label = self.next_label();
             statements.push(IfStatement::create_empty_statement(
                 Box::new(UnaryExpression::create_empty_expression(
                     crate::ast::UnaryOp::Not,
                     Box::new(else_if.get_condition().clone()),
                 )),
-                Box::new(GotoStatement::create_empty_statement(
-                    else_if_exit_label.clone(),
-                )),
+                Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
             ));
             statements.extend(else_if.get_statements().iter().map(|s| s.visit_mut(self)));
-            statements.push(GotoStatement::create_empty_statement(if_exit_label.clone()));
-            statements.push(LabelStatement::create_empty_statement(
-                else_if_exit_label.clone(),
+            statements.push(GotoStatement::create_empty_statement(
+                last_exit_label.clone(),
             ));
         }
 
         if let Some(else_block) = if_then.get_else_block() {
+            statements.push(LabelStatement::create_empty_statement(
+                if_exit_label.clone(),
+            ));
+            if_exit_label = self.next_label();
+
             statements.extend(
                 else_block
                     .get_statements()
@@ -73,6 +85,9 @@ impl AstVisitorMut for AstTransformationVisitor {
 
         statements.push(LabelStatement::create_empty_statement(
             if_exit_label.clone(),
+        ));
+        statements.push(LabelStatement::create_empty_statement(
+            last_exit_label.clone(),
         ));
 
         Statement::Block(BlockStatement::empty(statements))
@@ -178,22 +193,51 @@ impl AstVisitorMut for AstTransformationVisitor {
             continue_label.clone(),
         ));
 
-        let lower_bound = Box::new(BinaryExpression::create_empty_expression(
-            crate::ast::BinOp::Greater,
-            id_expr.clone(),
-            Box::new(for_stmt.get_end_expr().visit_mut(self)),
-        ));
-        let upper_bound = Box::new(BinaryExpression::create_empty_expression(
-            crate::ast::BinOp::Lower,
-            id_expr.clone(),
-            Box::new(for_stmt.get_end_expr().visit_mut(self)),
-        ));
+        let increment = if let Some(increment) = for_stmt.get_step_expr() {
+            increment.visit_mut(self)
+        } else {
+            Expression::Const(ConstantExpression::empty(Constant::Integer(1)))
+        };
+
+        let end_expr = Box::new(for_stmt.get_end_expr().visit_mut(self));
+
+        let lower_bound = BinaryExpression::create_empty_expression(
+            crate::ast::BinOp::Or,
+            Box::new(BinaryExpression::create_empty_expression(
+                crate::ast::BinOp::Lower,
+                Box::new(ConstantExpression::create_empty_expression(
+                    Constant::Integer(0),
+                )),
+                Box::new(increment.clone()),
+            )),
+            Box::new(BinaryExpression::create_empty_expression(
+                crate::ast::BinOp::Lower,
+                id_expr.clone(),
+                end_expr.clone(),
+            )),
+        );
+
+        let upper_bound = BinaryExpression::create_empty_expression(
+            crate::ast::BinOp::Or,
+            Box::new(BinaryExpression::create_empty_expression(
+                crate::ast::BinOp::Greater,
+                Box::new(ConstantExpression::create_empty_expression(
+                    Constant::Integer(0),
+                )),
+                Box::new(increment.clone()),
+            )),
+            Box::new(BinaryExpression::create_empty_expression(
+                crate::ast::BinOp::Greater,
+                id_expr.clone(),
+                end_expr.clone(),
+            )),
+        );
 
         statements.push(IfStatement::create_empty_statement(
             Box::new(BinaryExpression::create_empty_expression(
-                crate::ast::BinOp::Or,
-                lower_bound,
-                upper_bound,
+                crate::ast::BinOp::And,
+                Box::new(lower_bound),
+                Box::new(upper_bound),
             )),
             Box::new(GotoStatement::create_empty_statement(break_label.clone())),
         ));
@@ -201,11 +245,7 @@ impl AstVisitorMut for AstTransformationVisitor {
         statements.extend(for_stmt.get_statements().iter().map(|s| s.visit_mut(self)));
 
         // create step & increment
-        let increment = if let Some(increment) = for_stmt.get_step_expr() {
-            increment.visit_mut(self)
-        } else {
-            Expression::Const(ConstantExpression::empty(Constant::Integer(1)))
-        };
+
         statements.push(LetStatement::create_empty_statement(
             for_stmt.get_identifier().clone(),
             Vec::new(),

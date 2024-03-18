@@ -7,7 +7,10 @@ use crossterm::{
 
 use crate::ast::VariableType;
 
-use super::{Executable, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, StatementDefinition};
+use super::{
+    Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor,
+    StatementDefinition,
+};
 
 pub struct DisassembleVisitor<'a> {
     pub show_statement_data: bool,
@@ -277,11 +280,7 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         print!("]");
     }
 
-    fn visit_predefined_function_call(
-        &mut self,
-        def: &crate::tables::FunctionDefinition,
-        arguments: &[PPEExpr],
-    ) {
+    fn visit_predefined_function_call(&mut self, def: &FunctionDefinition, arguments: &[PPEExpr]) {
         print!("(");
         execute!(
             stdout(),

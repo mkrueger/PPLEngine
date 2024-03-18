@@ -7,7 +7,7 @@ use crossterm::execute;
 use crossterm::style::{Attribute, Print, SetAttribute};
 use thiserror::Error;
 
-use crate::ast::{Variable, VariableData, VariableType, GenericVariableData};
+use crate::ast::{GenericVariableData, Variable, VariableData, VariableType};
 use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
 use crate::executable::disassembler::DisassembleVisitor;
 use crate::Res;
@@ -19,8 +19,11 @@ pub use deserializer::*;
 pub mod commands;
 pub use commands::*;
 
-pub mod opcodes;
-pub use opcodes::*;
+pub mod smt_op_codes;
+pub use smt_op_codes::*;
+
+pub mod func_op_codes;
+pub use func_op_codes::*;
 
 #[cfg(test)]
 pub mod expr_tests;

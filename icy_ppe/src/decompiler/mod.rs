@@ -9,10 +9,10 @@ use crate::ast::{
     VariableDeclarationStatement, VariableSpecifier, VariableType, WhileStatement,
 };
 use crate::executable::{
-    read_file, EntryType, Executable, OpCode, VariableEntry, VariableNameGenerator,
-    STATEMENT_DEFINITIONS,
+    read_file, EntryType, Executable, FuncOpCode, OpCode, VariableEntry, VariableNameGenerator,
+    FUNCTION_DEFINITIONS, LAST_FUNC, STATEMENT_DEFINITIONS,
 };
-use crate::tables::{FuncOpCode, FUNCTION_DEFINITIONS, STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
+use crate::tables::{STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 use crate::Res;
 use std::collections::{HashMap, HashSet};
 use std::intrinsics::transmute;
@@ -792,7 +792,7 @@ impl Decompiler {
             return -1;
         }
 
-        let func_def = &FUNCTION_DEFINITIONS[(-func) as usize];
+        let func_def = &FUNCTION_DEFINITIONS[offset];
 
         match func_def.args {
             0x10 => {
@@ -978,7 +978,7 @@ impl Decompiler {
                     } else {
                         let x = self.executable.script_buffer[self.src_ptr];
 
-                        if self.executable.script_buffer[self.src_ptr] < crate::tables::LAST_FUNC {
+                        if self.executable.script_buffer[self.src_ptr] < LAST_FUNC {
                             log::error!(
                                 "Error: Unknown function {} at {} avoiding...",
                                 self.executable.script_buffer[self.src_ptr],

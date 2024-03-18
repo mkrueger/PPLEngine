@@ -19,8 +19,8 @@ pub mod crypt;
 pub mod decompiler;
 pub mod executable;
 pub mod icy_board;
-// pub mod vm;
 pub mod parser;
 pub mod tables;
+pub mod vm;
 
 pub type Res<T> = Result<T, Box<dyn std::error::Error>>;

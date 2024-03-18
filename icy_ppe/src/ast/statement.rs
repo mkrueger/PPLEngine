@@ -1343,14 +1343,14 @@ impl ProcedureCallStatement {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PredefinedCallStatement {
     identifier_token: SpannedToken,
-    func: &'static StatementDefinition<'static>,
+    func: &'static StatementDefinition,
     arguments: Vec<Expression>,
 }
 
 impl PredefinedCallStatement {
     pub fn new(
         identifier_token: SpannedToken,
-        func: &'static StatementDefinition<'static>,
+        func: &'static StatementDefinition,
         arguments: Vec<Expression>,
     ) -> Self {
         Self {
@@ -1360,7 +1360,7 @@ impl PredefinedCallStatement {
         }
     }
 
-    pub fn empty(func: &'static StatementDefinition<'static>, arguments: Vec<Expression>) -> Self {
+    pub fn empty(func: &'static StatementDefinition, arguments: Vec<Expression>) -> Self {
         Self {
             identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 func.name.to_string(),
@@ -1386,7 +1386,7 @@ impl PredefinedCallStatement {
         panic!("Expected identifier token")
     }
 
-    pub fn get_func(&self) -> &'static StatementDefinition<'static> {
+    pub fn get_func(&self) -> &'static StatementDefinition {
         self.func
     }
 
@@ -1399,7 +1399,7 @@ impl PredefinedCallStatement {
     }
 
     pub fn create_empty_statement(
-        func: &'static StatementDefinition<'static>,
+        func: &'static StatementDefinition,
         arguments: Vec<Expression>,
     ) -> Statement {
         Statement::PredifinedCall(PredefinedCallStatement::empty(func, arguments))

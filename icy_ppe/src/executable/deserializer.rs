@@ -5,11 +5,11 @@ use thiserror::Error;
 use crate::{
     ast::{UnaryOp, Variable, VariableType},
     decompiler::LAST_STMT,
-    executable::{OpCode, STATEMENT_DEFINITIONS},
-    tables::{FuncOpCode, BIN_EXPR, FUNCTION_DEFINITIONS, STATEMENT_SIGNATURE_TABLE},
+    executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
+    tables::{BIN_EXPR, STATEMENT_SIGNATURE_TABLE},
 };
 
-use super::{Executable, PPECommand, PPEExpr};
+use super::{Executable, FuncOpCode, PPECommand, PPEExpr};
 
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum DeserializationErrorType {
@@ -155,10 +155,9 @@ impl PPEDeserializer {
             }
             _ => {
                 let idx = op as usize;
-                if idx >= STATEMENT_DEFINITIONS.len() {
+                let Some(def) = STATEMENT_DEFINITIONS.get(idx) else {
                     return Err(DeserializationErrorType::UnknownStatement(cur_stmt));
-                }
-                let def = &STATEMENT_DEFINITIONS[idx];
+                };
 
                 let (var_idx, argument_count) = match def.sig {
                     crate::executable::StatementSignature::ArgumentsWithVariable(
@@ -241,7 +240,6 @@ impl PPEDeserializer {
             } else {
                 let func = -id as usize;
                 let func_def = &FUNCTION_DEFINITIONS[func];
-                println!("func_def: {:?}", func_def.args);
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;

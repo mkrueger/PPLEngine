@@ -19,6 +19,8 @@ pub mod lexer;
 mod statements;
 
 #[cfg(test)]
+mod expr_tests;
+#[cfg(test)]
 mod lexer_tests;
 
 // #[cfg(test)]

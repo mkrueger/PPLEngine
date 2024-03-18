@@ -103,6 +103,50 @@ impl Expression {
             Expression::Binary(expr) => visitor.visit_binary_expression(expr),
         }
     }
+
+    pub fn is_similar(&self, check: &Expression) -> bool {
+        match (self, check) {
+            (Expression::Identifier(i1), Expression::Identifier(i2)) => {
+                i1.get_identifier() == i2.get_identifier()
+            }
+            (Expression::Const(c1), Expression::Const(c2)) => {
+                c1.constant_value == c2.constant_value
+            }
+            (Expression::Parens(e1), Expression::Parens(e2)) => {
+                e1.get_expression().is_similar(e2.get_expression())
+            }
+            (Expression::PredefinedFunctionCall(f1), Expression::PredefinedFunctionCall(f2)) => {
+                f1.get_identifier() == f2.get_identifier()
+                    && f1
+                        .get_arguments()
+                        .iter()
+                        .zip(f2.get_arguments().iter())
+                        .all(|(a, b)| a.is_similar(b))
+            }
+            (Expression::FunctionCall(f1), Expression::FunctionCall(f2)) => {
+                f1.get_identifier() == f2.get_identifier()
+                    && f1
+                        .get_arguments()
+                        .iter()
+                        .zip(f2.get_arguments().iter())
+                        .all(|(a, b)| a.is_similar(b))
+            }
+            (Expression::Unary(expr1), Expression::Unary(expr2)) => {
+                expr1.get_op() == expr2.get_op()
+                    && expr1.get_expression().is_similar(expr2.get_expression())
+            }
+            (Expression::Binary(expr1), Expression::Binary(expr2)) => {
+                expr1.get_op() == expr2.get_op()
+                    && expr1
+                        .get_left_expression()
+                        .is_similar(expr2.get_left_expression())
+                    && expr1
+                        .get_right_expression()
+                        .is_similar(expr2.get_right_expression())
+            }
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Expression {
@@ -214,20 +258,20 @@ pub struct ParensExpression {
 impl ParensExpression {
     pub fn new(
         leftpar_token: SpannedToken,
-        expression: Box<Expression>,
+        expression: Expression,
         rightpar_token: SpannedToken,
     ) -> Self {
         Self {
             lpar_token: leftpar_token,
-            expression,
+            expression: Box::new(expression),
             rpar_token: rightpar_token,
         }
     }
 
-    pub fn empty(expression: Box<Expression>) -> Self {
+    pub fn empty(expression: Expression) -> Self {
         Self {
             lpar_token: SpannedToken::create_empty(Token::LPar),
-            expression,
+            expression: Box::new(expression),
             rpar_token: SpannedToken::create_empty(Token::RPar),
         }
     }
@@ -248,7 +292,7 @@ impl ParensExpression {
         &self.rpar_token
     }
 
-    pub(crate) fn create_empty_expression(constant_value: Box<Expression>) -> Expression {
+    pub(crate) fn create_empty_expression(constant_value: Expression) -> Expression {
         Expression::Parens(ParensExpression::empty(constant_value))
     }
 }
@@ -517,24 +561,20 @@ pub struct BinaryExpression {
 
 impl BinaryExpression {
     pub fn new(
-        left_expression: Box<Expression>,
+        left_expression: Expression,
         op_token: SpannedToken,
-        right_expression: Box<Expression>,
+        right_expression: Expression,
     ) -> Self {
         Self {
-            left_expression,
+            left_expression: Box::new(left_expression),
             op_token,
-            right_expression,
+            right_expression: Box::new(right_expression),
         }
     }
 
-    pub fn empty(
-        left_expression: Box<Expression>,
-        op: BinOp,
-        right_expression: Box<Expression>,
-    ) -> Self {
+    pub fn empty(left_expression: Expression, op: BinOp, right_expression: Expression) -> Self {
         Self {
-            left_expression,
+            left_expression: Box::new(left_expression),
             op_token: SpannedToken::create_empty(match op {
                 BinOp::PoW => Token::PoW,
                 BinOp::Mul => Token::Mul,
@@ -551,7 +591,7 @@ impl BinaryExpression {
                 BinOp::And => Token::And,
                 BinOp::Or => Token::Or,
             }),
-            right_expression,
+            right_expression: Box::new(right_expression),
         }
     }
 
@@ -602,8 +642,8 @@ impl BinaryExpression {
 
     pub(crate) fn create_empty_expression(
         op: BinOp,
-        left_expression: Box<Expression>,
-        right_expression: Box<Expression>,
+        left_expression: Expression,
+        right_expression: Expression,
     ) -> Expression {
         Expression::Binary(BinaryExpression::empty(
             left_expression,

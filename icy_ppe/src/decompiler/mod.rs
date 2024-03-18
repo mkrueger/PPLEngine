@@ -600,8 +600,8 @@ impl Decompiler {
             Expression::Parens(expr) => Decompiler::stripper(expr.get_expression().clone()),
             Expression::Binary(expr) => BinaryExpression::create_empty_expression(
                 expr.get_op(),
-                Box::new(Decompiler::stripper(expr.get_left_expression().clone())),
-                Box::new(Decompiler::stripper(expr.get_right_expression().clone())),
+                Decompiler::stripper(expr.get_left_expression().clone()),
+                Decompiler::stripper(expr.get_right_expression().clone()),
             ),
             _ => str,
         }
@@ -630,8 +630,9 @@ impl Decompiler {
                 _ => Expression::Const(c),
             },
             Expression::Identifier(s) => Expression::Identifier(s),
-            Expression::Parens(e) => ParensExpression::create_empty_expression(Box::new(
-                Self::repl_const(e.get_expression().clone(), names),
+            Expression::Parens(e) => ParensExpression::create_empty_expression(Self::repl_const(
+                e.get_expression().clone(),
+                names,
             )),
             Expression::FunctionCall(call_expr) => {
                 let mut p2 = vec![];
@@ -658,8 +659,8 @@ impl Decompiler {
             ),
             Expression::Binary(expr) => BinaryExpression::create_empty_expression(
                 expr.get_op(),
-                Box::new(Self::repl_const(expr.get_left_expression().clone(), names)),
-                Box::new(Self::repl_const(expr.get_right_expression().clone(), names)),
+                Self::repl_const(expr.get_left_expression().clone(), names),
+                Self::repl_const(expr.get_right_expression().clone(), names),
             ),
         }
     }
@@ -852,13 +853,9 @@ impl Decompiler {
 
                 let binop = unsafe { transmute(func) };
 
-                self.push_expr(ParensExpression::create_empty_expression(Box::new(
-                    BinaryExpression::create_empty_expression(
-                        binop,
-                        Box::new(l_value),
-                        Box::new(r_value),
-                    ),
-                )));
+                self.push_expr(ParensExpression::create_empty_expression(
+                    BinaryExpression::create_empty_expression(binop, l_value, r_value),
+                ));
 
                 return 0;
             }

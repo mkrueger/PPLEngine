@@ -147,7 +147,7 @@ impl AstVisitorMut for AstTransformationVisitor {
     fn visit_select_statement(&mut self, select_stmt: &SelectStatement) -> Statement {
         let mut statements = Vec::new();
 
-        let expr = Box::new(select_stmt.get_expression().clone());
+        let expr = select_stmt.get_expression().clone();
         let case_exit_label = self.next_label();
 
         for case_block in select_stmt.get_case_blocks() {
@@ -156,7 +156,7 @@ impl AstVisitorMut for AstTransformationVisitor {
                 Box::new(BinaryExpression::create_empty_expression(
                     crate::ast::BinOp::NotEq,
                     expr.clone(),
-                    Box::new(case_block.get_expression().clone()),
+                    case_block.get_expression().clone(),
                 )),
                 Box::new(GotoStatement::create_empty_statement(
                     next_case_label.clone(),
@@ -198,9 +198,8 @@ impl AstVisitorMut for AstTransformationVisitor {
         let continue_label = self.next_label();
         let break_label = self.next_label();
 
-        let id_expr = Box::new(IdentifierExpression::create_empty_expression(
-            for_stmt.get_identifier().clone(),
-        ));
+        let id_expr =
+            IdentifierExpression::create_empty_expression(for_stmt.get_identifier().clone());
 
         // init variable
         statements.push(LetStatement::create_empty_statement(
@@ -222,45 +221,41 @@ impl AstVisitorMut for AstTransformationVisitor {
             Expression::Const(ConstantExpression::empty(Constant::Integer(1)))
         };
 
-        let end_expr = Box::new(for_stmt.get_end_expr().visit_mut(self));
+        let end_expr = for_stmt.get_end_expr().visit_mut(self);
 
         let lower_bound = BinaryExpression::create_empty_expression(
             crate::ast::BinOp::Or,
-            Box::new(BinaryExpression::create_empty_expression(
+            BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::Lower,
-                Box::new(ConstantExpression::create_empty_expression(
-                    Constant::Integer(0),
-                )),
-                Box::new(increment.clone()),
-            )),
-            Box::new(BinaryExpression::create_empty_expression(
+                ConstantExpression::create_empty_expression(Constant::Integer(0)),
+                increment.clone(),
+            ),
+            BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::Lower,
                 id_expr.clone(),
                 end_expr.clone(),
-            )),
+            ),
         );
 
         let upper_bound = BinaryExpression::create_empty_expression(
             crate::ast::BinOp::Or,
-            Box::new(BinaryExpression::create_empty_expression(
+            BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::Greater,
-                Box::new(ConstantExpression::create_empty_expression(
-                    Constant::Integer(0),
-                )),
-                Box::new(increment.clone()),
-            )),
-            Box::new(BinaryExpression::create_empty_expression(
+                ConstantExpression::create_empty_expression(Constant::Integer(0)),
+                increment.clone(),
+            ),
+            BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::Greater,
                 id_expr.clone(),
                 end_expr.clone(),
-            )),
+            ),
         );
 
         statements.push(IfStatement::create_empty_statement(
             Box::new(BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::And,
-                Box::new(lower_bound),
-                Box::new(upper_bound),
+                lower_bound,
+                upper_bound,
             )),
             Box::new(GotoStatement::create_empty_statement(break_label.clone())),
         ));
@@ -275,7 +270,7 @@ impl AstVisitorMut for AstTransformationVisitor {
             Box::new(BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::Add,
                 id_expr,
-                Box::new(increment),
+                increment,
             )),
         ));
 

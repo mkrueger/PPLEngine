@@ -315,11 +315,7 @@ pub trait AstVisitorMut: Sized {
     fn visit_binary_expression(&mut self, binary: &BinaryExpression) -> Expression {
         let left = binary.get_left_expression().visit_mut(self);
         let right = binary.get_right_expression().visit_mut(self);
-        Expression::Binary(BinaryExpression::empty(
-            Box::new(left),
-            binary.get_op(),
-            Box::new(right),
-        ))
+        Expression::Binary(BinaryExpression::empty(left, binary.get_op(), right))
     }
 
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> Expression {
@@ -351,9 +347,9 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_parens_expression(&mut self, parens: &ParensExpression) -> Expression {
-        Expression::Parens(ParensExpression::empty(Box::new(
+        Expression::Parens(ParensExpression::empty(
             parens.get_expression().visit_mut(self),
-        )))
+        ))
     }
 
     // visit statements

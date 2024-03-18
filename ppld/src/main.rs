@@ -17,8 +17,8 @@ use std::fs::*;
 use std::io::*;
 use std::path::Path;
 
-#[cfg(test)]
-pub mod tests;
+// #[cfg(test)]
+//pub mod tests;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

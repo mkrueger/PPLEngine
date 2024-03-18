@@ -1,7 +1,7 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    ast::VariableValue,
+    executable::VariableValue,
     icy_board::text_messages,
     vm::{TerminalTarget, VirtualMachine},
     Res,

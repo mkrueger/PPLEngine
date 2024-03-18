@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{VariableData, VariableType};
+use crate::executable::{VariableData, VariableType, VariableValue};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
@@ -143,33 +143,33 @@ impl Constant {
         }
     }
 
-    pub fn get_value(&self) -> super::VariableValue {
+    pub fn get_value(&self) -> VariableValue {
         let mut data = VariableData::default();
         match self {
             Constant::Money(i) => {
                 data.money_value = *i;
-                super::VariableValue::new(VariableType::Money, data)
+                VariableValue::new(VariableType::Money, data)
             }
             Constant::Integer(i) => {
                 data.int_value = *i;
-                super::VariableValue::new(VariableType::Integer, data)
+                VariableValue::new(VariableType::Integer, data)
             }
             Constant::Unsigned(i) => {
                 data.unsigned_value = *i;
-                super::VariableValue::new(VariableType::Unsigned, data)
+                VariableValue::new(VariableType::Unsigned, data)
             }
-            Constant::String(s) => super::VariableValue::new_string(s.clone()),
+            Constant::String(s) => VariableValue::new_string(s.clone()),
             Constant::Double(i) => {
                 data.double_value = *i;
-                super::VariableValue::new(VariableType::Double, data)
+                VariableValue::new(VariableType::Double, data)
             }
             Constant::Boolean(b) => {
                 data.bool_value = *b;
-                super::VariableValue::new(VariableType::Boolean, data)
+                VariableValue::new(VariableType::Boolean, data)
             }
             Constant::Builtin(s) => {
                 data.int_value = s.value;
-                super::VariableValue::new(VariableType::Integer, data)
+                VariableValue::new(VariableType::Integer, data)
             }
         }
     }

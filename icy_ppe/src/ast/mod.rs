@@ -13,18 +13,13 @@ pub use self::declaration::*;
 pub mod program;
 pub use self::program::*;
 
-pub mod variable_type;
-pub use self::variable_type::*;
-
-pub mod variable_value;
-pub use self::variable_value::*;
-
 pub mod visitor;
 pub use self::visitor::*;
 
 pub mod output_visitor;
 pub use self::output_visitor::*;
 
+use crate::executable::VariableType;
 use crate::parser::lexer::{SpannedToken, Token};
 
 #[derive(Debug, Clone, PartialEq)]

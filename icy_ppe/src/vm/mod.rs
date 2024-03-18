@@ -1,21 +1,20 @@
-use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::string::String;
 use thiserror::Error;
 
 use crate::ast::BinOp;
-use crate::ast::GenericVariableData;
 use crate::ast::Statement;
 use crate::ast::UnaryOp;
-use crate::ast::VariableType;
-use crate::ast::VariableValue;
 use crate::executable::Executable;
+use crate::executable::GenericVariableData;
 use crate::executable::PPECommand;
 use crate::executable::PPEExpr;
 use crate::executable::PPEScript;
 use crate::executable::PPEStatement;
 use crate::executable::VariableEntry;
+use crate::executable::VariableType;
+use crate::executable::VariableValue;
 use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
 use crate::icy_board::data::UserRecord;
@@ -183,7 +182,7 @@ pub struct VirtualMachine<'a> {
 }
 
 impl<'a> VirtualMachine<'a> {
-    fn set_user_variables(&mut self, cur_user: &UserRecord) {
+    fn set_user_variables(&mut self, _cur_user: &UserRecord) {
         // TODO
         /*
         self.cur_frame[0].values.insert(
@@ -439,7 +438,7 @@ impl<'a> VirtualMachine<'a> {
                 let left_value = self.eval_expr(left)?;
                 let right_value = self.eval_expr(right)?;
 
-                let res = match op {
+                match op {
                     BinOp::Add => Ok(left_value + right_value),
                     BinOp::Sub => Ok(left_value - right_value),
                     BinOp::Mul => Ok(left_value * right_value),
@@ -458,9 +457,7 @@ impl<'a> VirtualMachine<'a> {
                     BinOp::LowerEq => Ok(VariableValue::new_bool(left_value <= right_value)),
                     BinOp::Greater => Ok(VariableValue::new_bool(left_value > right_value)),
                     BinOp::GreaterEq => Ok(VariableValue::new_bool(left_value >= right_value)),
-                };
-
-                res
+                }
             }
             PPEExpr::Dim(id, dims) => {
                 let dim_1 = self.eval_expr(&dims[0])?.as_int() as usize;
@@ -708,7 +705,7 @@ impl<'a> VirtualMachine<'a> {
                     let expr = self.eval_expr(arg)?;
                     args.push(expr);
                 }
-                (proc.function)(self, &mut args);
+                (proc.function)(self, &mut args).unwrap();
             }
             PPECommand::Goto(label) => {
                 self.goto(*label)?;

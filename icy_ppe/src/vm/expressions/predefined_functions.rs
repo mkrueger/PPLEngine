@@ -4,7 +4,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::ast::{VariableData, VariableValue};
+use crate::executable::{VariableData, VariableType, VariableValue};
 use crate::vm::VirtualMachine;
 use crate::Res;
 use easy_reader::EasyReader;
@@ -377,7 +377,7 @@ pub fn u_ldate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     // vm.pcb_data.users[vm.cur_user].last_date_on
     // TODO
     Ok(VariableValue::new(
-        crate::ast::VariableType::Date,
+        VariableType::Date,
         VariableData::default(),
     ))
 }
@@ -385,7 +385,7 @@ pub fn u_ldate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
 pub fn u_ltime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     // TODO
     Ok(VariableValue::new(
-        crate::ast::VariableType::Time,
+        VariableType::Time,
         VariableData::default(),
     ))
 }
@@ -819,11 +819,11 @@ pub fn fileinf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     match item {
         1 => Ok(VariableValue::new_bool(vm.io.file_exists(&file))),
         2 => Ok(VariableValue::new(
-            crate::ast::VariableType::Date,
+            VariableType::Date,
             VariableData::default(),
         )), // TODO: File date
         3 => Ok(VariableValue::new(
-            crate::ast::VariableType::Time,
+            VariableType::Time,
             VariableData::default(),
         )), // TODO: File time
         4 => Ok(VariableValue::new_int(vm.io.get_file_size(&file) as i32)),

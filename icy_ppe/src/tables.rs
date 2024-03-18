@@ -1,4 +1,7 @@
-use crate::ast::{constant::BuiltinConst, BinOp, VariableType};
+use crate::{
+    ast::{constant::BuiltinConst, BinOp},
+    executable::VariableType,
+};
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp

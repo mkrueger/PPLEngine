@@ -5,7 +5,7 @@ use crossterm::{
     style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
 };
 
-use crate::ast::VariableType;
+use crate::executable::VariableType;
 
 use super::{
     Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor,

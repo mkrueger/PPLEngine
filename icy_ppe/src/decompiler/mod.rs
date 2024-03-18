@@ -6,11 +6,11 @@ use crate::ast::{
     ParameterSpecifier, ParensExpression, PredefinedCallStatement,
     PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
     ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp,
-    VariableDeclarationStatement, VariableSpecifier, VariableType, WhileStatement,
+    VariableDeclarationStatement, VariableSpecifier, WhileStatement,
 };
 use crate::executable::{
     read_file, EntryType, Executable, FuncOpCode, OpCode, VariableEntry, VariableNameGenerator,
-    FUNCTION_DEFINITIONS, LAST_FUNC, STATEMENT_DEFINITIONS,
+    VariableType, FUNCTION_DEFINITIONS, LAST_FUNC, STATEMENT_DEFINITIONS,
 };
 use crate::tables::{STATEMENT_SIGNATURE_TABLE, TYPE_NAMES};
 use crate::Res;

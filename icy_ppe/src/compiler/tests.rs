@@ -51,7 +51,7 @@ fn test_compiler() {
     }
 }
 
-fn run_test(data: &String, output: &str) {
+fn run_test(data: &str, output: &str) {
     let prg = parse_program(PathBuf::from("."), data);
     let mut exec = compiler::PPECompiler::new();
     exec.compile(&prg, false);

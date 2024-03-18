@@ -1,4 +1,6 @@
-use crate::{ast::VariableValue, vm::expressions::predefined_functions, Res};
+use crate::{vm::expressions::predefined_functions, Res};
+
+use super::VariableValue;
 
 #[repr(i16)]
 #[allow(dead_code)]

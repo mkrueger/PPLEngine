@@ -4,8 +4,9 @@ use crate::{
     ast::{
         AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
         FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Program, VariableSpecifier, VariableType,
+        ProcedureImplementation, Program, VariableSpecifier,
     },
+    executable::VariableType,
     parser::lexer::LexingError,
 };
 

@@ -17,10 +17,7 @@ use std::path::PathBuf;
 
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::{
-    queue,
-    terminal::{disable_raw_mode, enable_raw_mode},
-};
+use crossterm::queue;
 mod output;
 
 #[derive(Parser, Debug)]

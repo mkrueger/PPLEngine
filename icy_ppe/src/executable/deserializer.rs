@@ -3,13 +3,13 @@ use std::{mem::transmute, ops::Range};
 use thiserror::Error;
 
 use crate::{
-    ast::{UnaryOp, VariableType, VariableValue},
+    ast::UnaryOp,
     decompiler::LAST_STMT,
     executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
     tables::{BIN_EXPR, STATEMENT_SIGNATURE_TABLE},
 };
 
-use super::{Executable, FuncOpCode, PPECommand, PPEExpr};
+use super::{Executable, FuncOpCode, PPECommand, PPEExpr, VariableType, VariableValue};
 
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum DeserializationErrorType {

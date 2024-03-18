@@ -5,13 +5,11 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::{
-    ast::{
-        AstNode, Constant, Expression, GenericVariableData, ParameterSpecifier, Program, Statement,
-        VariableData, VariableType, VariableValue,
-    },
+    ast::{AstNode, Constant, Expression, ParameterSpecifier, Program, Statement},
     executable::{
-        EntryType, Executable, ExpressionNegator, FunctionValue, OpCode, PPECommand, PPEExpr,
-        PPEScript, ProcedureValue, VarHeader, VariableEntry,
+        EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
+        PPECommand, PPEExpr, PPEScript, ProcedureValue, VarHeader, VariableData, VariableEntry,
+        VariableType, VariableValue,
     },
     parser::lexer::{SpannedToken, Token},
 };

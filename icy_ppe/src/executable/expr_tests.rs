@@ -1,7 +1,4 @@
-use crate::{
-    ast::{VariableType, VariableValue},
-    executable::FunctionValue,
-};
+use crate::executable::{EntryType, FunctionValue, VariableType, VariableValue};
 
 use super::{Executable, FuncOpCode, PPEExpr, VariableEntry, FUNCTION_DEFINITIONS};
 
@@ -94,7 +91,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
                 variable_type: VariableType::Integer,
                 ..Default::default()
             },
-            entry_type: super::EntryType::Constant,
+            entry_type: EntryType::Constant,
             number: 0,
             function_id: 0,
         });

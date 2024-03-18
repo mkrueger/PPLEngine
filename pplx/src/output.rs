@@ -8,7 +8,7 @@ use crossterm::{
     cursor::{position, DisableBlinking, EnableBlinking, MoveTo},
     event::{poll, read, Event, KeyCode, KeyModifiers},
     style::{Color, SetBackgroundColor, SetForegroundColor},
-    terminal::{disable_raw_mode, enable_raw_mode, Clear},
+    terminal::{disable_raw_mode, Clear},
     ExecutableCommand,
 };
 use icy_ppe::{

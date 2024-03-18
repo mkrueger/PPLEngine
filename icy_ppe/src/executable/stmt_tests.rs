@@ -1,6 +1,8 @@
 use crate::{
-    ast::{BinOp, VariableType, VariableValue},
-    executable::{Executable, FunctionValue, ProcedureValue, VariableEntry},
+    ast::BinOp,
+    executable::{
+        Executable, FunctionValue, ProcedureValue, VariableEntry, VariableType, VariableValue,
+    },
 };
 
 use super::{FuncOpCode, OpCode, PPECommand, PPEExpr};

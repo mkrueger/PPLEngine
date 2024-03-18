@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::{ast::VariableValue, vm::predefined_procedures, Res};
+use crate::{vm::predefined_procedures, Res};
+
+use super::VariableValue;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StatementSignature {

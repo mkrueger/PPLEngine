@@ -2,10 +2,11 @@ use std::ops::Range;
 
 use thiserror::Error;
 
-use crate::ast::{BinOp, GenericVariableData, UnaryOp, VariableValue};
+use crate::ast::{BinOp, UnaryOp};
 
 use super::{
-    DeserializationErrorType, Executable, FunctionDefinition, OpCode, StatementDefinition,
+    DeserializationErrorType, Executable, FunctionDefinition, GenericVariableData, OpCode,
+    StatementDefinition, VariableValue,
 };
 
 pub struct DeserializationError {

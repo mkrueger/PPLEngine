@@ -1,8 +1,11 @@
 use std::fmt;
 
-use crate::parser::lexer::{SpannedToken, Token};
+use crate::{
+    executable::{VariableType, VariableValue},
+    parser::lexer::{SpannedToken, Token},
+};
 
-use super::{AstVisitorMut, Constant, Statement, VariableType, VariableValue};
+use super::{AstVisitorMut, Constant, Statement};
 #[derive(Debug, PartialEq, Clone)]
 pub struct DimensionSpecifier {
     dimension_token: SpannedToken,

@@ -637,12 +637,6 @@ impl Parser {
                 let ct = self.save_spannedtoken();
                 Some(Statement::End(EndStatement::new(ct)))
             }
-            Some(Token::EndProc) => Some(Statement::Return(ReturnStatement::new(
-                self.save_spannedtoken(),
-            ))),
-            Some(Token::EndFunc) => Some(Statement::Return(ReturnStatement::new(
-                self.save_spannedtoken(),
-            ))),
             /*
             Some(Token::Begin) => {
                 let begin_token = self.save_spannedtoken();
@@ -752,9 +746,9 @@ impl Parser {
             Some(Token::Continue) => Some(Statement::Continue(ContinueStatement::new(
                 self.save_spannedtoken(),
             ))),
-            Some(Token::Return) => Some(Statement::Return(ReturnStatement::new(
-                self.save_spannedtoken(),
-            ))),
+            Some(Token::EndProc | Token::EndFunc | Token::Return) => Some(Statement::Return(
+                ReturnStatement::new(self.save_spannedtoken()),
+            )),
             Some(Token::Gosub) => {
                 let gosub_token = self.save_spannedtoken();
                 self.next_token();

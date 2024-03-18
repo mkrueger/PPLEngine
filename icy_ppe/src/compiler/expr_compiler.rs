@@ -1,6 +1,6 @@
 use crate::{
-    ast::{AstVisitor, VariableType},
-    executable::{get_function_definition, PPEExpr, FUNCTION_DEFINITIONS},
+    ast::AstVisitor,
+    executable::{get_function_definition, PPEExpr, VariableType, FUNCTION_DEFINITIONS},
 };
 
 use super::{CompilationError, CompilationErrorType, PPECompiler};

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use thiserror::Error;
 
-use crate::ast::{BinOp, GenericVariableData, UnaryOp, Variable};
+use crate::ast::{BinOp, GenericVariableData, UnaryOp, VariableValue};
 
 use super::{
     DeserializationErrorType, Executable, FunctionDefinition, OpCode, StatementDefinition,
@@ -331,7 +331,10 @@ impl PPEExpr {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn evaluate_constant_value(&self, executable: &Executable) -> Result<Variable, PPEError> {
+    pub fn evaluate_constant_value(
+        &self,
+        executable: &Executable,
+    ) -> Result<VariableValue, PPEError> {
         PPEConstantValueVisitor::new(executable).visit_value(0)
     }
 
@@ -453,14 +456,14 @@ impl<'a> PPEConstantValueVisitor<'a> {
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum PPEError {
     #[error("Unsupported dimension {0} for variable {1:?}")]
-    UnsupportedDimension(usize, Variable),
+    UnsupportedDimension(usize, VariableValue),
 
     #[error("Only constant expressions are allowed")]
     OnlyConstantsAllowed,
 }
 
-impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> {
-    fn visit_value(&mut self, id: usize) -> Result<Variable, PPEError> {
+impl<'a> PPEVisitor<Result<VariableValue, PPEError>> for PPEConstantValueVisitor<'a> {
+    fn visit_value(&mut self, id: usize) -> Result<VariableValue, PPEError> {
         Ok(self.executable.variable_table[id].value.clone())
     }
 
@@ -468,7 +471,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         &mut self,
         op: UnaryOp,
         expr: &PPEExpr,
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         let val = expr.visit(self)?;
         let val = match op {
             UnaryOp::Plus => val,
@@ -483,7 +486,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         op: BinOp,
         left: &PPEExpr,
         right: &PPEExpr,
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         let left_val = left.visit(self)?;
         let right_val = right.visit(self)?;
         let val = match op {
@@ -493,20 +496,24 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
             BinOp::Div => left_val / right_val,
             BinOp::Mod => left_val % right_val,
             BinOp::PoW => left_val.pow(right_val),
-            BinOp::And => Variable::new_bool(left_val.as_bool() && right_val.as_bool()),
-            BinOp::Or => Variable::new_bool(left_val.as_bool() || right_val.as_bool()),
-            BinOp::Eq => Variable::new_bool(left_val.as_bool() == right_val.as_bool()),
-            BinOp::NotEq => Variable::new_bool(left_val.as_bool() != right_val.as_bool()),
-            BinOp::Lower => Variable::new_bool(left_val < right_val),
-            BinOp::LowerEq => Variable::new_bool(left_val <= right_val),
-            BinOp::Greater => Variable::new_bool(left_val > right_val),
-            BinOp::GreaterEq => Variable::new_bool(left_val >= right_val),
+            BinOp::And => VariableValue::new_bool(left_val.as_bool() && right_val.as_bool()),
+            BinOp::Or => VariableValue::new_bool(left_val.as_bool() || right_val.as_bool()),
+            BinOp::Eq => VariableValue::new_bool(left_val.as_bool() == right_val.as_bool()),
+            BinOp::NotEq => VariableValue::new_bool(left_val.as_bool() != right_val.as_bool()),
+            BinOp::Lower => VariableValue::new_bool(left_val < right_val),
+            BinOp::LowerEq => VariableValue::new_bool(left_val <= right_val),
+            BinOp::Greater => VariableValue::new_bool(left_val > right_val),
+            BinOp::GreaterEq => VariableValue::new_bool(left_val >= right_val),
         };
 
         Ok(val)
     }
 
-    fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) -> Result<Variable, PPEError> {
+    fn visit_dim_expression(
+        &mut self,
+        id: usize,
+        dim: &[PPEExpr],
+    ) -> Result<VariableValue, PPEError> {
         let var_value = self.executable.variable_table[id].value.clone();
         match dim.len() {
             1 => {
@@ -560,7 +567,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         &mut self,
         _def: &FunctionDefinition,
         _arguments: &[PPEExpr],
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         Err(PPEError::OnlyConstantsAllowed)
     }
 
@@ -568,19 +575,19 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         &mut self,
         _id: usize,
         _arguments: &[PPEExpr],
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         Err(PPEError::OnlyConstantsAllowed)
     }
 
-    fn visit_end(&mut self) -> Result<Variable, PPEError> {
+    fn visit_end(&mut self) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_return(&mut self) -> Result<Variable, PPEError> {
+    fn visit_return(&mut self) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_if(&mut self, _cond: &PPEExpr, _label: &usize) -> Result<Variable, PPEError> {
+    fn visit_if(&mut self, _cond: &PPEExpr, _label: &usize) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
@@ -589,11 +596,15 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         _cond: &PPEExpr,
         _stmt: &PPECommand,
         _label: &usize,
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_proc_call(&mut self, _id: &usize, _args: &[PPEExpr]) -> Result<Variable, PPEError> {
+    fn visit_proc_call(
+        &mut self,
+        _id: &usize,
+        _args: &[PPEExpr],
+    ) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
@@ -601,31 +612,35 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         &mut self,
         _def: &StatementDefinition,
         _args: &[PPEExpr],
-    ) -> Result<Variable, PPEError> {
+    ) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_goto(&mut self, _label: &usize) -> Result<Variable, PPEError> {
+    fn visit_goto(&mut self, _label: &usize) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_gosub(&mut self, _label: &usize) -> Result<Variable, PPEError> {
+    fn visit_gosub(&mut self, _label: &usize) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_end_func(&mut self) -> Result<Variable, PPEError> {
+    fn visit_end_func(&mut self) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_end_proc(&mut self) -> Result<Variable, PPEError> {
+    fn visit_end_proc(&mut self) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_stop(&mut self) -> Result<Variable, PPEError> {
+    fn visit_stop(&mut self) -> Result<VariableValue, PPEError> {
         todo!()
     }
 
-    fn visit_let(&mut self, _target: &PPEExpr, _value: &PPEExpr) -> Result<Variable, PPEError> {
+    fn visit_let(
+        &mut self,
+        _target: &PPEExpr,
+        _value: &PPEExpr,
+    ) -> Result<VariableValue, PPEError> {
         todo!()
     }
 }

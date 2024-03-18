@@ -1,4 +1,4 @@
-use crate::{ast::Variable, vm::expressions::predefined_functions, Res};
+use crate::{ast::VariableValue, vm::expressions::predefined_functions, Res};
 
 #[repr(i16)]
 #[allow(dead_code)]
@@ -309,7 +309,8 @@ impl FuncOpCode {
     }
 }
 
-type PredefFunc = fn(vm: &mut crate::vm::VirtualMachine, params: &[Variable]) -> Res<Variable>;
+type PredefFunc =
+    fn(vm: &mut crate::vm::VirtualMachine, params: &[VariableValue]) -> Res<VariableValue>;
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition {

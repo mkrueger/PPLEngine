@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{Variable, VariableData};
+use super::{VariableData, VariableValue};
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Eq, Hash)]
@@ -56,10 +56,10 @@ pub enum VariableType {
 }
 
 impl VariableType {
-    pub fn create_empty_value(&self) -> Variable {
+    pub fn create_empty_value(&self) -> VariableValue {
         match self {
-            VariableType::String | VariableType::BigStr => Variable::new_string(String::new()),
-            _ => Variable::new(*self, VariableData::default()),
+            VariableType::String | VariableType::BigStr => VariableValue::new_string(String::new()),
+            _ => VariableValue::new(*self, VariableData::default()),
         }
     }
 }

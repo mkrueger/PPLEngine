@@ -239,9 +239,9 @@ impl ExecutionContext for Output {
                     if c == '@' {
                         state = PcbState::GotAt;
                     } else if c == CP437_TO_UNICODE[b'\x1B' as usize] {
-                        disable_raw_mode().unwrap();
+                        //disable_raw_mode().unwrap();
                         print!("\x1B");
-                        enable_raw_mode().unwrap();
+                        //enable_raw_mode().unwrap();
                     } else {
                         print!("{}", c);
                     }
@@ -297,7 +297,7 @@ impl ExecutionContext for Output {
             }
         }
         stdout().flush().unwrap();
-        enable_raw_mode().unwrap();
+        //enable_raw_mode().unwrap();
 
         Ok(())
     }
@@ -375,7 +375,7 @@ impl ExecutionContext for Output {
             }
         }
         stdout().flush().unwrap();
-        enable_raw_mode().unwrap();
+        //enable_raw_mode().unwrap();
 
         Ok(())
     }

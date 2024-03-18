@@ -3,7 +3,7 @@ use std::{mem::transmute, ops::Range};
 use thiserror::Error;
 
 use crate::{
-    ast::{UnaryOp, Variable, VariableType},
+    ast::{UnaryOp, VariableType, VariableValue},
     decompiler::LAST_STMT,
     executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
     tables::{BIN_EXPR, STATEMENT_SIGNATURE_TABLE},
@@ -41,7 +41,7 @@ pub enum DeserializationErrorType {
     UnknownStatement(i16),
 
     #[error("Called non-procedure({0:04X}) in PCALL {1:?}")]
-    CalledNonProcedureInPCall(usize, Variable),
+    CalledNonProcedureInPCall(usize, VariableValue),
 
     #[error("No variable table entry for {0}")]
     NoVTableEntry(usize),

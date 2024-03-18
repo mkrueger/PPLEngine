@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Variable, VariableType},
+    ast::{VariableType, VariableValue},
     executable::FunctionValue,
 };
 
@@ -88,7 +88,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
     for i in 0..5 {
         exe.variable_table.push(VariableEntry {
             name: format!("int{i}"),
-            value: Variable::new_int(i),
+            value: VariableValue::new_int(i),
             header: super::VarHeader {
                 id: i as usize + 1,
                 variable_type: VariableType::Integer,
@@ -110,7 +110,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
 
         exe.variable_table.push(VariableEntry {
             name: format!("func{}", id - 5),
-            value: Variable {
+            value: VariableValue {
                 vtype: VariableType::Function,
                 data: func.to_data(),
                 ..Default::default()

@@ -1,7 +1,15 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode, ConstantExpression, ContinueStatement, DimensionSpecifier, ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, VariableSpecifier, WhileDoStatement, WhileStatement
+    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode,
+    ConstantExpression, ContinueStatement, DimensionSpecifier, ElseBlock, ElseIfBlock,
+    EndStatement, Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode,
+    FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
+    IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
+    PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
+    ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement,
+    SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, VariableSpecifier,
+    WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -313,7 +321,7 @@ pub trait AstVisitorMut: Sized {
             Box::new(right),
         ))
     }
-    
+
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> Expression {
         let expr = unary.get_expression().visit_mut(self);
         Expression::Unary(UnaryExpression::empty(unary.get_op(), Box::new(expr)))
@@ -341,7 +349,7 @@ pub trait AstVisitorMut: Sized {
                 .collect(),
         ))
     }
-    
+
     fn visit_parens_expression(&mut self, parens: &ParensExpression) -> Expression {
         Expression::Parens(ParensExpression::empty(Box::new(
             parens.get_expression().visit_mut(self),
@@ -352,11 +360,11 @@ pub trait AstVisitorMut: Sized {
     fn visit_comment(&mut self, comment: &CommentAstNode) -> AstNode {
         AstNode::Comment(comment.clone())
     }
-    
+
     fn visit_comment_statement(&mut self, comment: &CommentAstNode) -> Statement {
         Statement::Comment(comment.clone())
     }
-    
+
     fn visit_end_statement(&mut self, end: &EndStatement) -> Statement {
         Statement::End(EndStatement::empty())
     }
@@ -533,26 +541,44 @@ pub trait AstVisitorMut: Sized {
         &mut self,
         var_decl: &VariableDeclarationStatement,
     ) -> Statement {
-        VariableDeclarationStatement::create_empty_statement(var_decl.get_variable_type(), var_decl.get_variables().iter().map(|var| var.visit_mut(self)).collect())
+        VariableDeclarationStatement::create_empty_statement(
+            var_decl.get_variable_type(),
+            var_decl
+                .get_variables()
+                .iter()
+                .map(|var| var.visit_mut(self))
+                .collect(),
+        )
     }
 
     fn visit_variable_specifier(&mut self, var: &VariableSpecifier) -> VariableSpecifier {
         VariableSpecifier::empty(
-            self.visit_identifier(var.get_identifier()), 
-            var.get_dimensions().iter().map(DimensionSpecifier::get_dimension).collect(),
+            self.visit_identifier(var.get_identifier()),
+            var.get_dimensions()
+                .iter()
+                .map(DimensionSpecifier::get_dimension)
+                .collect(),
         )
     }
 
     fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) -> AstNode {
         AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::empty(
-            self.visit_identifier(proc_decl.get_identifier()), 
-            proc_decl.get_parameters().iter().map(|param| param.visit_mut(self)).collect(),
+            self.visit_identifier(proc_decl.get_identifier()),
+            proc_decl
+                .get_parameters()
+                .iter()
+                .map(|param| param.visit_mut(self))
+                .collect(),
         ))
     }
     fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) -> AstNode {
         AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
-            self.visit_identifier(func_decl.get_identifier()), 
-            func_decl.get_parameters().iter().map(|param| param.visit_mut(self)).collect(),
+            self.visit_identifier(func_decl.get_identifier()),
+            func_decl
+                .get_parameters()
+                .iter()
+                .map(|param| param.visit_mut(self))
+                .collect(),
             func_decl.get_return_type(),
         ))
     }

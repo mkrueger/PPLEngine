@@ -69,19 +69,19 @@ pub enum GenericVariableData {
     None,
     String(String),
 
-    Dim1(Vec<Variable>),
-    Dim2(Vec<Vec<Variable>>),
-    Dim3(Vec<Vec<Vec<Variable>>>),
+    Dim1(Vec<VariableValue>),
+    Dim2(Vec<Vec<VariableValue>>),
+    Dim3(Vec<Vec<Vec<VariableValue>>>),
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Variable {
+pub struct VariableValue {
     pub vtype: VariableType,
     pub data: VariableData,
     pub generic_data: GenericVariableData,
 }
 
-impl fmt::Display for Variable {
+impl fmt::Display for VariableValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
             match self.vtype {
@@ -114,7 +114,7 @@ impl fmt::Display for Variable {
     }
 }
 
-impl PartialEq for Variable {
+impl PartialEq for VariableValue {
     fn eq(&self, other: &Self) -> bool {
         let dest_type: VariableType = promote_to(self.vtype, other.vtype);
         unsafe {
@@ -162,10 +162,10 @@ fn promote_to(l: VariableType, r: VariableType) -> VariableType {
     VariableType::Integer
 }
 
-impl Add<Variable> for Variable {
-    type Output = Variable;
+impl Add<VariableValue> for VariableValue {
+    type Output = VariableValue;
 
-    fn add(self, other: Variable) -> Self {
+    fn add(self, other: VariableValue) -> Self {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -228,10 +228,10 @@ impl Add<Variable> for Variable {
     }
 }
 
-impl Sub<Variable> for Variable {
-    type Output = Variable;
+impl Sub<VariableValue> for VariableValue {
+    type Output = VariableValue;
 
-    fn sub(self, other: Variable) -> Variable {
+    fn sub(self, other: VariableValue) -> VariableValue {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -297,10 +297,10 @@ impl Sub<Variable> for Variable {
     }
 }
 
-impl Mul<Variable> for Variable {
-    type Output = Variable;
+impl Mul<VariableValue> for VariableValue {
+    type Output = VariableValue;
 
-    fn mul(self, other: Variable) -> Variable {
+    fn mul(self, other: VariableValue) -> VariableValue {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -366,10 +366,10 @@ impl Mul<Variable> for Variable {
     }
 }
 
-impl Div<Variable> for Variable {
-    type Output = Variable;
+impl Div<VariableValue> for VariableValue {
+    type Output = VariableValue;
 
-    fn div(self, other: Variable) -> Variable {
+    fn div(self, other: VariableValue) -> VariableValue {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -435,10 +435,10 @@ impl Div<Variable> for Variable {
     }
 }
 
-impl Rem<Variable> for Variable {
-    type Output = Variable;
+impl Rem<VariableValue> for VariableValue {
+    type Output = VariableValue;
 
-    fn rem(self, other: Variable) -> Variable {
+    fn rem(self, other: VariableValue) -> VariableValue {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -501,8 +501,8 @@ impl Rem<Variable> for Variable {
     }
 }
 
-impl PartialOrd for Variable {
-    fn partial_cmp(&self, other: &Variable) -> Option<Ordering> {
+impl PartialOrd for VariableValue {
+    fn partial_cmp(&self, other: &VariableValue) -> Option<Ordering> {
         let dest_type: VariableType = promote_to(self.vtype, other.vtype);
         unsafe {
             match dest_type {
@@ -536,10 +536,10 @@ impl PartialOrd for Variable {
     }
 }
 
-impl Neg for Variable {
-    type Output = Variable;
+impl Neg for VariableValue {
+    type Output = VariableValue;
 
-    fn neg(self) -> Variable {
+    fn neg(self) -> VariableValue {
         let mut dest_type = self.vtype;
         match dest_type {
             VariableType::Boolean
@@ -627,7 +627,7 @@ impl fmt::Display for Variable {
 */
 
 #[allow(clippy::needless_pass_by_value)]
-impl Variable {
+impl VariableValue {
     pub fn new(vtype: VariableType, data: VariableData) -> Self {
         Self {
             vtype,
@@ -660,7 +660,7 @@ impl Variable {
         }
     }
 
-    pub fn new_vector(variable_type: VariableType, vec: Vec<Variable>) -> Self {
+    pub fn new_vector(variable_type: VariableType, vec: Vec<VariableValue>) -> Self {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
@@ -668,7 +668,7 @@ impl Variable {
         }
     }
 
-    pub fn new_matrix(variable_type: VariableType, vec: Vec<Vec<Variable>>) -> Self {
+    pub fn new_matrix(variable_type: VariableType, vec: Vec<Vec<VariableValue>>) -> Self {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
@@ -676,7 +676,7 @@ impl Variable {
         }
     }
 
-    pub fn new_cube(variable_type: VariableType, vec: Vec<Vec<Vec<Variable>>>) -> Self {
+    pub fn new_cube(variable_type: VariableType, vec: Vec<Vec<Vec<VariableValue>>>) -> Self {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
@@ -732,7 +732,7 @@ impl Variable {
     ///
     /// Panics if .
     #[must_use]
-    pub fn pow(&self, other: Variable) -> Variable {
+    pub fn pow(&self, other: VariableValue) -> VariableValue {
         let mut dest_type: VariableType = promote_to(self.vtype, other.vtype);
         match dest_type {
             VariableType::Boolean
@@ -804,7 +804,7 @@ impl Variable {
     ///
     /// Panics if .
     #[must_use]
-    pub fn not(&self) -> Variable {
+    pub fn not(&self) -> VariableValue {
         unsafe {
             Self {
                 vtype: VariableType::Boolean,
@@ -821,7 +821,7 @@ impl Variable {
     ///
     /// Panics if .
     #[must_use]
-    pub fn abs(&self) -> Variable {
+    pub fn abs(&self) -> VariableValue {
         let mut dest_type: VariableType = self.vtype;
         match dest_type {
             VariableType::Boolean
@@ -921,27 +921,27 @@ impl Variable {
 
     #[must_use]
     pub fn get_hour(&self) -> Self {
-        Variable::new_int(unsafe { (self.data.time_value % (24 * 60 * 60)) / (60 * 60) })
+        VariableValue::new_int(unsafe { (self.data.time_value % (24 * 60 * 60)) / (60 * 60) })
     }
     #[must_use]
     pub fn get_minute(&self) -> Self {
-        Variable::new_int(unsafe { (self.data.time_value % (60 * 60)) / 60 })
+        VariableValue::new_int(unsafe { (self.data.time_value % (60 * 60)) / 60 })
     }
     #[must_use]
     pub fn get_second(&self) -> Self {
-        Variable::new_int(unsafe { self.data.time_value % 60 })
+        VariableValue::new_int(unsafe { self.data.time_value % 60 })
     }
 
-    pub(crate) fn new_function(value: FunctionValue) -> Variable {
-        Variable {
+    pub(crate) fn new_function(value: FunctionValue) -> VariableValue {
+        VariableValue {
             vtype: VariableType::Function,
             data: value.to_data(),
             generic_data: GenericVariableData::None,
         }
     }
 
-    pub(crate) fn new_procedure(value: ProcedureValue) -> Variable {
-        Variable {
+    pub(crate) fn new_procedure(value: ProcedureValue) -> VariableValue {
+        VariableValue {
             vtype: VariableType::Procedure,
             data: value.to_data(),
             generic_data: GenericVariableData::None,
@@ -954,7 +954,7 @@ impl Variable {
 /// # Panics
 ///
 /// Panics if .
-pub fn convert_to(var_type: VariableType, value: &Variable) -> Variable {
+pub fn convert_to(var_type: VariableType, value: &VariableValue) -> VariableValue {
     let mut res = value.clone();
     res.vtype = var_type;
     if var_type == VariableType::String || var_type == VariableType::BigStr {

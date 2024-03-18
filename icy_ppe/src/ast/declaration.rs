@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::parser::lexer::{SpannedToken, Token};
 
-use super::{AstVisitorMut, Constant, Statement, Variable, VariableType};
+use super::{AstVisitorMut, Constant, Statement, VariableType, VariableValue};
 #[derive(Debug, PartialEq, Clone)]
 pub struct DimensionSpecifier {
     dimension_token: SpannedToken,
@@ -121,22 +121,22 @@ impl VariableSpecifier {
         &self.rightpar_token
     }
 
-    pub fn create_empty_value(&self, variable_type: VariableType) -> Variable {
+    pub fn create_empty_value(&self, variable_type: VariableType) -> VariableValue {
         let var_value = variable_type.create_empty_value();
         match self.dimensions.len() {
             0 => var_value,
-            1 => Variable::new_vector(
+            1 => VariableValue::new_vector(
                 variable_type,
                 vec![var_value; self.dimensions[0].get_dimension()],
             ),
-            2 => Variable::new_matrix(
+            2 => VariableValue::new_matrix(
                 variable_type,
                 vec![
                     vec![var_value; self.dimensions[0].get_dimension()];
                     self.dimensions[1].get_dimension()
                 ],
             ),
-            _ => Variable::new_cube(
+            _ => VariableValue::new_cube(
                 variable_type,
                 vec![
                     vec![

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ast::Variable, vm::predefined_procedures, Res};
+use crate::{ast::VariableValue, vm::predefined_procedures, Res};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StatementSignature {
@@ -269,7 +269,7 @@ impl Display for OpCode {
     }
 }
 
-type PredefProc = fn(vm: &mut crate::vm::VirtualMachine, params: &mut [Variable]) -> Res<()>;
+type PredefProc = fn(vm: &mut crate::vm::VirtualMachine, params: &mut [VariableValue]) -> Res<()>;
 
 #[derive(Debug, PartialEq)]
 pub struct StatementDefinition {

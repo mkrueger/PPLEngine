@@ -598,6 +598,8 @@ impl Parser {
             let mut statements = Vec::new();
 
             while self.get_cur_token() != Some(Token::EndProc) {
+                println!("1 {:?}", self.get_cur_token());
+
                 if self.get_cur_token().is_none() {
                     self.errors
                         .push(crate::parser::Error::ParserError(ParserError {
@@ -607,6 +609,8 @@ impl Parser {
                     return None;
                 }
                 statements.push(self.parse_statement());
+                self.next_token();
+
                 self.skip_eol();
             }
             let endproc_token = self.save_spannedtoken();

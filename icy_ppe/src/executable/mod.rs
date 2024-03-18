@@ -7,7 +7,7 @@ use crossterm::execute;
 use crossterm::style::{Attribute, Print, SetAttribute};
 use thiserror::Error;
 
-use crate::ast::{GenericVariableData, Variable, VariableData, VariableType};
+use crate::ast::{GenericVariableData, VariableData, VariableType, VariableValue};
 use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
 use crate::executable::disassembler::DisassembleVisitor;
 use crate::Res;
@@ -352,12 +352,12 @@ pub struct VariableEntry {
     name: String,
     entry_type: EntryType,
     pub number: usize,
-    pub value: Variable,
+    pub value: VariableValue,
     pub function_id: usize,
 }
 
 impl VariableEntry {
-    pub fn new(header: VarHeader, variable: Variable) -> Self {
+    pub fn new(header: VarHeader, variable: VariableValue) -> Self {
         Self {
             header,
             name: "Unnamed".to_string(),
@@ -770,7 +770,7 @@ fn read_variable_table(
                     }
                     GenericVariableData::String(str)
                 };
-                variable = Variable {
+                variable = VariableValue {
                     vtype: VariableType::String,
                     generic_data,
                     ..Default::default()
@@ -787,7 +787,7 @@ fn read_variable_table(
                 );
                 let function_value = FunctionValue::from_bytes(cur_buf);
                 i += 4; // skip vtable + type
-                variable = Variable {
+                variable = VariableValue {
                     vtype,
                     data: VariableData { function_value },
                     ..Default::default()
@@ -805,7 +805,7 @@ fn read_variable_table(
                     i += 2; // what's stored here ?
                     let mut data = VariableData::default();
                     data.unsigned_value = u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap());
-                    variable = Variable {
+                    variable = VariableValue {
                         vtype,
                         data,
                         ..Default::default()
@@ -823,7 +823,7 @@ fn read_variable_table(
                     let mut data = VariableData::default();
                     data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
 
-                    variable = Variable {
+                    variable = VariableValue {
                         vtype,
                         data,
                         generic_data: header.create_generic_data(),

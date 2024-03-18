@@ -8,7 +8,7 @@ use crate::ast::BinOp;
 use crate::ast::GenericVariableData;
 use crate::ast::Statement;
 use crate::ast::UnaryOp;
-use crate::ast::Variable;
+use crate::ast::VariableValue;
 use crate::executable::Executable;
 use crate::executable::PPECommand;
 use crate::executable::PPEExpr;
@@ -109,7 +109,7 @@ pub trait ExecutionContext {
 }
 
 pub struct StackFrame {
-    pub values: HashMap<unicase::Ascii<String>, Variable>,
+    pub values: HashMap<unicase::Ascii<String>, VariableValue>,
     pub cur_ptr: usize,
     pub label_table: HashMap<unicase::Ascii<String>, usize>,
 }
@@ -122,6 +122,38 @@ pub fn calc_stmt_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usi
         }
     }
     res
+}
+
+pub struct ReturnAddress {
+    ptr: usize,
+    id: usize,
+}
+
+impl ReturnAddress {
+    pub fn gosub(cur_ptr: usize) -> ReturnAddress {
+        ReturnAddress {
+            ptr: cur_ptr,
+            id: 0,
+        }
+    }
+    fn func_call(cur_ptr: usize, proc_id: usize) -> ReturnAddress {
+        ReturnAddress {
+            ptr: cur_ptr,
+            id: proc_id,
+        }
+    }
+
+    pub fn get_ptr(&self) -> usize {
+        self.ptr
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
+
+    pub fn is_gosub(&self) -> bool {
+        self.id == 0
+    }
 }
 
 pub struct VirtualMachine<'a> {
@@ -140,11 +172,8 @@ pub struct VirtualMachine<'a> {
 
     pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
 
-
-    return_addresses: Vec<usize>,
-    call_stack: Vec<usize>,
-
-    
+    return_addresses: Vec<ReturnAddress>,
+    parameter_stack: Vec<VariableValue>,
 
     pub label_table: HashMap<usize, usize>,
 }
@@ -390,11 +419,14 @@ impl<'a> VirtualMachine<'a> {
         }
     */
 
-    fn eval_expr(&mut self, expr: &PPEExpr) -> Result<Variable, VMError> {
+    fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
         match expr {
             PPEExpr::Invalid => Err(VMError::InternalVMError),
             PPEExpr::Value(id) => {
                 let var = &self.variable_table[*id - 1];
+                unsafe {
+                    //                    print!(" get id {:02X}: {}\n", *id - 1, var.value.data.byte_value);
+                }
                 Ok(var.value.clone())
             }
             PPEExpr::UnaryExpression(op, expr) => {
@@ -416,18 +448,18 @@ impl<'a> VirtualMachine<'a> {
                     BinOp::Div => Ok(left_value / right_value),
                     BinOp::Mod => Ok(left_value % right_value),
                     BinOp::PoW => Ok(left_value.pow(right_value)),
-                    BinOp::Eq => Ok(Variable::new_bool(left_value == right_value)),
-                    BinOp::NotEq => Ok(Variable::new_bool(left_value != right_value)),
-                    BinOp::Or => Ok(Variable::new_bool(
+                    BinOp::Eq => Ok(VariableValue::new_bool(left_value == right_value)),
+                    BinOp::NotEq => Ok(VariableValue::new_bool(left_value != right_value)),
+                    BinOp::Or => Ok(VariableValue::new_bool(
                         left_value.as_bool() || right_value.as_bool(),
                     )),
-                    BinOp::And => Ok(Variable::new_bool(
+                    BinOp::And => Ok(VariableValue::new_bool(
                         left_value.as_bool() && right_value.as_bool(),
                     )),
-                    BinOp::Lower => Ok(Variable::new_bool(left_value < right_value)),
-                    BinOp::LowerEq => Ok(Variable::new_bool(left_value <= right_value)),
-                    BinOp::Greater => Ok(Variable::new_bool(left_value > right_value)),
-                    BinOp::GreaterEq => Ok(Variable::new_bool(left_value >= right_value)),
+                    BinOp::Lower => Ok(VariableValue::new_bool(left_value < right_value)),
+                    BinOp::LowerEq => Ok(VariableValue::new_bool(left_value <= right_value)),
+                    BinOp::Greater => Ok(VariableValue::new_bool(left_value > right_value)),
+                    BinOp::GreaterEq => Ok(VariableValue::new_bool(left_value >= right_value)),
                 }
             }
             PPEExpr::Dim(id, dims) => {
@@ -549,15 +581,31 @@ impl<'a> VirtualMachine<'a> {
         // println!("Executing statement: {:?}", stmt);
 
         match stmt {
-            PPECommand::End => {
+            PPECommand::End | PPECommand::Stop => {
                 self.is_running = false;
             }
 
-            PPECommand::Return => {
-                if self.return_addresses.is_empty() {
-                    self.is_running = false;
+            PPECommand::EndFunc | PPECommand::EndProc | PPECommand::Return => {
+                if let Some(addr) = self.return_addresses.pop() {
+                    self.cur_ptr = addr.get_ptr();
+                    let proc_id = addr.get_id();
+                    if proc_id > 0 {
+                        let locals;
+                        let first;
+                        unsafe {
+                            let proc = &self.variable_table[proc_id - 1];
+                            first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
+                            locals = proc.value.data.procedure_value.local_variables as usize;
+                        }
+                        for i in (0..locals).rev() {
+                            let id = first + i - 1;
+                            if self.variable_table[id].header.flags & 0x1 == 0x0 {
+                                self.variable_table[id].value = self.parameter_stack.pop().unwrap();
+                            }
+                        }
+                    }
                 } else {
-                    self.cur_ptr = self.return_addresses.pop().unwrap();
+                    self.is_running = false;
                 }
             }
 
@@ -572,7 +620,34 @@ impl<'a> VirtualMachine<'a> {
                 }
                 self.goto(*label)?;
             }
-            PPECommand::ProcedureCall(proc_id, arguments) => {}
+            PPECommand::ProcedureCall(proc_id, arguments) => {
+                let proc_offset;
+                let locals;
+                let parameters;
+                let first;
+                unsafe {
+                    let proc = &self.variable_table[*proc_id - 1];
+                    proc_offset = proc.value.data.procedure_value.start_offset as usize;
+                    first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
+                    locals = proc.value.data.procedure_value.local_variables as usize;
+                    parameters = proc.value.data.procedure_value.parameters as usize;
+                }
+                for i in 0..locals {
+                    let id = first + i - 1;
+                    if self.variable_table[id].header.flags & 0x1 == 0x0 {
+                        self.parameter_stack
+                            .push(self.variable_table[id].value.clone());
+                    }
+
+                    if i < parameters {
+                        let expr = self.eval_expr(&arguments[i])?;
+                        self.variable_table[id].value.data = expr.data;
+                    }
+                }
+                self.return_addresses
+                    .push(ReturnAddress::func_call(self.cur_ptr, *proc_id));
+                self.goto(proc_offset)?;
+            }
             PPECommand::PredefinedCall(proc, arguments) => {
                 let mut args = Vec::new();
                 for arg in arguments {
@@ -586,17 +661,9 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(*label)?;
             }
             PPECommand::Gosub(label) => {
-                self.return_addresses.push(self.cur_ptr);
+                self.return_addresses
+                    .push(ReturnAddress::gosub(self.cur_ptr));
                 self.goto(*label)?;
-            }
-            PPECommand::EndFunc => {
-                self.cur_ptr = self.call_stack.pop().unwrap();
-            }
-            PPECommand::EndProc => {
-                self.cur_ptr = self.call_stack.pop().unwrap();
-            }
-            PPECommand::Stop => {
-                self.is_running = false;
             }
             PPECommand::Let(variable, expr) => {
                 self.set_variable(variable, expr)?;
@@ -614,8 +681,8 @@ impl<'a> VirtualMachine<'a> {
     /// # Errors
     /// Errors if the variable is not found.
     pub fn set_array_value(
-        arr: &mut Variable,
-        val: Variable,
+        arr: &mut VariableValue,
+        val: VariableValue,
         dim1: usize,
         dim2: usize,
         dim3: usize,
@@ -641,7 +708,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn goto(&mut self, label: usize) -> Result<(), VMError> {
-        if let Some(label) = self.label_table.get(&(label / 2)) {
+        if let Some(label) = self.label_table.get(&label) {
             self.cur_ptr = *label;
             Ok(())
         } else {
@@ -663,7 +730,7 @@ pub fn run(
         return Ok(false);
     };
 
-    let mut interpreter = VirtualMachine {
+    let mut vm = VirtualMachine {
         file_name,
         ctx,
         return_addresses: Vec::new(),
@@ -676,16 +743,20 @@ pub fn run(
         pcb_node: None,
         variable_table: prg.variable_table.clone(),
         cur_ptr: 0,
-        call_stack: Vec::new(),
         label_table: calc_labe_table(&script.statements),
+        parameter_stack: Vec::new(),
     };
 
-    interpreter.set_user_variables(&UserRecord::default());
-    while interpreter.is_running && interpreter.cur_ptr < script.statements.len() {
-        let p = interpreter.cur_ptr;
-        interpreter.cur_ptr += 1;
+    for (i, stmt) in script.statements.iter().enumerate() {
+        vm.label_table.insert(stmt.span.start * 2, i);
+    }
+
+    vm.set_user_variables(&UserRecord::default());
+    while vm.is_running && vm.cur_ptr < script.statements.len() {
+        let p = vm.cur_ptr;
+        vm.cur_ptr += 1;
         let c = &script.statements[p].command;
-        interpreter.execute_statement(c)?;
+        vm.execute_statement(c)?;
     }
     Ok(true)
 }

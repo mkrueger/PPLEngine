@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinOp, Variable, VariableType},
+    ast::{BinOp, VariableType, VariableValue},
     executable::{Executable, FunctionValue, ProcedureValue, VariableEntry},
 };
 
@@ -121,7 +121,7 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
     for i in 0..5 {
         exe.variable_table.push(VariableEntry {
             name: format!("int{i}"),
-            value: Variable::new_int(i),
+            value: VariableValue::new_int(i),
             header: super::VarHeader {
                 id: i as usize + 1,
                 variable_type: VariableType::Integer,
@@ -144,7 +144,7 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
 
         exe.variable_table.push(VariableEntry {
             name: format!("func{}", id - 5),
-            value: Variable {
+            value: VariableValue {
                 vtype: VariableType::Function,
                 data: func.to_data(),
                 ..Default::default()
@@ -171,7 +171,7 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
 
         exe.variable_table.push(VariableEntry {
             name: format!("proc{}", id - 8),
-            value: Variable {
+            value: VariableValue {
                 vtype: VariableType::Procedure,
                 data: func.to_data(),
                 ..Default::default()

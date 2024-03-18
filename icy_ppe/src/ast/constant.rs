@@ -143,33 +143,33 @@ impl Constant {
         }
     }
 
-    pub fn get_value(&self) -> super::Variable {
+    pub fn get_value(&self) -> super::VariableValue {
         let mut data = VariableData::default();
         match self {
             Constant::Money(i) => {
                 data.money_value = *i;
-                super::Variable::new(VariableType::Money, data)
+                super::VariableValue::new(VariableType::Money, data)
             }
             Constant::Integer(i) => {
                 data.int_value = *i;
-                super::Variable::new(VariableType::Integer, data)
+                super::VariableValue::new(VariableType::Integer, data)
             }
             Constant::Unsigned(i) => {
                 data.unsigned_value = *i;
-                super::Variable::new(VariableType::Unsigned, data)
+                super::VariableValue::new(VariableType::Unsigned, data)
             }
-            Constant::String(s) => super::Variable::new_string(s.clone()),
+            Constant::String(s) => super::VariableValue::new_string(s.clone()),
             Constant::Double(i) => {
                 data.double_value = *i;
-                super::Variable::new(VariableType::Double, data)
+                super::VariableValue::new(VariableType::Double, data)
             }
             Constant::Boolean(b) => {
                 data.bool_value = *b;
-                super::Variable::new(VariableType::Boolean, data)
+                super::VariableValue::new(VariableType::Boolean, data)
             }
             Constant::Builtin(s) => {
                 data.int_value = s.value;
-                super::Variable::new(VariableType::Integer, data)
+                super::VariableValue::new(VariableType::Integer, data)
             }
         }
     }

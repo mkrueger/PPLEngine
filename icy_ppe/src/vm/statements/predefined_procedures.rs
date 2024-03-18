@@ -1,7 +1,7 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    ast::Variable,
+    ast::VariableValue,
     icy_board::text_messages,
     vm::{TerminalTarget, VirtualMachine},
     Res,
@@ -15,19 +15,19 @@ use super::super::errors::IcyError;
 /// # Panics
 ///
 /// Always
-pub fn invalid(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn invalid(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("Invalid statement");
 }
 
-pub fn cls(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn cls(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.print(TerminalTarget::Both, "\x1B[2J")
 }
 
-pub fn clreol(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn clreol(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.print(TerminalTarget::Both, "\x1B[K")
 }
 
-pub fn more(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn more(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.print(
         TerminalTarget::Both,
         &vm.icy_board_data
@@ -48,7 +48,7 @@ pub fn more(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn wait(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn wait(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.print(
         TerminalTarget::Both,
         &vm.icy_board_data
@@ -65,22 +65,22 @@ pub fn wait(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn color(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn color(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let color = params[0].as_int();
     vm.ctx.set_color(color as u8);
     Ok(())
 }
 
-pub fn confflag(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn confflag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn confunflag(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn confunflag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
 /// # Errors
 /// Errors if
-pub fn dispfile(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let file = vm.io.resolve_file(&params[0].as_string());
 
     let content = fs::read(&file);
@@ -92,10 +92,10 @@ pub fn dispfile(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     }
 }
 
-pub fn input(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn input(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fcreate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fcreate(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
     let file = params[1].as_string();
     let am = params[2].as_int();
@@ -104,7 +104,7 @@ pub fn fcreate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn fopen(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fopen(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
     let file = params[1].as_string();
     let am = params[2].as_int();
@@ -113,7 +113,7 @@ pub fn fopen(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn fappend(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fappend(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
     let file = params[1].as_string();
     let am = params[2].as_int();
@@ -122,7 +122,7 @@ pub fn fappend(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn fclose(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fclose(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int();
     if channel == -1 {
         // READLINE uses -1 as a special value
@@ -135,13 +135,13 @@ pub fn fclose(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn fget(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fget(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
-    params[1] = Variable::new_string(vm.io.fget(channel));
+    params[1] = VariableValue::new_string(vm.io.fget(channel));
     Ok(())
 }
 
-pub fn fput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fput(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
 
     for value in &params[1..] {
@@ -150,7 +150,7 @@ pub fn fput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn fputln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fputln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
 
     for value in &params[1..] {
@@ -162,27 +162,27 @@ pub fn fputln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn resetdisp(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn resetdisp(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // TODO?: unused
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn startdisp(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn startdisp(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // TODO?: unused
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn fputpad(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fputpad(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn hangup(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn hangup(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.hangup(crate::vm::HangupType::Hangup)?;
     vm.is_running = false;
     Ok(())
@@ -190,7 +190,7 @@ pub fn hangup(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn getuser(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn getuser(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     let user = if let Some(user) = vm.icy_board_data.users.get(vm.cur_user) {
         user.clone()
     } else {
@@ -204,7 +204,7 @@ pub fn getuser(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn putuser(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn putuser(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     if let Some(user) = &vm.current_user {
         vm.icy_board_data.users[vm.cur_user] = user.clone();
         Ok(())
@@ -213,11 +213,11 @@ pub fn putuser(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
     }
 }
 
-pub fn defcolor(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn defcolor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn delete(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn delete(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let file = &params[0].as_string();
     if let Err(err) = vm.io.delete(file) {
         log::error!("Error deleting file: {}", err);
@@ -225,14 +225,14 @@ pub fn delete(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn deluser(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn deluser(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtime(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adjtime(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn log(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn log(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let msg = params[0].as_string();
     // let left = &params[0];
     log::info!("{}", msg);
@@ -241,7 +241,7 @@ pub fn log(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
 
 const TXT_STOPCHAR: char = '_';
 
-pub fn inputstr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputstr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let prompt = params[0].as_string();
     // 1 Output Variable
     let color = params[2].as_int();
@@ -249,7 +249,7 @@ pub fn inputstr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let valid = params[4].as_string();
     let flags = params[5].as_int();
     let output = internal_input_string(vm, color, prompt, len, &valid)?;
-    params[1] = Variable::new_string(output);
+    params[1] = VariableValue::new_string(output);
     Ok(())
 }
 
@@ -288,7 +288,7 @@ fn internal_input_string(
     Ok(output)
 }
 
-pub fn inputyn(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputyn(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -298,11 +298,11 @@ pub fn inputyn(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let len = 1;
     let valid = "YyNn";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
-    params[1] = Variable::new_string(output.to_ascii_uppercase());
+    params[1] = VariableValue::new_string(output.to_ascii_uppercase());
     Ok(())
 }
 
-pub fn inputmoney(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputmoney(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -313,11 +313,11 @@ pub fn inputmoney(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let valid = "01234567890+-$.";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
     // TODO: Money conversion.
-    params[1] = Variable::new_string(output);
+    params[1] = VariableValue::new_string(output);
     Ok(())
 }
 
-pub fn inputint(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputint(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -327,10 +327,10 @@ pub fn inputint(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let len = 11;
     let valid = "01234567890+-";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
-    params[1] = Variable::new_int(output.parse::<i32>().unwrap());
+    params[1] = VariableValue::new_int(output.parse::<i32>().unwrap());
     Ok(())
 }
-pub fn inputcc(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputcc(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -340,10 +340,10 @@ pub fn inputcc(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let len = 16;
     let valid = "01234567890";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
-    params[1] = Variable::new_string(output);
+    params[1] = VariableValue::new_string(output);
     Ok(())
 }
-pub fn inputdate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputdate(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -354,11 +354,11 @@ pub fn inputdate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let valid = "01234567890-/";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
     // TODO: Date conversion
-    params[1] = Variable::new_string(output);
+    params[1] = VariableValue::new_string(output);
     Ok(())
 }
 
-pub fn inputtime(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputtime(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let mut prompt = params[0].as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -369,30 +369,30 @@ pub fn inputtime(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     let valid = "01234567890:";
     let output = internal_input_string(vm, color, prompt, len, valid)?;
     // TODO: Time conversion
-    params[1] = Variable::new_string(output);
+    params[1] = VariableValue::new_string(output);
     Ok(())
 }
-pub fn promptstr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn promptstr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtron(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dtron(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // IGNORE
     Ok(())
 }
 
-pub fn dtroff(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn dtroff(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.hangup(crate::vm::HangupType::Hangup)?;
     Ok(())
 }
 
-pub fn cdchkon(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn cdchkon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn cdchkoff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn cdchkoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn delay(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn delay(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // 1 tick is ~1/18.2s
     let ticks = params[0].as_int();
     if ticks > 0 {
@@ -401,27 +401,27 @@ pub fn delay(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn sendmodem(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sendmodem(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn inc(_vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
-    let new_value = params[0].clone() + Variable::new_int(1);
+pub fn inc(_vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
+    let new_value = params[0].clone() + VariableValue::new_int(1);
     params[0] = new_value;
     Ok(())
 }
 
-pub fn dec(_vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
-    let new_value = params[0].clone() - Variable::new_int(1);
+pub fn dec(_vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
+    let new_value = params[0].clone() - VariableValue::new_int(1);
     params[0] = new_value;
     Ok(())
 }
 
-pub fn newline(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn newline(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.write_raw(TerminalTarget::Both, &[b'\n'])
 }
 
-pub fn newlines(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn newlines(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let count = params[0].as_int();
     for _ in 0..count {
         newline(vm, params)?;
@@ -431,7 +431,7 @@ pub fn newlines(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn tokenize(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tokenize(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let str = params[0].to_string();
     let split = str
         .split(&[' ', ';'][..])
@@ -440,59 +440,59 @@ pub fn tokenize(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn gettoken(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn gettoken(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn shell(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn shell(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn disptext(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn disptext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn stop(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn stop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn inputtext(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn inputtext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn beep(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn beep(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn push(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn push(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pop(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdstuff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdstuff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();
     vm.ctx.print(TerminalTarget::Both, &value)
 }
-pub fn call(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn call(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn join(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn join(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn quest(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn quest(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn blt(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn blt(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dir(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dir(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdfile(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bye(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn bye(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.hangup(crate::vm::HangupType::Bye)?;
     vm.is_running = false;
     Ok(())
 }
 
-pub fn goodbye(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
+pub fn goodbye(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.hangup(crate::vm::HangupType::Goodbye)?;
     vm.is_running = false;
     Ok(())
@@ -507,7 +507,7 @@ pub fn goodbye(vm: &mut VirtualMachine, _params: &mut [Variable]) -> Res<()> {
 /// This statement allows you to programatically broadcast a message to a range of nodes
 /// without giving users the ability to manually broadcast
 /// at any time they choose.
-pub fn broadcast(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn broadcast(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let lonode = params[0].as_int();
     let hinode = params[1].as_int();
     let message = params[2].as_string();
@@ -516,25 +516,25 @@ pub fn broadcast(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn waitfor(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn waitfor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdchkon(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdchkon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdchkoff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdchkoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn optext(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn optext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dispstr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dispstr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();
     crossterm::terminal::disable_raw_mode().unwrap();
     vm.ctx.print(TerminalTarget::Both, &value)
 }
 
-pub fn rdunet(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn rdunet(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_int();
 
     if let Some(node) = vm.icy_board_data.nodes.get(value as usize) {
@@ -543,7 +543,7 @@ pub fn rdunet(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn wrunet(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn wrunet(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let node = params[0].as_int();
     let stat = params[1].as_string();
     let name = params[2].as_string();
@@ -563,80 +563,80 @@ pub fn wrunet(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn dointr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dointr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varseg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn varseg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varoff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn varoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokeb(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pokeb(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokew(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pokew(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varaddr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn varaddr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn ansipos(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn ansipos(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let x = params[0].as_int();
     let y = params[1].as_int();
 
     vm.ctx.gotoxy(TerminalTarget::Both, x, y)
 }
 
-pub fn backup(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn backup(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn forward(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn forward(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn freshline(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn freshline(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn wrusys(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn wrusys(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn rdusys(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn rdusys(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn newpwd(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn newpwd(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn opencap(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn opencap(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn closecap(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn closecap(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn message(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn message(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn savescrn(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn savescrn(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn restscrn(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn restscrn(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sound(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sound(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn chat(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn chat(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn sprint(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sprint(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::Sysop, &value.as_string())?;
     }
     Ok(())
 }
 
-pub fn sprintln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sprintln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::Sysop, &value.as_string())?;
     }
@@ -644,14 +644,14 @@ pub fn sprintln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn print(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn print(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::Both, &value.as_string())?;
     }
     Ok(())
 }
 
-pub fn println(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn println(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::Both, &value.as_string())?;
     }
@@ -659,14 +659,14 @@ pub fn println(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn mprint(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn mprint(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::User, &value.as_string())?;
     }
     Ok(())
 }
 
-pub fn mprintln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn mprintln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
         vm.ctx.print(TerminalTarget::User, &value.as_string())?;
     }
@@ -674,7 +674,7 @@ pub fn mprintln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     Ok(())
 }
 
-pub fn rename(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn rename(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let old = &params[0].as_string();
     let new = &params[1].as_string();
     if let Err(err) = vm.io.rename(old, new) {
@@ -682,79 +682,79 @@ pub fn rename(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
     }
     Ok(())
 }
-pub fn frewind(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn frewind(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokedw(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pokedw(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dbglevel(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dbglevel(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn showon(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn showon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn showoff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn showoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pageon(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pageon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pageoff(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn pageoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fseek(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fseek(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fflush(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fflush(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fread(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fread(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fwrite(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fwrite(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdefin(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdefin(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdefout(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdefout(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdget(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdget(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdput(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdputln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdputln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdputpad(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdputpad(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdread(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdread(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdwrite(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdwrite(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjbytes(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adjbytes(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdstring(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdstring(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn alias(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn alias(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn redim(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn redim(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn append(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn append(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn copy(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn copy(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let old = &params[0].as_string();
     let new = &params[1].as_string();
     if let Err(err) = vm.io.copy(old, new) {
@@ -765,285 +765,285 @@ pub fn copy(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn kbdflush(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn kbdflush(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // TODO?
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn mdmflush(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn mdmflush(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // TODO?
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn keyflush(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn keyflush(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     // TODO?
     Ok(())
 }
-pub fn lastin(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn lastin(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn flag(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn flag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn download(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn download(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn wrusysdoor(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn wrusysdoor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn getaltuser(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn getaltuser(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let user_record = params[0].as_int() as usize;
     let user = vm.icy_board_data.users[user_record].clone();
     vm.set_user_variables(&user);
     Ok(())
 }
 
-pub fn adjdbytes(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adjdbytes(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtbytes(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adjtbytes(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn ayjtfiles(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn ayjtfiles(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn lang(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn lang(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sort(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sort(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn mousereg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn mousereg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn scrfile(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn scrfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchinit(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn searchinit(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchfind(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn searchfind(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchstop(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn searchstop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn prfound(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn prfound(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn prfoundln(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn prfoundln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpaget(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpaget(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpaput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpaput(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacgea(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpacgea(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpacput(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tparead(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tparead(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpawrite(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpawrite(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacread(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpacread(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacwrite(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn tpacwrite(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bitset(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn bitset(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bitclear(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn bitclear(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn brag(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn brag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn frealtuser(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn frealtuser(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn setlmr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn setlmr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn setenv(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn setenv(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fcloseall(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fcloseall(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn stackabort(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn stackabort(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dcreate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dcreate(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dopen(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dopen(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dclose(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dclose(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dsetalias(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dsetalias(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dpack(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dpack(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dcloseall(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dcloseall(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlock(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dlock(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlockr(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dlockr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlockg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dlockg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dunlock(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dunlock(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dncreate(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dncreate(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnopen(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dnopen(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnclose(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dnclose(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dncloseall(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dncloseall(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnew(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dnew(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dadd(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dadd(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dappend(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dappend(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtop(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dtop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dgo(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dgo(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dbottom(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dbottom(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dskip(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dskip(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dblank(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dblank(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn ddelete(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn ddelete(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn drecall(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn drecall(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtag(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dtag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dseek(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dseek(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dfblank(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dfblank(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dget(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dget(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dput(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dput(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dfcopy(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn dfcopy(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn eval(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn eval(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn account(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn account(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn recordusage(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn recordusage(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn msgtofile(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn msgtofile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn qwklimits(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn qwklimits(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn command(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn command(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn uselmrs(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn uselmrs(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn confinfo(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn confinfo(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtubytes(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adjtubytes(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn grafmode(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn grafmode(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adduser(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn adduser(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn killmsg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn killmsg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn chdir(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn chdir(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn mkdir(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn mkdir(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn redir(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn redir(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdowraka(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdowraka(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoaddaka(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdoaddaka(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdowrorg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdowrorg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoaddorg(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdoaddorg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqmod(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdoqmod(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqadd(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdoqadd(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqdel(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn fdoqdel(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sounddelay(vm: &mut VirtualMachine, params: &mut [Variable]) -> Res<()> {
+pub fn sounddelay(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }

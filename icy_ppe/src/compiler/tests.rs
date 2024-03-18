@@ -2,11 +2,10 @@ use std::{env, fs::read_to_string, path::PathBuf};
 
 use crate::{
     compiler,
-    decompiler::decompile,
     executable::Executable,
     icy_board::data::IcyBoardData,
-    vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
     parser::parse_program,
+    vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
     Res,
 };
 
@@ -57,7 +56,14 @@ fn run_test(data: &String, output: &str) {
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();
     let mut io = MemoryIO::new();
     let mut ctx = TestContext::new();
-    run(PathBuf::from("."), &exe, &mut ctx, &mut io, IcyBoardData::default()).unwrap();
+    run(
+        PathBuf::from("."),
+        &exe,
+        &mut ctx,
+        &mut io,
+        IcyBoardData::default(),
+    )
+    .unwrap();
 
     let error = output != ctx.output;
     if error {

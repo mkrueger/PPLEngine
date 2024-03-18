@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{
     ast::{
         AstNode, Constant, Expression, GenericVariableData, ParameterSpecifier, Program, Statement,
-        Variable, VariableData, VariableType,
+        VariableData, VariableType, VariableValue,
     },
     executable::{
         EntryType, Executable, ExpressionNegator, FunctionValue, OpCode, PPECommand, PPEExpr,
@@ -144,7 +144,7 @@ impl PPECompiler {
         self.push_variable(name.clone(), entry);
     }
 
-    fn add_predefined_variable(&mut self, name: &str, val: Variable) {
+    fn add_predefined_variable(&mut self, name: &str, val: VariableValue) {
         let id = self.next_id();
         let header = VarHeader {
             id,
@@ -162,52 +162,52 @@ impl PPECompiler {
     }
 
     fn initialize_variables(&mut self) {
-        self.add_predefined_variable("U_EXPERT", Variable::new_bool(false));
-        self.add_predefined_variable("U_FSE", Variable::new_bool(false));
-        self.add_predefined_variable("U_FSEP", Variable::new_bool(false));
-        self.add_predefined_variable("U_CLS", Variable::new_bool(false));
+        self.add_predefined_variable("U_EXPERT", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_FSE", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_FSEP", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_CLS", VariableValue::new_bool(false));
         self.add_predefined_variable(
             "U_EXPDATE",
-            Variable::new(VariableType::Date, VariableData::default()),
+            VariableValue::new(VariableType::Date, VariableData::default()),
         );
-        self.add_predefined_variable("U_SEC", Variable::new_int(0));
-        self.add_predefined_variable("U_PAGELEN", Variable::new_int(0));
-        self.add_predefined_variable("U_EXPSEC", Variable::new_int(0));
-        self.add_predefined_variable("U_CITY", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_BDPHONE", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_HVPHONE", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_TRANS", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_CMNT1", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_CMNT2", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_PWD", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_SCROLL", Variable::new_bool(false));
-        self.add_predefined_variable("U_LONGHDR", Variable::new_bool(false));
-        self.add_predefined_variable("U_DEF79", Variable::new_bool(false));
-        self.add_predefined_variable("U_ALIAS", Variable::new_string(String::new()));
-        self.add_predefined_variable("U_VER", Variable::new_string(String::new()));
+        self.add_predefined_variable("U_SEC", VariableValue::new_int(0));
+        self.add_predefined_variable("U_PAGELEN", VariableValue::new_int(0));
+        self.add_predefined_variable("U_EXPSEC", VariableValue::new_int(0));
+        self.add_predefined_variable("U_CITY", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_BDPHONE", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_HVPHONE", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_TRANS", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT1", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_CMNT2", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_PWD", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_SCROLL", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_LONGHDR", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_DEF79", VariableValue::new_bool(false));
+        self.add_predefined_variable("U_ALIAS", VariableValue::new_string(String::new()));
+        self.add_predefined_variable("U_VER", VariableValue::new_string(String::new()));
         self.add_predefined_variable(
             "U_ADDR",
-            Variable::new_vector(
+            VariableValue::new_vector(
                 VariableType::String,
-                vec![Variable::new_string(String::new()); 5],
+                vec![VariableValue::new_string(String::new()); 5],
             ),
         );
         self.add_predefined_variable(
             "U_NOTES",
-            Variable::new_vector(
+            VariableValue::new_vector(
                 VariableType::String,
-                vec![Variable::new_string(String::new()); 4],
+                vec![VariableValue::new_string(String::new()); 4],
             ),
         );
 
         self.add_predefined_variable(
             "U_PWDEXP",
-            Variable::new(VariableType::Date, VariableData::default()),
+            VariableValue::new(VariableType::Date, VariableData::default()),
         );
 
         self.add_predefined_variable(
             "U_ACCOUNT",
-            Variable::new_vector(VariableType::Integer, vec![Variable::new_int(0); 16]),
+            VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]),
         );
 
         // 3.40 variables
@@ -267,7 +267,7 @@ impl PPECompiler {
                         return_var: func.get_return_type() as i16,
                     };
 
-                    let mut entry = VariableEntry::new(header, Variable::new_function(value));
+                    let mut entry = VariableEntry::new(header, VariableValue::new_function(value));
                     entry.set_name(func.get_identifier().to_string());
                     entry.set_type(EntryType::Function);
                     self.push_variable(func.get_identifier().clone(), entry);
@@ -307,7 +307,7 @@ impl PPECompiler {
                         pass_flags,
                     };
 
-                    let mut entry = VariableEntry::new(header, Variable::new_procedure(value));
+                    let mut entry = VariableEntry::new(header, VariableValue::new_procedure(value));
                     entry.set_name(proc.get_identifier().to_string());
                     entry.set_type(EntryType::Procedure);
 
@@ -319,8 +319,11 @@ impl PPECompiler {
             }
         }
 
-        if self.commands.statements.is_empty() || self.commands.statements.last().unwrap().command != PPECommand::End {
-            self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
+        if self.commands.statements.is_empty()
+            || self.commands.statements.last().unwrap().command != PPECommand::End
+        {
+            self.commands
+                .add_statement(&mut self.cur_offset, PPECommand::End);
         }
 
         self.compile_functions(&prg);
@@ -365,7 +368,9 @@ impl PPECompiler {
                         for i in decl.value.data.procedure_value.first_var_id as usize
                             ..self.variable_count()
                         {
-                            self.variable_table[i].header.flags |= 1;
+                            if self.variable_table[i].get_type() == EntryType::Constant {
+                                self.variable_table[i].header.flags |= 1;
+                            }
                         }
                         let var_count = self.variable_count() as i16;
                         let decl = self.get_variable_mut(idx);
@@ -425,7 +430,16 @@ impl PPECompiler {
                         .add_statement(&mut self.cur_offset, PPECommand::End);
                     unsafe {
                         let var_count = self.variable_count() as i16;
+                        let decl = self.get_variable(idx).clone();
+                        for i in decl.value.data.procedure_value.first_var_id as usize
+                            ..self.variable_count()
+                        {
+                            if self.variable_table[i].get_type() == EntryType::Constant {
+                                self.variable_table[i].header.flags |= 1;
+                            }
+                        }
                         let decl = self.get_variable_mut(idx);
+
                         let locals = (var_count
                             - decl.value.data.function_value.first_var_id
                             - decl.value.data.function_value.parameters as i16)
@@ -676,7 +690,10 @@ impl PPECompiler {
             flags: 0,
         };
         let mut entry = VariableEntry::new(header, value.clone());
-        entry.set_name(format!("CONST_{id}"));
+        entry.set_name(format!(
+            "CONST_{}",
+            self.const_lookup_table.len() + self.string_lookup_table.len() + 1
+        ));
         entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
         if let GenericVariableData::String(str) = value.generic_data {

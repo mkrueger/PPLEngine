@@ -76,7 +76,7 @@ fn main() {
     let mut output = Output::default();
 
     output.is_sysop = arguments.sysop;
-    enable_raw_mode().unwrap();
+    // enable_raw_mode().unwrap();
     let supports_keyboard_enhancement = matches!(
         crossterm::terminal::supports_keyboard_enhancement(),
         Ok(true)
@@ -111,5 +111,5 @@ fn main() {
     )
     .unwrap();
 
-    disable_raw_mode().unwrap();
+    // disable_raw_mode().unwrap();
 }

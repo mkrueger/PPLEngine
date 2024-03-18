@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env::var;
 use std::path::PathBuf;
 use std::string::String;
 
@@ -141,9 +140,11 @@ pub struct VirtualMachine<'a> {
 
     pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
 
-    pub gosub_stack: Vec<usize>,
 
-    pub func_stack: Vec<usize>,
+    return_addresses: Vec<usize>,
+    call_stack: Vec<usize>,
+
+    
 
     pub label_table: HashMap<usize, usize>,
 }
@@ -553,10 +554,10 @@ impl<'a> VirtualMachine<'a> {
             }
 
             PPECommand::Return => {
-                if self.gosub_stack.is_empty() {
+                if self.return_addresses.is_empty() {
                     self.is_running = false;
                 } else {
-                    self.cur_ptr = self.gosub_stack.pop().unwrap();
+                    self.cur_ptr = self.return_addresses.pop().unwrap();
                 }
             }
 
@@ -585,14 +586,14 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(*label)?;
             }
             PPECommand::Gosub(label) => {
-                self.gosub_stack.push(self.cur_ptr);
+                self.return_addresses.push(self.cur_ptr);
                 self.goto(*label)?;
             }
             PPECommand::EndFunc => {
-                self.cur_ptr = self.func_stack.pop().unwrap();
+                self.cur_ptr = self.call_stack.pop().unwrap();
             }
             PPECommand::EndProc => {
-                self.cur_ptr = self.func_stack.pop().unwrap();
+                self.cur_ptr = self.call_stack.pop().unwrap();
             }
             PPECommand::Stop => {
                 self.is_running = false;
@@ -665,7 +666,7 @@ pub fn run(
     let mut interpreter = VirtualMachine {
         file_name,
         ctx,
-        gosub_stack: Vec::new(),
+        return_addresses: Vec::new(),
         io,
         is_running: true,
         cur_tokens: Vec::new(),
@@ -675,7 +676,7 @@ pub fn run(
         pcb_node: None,
         variable_table: prg.variable_table.clone(),
         cur_ptr: 0,
-        func_stack: Vec::new(),
+        call_stack: Vec::new(),
         label_table: calc_labe_table(&script.statements),
     };
 

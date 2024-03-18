@@ -420,31 +420,29 @@ impl VariableEntry {
             }
             encrypt(&mut buffer[b..], version);
         } else if self.header.variable_type == VariableType::String {
-            let s = if self.header.dim == 0 {
+            if self.header.dim == 0 {
                 let GenericVariableData::String(s) = &self.value.generic_data else {
                     return Err(ExecutableError::StringTypeInvalid(self.value.vtype));
                 };
                 if s.len() > u16::MAX as usize {
                     return Err(ExecutableError::StringConstantTooLong(s.len()));
                 }
-                s.clone()
-            } else {
-                String::new()
-            };
-            let mut string_buffer: Vec<u8> = Vec::new();
-
-            for c in s.chars() {
-                if let Some(b) = crate::tables::UNICODE_TO_CP437.get(&c) {
-                    string_buffer.push(*b);
-                } else {
-                    string_buffer.push(c as u8);
+                let mut string_buffer: Vec<u8> = Vec::new();
+                for c in s.chars() {
+                    if let Some(b) = crate::tables::UNICODE_TO_CP437.get(&c) {
+                        string_buffer.push(*b);
+                    } else {
+                        string_buffer.push(c as u8);
+                    }
                 }
-            }
-            string_buffer.push(0);
+                string_buffer.push(0);
 
-            buffer.extend_from_slice(&u16::to_le_bytes(string_buffer.len() as u16));
-            encrypt(&mut string_buffer, version);
-            buffer.extend(string_buffer);
+                buffer.extend_from_slice(&u16::to_le_bytes(string_buffer.len() as u16));
+                encrypt(&mut string_buffer, version);
+                buffer.extend(string_buffer);
+            } else {
+                buffer.extend_from_slice(&[0, 0]);
+            };
         } else {
             // VTABLE - get's ignored by PCBoard - pure garbage
             buffer.push(0);
@@ -518,6 +516,7 @@ impl Executable {
                 .try_into()
                 .unwrap(),
         ) as usize;
+
         let (mut i, variable_table) = read_variable_table(version, buffer, max_var)?;
         let code_size = u16::from_le_bytes(buffer[i..=(i + 1)].try_into().unwrap()) as usize;
         i += 2;
@@ -538,7 +537,12 @@ impl Executable {
                 SetAttribute(Attribute::Bold),
                 Print(format!("{code_size}/{real_size} bytes")),
                 SetAttribute(Attribute::Reset),
-                Print(" code/compressed size\n".to_string()),
+                Print(" code/compressed size,".to_string()),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{} bytes", i - 2 - HEADER_SIZE)),
+                SetAttribute(Attribute::Reset),
+                Print(" variable table".to_string()),
+                Print("\n".to_string()),
             )
             .unwrap();
         }
@@ -637,10 +641,9 @@ impl Executable {
         let mut code_data = encode_rle(&script_buffer);
 
         buffer.extend_from_slice(&u16::to_le_bytes(self.script_buffer.len() as u16 * 2));
-
         // in the very unlikely case the rle compressed buffer is larger than the original buffer
-        let use_rle = code_data.len() > script_buffer.len() || self.version < 300;
-        if use_rle {
+        let use_rle = code_data.len() < script_buffer.len() && self.version >= 300;
+        if !use_rle {
             code_data = script_buffer;
         }
 

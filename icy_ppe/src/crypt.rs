@@ -131,7 +131,7 @@ pub fn encode_rle(src: &[u8]) -> Vec<u8> {
         i += 1;
         if cur == 0 {
             let mut count = 1;
-            if i < src.len() && count < 255 && src[i] == 0 {
+            while i < src.len() && count < 255 && src[i] == 0 {
                 i += 1;
                 count += 1;
             }
@@ -196,6 +196,12 @@ mod tests {
         for i in 0..data.len() {
             assert_eq!(res[i], data[i], "data mismatch.");
         }
+    }
+
+    #[test]
+    fn test_encode_rle() {
+        let encoded = encode_rle(&[0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&encoded, &[0, 9]);
     }
 
     #[test]

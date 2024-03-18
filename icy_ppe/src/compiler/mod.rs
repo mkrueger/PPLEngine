@@ -20,8 +20,8 @@ use self::expr_compiler::ExpressionCompiler;
 
 pub mod expr_compiler;
 
-//#[cfg(test)]
-//pub mod tests;
+#[cfg(test)]
+pub mod tests;
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
@@ -319,8 +319,9 @@ impl PPECompiler {
             }
         }
 
-        self.commands
-            .add_statement(&mut self.cur_offset, PPECommand::End);
+        if self.commands.statements.is_empty() || self.commands.statements.last().unwrap().command != PPECommand::End {
+            self.commands.add_statement(&mut self.cur_offset, PPECommand::End);
+        }
 
         self.compile_functions(&prg);
         self.fill_labels();
@@ -654,7 +655,6 @@ impl PPECompiler {
 
         if let GenericVariableData::String(str) = &value.generic_data {
             if let Some(id) = self.string_lookup_table.get(str) {
-                println!("found string lookup {str}!!!");
                 return *id;
             }
         } else {
@@ -680,7 +680,6 @@ impl PPECompiler {
         entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
         if let GenericVariableData::String(str) = value.generic_data {
-            println!("insert string lookup {str}!!!");
             self.string_lookup_table.insert(str, id);
         } else {
             unsafe {

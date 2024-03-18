@@ -304,7 +304,8 @@ pub enum FuncOpCode {
 pub const LAST_FUNC: i16 = -290;
 impl FuncOpCode {
     pub fn get_definition(self) -> &'static FunctionDefinition {
-        &FUNCTION_DEFINITIONS[self as usize]
+        let i = -(self as i16);
+        &FUNCTION_DEFINITIONS[i as usize]
     }
 }
 

@@ -55,10 +55,9 @@ fn run_test(data: &String, output: &str) {
     let binary = exec.create_executable(330).unwrap();
     let mut buffer = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();
-    let mut prg = decompile(exe, true);
     let mut io = MemoryIO::new();
     let mut ctx = TestContext::new();
-    run(&mut prg, &mut ctx, &mut io, IcyBoardData::default()).unwrap();
+    run(PathBuf::from("."), &exe, &mut ctx, &mut io, IcyBoardData::default()).unwrap();
 
     let error = output != ctx.output;
     if error {

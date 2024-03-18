@@ -3,7 +3,7 @@ use crate::{
     executable::{Executable, FunctionValue, ProcedureValue, VariableEntry},
 };
 
-use super::{FuncOpCode, OpCode, PPECommand, PPEExpr, FUNCTION_DEFINITIONS};
+use super::{FuncOpCode, OpCode, PPECommand, PPEExpr};
 
 #[test]
 fn test_end_serialization() {
@@ -58,10 +58,9 @@ fn test_let_serialization() {
 
 #[test]
 fn test_print_midserialization() {
-    let left = PPEExpr::FunctionCall(6, vec![PPEExpr::Value(2)]);
-    let i: i32 = -(FuncOpCode::MID as i32);
+    let left = PPEExpr::FunctionCall(7, vec![PPEExpr::Value(2)]);
     let right = PPEExpr::PredefinedFunctionCall(
-        &FUNCTION_DEFINITIONS[i as usize],
+        FuncOpCode::MID.get_definition(),
         vec![PPEExpr::Value(3), PPEExpr::Value(2), PPEExpr::Value(2)],
     );
 
@@ -73,7 +72,27 @@ fn test_print_midserialization() {
             Box::new(right),
         )],
     );
-    test_serialize(&val, &[9, 1, 6, 0, 2, 0, 0, 3, 0, 2, 0, 2, 0, -23, -8, 0]);
+    test_serialize(
+        &val,
+        &[
+            OpCode::PRINT as i16,
+            1,
+            7,
+            0,
+            2,
+            0,
+            0,
+            3,
+            0,
+            2,
+            0,
+            2,
+            0,
+            FuncOpCode::MID as i16,
+            -8,
+            0,
+        ],
+    );
 }
 
 #[test]
@@ -171,7 +190,6 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();
     let result = deserializer.deserialize_statement(&exe).unwrap().unwrap();
-    // assert_eq!(result.get_size(), exe.script_buffer.len(), "Deserialization length differs expected: {expected:?}, got: {result:?}");
     assert_eq!(
         result, *expected,
         "Deserialization result differs expected: {expected:?}, got: {result:?}"
@@ -180,5 +198,10 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
         deserializer.offset,
         exe.script_buffer.len(),
         "Deserialization offset differs expected: {expected:?}, got: {result:?}"
+    );
+    assert_eq!(
+        result.get_size(),
+        exe.script_buffer.len(),
+        "Deserialization length differs expected: {expected:?}, got: {result:?}"
     );
 }

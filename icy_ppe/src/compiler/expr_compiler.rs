@@ -1,5 +1,5 @@
 use crate::{
-    ast::AstVisitor,
+    ast::{AstVisitor, VariableType},
     executable::PPEExpr,
     tables::{get_function_definition, FUNCTION_DEFINITIONS},
 };
@@ -83,7 +83,25 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 });
                 return PPEExpr::Value(0);
             };
-            return PPEExpr::FunctionCall(table_idx + 1, arguments);
+
+            let var = self.compiler.get_variable(table_idx); 
+            if var.value.get_type() == VariableType::Function {
+                return PPEExpr::FunctionCall(table_idx + 1, arguments);
+            }
+            if var.header.dim as usize != arguments.len() {
+
+                println!("Invalid dimensions for function call: {} (expected: {}, got args: {})", func_call.get_identifier(), var.value.get_dimensions(), arguments.len());
+                self.compiler.errors.push(CompilationError {
+                    error: CompilationErrorType::InvalidDimensions(
+                        func_call.get_identifier().to_string(),
+                        var.value.get_dimensions(),
+                        arguments.len(),
+                    ),
+                    range: func_call.get_identifier_token().span.clone(),
+                });
+                return PPEExpr::Value(0);
+            }
+            return PPEExpr::Dim(table_idx + 1, arguments);
         }
 
         let Some(table_idx) = self

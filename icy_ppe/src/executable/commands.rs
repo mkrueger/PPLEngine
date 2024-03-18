@@ -322,7 +322,6 @@ impl PPEExpr {
 
     pub fn count_size(args: &[PPEExpr]) -> usize {
         let r = args.iter().map(PPEExpr::get_size).sum();
-        println!("arg size {}", r);
         r
     }
 

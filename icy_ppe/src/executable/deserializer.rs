@@ -222,7 +222,6 @@ impl PPEDeserializer {
                             .function_value
                             .parameters;
                         let mut arguments = Vec::new();
-                        println!("parameters: {}", parameters);
                         for _ in 0..parameters {
                             let expr = self.deserialize_expression(executable)?;
                             arguments.push(expr);

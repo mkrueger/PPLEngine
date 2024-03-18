@@ -1040,7 +1040,7 @@ impl Decompiler {
             self.exp_count = 0;
             let mut trash_func = 0;
 
-            while self.executable.script_buffer[self.src_ptr] != 0 {
+            while self.src_ptr < self.executable.script_buffer.len() && self.executable.script_buffer[self.src_ptr] != 0 {
                 if self.executable.script_buffer[self.src_ptr] >= 0
                     && self.executable.script_buffer[self.src_ptr] as usize
                         <= self.executable.variable_table.len()

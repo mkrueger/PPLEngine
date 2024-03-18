@@ -7,14 +7,22 @@ use crossterm::{
 
 use crate::ast::VariableType;
 
-use super::{OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, StatementDefinition};
+use super::{Executable, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor, StatementDefinition};
 
-#[derive(Default)]
-pub struct DisassembleVisitor {
+pub struct DisassembleVisitor<'a> {
     pub show_statement_data: bool,
+    pub ppe_file: &'a Executable
 }
 
-impl DisassembleVisitor {
+impl<'a> DisassembleVisitor<'a> {
+
+    pub fn new(ppe_file: &'a Executable) -> Self {
+        Self {
+            show_statement_data: false,
+            ppe_file
+        }
+    }
+
     fn output_op_code(end: OpCode) {
         execute!(
             stdout(),
@@ -63,8 +71,8 @@ impl DisassembleVisitor {
         execute!(stdout(), SetForegroundColor(Color::Reset),).unwrap();
     }
 
-    pub fn print_disassembler(&mut self, ppe_file: &super::Executable) {
-        match PPEScript::from_ppe_file(ppe_file) {
+    pub fn print_disassembler(&mut self) {
+        match PPEScript::from_ppe_file(self.ppe_file) {
             Ok(script) => {
                 script.visit(self);
             }
@@ -84,10 +92,10 @@ impl DisassembleVisitor {
                 .unwrap();
                 if let Some(last) = script.statements.last() {
                     println!();
-                    Self::dump_script_data(ppe_file, last.span.clone());
+                    Self::dump_script_data(self.ppe_file, last.span.clone());
                 }
                 println!();
-                Self::dump_script_data(ppe_file, e.span);
+                Self::dump_script_data(self.ppe_file, e.span);
                 println!();
             }
         }
@@ -216,7 +224,7 @@ impl DisassembleVisitor {
     }
 }
 
-impl PPEVisitor<()> for DisassembleVisitor {
+impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
     fn visit_value(&mut self, id: usize) {
         execute!(
             stdout(),
@@ -434,7 +442,14 @@ impl PPEVisitor<()> for DisassembleVisitor {
                     }
                     print!("{:04X} ", *x);
                 }
-
+                println!();
+            } else {
+                for (i, x) in self.ppe_file.script_buffer[stmt.span.clone()].iter().enumerate() {
+                    if i > 0 && (i % 16) == 0 {
+                        println!();
+                    }
+                    print!("{:04X} ", *x);
+                }
                 println!();
             }
         }

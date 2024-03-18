@@ -109,6 +109,9 @@ pub enum ParserErrorType {
 
     #[error("EOL expected, got '{0}'")]
     EolExpected(Token),
+
+    #[error("Expected comma, got '{0}'")]
+    CommaExpected(Token),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]

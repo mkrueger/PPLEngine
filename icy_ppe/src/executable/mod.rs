@@ -651,7 +651,7 @@ impl Executable {
         DisassembleVisitor::print_script_buffer_dump(self);
     }
     pub fn print_disassembler(&self) {
-        DisassembleVisitor::default().print_disassembler(self);
+        DisassembleVisitor::new(self).print_disassembler();
     }
 }
 

@@ -661,6 +661,57 @@ impl Parser {
                         }));
                     return None;
                 };
+                let mut leftpar_token = None;
+                let mut rightpar_token = None;
+                let mut params = Vec::new();
+        
+                if self.get_cur_token() == Some(Token::LPar) {
+                    leftpar_token = Some(self.save_spannedtoken());
+                    self.next_token();
+
+                    
+                    loop {
+                        let Some(token) = self.get_cur_token() else {
+                            self.errors
+                                .push(crate::parser::Error::ParserError(ParserError {
+                                    error: ParserErrorType::EndExpected,
+                                    range: self.lex.span(),
+                                }));
+                            return None;
+                        };
+
+                        if self.get_cur_token() == Some(Token::RPar) {
+                            break;
+                        }
+                        let Some(expr) = self.parse_expression() else {
+                            self.errors
+                                .push(crate::parser::Error::ParserError(ParserError {
+                                    error: ParserErrorType::ExpressionExpected(self.save_token()),
+                                    range: self.lex.span(),
+                                }));
+                            return None;
+                        };
+                        params.push(expr);
+                        self.skip_eol();
+                        
+                        if self.get_cur_token() == Some(Token::RPar) {
+                            break;
+                        }
+                        if self.get_cur_token() == Some(Token::Comma) {
+                            self.next_token();
+                        } else {
+                            self.errors
+                                .push(crate::parser::Error::ParserError(ParserError {
+                                    error: ParserErrorType::CommaExpected(self.save_token()),
+                                    range: self.lex.span(),
+                                }));
+                            return None;
+                        }
+                    }
+                    rightpar_token = Some(self.save_spannedtoken());
+                    self.next_token();
+                }
+
                 if self.get_cur_token() == Some(Token::Eq) {
                     let eq_token = self.save_spannedtoken();
                     self.next_token();
@@ -675,9 +726,9 @@ impl Parser {
                     return Some(Statement::Let(LetStatement::new(
                         Some(let_token),
                         identifier_token,
-                        None,
-                        Vec::new(),
-                        None,
+                        leftpar_token,
+                        params,
+                        rightpar_token,
                         eq_token,
                         Box::new(value_expression),
                     )));

@@ -31,24 +31,28 @@ fn test_compiler() {
         );
 
         let mut data = String::new();
-        let mut next = false;
+        let mut expected = String::new();
+        let mut read_expected = false;
         for line in read_to_string(file_name).unwrap().lines() {
-            if next {
-                run_test(&data, line);
+            if read_expected {
+                expected.push_str(line);
+                expected.push('\n');
+                continue;
             }
             if line.starts_with(";;") {
-                next = true;
+                read_expected = true;
             } else {
                 data.push_str(line);
                 data.push('\n');
             }
         }
+
+        run_test(&data, expected.trim_end());
     }
 }
 
 fn run_test(data: &String, output: &str) {
     let prg = parse_program(PathBuf::from("."), data);
-
     let mut exec = compiler::PPECompiler::new();
     exec.compile(&prg, false);
     let binary = exec.create_executable(330).unwrap();
@@ -65,17 +69,13 @@ fn run_test(data: &String, output: &str) {
     )
     .unwrap();
 
-    let error = output != ctx.output;
+    let error = output != ctx.output.trim_end();
     if error {
-        let exe = Executable::from_buffer(&mut buffer, false).unwrap();
-        exe.print_variable_table();
-        exe.print_script_buffer_dump();
-        exe.print_disassembler();
+        println!("{output}");
+        println!("------------Was:");
+        println!("{}", ctx.output);
+        assert!(!error);
     }
-    assert!(!error);
-    println!("{output}");
-    println!("------------)");
-    println!("{data}");
 }
 
 struct TestContext {

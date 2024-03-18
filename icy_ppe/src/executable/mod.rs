@@ -7,7 +7,7 @@ use crossterm::execute;
 use crossterm::style::{Attribute, Print, SetAttribute};
 use thiserror::Error;
 
-use crate::ast::{Variable, VariableData, VariableType, VariableValue};
+use crate::ast::{Variable, VariableData, VariableType, GenericVariableData};
 use crate::crypt::{decode_rle, decrypt, encode_rle, encrypt};
 use crate::executable::disassembler::DisassembleVisitor;
 use crate::Res;
@@ -390,7 +390,7 @@ impl VariableEntry {
             encrypt(&mut buffer[b..], version);
         } else if self.header.variable_type == VariableType::String {
             let s = if self.header.dim == 0 {
-                let VariableValue::String(s) = &self.value.generic_data else {
+                let GenericVariableData::String(s) = &self.value.generic_data else {
                     return Err(ExecutableError::StringTypeInvalid(self.value.vtype));
                 };
                 if s.len() > u16::MAX as usize {
@@ -733,7 +733,7 @@ fn read_variable_table(
                 }
                 variable = Variable {
                     vtype: VariableType::String,
-                    generic_data: VariableValue::String(str),
+                    generic_data: GenericVariableData::String(str),
                     ..Default::default()
                 };
                 i += string_length;

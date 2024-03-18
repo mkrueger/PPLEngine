@@ -5,7 +5,7 @@ use crate::{
     decompiler::decompile,
     executable::Executable,
     icy_board::data::IcyBoardData,
-    interpreter::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
+    vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
     parser::parse_program,
     Res,
 };

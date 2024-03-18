@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::ast::{Variable, VariableData};
-use crate::interpreter::Interpreter;
+use crate::vm::VirtualMachine;
 use crate::Res;
 use easy_reader::EasyReader;
 use radix_fmt::radix;
@@ -126,7 +126,7 @@ pub fn space(chars: Variable) -> Res<Variable> {
     Ok(Variable::new_string(res))
 }
 
-pub fn ferr(interpreter: &mut Interpreter, channel: Variable) -> Res<Variable> {
+pub fn ferr(interpreter: &mut VirtualMachine, channel: Variable) -> Res<Variable> {
     let channel = channel.as_int();
     Ok(Variable::new_bool(interpreter.io.ferr(channel as usize)))
 }
@@ -175,7 +175,7 @@ pub fn instr(str: Variable, sub: Variable) -> Variable {
 }
 
 /// Returns a flag indicating if the user has aborted the display of information.
-pub fn abort(interpreter: &Interpreter) -> Variable {
+pub fn abort(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO ABORT") // TODO
 }
 
@@ -353,7 +353,7 @@ pub fn time() -> Variable {
     panic!("TODO")
 }
 
-pub fn u_name(interpreter: &Interpreter) -> Variable {
+pub fn u_name(interpreter: &VirtualMachine) -> Variable {
     Variable::new_string(
         interpreter.icy_board_data.users[interpreter.cur_user]
             .name
@@ -361,48 +361,48 @@ pub fn u_name(interpreter: &Interpreter) -> Variable {
     )
 }
 
-pub fn u_ldate(interpreter: &Interpreter) -> Variable {
+pub fn u_ldate(interpreter: &VirtualMachine) -> Variable {
     // interpreter.pcb_data.users[interpreter.cur_user].last_date_on
     // TODO
     Variable::new(crate::ast::VariableType::Date, VariableData::default())
 }
 
-pub fn u_ltime(interpreter: &Interpreter) -> Variable {
+pub fn u_ltime(interpreter: &VirtualMachine) -> Variable {
     // TODO
     Variable::new(crate::ast::VariableType::Time, VariableData::default())
 }
 
-pub fn u_ldir(interpreter: &Interpreter) -> Variable {
+pub fn u_ldir(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_lmr(interpreter: &Interpreter) -> Variable {
+pub fn u_lmr(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_logons(interpreter: &Interpreter) -> Variable {
+pub fn u_logons(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_ful(interpreter: &Interpreter) -> Variable {
+pub fn u_ful(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_fdl(interpreter: &Interpreter) -> Variable {
+pub fn u_fdl(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_bdlday(interpreter: &Interpreter) -> Variable {
+pub fn u_bdlday(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_timeon(interpreter: &Interpreter) -> Variable {
+pub fn u_timeon(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_bdl(interpreter: &Interpreter) -> Variable {
+pub fn u_bdl(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_bul(interpreter: &Interpreter) -> Variable {
+pub fn u_bul(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_msgrd(interpreter: &Interpreter) -> Variable {
+pub fn u_msgrd(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
-pub fn u_msgwr(interpreter: &Interpreter) -> Variable {
+pub fn u_msgwr(interpreter: &VirtualMachine) -> Variable {
     panic!("TODO") // TODO
 }
 
@@ -433,14 +433,14 @@ pub fn timeap(_x: Variable) -> Variable {
 pub fn ver(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn nochar(interpreter: &mut Interpreter) -> Variable {
+pub fn nochar(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_string(interpreter.icy_board_data.no_char.to_string())
 }
-pub fn yeschar(interpreter: &mut Interpreter) -> Variable {
+pub fn yeschar(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_string(interpreter.icy_board_data.yes_char.to_string())
 }
 
-pub fn inkey(interpreter: &mut Interpreter) -> Res<Variable> {
+pub fn inkey(interpreter: &mut VirtualMachine) -> Res<Variable> {
     if let Some(ch) = interpreter.ctx.get_char()? {
         if ch as u8 == 127 {
             return Ok(Variable::new_string("DEL".to_string()));
@@ -522,7 +522,7 @@ pub fn curconf(_x: Variable) -> Variable {
 pub fn pcbdat(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn ppepath(interpreter: &Interpreter) -> Variable {
+pub fn ppepath(interpreter: &VirtualMachine) -> Variable {
     let Some(dir) = interpreter.prg.file_name.parent() else {
         return Variable::new_string(String::new());
     };
@@ -537,11 +537,11 @@ pub fn valdate(_x: Variable) -> Variable {
 pub fn valtime(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn pcbnode(interpreter: &Interpreter) -> Variable {
+pub fn pcbnode(interpreter: &VirtualMachine) -> Variable {
     Variable::new_int(interpreter.icy_board_data.pcb_data.node_number as i32)
 }
 
-pub fn readline(interpreter: &Interpreter, file: Variable, line: Variable) -> Res<Variable> {
+pub fn readline(interpreter: &VirtualMachine, file: Variable, line: Variable) -> Res<Variable> {
     let file_name = file.as_string();
     let line = line.as_int();
     let file_name = interpreter.io.resolve_file(&file_name);
@@ -555,15 +555,15 @@ pub fn readline(interpreter: &Interpreter, file: Variable, line: Variable) -> Re
     Ok(Variable::new_string(line_text))
 }
 
-pub fn sysopsec(interpreter: &Interpreter) -> Variable {
+pub fn sysopsec(interpreter: &VirtualMachine) -> Variable {
     Variable::new_int(interpreter.icy_board_data.pcb_data.sysop_security.sysop)
 }
-pub fn onlocal(interpreter: &Interpreter) -> Variable {
+pub fn onlocal(interpreter: &VirtualMachine) -> Variable {
     // TODO: OnLocal should return true if the user is local, false otherwise
     Variable::new_bool(true)
 }
 
-pub fn un_stat(interpreter: &Interpreter) -> Variable {
+pub fn un_stat(interpreter: &VirtualMachine) -> Variable {
     if let Some(node) = &interpreter.pcb_node {
         Variable::new_int(node.status as i32)
     } else {
@@ -571,21 +571,21 @@ pub fn un_stat(interpreter: &Interpreter) -> Variable {
     }
 }
 
-pub fn un_name(interpreter: &Interpreter) -> Variable {
+pub fn un_name(interpreter: &VirtualMachine) -> Variable {
     if let Some(node) = &interpreter.pcb_node {
         Variable::new_string(node.name.clone())
     } else {
         Variable::new_string(String::new())
     }
 }
-pub fn un_city(interpreter: &Interpreter) -> Variable {
+pub fn un_city(interpreter: &VirtualMachine) -> Variable {
     if let Some(node) = &interpreter.pcb_node {
         Variable::new_string(node.city.clone())
     } else {
         Variable::new_string(String::new())
     }
 }
-pub fn un_oper(interpreter: &Interpreter) -> Variable {
+pub fn un_oper(interpreter: &VirtualMachine) -> Variable {
     if let Some(node) = &interpreter.pcb_node {
         Variable::new_string(node.operation.clone())
     } else {
@@ -596,7 +596,7 @@ pub fn cursec(_x: Variable) -> Variable {
     panic!("TODO")
 }
 
-pub fn gettoken(interpreter: &mut Interpreter) -> Variable {
+pub fn gettoken(interpreter: &mut VirtualMachine) -> Variable {
     if interpreter.cur_tokens.is_empty() {
         Variable::new_string(String::new())
     } else {
@@ -681,7 +681,7 @@ pub fn peekw(_x: Variable) -> Variable {
 pub fn mkaddr(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn exist(interpreter: &Interpreter, file_name: &str) -> Variable {
+pub fn exist(interpreter: &VirtualMachine, file_name: &str) -> Variable {
     Variable::new_bool(interpreter.io.file_exists(file_name))
 }
 
@@ -706,7 +706,7 @@ pub fn s2i(src: &str, base: i32) -> Res<Variable> {
     let i = i32::from_str_radix(src, base as u32)?;
     Ok(Variable::new_int(i))
 }
-pub fn carrier(interpreter: &mut Interpreter) -> Variable {
+pub fn carrier(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_int(interpreter.ctx.get_bps())
 }
 pub fn tokenstr(_x: Variable) -> Variable {
@@ -731,11 +731,11 @@ pub fn cctype(_x: Variable) -> Variable {
     panic!("TODO")
 }
 
-pub fn getx(interpreter: &mut Interpreter) -> Variable {
+pub fn getx(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_int(interpreter.ctx.get_caret_position().0 + 1)
 }
 
-pub fn gety(interpreter: &mut Interpreter) -> Variable {
+pub fn gety(interpreter: &mut VirtualMachine) -> Variable {
     let y = interpreter.ctx.get_caret_position().1;
     Variable::new_int(y + 1)
 }
@@ -777,7 +777,7 @@ pub fn psa(_x: Variable) -> Variable {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-pub fn fileinf(interpreter: &Interpreter, file: &str, item: i32) -> Res<Variable> {
+pub fn fileinf(interpreter: &VirtualMachine, file: &str, item: i32) -> Res<Variable> {
     match item {
         1 => Ok(Variable::new_bool(interpreter.io.file_exists(file))),
         2 => Ok(Variable::new(
@@ -822,7 +822,7 @@ pub fn fileinf(interpreter: &Interpreter, file: &str, item: i32) -> Res<Variable
     }
 }
 
-pub fn ppename(interpreter: &Interpreter) -> Variable {
+pub fn ppename(interpreter: &VirtualMachine) -> Variable {
     let p = interpreter.prg.file_name.with_extension("");
     let Some(dir) = p.file_name() else {
         return Variable::new_string(String::new());
@@ -837,13 +837,13 @@ pub fn mkdate(_x: Variable) -> Variable {
 pub fn curcolor(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn kinkey(interpreter: &mut Interpreter) -> Res<Variable> {
+pub fn kinkey(interpreter: &mut VirtualMachine) -> Res<Variable> {
     inkey(interpreter)
 }
-pub fn minkey(interpreter: &mut Interpreter) -> Res<Variable> {
+pub fn minkey(interpreter: &mut VirtualMachine) -> Res<Variable> {
     inkey(interpreter)
 }
-pub fn maxnode(interpreter: &mut Interpreter) -> Variable {
+pub fn maxnode(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_int(interpreter.icy_board_data.nodes.len() as i32)
 }
 pub fn slpath(_x: Variable) -> Variable {
@@ -867,11 +867,11 @@ pub fn callnum(_x: Variable) -> Variable {
 pub fn mgetbyte(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn tokcount(interpreter: &mut Interpreter) -> Variable {
+pub fn tokcount(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_int(interpreter.cur_tokens.len() as i32)
 }
 
-pub fn u_recnum(interpreter: &mut Interpreter, user_name: Variable) -> Variable {
+pub fn u_recnum(interpreter: &mut VirtualMachine, user_name: Variable) -> Variable {
     let user_name = user_name.as_string().to_uppercase();
     for (i, user) in interpreter.icy_board_data.users.iter().enumerate() {
         if user.name.to_uppercase() == user_name {
@@ -1030,7 +1030,7 @@ pub fn hiconfnum(_x: Variable) -> Variable {
     panic!("TODO")
 }
 
-pub fn inbytes(interpreter: &mut Interpreter) -> Variable {
+pub fn inbytes(interpreter: &mut VirtualMachine) -> Variable {
     Variable::new_int(interpreter.ctx.inbytes())
 }
 
@@ -1225,7 +1225,7 @@ pub fn uselmrs(_x: Variable) -> Variable {
 pub fn confinfo(_x: Variable) -> Variable {
     panic!("TODO")
 }
-pub fn tinkey(interpreter: &mut Interpreter) -> Res<Variable> {
+pub fn tinkey(interpreter: &mut VirtualMachine) -> Res<Variable> {
     inkey(interpreter)
 }
 pub fn cwd(_x: Variable) -> Variable {

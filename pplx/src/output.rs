@@ -12,7 +12,7 @@ use crossterm::{
     ExecutableCommand,
 };
 use icy_ppe::{
-    interpreter::{ExecutionContext, HangupType, TerminalTarget},
+    vm::{ExecutionContext, HangupType, TerminalTarget},
     tables::CP437_TO_UNICODE,
     Res,
 };

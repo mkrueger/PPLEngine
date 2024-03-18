@@ -4,7 +4,7 @@ mod interpreter_tests {
 
     use crate::{
         icy_board::data::IcyBoardData,
-        interpreter::{run, ExecutionContext, HangupType, MemoryIO, PCBoardIO, TerminalTarget},
+        vm::{run, ExecutionContext, HangupType, MemoryIO, PCBoardIO, TerminalTarget},
         parser::parse_program,
         Res,
     };

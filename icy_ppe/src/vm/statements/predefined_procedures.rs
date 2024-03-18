@@ -3,21 +3,21 @@ use std::{fs, thread, time::Duration};
 use crate::{
     ast::{Expression, Variable},
     icy_board::text_messages,
-    interpreter::{evaluate_exp, Interpreter, TerminalTarget},
+    vm::{VirtualMachine, TerminalTarget},
     Res,
 };
 
 use super::super::errors::IcyError;
 
-pub fn cls(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn cls(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     interpreter.ctx.print(TerminalTarget::Both, "\x1B[2J")
 }
 
-pub fn clreol(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn clreol(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     interpreter.ctx.print(TerminalTarget::Both, "\x1B[K")
 }
 
-pub fn more(interpreter: &mut Interpreter) -> Res<()> {
+pub fn more(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter.ctx.print(
         TerminalTarget::Both,
         &interpreter
@@ -39,7 +39,7 @@ pub fn more(interpreter: &mut Interpreter) -> Res<()> {
     Ok(())
 }
 
-pub fn wait(interpreter: &mut Interpreter) -> Res<()> {
+pub fn wait(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter.ctx.print(
         TerminalTarget::Both,
         &interpreter
@@ -57,22 +57,22 @@ pub fn wait(interpreter: &mut Interpreter) -> Res<()> {
     Ok(())
 }
 
-pub fn color(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn color(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let color = evaluate_exp(interpreter, &params[0])?.as_int();
     interpreter.ctx.set_color(color as u8);
     Ok(())
 }
 
-pub fn confflag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn confflag(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn confunflag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn confunflag(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
 /// # Errors
 /// Errors if
-pub fn dispfile(interpreter: &mut Interpreter, file: &str, flags: i32) -> Res<()> {
+pub fn dispfile(interpreter: &mut VirtualMachine, file: &str, flags: i32) -> Res<()> {
     let file = interpreter.io.resolve_file(file);
 
     let content = fs::read(&file);
@@ -84,10 +84,10 @@ pub fn dispfile(interpreter: &mut Interpreter, file: &str, flags: i32) -> Res<()
     }
 }
 
-pub fn input(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn input(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fcreate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fcreate(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let file = evaluate_exp(interpreter, &params[1])?.as_string();
     let am = evaluate_exp(interpreter, &params[2])?.as_int();
@@ -96,7 +96,7 @@ pub fn fcreate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     Ok(())
 }
 
-pub fn fopen(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fopen(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let file = evaluate_exp(interpreter, &params[1])?.as_string();
     let am = evaluate_exp(interpreter, &params[2])?.as_int();
@@ -105,7 +105,7 @@ pub fn fopen(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn fappend(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fappend(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let file = evaluate_exp(interpreter, &params[1])?.as_string();
     let am = evaluate_exp(interpreter, &params[2])?.as_int();
@@ -114,7 +114,7 @@ pub fn fappend(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     Ok(())
 }
 
-pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fclose(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int();
     if channel == -1 {
         // READLINE uses -1 as a special value
@@ -127,14 +127,14 @@ pub fn fclose(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn fget(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fget(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let value = Variable::new_string(interpreter.io.fget(channel));
     interpreter.set_variable_value(&params[1], &value)?;
     Ok(())
 }
 
-pub fn fput(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fput(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
 
     for expr in &params[1..] {
@@ -144,7 +144,7 @@ pub fn fput(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn fputln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fputln(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let channel = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
 
     for expr in &params[1..] {
@@ -157,35 +157,35 @@ pub fn fputln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn resetdisp(interpreter: &Interpreter, params: &[Expression]) {
+pub fn resetdisp(interpreter: &VirtualMachine, params: &[Expression]) {
     // TODO?: unused
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn startdisp(interpreter: &Interpreter, params: &[Expression]) {
+pub fn startdisp(interpreter: &VirtualMachine, params: &[Expression]) {
     // TODO?: unused
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn fputpad(interpreter: &Interpreter, params: &[Expression]) {
+pub fn fputpad(interpreter: &VirtualMachine, params: &[Expression]) {
     panic!("TODO")
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn hangup(interpreter: &mut Interpreter) -> Res<()> {
+pub fn hangup(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Hangup)?;
+        .hangup(crate::vm::HangupType::Hangup)?;
     interpreter.is_running = false;
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn getuser(interpreter: &mut Interpreter) -> Res<()> {
+pub fn getuser(interpreter: &mut VirtualMachine) -> Res<()> {
     let user = if let Some(user) = interpreter.icy_board_data.users.get(interpreter.cur_user) {
         user.clone()
     } else {
@@ -201,7 +201,7 @@ pub fn getuser(interpreter: &mut Interpreter) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn putuser(interpreter: &mut Interpreter) -> Res<()> {
+pub fn putuser(interpreter: &mut VirtualMachine) -> Res<()> {
     if let Some(user) = &interpreter.current_user {
         interpreter.icy_board_data.users[interpreter.cur_user] = user.clone();
         Ok(())
@@ -210,11 +210,11 @@ pub fn putuser(interpreter: &mut Interpreter) -> Res<()> {
     }
 }
 
-pub fn defcolor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn defcolor(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn delete(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn delete(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let file = &evaluate_exp(interpreter, &params[0])?.as_string();
     if let Err(err) = interpreter.io.delete(file) {
         log::error!("Error deleting file: {}", err);
@@ -222,14 +222,14 @@ pub fn delete(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn deluser(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn deluser(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtime(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjtime(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn log(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let msg = evaluate_exp(interpreter, &params[0])?.as_string();
     // let left = &evaluate_exp(interpreter, &params[0])?;
     log::info!("{}", msg);
@@ -238,7 +238,7 @@ pub fn log(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 
 const TXT_STOPCHAR: char = '_';
 
-pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputstr(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     // 1 Output Variable
     let color = evaluate_exp(interpreter, &params[2])?.as_int();
@@ -250,7 +250,7 @@ pub fn inputstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
 }
 
 fn internal_input_string(
-    interpreter: &mut Interpreter,
+    interpreter: &mut VirtualMachine,
     color: i32,
     prompt: String,
     len: i32,
@@ -286,7 +286,7 @@ fn internal_input_string(
     Ok(output)
 }
 
-pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputyn(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -302,7 +302,7 @@ pub fn inputyn(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     )
 }
 
-pub fn inputmoney(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputmoney(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -316,7 +316,7 @@ pub fn inputmoney(interpreter: &mut Interpreter, params: &[Expression]) -> Res<(
     interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
 
-pub fn inputint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputint(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -331,7 +331,7 @@ pub fn inputint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
         &Variable::new_int(output.parse::<i32>().unwrap()),
     )
 }
-pub fn inputcc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputcc(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -343,7 +343,7 @@ pub fn inputcc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> 
     let output = internal_input_string(interpreter, color, prompt, len, valid)?;
     interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
-pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputdate(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -356,7 +356,7 @@ pub fn inputdate(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     // TODO: Date conversion
     interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
-pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputtime(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let mut prompt = evaluate_exp(interpreter, &params[0])?.as_string();
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
@@ -369,28 +369,28 @@ pub fn inputtime(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     // TODO: Time conversion
     interpreter.set_variable_value(&params[1], &Variable::new_string(output))
 }
-pub fn promptstr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn promptstr(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtron(interpreter: &Interpreter) {
+pub fn dtron(interpreter: &VirtualMachine) {
     // IGNORE
 }
 
-pub fn dtroff(interpreter: &mut Interpreter) -> Res<()> {
+pub fn dtroff(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Hangup)?;
+        .hangup(crate::vm::HangupType::Hangup)?;
     Ok(())
 }
 
-pub fn cdchkon(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn cdchkon(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn cdchkoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn cdchkoff(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn delay(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn delay(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     // 1 tick is ~1/18.2s
     let ticks = evaluate_exp(interpreter, &params[0])?.as_int();
     if ticks > 0 {
@@ -399,27 +399,27 @@ pub fn delay(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn sendmodem(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sendmodem(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn inc(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inc(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let cur_value = evaluate_exp(interpreter, &params[0])?;
     let new_value = cur_value + Variable::new_int(1);
     interpreter.set_variable_value(&params[0], &new_value)
 }
 
-pub fn dec(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dec(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let cur_value = evaluate_exp(interpreter, &params[0])?;
     let new_value = cur_value - Variable::new_int(1);
     interpreter.set_variable_value(&params[0], &new_value)
 }
 
-pub fn newline(interpreter: &mut Interpreter) -> Res<()> {
+pub fn newline(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter.ctx.write_raw(TerminalTarget::Both, &[b'\n'])
 }
 
-pub fn newlines(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn newlines(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let count = evaluate_exp(interpreter, &params[0])?.as_int();
     for _ in 0..count {
         newline(interpreter)?;
@@ -429,73 +429,73 @@ pub fn newlines(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn tokenize(interpreter: &mut Interpreter, str: &str) {
+pub fn tokenize(interpreter: &mut VirtualMachine, str: &str) {
     let split = str
         .split(&[' ', ';'][..])
         .map(std::string::ToString::to_string);
     interpreter.cur_tokens = split.collect();
 }
 
-pub fn gettoken(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn gettoken(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn shell(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn shell(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn disptext(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn disptext(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn stop(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn stop(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn inputtext(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn inputtext(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn beep(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn beep(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn push(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn push(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pop(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pop(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdstuff(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdstuff(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let value = evaluate_exp(interpreter, &params[0])?;
     interpreter
         .ctx
         .print(TerminalTarget::Both, &value.as_string())
 }
-pub fn call(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn call(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn join(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn join(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn quest(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn quest(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn blt(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn blt(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dir(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dir(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdfile(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdfile(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bye(interpreter: &mut Interpreter) -> Res<()> {
+pub fn bye(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Bye)?;
+        .hangup(crate::vm::HangupType::Bye)?;
     interpreter.is_running = false;
     Ok(())
 }
 
-pub fn goodbye(interpreter: &mut Interpreter) -> Res<()> {
+pub fn goodbye(interpreter: &mut VirtualMachine) -> Res<()> {
     interpreter
         .ctx
-        .hangup(crate::interpreter::HangupType::Goodbye)?;
+        .hangup(crate::vm::HangupType::Goodbye)?;
     interpreter.is_running = false;
     Ok(())
 }
@@ -509,7 +509,7 @@ pub fn goodbye(interpreter: &mut Interpreter) -> Res<()> {
 /// This statement allows you to programatically broadcast a message to a range of nodes
 /// without giving users the ability to manually broadcast
 /// at any time they choose.
-pub fn broadcast(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn broadcast(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let lonode = evaluate_exp(interpreter, &params[0])?.as_int();
     let hinode = evaluate_exp(interpreter, &params[1])?.as_int();
     let message = evaluate_exp(interpreter, &params[2])?.as_string();
@@ -518,24 +518,24 @@ pub fn broadcast(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()
     Ok(())
 }
 
-pub fn waitfor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn waitfor(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdchkon(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdchkon(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdchkoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdchkoff(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn optext(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn optext(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dispstr(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dispstr(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let value = evaluate_exp(interpreter, &params[0])?.as_string();
     interpreter.ctx.print(TerminalTarget::Both, &value)
 }
 
-pub fn rdunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn rdunet(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let value = evaluate_exp(interpreter, &params[0])?.as_int();
 
     if let Some(node) = interpreter.icy_board_data.nodes.get(value as usize) {
@@ -544,7 +544,7 @@ pub fn rdunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn wrunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn wrunet(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let node = evaluate_exp(interpreter, &params[0])?.as_int();
     let stat = evaluate_exp(interpreter, &params[1])?.as_string();
     let name = evaluate_exp(interpreter, &params[2])?.as_string();
@@ -564,73 +564,73 @@ pub fn wrunet(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn dointr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dointr(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varseg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn varseg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn varoff(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokeb(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pokeb(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokew(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pokew(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn varaddr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn varaddr(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn ansipos(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn ansipos(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let x = evaluate_exp(interpreter, &params[0])?.as_int();
     let y = evaluate_exp(interpreter, &params[1])?.as_int();
 
     interpreter.ctx.gotoxy(TerminalTarget::Both, x, y)
 }
 
-pub fn backup(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn backup(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn forward(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn forward(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn freshline(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn freshline(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn wrusys(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn wrusys(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn rdusys(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn rdusys(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn newpwd(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn newpwd(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn opencap(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn opencap(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn closecap(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn closecap(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn message(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn message(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn savescrn(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn savescrn(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn restscrn(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn restscrn(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sound(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sound(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn chat(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn chat(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn sprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sprint(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
@@ -640,7 +640,7 @@ pub fn sprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn sprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sprintln(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
@@ -651,7 +651,7 @@ pub fn sprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     Ok(())
 }
 
-pub fn mprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn mprint(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
@@ -661,7 +661,7 @@ pub fn mprint(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     Ok(())
 }
 
-pub fn mprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn mprintln(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     for expr in params {
         let value = evaluate_exp(interpreter, expr)?;
         interpreter
@@ -672,7 +672,7 @@ pub fn mprintln(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()>
     Ok(())
 }
 
-pub fn rename(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn rename(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let old = &evaluate_exp(interpreter, &params[0])?.as_string();
     let new = &evaluate_exp(interpreter, &params[1])?.as_string();
     if let Err(err) = interpreter.io.rename(old, new) {
@@ -680,79 +680,79 @@ pub fn rename(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
     }
     Ok(())
 }
-pub fn frewind(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn frewind(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pokedw(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pokedw(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dbglevel(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dbglevel(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn showon(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn showon(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn showoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn showoff(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pageon(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pageon(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn pageoff(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn pageoff(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fseek(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fseek(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fflush(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fflush(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fread(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fread(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fwrite(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fwrite(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdefin(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdefin(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdefout(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdefout(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdget(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdget(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdput(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdput(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdputln(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdputln(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdputpad(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdputpad(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdread(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdread(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdwrite(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdwrite(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjbytes(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjbytes(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdstring(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn kbdstring(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn alias(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn alias(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn redim(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn redim(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn append(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn append(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn copy(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn copy(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let old = &evaluate_exp(interpreter, &params[0])?.as_string();
     let new = &evaluate_exp(interpreter, &params[1])?.as_string();
     if let Err(err) = interpreter.io.copy(old, new) {
@@ -763,282 +763,282 @@ pub fn copy(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn kbdflush(interpreter: &Interpreter, params: &[Expression]) {
+pub fn kbdflush(interpreter: &VirtualMachine, params: &[Expression]) {
     // TODO?
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn mdmflush(interpreter: &Interpreter, params: &[Expression]) {
+pub fn mdmflush(interpreter: &VirtualMachine, params: &[Expression]) {
     // TODO?
 }
 
 /// # Errors
 /// Errors if the variable is not found.
-pub fn keyflush(interpreter: &Interpreter, params: &[Expression]) {
+pub fn keyflush(interpreter: &VirtualMachine, params: &[Expression]) {
     // TODO?
 }
-pub fn lastin(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn lastin(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn flag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn flag(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn download(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn download(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn wrusysdoor(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn wrusysdoor(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn getaltuser(interpreter: &mut Interpreter, params: &[Expression]) -> Res<()> {
+pub fn getaltuser(interpreter: &mut VirtualMachine, params: &[Expression]) -> Res<()> {
     let user_record = evaluate_exp(interpreter, &params[0])?.as_int() as usize;
     let user = interpreter.icy_board_data.users[user_record].clone();
     interpreter.set_user_variables(&user);
     Ok(())
 }
 
-pub fn adjdbytes(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjdbytes(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtbytes(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjtbytes(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtfiles(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjtfiles(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn lang(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn lang(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sort(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sort(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn mousereg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn mousereg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn scrfile(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn scrfile(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchinit(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn searchinit(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchfind(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn searchfind(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn searchstop(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn searchstop(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn prfound(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn prfound(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn prfoundln(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn prfoundln(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpaget(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpaget(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpaput(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpaput(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacget(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpacget(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacput(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpacput(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tparead(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tparead(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpawrite(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpawrite(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacread(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpacread(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn tpacwrite(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn tpacwrite(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bitset(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn bitset(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn bitclear(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn bitclear(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn brag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn brag(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn frealtuser(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn frealtuser(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn setlmr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn setlmr(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn setenv(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn setenv(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fcloseall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fcloseall(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn stackabort(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn stackabort(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dcreate(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dcreate(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dopen(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dopen(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dclose(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dclose(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dsetalias(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dsetalias(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dpack(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dpack(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dcloseall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dcloseall(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlock(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dlock(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlockr(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dlockr(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dlockg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dlockg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dunlock(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dunlock(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dncreate(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dncreate(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnopen(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dnopen(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnclose(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dnclose(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dncloseall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dncloseall(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dnew(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dnew(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dadd(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dadd(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dappend(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dappend(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtop(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dtop(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dgo(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dgo(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dbottom(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dbottom(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dskip(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dskip(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dblank(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dblank(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn ddelete(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn ddelete(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn drecall(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn drecall(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dtag(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dtag(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dseek(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dseek(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dfblank(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dfblank(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dget(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dget(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dput(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dput(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn dfcopy(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn dfcopy(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
 
-pub fn eval(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn eval(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn account(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn account(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn recordusage(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn recordusage(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn msgtofile(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn msgtofile(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn qwklimits(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn qwklimits(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn command(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn command(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn uselmrs(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn uselmrs(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn confinfo(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn confinfo(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adjtubytes(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adjtubytes(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn grafmode(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn grafmode(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn adduser(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn adduser(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn killmsg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn killmsg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn chdir(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn chdir(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn mkdir(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn mkdir(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn redir(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn redir(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdowraka(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdowraka(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoaddaka(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdoaddaka(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdowrorg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdowrorg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoaddorg(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdoaddorg(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqmod(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdoqmod(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqadd(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdoqadd(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn fdoqdel(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn fdoqdel(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }
-pub fn sounddelay(interpreter: &Interpreter, params: &[Expression]) -> Res<()> {
+pub fn sounddelay(interpreter: &VirtualMachine, params: &[Expression]) -> Res<()> {
     panic!("TODO")
 }

@@ -3,7 +3,7 @@ use std::ops::Range;
 use thiserror::Error;
 
 use crate::{
-    ast::{BinOp, UnaryOp, Variable, VariableValue},
+    ast::{BinOp, UnaryOp, Variable, GenericVariableData},
     tables::FunctionDefinition,
 };
 
@@ -356,6 +356,27 @@ impl PPEExpr {
             PPEExpr::FunctionCall(id, arguments) => visitor.visit_function_call(*id, arguments),
         }
     }
+
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if expression is invalid.
+    pub fn visit_mut<V: PPEVisitorMut>(&self, visitor: &mut V) -> PPEExpr {
+        match self {
+            PPEExpr::Invalid => panic!("Invalid expression"),
+            PPEExpr::Value(id) => visitor.visit_value(*id),
+            PPEExpr::UnaryExpression(op, expr) => visitor.visit_unary_expression(*op, expr),
+            PPEExpr::BinaryExpression(op, left, right) => {
+                visitor.visit_binary_expression(*op, left, right)
+            }
+            PPEExpr::Dim(id, dim) => visitor.visit_dim_expression(*id, dim),
+            PPEExpr::PredefinedFunctionCall(def, arguments) => {
+                visitor.visit_predefined_function_call(def, arguments)
+            }
+            PPEExpr::FunctionCall(id, arguments) => visitor.visit_function_call(*id, arguments),
+        }
+    }
 }
 #[allow(unused_variables)]
 pub trait PPEVisitor<T>: Sized {
@@ -388,6 +409,47 @@ pub trait PPEVisitor<T>: Sized {
     fn visit_stop(&mut self) -> T;
     fn visit_let(&mut self, target: &PPEExpr, value: &PPEExpr) -> T;
 }
+
+#[allow(unused_variables)]
+pub trait PPEVisitorMut: Sized {
+    fn visit_value(&mut self, id: usize) -> PPEExpr {
+        PPEExpr::Value(id)
+    }
+    fn visit_unary_expression(&mut self, op: UnaryOp, expr: &PPEExpr) -> PPEExpr {
+        PPEExpr::UnaryExpression(op, Box::new(expr.visit_mut(self)))
+    }
+    fn visit_binary_expression(&mut self, op: BinOp, left: &PPEExpr, right: &PPEExpr) -> PPEExpr {
+        PPEExpr::BinaryExpression(
+            op,
+            Box::new(left.visit_mut(self)),
+            Box::new(right.visit_mut(self)),
+        )
+    }
+    fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) -> PPEExpr {
+        PPEExpr::Dim(
+            id,
+            dim.iter().map(|e| e.visit_mut(self)).collect(),
+        )
+    }
+    fn visit_predefined_function_call(
+        &mut self,
+        def: &'static FunctionDefinition<'static>,
+        arguments: &[PPEExpr],
+    ) -> PPEExpr {
+        PPEExpr::PredefinedFunctionCall(
+            def,
+            arguments.iter().map(|e| e.visit_mut(self)).collect(),
+        )
+    }
+    fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) -> PPEExpr {
+        PPEExpr::FunctionCall(
+            id,
+            arguments.iter().map(|e| e.visit_mut(self)).collect(),
+        )
+    
+    }
+}
+
 
 struct PPEConstantValueVisitor<'a> {
     executable: &'a Executable,
@@ -460,7 +522,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
         match dim.len() {
             1 => {
                 let vector = dim[0].visit(self)?.as_int();
-                if let VariableValue::Dim1(data) = &var_value.generic_data {
+                if let GenericVariableData::Dim1(data) = &var_value.generic_data {
                     if vector < 0 || vector >= data.len() as i32 {
                         return Ok(var_value.get_type().create_empty_value());
                     }
@@ -471,7 +533,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
             2 => {
                 let vector = dim[0].visit(self)?.as_int();
                 let matrix = dim[1].visit(self)?.as_int();
-                if let VariableValue::Dim2(data) = &var_value.generic_data {
+                if let GenericVariableData::Dim2(data) = &var_value.generic_data {
                     if vector < 0
                         || vector >= data.len() as i32
                         || matrix < 0
@@ -487,7 +549,7 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
                 let vector = dim[0].visit(self)?.as_int();
                 let matrix = dim[1].visit(self)?.as_int();
                 let cube = dim[2].visit(self)?.as_int();
-                if let VariableValue::Dim3(data) = &var_value.generic_data {
+                if let GenericVariableData::Dim3(data) = &var_value.generic_data {
                     if vector < 0
                         || vector >= data.len() as i32
                         || matrix < 0
@@ -576,5 +638,138 @@ impl<'a> PPEVisitor<Result<Variable, PPEError>> for PPEConstantValueVisitor<'a> 
 
     fn visit_let(&mut self, _target: &PPEExpr, _value: &PPEExpr) -> Result<Variable, PPEError> {
         todo!()
+    }
+}
+
+
+#[derive(Default)]
+pub struct ExpressionNegator {}
+
+impl PPEVisitorMut for ExpressionNegator {
+    fn visit_value(&mut self, id: usize) -> PPEExpr {
+        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(PPEExpr::Value(id)))
+    }
+
+    fn visit_unary_expression(&mut self, op: UnaryOp, expr: &PPEExpr) -> PPEExpr {
+        if op == UnaryOp::Not {
+            expr.clone()
+        } else {
+            PPEExpr::UnaryExpression(UnaryOp::Not, 
+                Box::new(PPEExpr::UnaryExpression(op, Box::new(expr.clone()))))
+        }
+    }
+
+    fn visit_binary_expression(&mut self, op: BinOp, left: &PPEExpr, right: &PPEExpr) -> PPEExpr {
+
+        match op {
+            BinOp::PoW |
+            BinOp::Mul |
+            BinOp::Div |
+            BinOp::Mod |
+            BinOp::Add |
+            BinOp::Sub => {
+                PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
+                    PPEExpr::BinaryExpression(
+                        op,
+                        Box::new(left.clone()),
+                        Box::new(right.clone()),
+                    )
+                ))
+            }
+
+            BinOp::Eq => {
+                PPEExpr::BinaryExpression(
+                    BinOp::NotEq,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::NotEq => {
+                PPEExpr::BinaryExpression(
+                    BinOp::Eq,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::Lower => {
+                PPEExpr::BinaryExpression(
+                    BinOp::GreaterEq,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::LowerEq => {
+                PPEExpr::BinaryExpression(
+                    BinOp::Greater,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::Greater => {
+                PPEExpr::BinaryExpression(
+                    BinOp::LowerEq,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::GreaterEq => {
+                PPEExpr::BinaryExpression(
+                    BinOp::Lower,
+                    Box::new(left.clone()),
+                    Box::new(right.clone()),
+                )
+            }
+            BinOp::And | BinOp::Or=> {
+                let variant1  = PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
+                    PPEExpr::BinaryExpression(
+                        op,
+                        Box::new(left.clone()),
+                        Box::new(right.clone()),
+                    )
+                ));
+
+                let variant2 = PPEExpr::BinaryExpression(
+                    if op == BinOp::Or { BinOp::And } else { BinOp::Or },
+                    Box::new(left.visit_mut(self)),
+                    Box::new(right.visit_mut(self)),
+                );
+                if variant1.get_size() < variant2.get_size() {
+                    variant1
+                } else {
+                    variant2
+                }
+            }
+        }
+    }
+
+    fn visit_dim_expression(&mut self, id: usize, dim: &[PPEExpr]) -> PPEExpr {
+        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
+            PPEExpr::Dim(
+                id,
+                dim.to_vec(),
+            )
+        ))
+    }
+
+    fn visit_predefined_function_call(
+        &mut self,
+        def: &'static FunctionDefinition<'static>,
+        arguments: &[PPEExpr],
+    ) -> PPEExpr {
+        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(  
+            PPEExpr::PredefinedFunctionCall(
+                def,
+                arguments.to_vec(),
+            )
+        ))
+    }
+
+    fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) -> PPEExpr {
+        PPEExpr::UnaryExpression(UnaryOp::Not, Box::new(
+            PPEExpr::FunctionCall(
+                id,
+                arguments.to_vec(),
+            )
+        ))
     }
 }

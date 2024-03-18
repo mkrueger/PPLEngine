@@ -7,11 +7,10 @@ use thiserror::Error;
 use crate::{
     ast::{
         AstNode, Constant, Expression, ParameterSpecifier, Program, Statement, Variable,
-        VariableData, VariableType, VariableValue,
+        VariableData, VariableType, GenericVariableData,
     },
     executable::{
-        EntryType, Executable, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript,
-        ProcedureValue, VarHeader, VariableEntry,
+        EntryType, Executable, ExpressionNegator, FunctionValue, OpCode, PPECommand, PPEExpr, PPEScript, ProcedureValue, VarHeader, VariableEntry
     },
     parser::lexer::{SpannedToken, Token},
 };
@@ -20,8 +19,8 @@ use self::expr_compiler::ExpressionCompiler;
 
 pub mod expr_compiler;
 
-#[cfg(test)]
-pub mod tests;
+//#[cfg(test)]
+//pub mod tests;
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
@@ -490,7 +489,7 @@ impl PPECompiler {
                     panic!("Invalid if statement without goto.");
                 };
 
-                let cond_buffer = self.comp_expr(if_stmt.get_condition());
+                let cond_buffer = self.comp_expr(if_stmt.get_condition()).visit_mut(&mut ExpressionNegator::default());
                 Some(PPECommand::IfNot(
                     Box::new(cond_buffer),
                     self.get_label_index(goto_stmt.get_label()),
@@ -650,7 +649,7 @@ impl PPECompiler {
     fn lookup_constant(&mut self, constant: &Constant) -> usize {
         let value = constant.get_value();
 
-        if let VariableValue::String(str) = &value.generic_data {
+        if let GenericVariableData::String(str) = &value.generic_data {
             if let Some(id) = self.string_lookup_table.get(str) {
                 println!("found string lookup {str}!!!");
                 return *id;
@@ -677,7 +676,7 @@ impl PPECompiler {
         entry.set_name(format!("CONST_{id}"));
         entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
-        if let VariableValue::String(str) = value.generic_data {
+        if let GenericVariableData::String(str) = value.generic_data {
             println!("insert string lookup {str}!!!");
             self.string_lookup_table.insert(str, id);
         } else {

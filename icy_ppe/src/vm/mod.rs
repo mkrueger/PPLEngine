@@ -6,14 +6,20 @@ use thiserror::Error;
 
 use crate::ast::convert_to;
 use crate::ast::AstNode;
+use crate::ast::BinOp;
 use crate::ast::Expression;
 use crate::ast::Program;
 use crate::ast::Statement;
+use crate::ast::UnaryOp;
 use crate::ast::Variable;
 use crate::ast::VariableData;
 use crate::ast::VariableType;
-use crate::ast::VariableValue;
+use crate::ast::GenericVariableData;
 use crate::executable::OpCode;
+use crate::executable::PPECommand;
+use crate::executable::PPEExpr;
+use crate::executable::PPEScript;
+use crate::executable::VariableEntry;
 use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
 use crate::icy_board::data::UserRecord;
@@ -23,7 +29,7 @@ pub use self::expressions::*;
 
 pub mod statements;
 pub use self::statements::*;
-
+ 
 pub mod io;
 pub use self::io::*;
 
@@ -31,11 +37,10 @@ pub mod errors;
 mod tests;
 
 #[derive(Error, Debug, Clone, Copy)]
-pub enum InterpreterError {
-    #[error("unsupported constant: {0}")]
-    UnsupportedConst(&'static str),
-    #[error("unsupported opcode: {0}")]
-    UnsupportedOpCode(OpCode),
+pub enum VMError {
+
+    #[error("Internal VM error")]
+    InternalVMError,
 }
 
 #[derive(Clone, Copy)]
@@ -108,7 +113,6 @@ pub trait ExecutionContext {
 
 pub struct StackFrame {
     pub values: HashMap<unicase::Ascii<String>, Variable>,
-    pub gosub_stack: Vec<usize>,
     pub cur_ptr: usize,
     pub label_table: HashMap<unicase::Ascii<String>, usize>,
 }
@@ -123,12 +127,15 @@ pub fn calc_stmt_table(blk: &[Statement]) -> HashMap<unicase::Ascii<String>, usi
     res
 }
 
-pub struct Interpreter<'a> {
+pub struct VirtualMachine<'a> {
     prg: &'a Program,
     ctx: &'a mut dyn ExecutionContext,
-    // lookup: HashMap<&'a Block, i32>,
-    cur_frame: Vec<StackFrame>,
     io: &'a mut dyn PCBoardIO,
+
+    pub variable_table: Vec<VariableEntry>,
+    pub script: PPEScript,
+
+    pub cur_ptr: usize,
     pub is_running: bool,
 
     pub icy_board_data: IcyBoardData,
@@ -137,9 +144,14 @@ pub struct Interpreter<'a> {
     pub pcb_node: Option<Node>,
 
     pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
+
+    pub gosub_stack: Vec<usize>,
+
+    pub func_stack: Vec<usize>,
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a> VirtualMachine<'a> {
+    /*
     fn set_user_variables(&mut self, cur_user: &UserRecord) {
         self.cur_frame[0].values.insert(
             unicase::Ascii::new("self".to_string()),
@@ -376,38 +388,125 @@ impl<'a> Interpreter<'a> {
         }
         Ok(())
     }
-}
+*/
 
-/// .
-///
-/// # Panics
-///
-/// Panics if .
-/// # Errors
-/// Errors if the variable is not found.
-pub fn set_array_value(arr: &mut Variable, val: Variable, dim1: usize, dim2: usize, dim3: usize) {
-    match &mut arr.generic_data {
-        VariableValue::Dim1(data) => {
-            if dim1 < data.len() {
-                data[dim1] = val;
+fn eval_expr(&mut self, expr: &PPEExpr) -> Result<Variable, VMError> {
+    match expr {
+        PPEExpr::Invalid => { Err(VMError::InternalVMError) }
+        PPEExpr::Value(id) => {
+            let var = &self.variable_table[*id - 1];
+            Ok(var.value.clone())
+        }
+        PPEExpr::UnaryExpression(op, expr) => {
+            let val = self.eval_expr(expr)?;
+            match op {
+                UnaryOp::Not => {
+                    Ok(val.not())
+                }
+                UnaryOp::Minus => {
+                    Ok(-val)
+                }
+                UnaryOp::Plus => {
+                    Ok(val)
+                }
             }
         }
-        VariableValue::Dim2(data) => {
-            if dim1 < data.len() && dim2 < data[dim1].len() {
-                data[dim2][dim1] = val;
+        PPEExpr::BinaryExpression(op, left, right) => {
+            let left_value = self.eval_expr(left)?;
+            let right_value = self.eval_expr(right)?;
+
+            match op { 
+                BinOp::Add => Ok(left_value + right_value),
+                BinOp::Sub => Ok(left_value - right_value),
+                BinOp::Mul => Ok(left_value * right_value),
+                BinOp::Div => Ok(left_value / right_value),
+                BinOp::Mod => Ok(left_value % right_value),
+                BinOp::PoW => Ok(left_value.pow(right_value)),
+                BinOp::Eq => Ok(Variable::new_bool(left_value == right_value)),
+                BinOp::NotEq => Ok(Variable::new_bool(left_value != right_value)),
+                BinOp::Or => Ok(Variable::new_bool(left_value.as_bool() || right_value.as_bool())),
+                BinOp::And => Ok(Variable::new_bool(
+                    left_value.as_bool() && right_value.as_bool()
+                )),
+                BinOp::Lower => Ok(Variable::new_bool(
+                    left_value < right_value
+                )),
+                BinOp::LowerEq => Ok(Variable::new_bool(
+                    left_value <= right_value
+                )),
+                BinOp::Greater => Ok(Variable::new_bool(
+                    left_value > right_value
+                )),
+                BinOp::GreaterEq => Ok(Variable::new_bool(
+                    left_value >= right_value
+                )),
             }
         }
-        VariableValue::Dim3(data) => {
-            if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
-                data[dim3][dim2][dim1] = val;
+        PPEExpr::Dim(id, dims) => {
+
+        },
+        PPEExpr::PredefinedFunctionCall(func, arguments) => {
+            let args = Vec::new();
+            for arg in arguments {
+                args.push(self.eval_expr(arg)?);
             }
-        }
-        _ => panic!("no array variable: {arr}"),
+
+
+            call_function(self, func, self.eval_args(arguments))
+        },
+        PPEExpr::FunctionCall(id, arguments) => {
+
+        },
     }
 }
 
-fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()> {
+
+fn execute_statement(&mut self, stmt: &PPECommand) -> Result<(), VMError> {
     match stmt {
+        PPECommand::End => {
+            self.is_running = false;
+        }
+
+        PPECommand::Return => {
+            if self.gosub_stack.is_empty() {
+                self.is_running = false;
+            } else {
+                self.cur_ptr = self.gosub_stack.pop().unwrap();
+            }
+        }
+        PPECommand::IfNot(expr, label) => {
+
+        },
+        PPECommand::While(exp, stmt, label) => {
+
+        },
+        PPECommand::ProcedureCall(proc_id, arguments) => {
+
+        },
+        PPECommand::PredefinedCall(proc, arguments) => {
+
+        },
+        PPECommand::Goto(label) => {
+            self.cur_ptr = *label;
+        },
+        PPECommand::Gosub(label) => {
+            self.gosub_stack.push(self.cur_ptr);
+            self.cur_ptr = *label;
+        }
+        PPECommand::EndFunc => {
+            self.cur_ptr = self.func_stack.pop().unwrap();
+        }
+        PPECommand::EndProc => {
+            self.cur_ptr = self.func_stack.pop().unwrap();
+        }
+        PPECommand::Stop => {
+            self.is_running = false;
+        }
+        PPECommand::Let(variable, expr) => {
+
+        },
+
+        /*
         Statement::Let(let_stmt) => {
             let value = evaluate_exp(interpreter, let_stmt.get_value_expression())?;
             let var_name = let_stmt.get_identifier().clone();
@@ -634,8 +733,42 @@ fn execute_statement(interpreter: &mut Interpreter, stmt: &Statement) -> Res<()>
 
         // nop statements
         Statement::Label(_) | Statement::Comment(_) => { /* skip */ }
+    
+    */
+    
     }
     Ok(())
+}
+
+
+}
+
+/// .
+///
+/// # Panics
+///
+/// Panics if .
+/// # Errors
+/// Errors if the variable is not found.
+pub fn set_array_value(arr: &mut Variable, val: Variable, dim1: usize, dim2: usize, dim3: usize) {
+    match &mut arr.generic_data {
+        GenericVariableData::Dim1(data) => {
+            if dim1 < data.len() {
+                data[dim1] = val;
+            }
+        }
+        GenericVariableData::Dim2(data) => {
+            if dim1 < data.len() && dim2 < data[dim1].len() {
+                data[dim2][dim1] = val;
+            }
+        }
+        GenericVariableData::Dim3(data) => {
+            if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
+                data[dim3][dim2][dim1] = val;
+            }
+        }
+        _ => panic!("no array variable: {arr}"),
+    }
 }
 
 /// .
@@ -670,7 +803,7 @@ pub fn run(
         label_table,
     };
 
-    let mut interpreter = Interpreter {
+    let mut interpreter = VirtualMachine {
         prg,
         ctx,
         // lookup: HashMap::new(),

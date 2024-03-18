@@ -64,7 +64,7 @@ impl fmt::Debug for VariableData {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
-pub enum VariableValue {
+pub enum GenericVariableData {
     #[default]
     None,
     String(String),
@@ -78,7 +78,7 @@ pub enum VariableValue {
 pub struct Variable {
     pub vtype: VariableType,
     pub data: VariableData,
-    pub generic_data: VariableValue,
+    pub generic_data: GenericVariableData,
 }
 
 impl fmt::Display for Variable {
@@ -100,7 +100,7 @@ impl fmt::Display for Variable {
                 VariableType::SWord => write!(f, "{}", self.data.sword_value),
 
                 VariableType::String | VariableType::BigStr => {
-                    if let VariableValue::String(s) = &self.generic_data {
+                    if let GenericVariableData::String(s) = &self.generic_data {
                         write!(f, "{s}")
                     } else {
                         write!(f, "")
@@ -179,7 +179,7 @@ impl Add<Variable> for Variable {
             _ => {}
         }
         let mut data = VariableData::default();
-        let mut generic_data = VariableValue::None;
+        let mut generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Unsigned => {
@@ -199,7 +199,7 @@ impl Add<Variable> for Variable {
                 }
 
                 VariableType::String | VariableType::BigStr => {
-                    generic_data = VariableValue::String(format!("{self}{other}"));
+                    generic_data = GenericVariableData::String(format!("{self}{other}"));
                 }
 
                 VariableType::Byte => {
@@ -248,13 +248,13 @@ impl Sub<Variable> for Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.wrapping_sub(r)),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Unsigned => {
@@ -317,13 +317,13 @@ impl Mul<Variable> for Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.wrapping_mul(r)),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Unsigned => {
@@ -386,13 +386,13 @@ impl Div<Variable> for Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.wrapping_div(r)),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Unsigned => {
@@ -458,13 +458,13 @@ impl Rem<Variable> for Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.wrapping_rem(r)),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Unsigned => {
@@ -558,13 +558,13 @@ impl Neg for Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(-l),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Integer => data.int_value = -self.data.int_value,
@@ -632,7 +632,7 @@ impl Variable {
         Self {
             vtype,
             data,
-            generic_data: VariableValue::None,
+            generic_data: GenericVariableData::None,
         }
     }
 
@@ -640,7 +640,7 @@ impl Variable {
         Self {
             vtype: VariableType::String,
             data: VariableData::default(),
-            generic_data: VariableValue::String(s),
+            generic_data: GenericVariableData::String(s),
         }
     }
 
@@ -648,7 +648,7 @@ impl Variable {
         Self {
             vtype: VariableType::Integer,
             data: VariableData::from_int(i),
-            generic_data: VariableValue::None,
+            generic_data: GenericVariableData::None,
         }
     }
 
@@ -656,7 +656,7 @@ impl Variable {
         Self {
             vtype: VariableType::Boolean,
             data: VariableData::from_bool(b),
-            generic_data: VariableValue::None,
+            generic_data: GenericVariableData::None,
         }
     }
 
@@ -664,7 +664,7 @@ impl Variable {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
-            generic_data: VariableValue::Dim1(vec),
+            generic_data: GenericVariableData::Dim1(vec),
         }
     }
 
@@ -672,7 +672,7 @@ impl Variable {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
-            generic_data: VariableValue::Dim2(vec),
+            generic_data: GenericVariableData::Dim2(vec),
         }
     }
 
@@ -680,7 +680,7 @@ impl Variable {
         Self {
             vtype: variable_type,
             data: VariableData::default(),
-            generic_data: VariableValue::Dim3(vec),
+            generic_data: GenericVariableData::Dim3(vec),
         }
     }
 
@@ -690,33 +690,33 @@ impl Variable {
 
     pub fn get_dimensions(&self) -> u8 {
         match self.generic_data {
-            VariableValue::Dim1(_) => 1,
-            VariableValue::Dim2(_) => 2,
-            VariableValue::Dim3(_) => 3,
+            GenericVariableData::Dim1(_) => 1,
+            GenericVariableData::Dim2(_) => 2,
+            GenericVariableData::Dim3(_) => 3,
             _ => 0,
         }
     }
 
     pub fn get_vector_size(&self) -> usize {
         match &self.generic_data {
-            VariableValue::Dim1(data) => data.len(),
-            VariableValue::Dim2(data) => data.len(),
-            VariableValue::Dim3(data) => data.len(),
+            GenericVariableData::Dim1(data) => data.len(),
+            GenericVariableData::Dim2(data) => data.len(),
+            GenericVariableData::Dim3(data) => data.len(),
             _ => 0,
         }
     }
 
     pub fn get_matrix_size(&self) -> usize {
         match &self.generic_data {
-            VariableValue::Dim2(data) => data[0].len(),
-            VariableValue::Dim3(data) => data[0].len(),
+            GenericVariableData::Dim2(data) => data[0].len(),
+            GenericVariableData::Dim3(data) => data[0].len(),
             _ => 0,
         }
     }
 
     pub fn get_cube_size(&self) -> usize {
         match &self.generic_data {
-            VariableValue::Dim3(data) => data[0][0].len(),
+            GenericVariableData::Dim3(data) => data[0][0].len(),
             _ => 0,
         }
     }
@@ -752,13 +752,13 @@ impl Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.wrapping_pow(r as u32)),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Integer => {
@@ -809,7 +809,7 @@ impl Variable {
             Self {
                 vtype: VariableType::Boolean,
                 data: VariableData::from_bool(!self.data.bool_value),
-                generic_data: VariableValue::None,
+                generic_data: GenericVariableData::None,
             }
         }
     }
@@ -840,13 +840,13 @@ impl Variable {
                 return Self {
                     vtype: VariableType::Integer,
                     data: VariableData::from_int(l.abs()),
-                    generic_data: VariableValue::None,
+                    generic_data: GenericVariableData::None,
                 };
             }
             _ => {}
         }
         let mut data = VariableData::default();
-        let generic_data = VariableValue::None;
+        let generic_data = GenericVariableData::None;
         unsafe {
             match dest_type {
                 VariableType::Integer => data.int_value = self.data.int_value.abs(),
@@ -892,7 +892,7 @@ impl Variable {
     pub fn as_string(&self) -> String {
         unsafe {
             match &self.generic_data {
-                VariableValue::String(s) => s.to_string(),
+                GenericVariableData::String(s) => s.to_string(),
                 _ => match self.vtype {
                     VariableType::Boolean => {
                         if self.data.bool_value {
@@ -936,7 +936,7 @@ impl Variable {
         Variable {
             vtype: VariableType::Function,
             data: value.to_data(),
-            generic_data: VariableValue::None,
+            generic_data: GenericVariableData::None,
         }
     }
 
@@ -944,7 +944,7 @@ impl Variable {
         Variable {
             vtype: VariableType::Procedure,
             data: value.to_data(),
-            generic_data: VariableValue::None,
+            generic_data: GenericVariableData::None,
         }
     }
 }
@@ -958,7 +958,7 @@ pub fn convert_to(var_type: VariableType, value: &Variable) -> Variable {
     let mut res = value.clone();
     res.vtype = var_type;
     if var_type == VariableType::String || var_type == VariableType::BigStr {
-        res.generic_data = VariableValue::String(value.as_string());
+        res.generic_data = GenericVariableData::String(value.as_string());
     }
 
     res

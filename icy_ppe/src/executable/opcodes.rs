@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::{ast::Variable, Res};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StatementSignature {
     /// The first usize is the variable - 0 for none, second is the number of arguments
@@ -267,11 +269,16 @@ impl Display for OpCode {
     }
 }
 
+struct VirtualMachine {}
+
+type PredefProc  = fn (vm: &mut VirtualMachine, params: &[Variable]) -> Res<()>;
+
 #[derive(Debug, PartialEq)]
-pub struct StatementDefinition<'a> {
-    pub name: &'a str,
+pub struct StatementDefinition {
+    pub name: &'static str,
     pub opcode: OpCode,
     pub sig: StatementSignature,
+  //  pub function: &'a PredefProc,
 }
 
 pub static STATEMENT_DEFINITIONS: [StatementDefinition; 231] = [

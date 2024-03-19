@@ -1124,7 +1124,7 @@ impl Decompiler {
                         self.output_stmt(prg, WhileStatement::create_empty_statement(expr, stmt));
                     }
                     OpCode::IFNOT => {
-                        self.output_stmt(prg, IfStatement::create_empty_statement(expr, stmt))
+                        self.output_stmt(prg, IfStatement::create_empty_statement(expr, stmt));
                     }
                     _ => {}
                 }

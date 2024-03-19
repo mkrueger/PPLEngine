@@ -1033,6 +1033,70 @@ impl VariableValue {
             generic_data: GenericVariableData::None,
         }
     }
+
+    pub(crate) fn new_date(reg_date: i32) -> VariableValue {
+        VariableValue {
+            vtype: VariableType::Date,
+            data: VariableData::from_int(reg_date),
+            generic_data: GenericVariableData::None,
+        }
+    }
+
+    pub(crate) fn get_array_value(
+        &self,
+        dim_1: usize,
+        dim_2: usize,
+        dim_3: usize,
+    ) -> VariableValue {
+        if let GenericVariableData::Dim1(data) = &self.generic_data {
+            if dim_1 < data.len() {
+                data[dim_1].clone()
+            } else {
+                self.vtype.create_empty_value()
+            }
+        } else if let GenericVariableData::Dim2(data) = &self.generic_data {
+            if dim_1 < data.len() && dim_2 < data[dim_1].len() {
+                data[dim_1][dim_2].clone()
+            } else {
+                self.vtype.create_empty_value()
+            }
+        } else if let GenericVariableData::Dim3(data) = &self.generic_data {
+            if dim_1 < data.len() && dim_2 < data[dim_1].len() && dim_3 < data[dim_1][dim_2].len() {
+                data[dim_1][dim_2][dim_3].clone()
+            } else {
+                self.vtype.create_empty_value()
+            }
+        } else {
+            self.vtype.create_empty_value()
+        }
+    }
+
+    pub(crate) fn set_array_value(
+        &mut self,
+        dim1: usize,
+        dim2: usize,
+        dim3: usize,
+        val: VariableValue,
+    ) {
+        match &mut self.generic_data {
+            GenericVariableData::Dim1(data) => {
+                if dim1 < data.len() {
+                    data[dim1] = val;
+                }
+            }
+            GenericVariableData::Dim2(data) => {
+                if dim1 < data.len() && dim2 < data[dim1].len() {
+                    data[dim2][dim1] = val;
+                }
+            }
+            GenericVariableData::Dim3(data) => {
+                if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
+                    data[dim3][dim2][dim1] = val;
+                }
+            }
+            _ => log::error!("no array variable: {self}"),
+        }
+    }
 }
 
 /// .

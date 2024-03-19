@@ -205,12 +205,17 @@ pub fn getuser(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    if let Some(user) = &vm.current_user {
-        vm.icy_board_data.users[vm.cur_user] = user.clone();
-        Ok(())
+    let mut user = if let Some(user) = vm.icy_board_data.users.get(vm.cur_user) {
+        user.clone()
     } else {
-        Err(Box::new(IcyError::UserNotSet))
-    }
+        return Err(Box::new(IcyError::UserNotFound(vm.cur_user.to_string())));
+    };
+    vm.put_user_variables(&mut user);
+    vm.current_user = Some(user.clone());
+
+    vm.icy_board_data.users.insert(vm.cur_user, user);
+    Ok(())
+
 }
 
 pub fn defcolor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {

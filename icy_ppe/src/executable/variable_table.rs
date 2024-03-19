@@ -757,35 +757,6 @@ impl VariableTable {
     pub fn set_version(&mut self, version: u16) {
         self.version = version;
     }
-
-    pub(crate) fn set_array_value(
-        &mut self,
-        id: usize,
-        dim1: usize,
-        dim2: usize,
-        dim3: usize,
-        val: VariableValue,
-    ) {
-        let arr = &mut self.entries[id - 1].value;
-        match &mut arr.generic_data {
-            GenericVariableData::Dim1(data) => {
-                if dim1 < data.len() {
-                    data[dim1] = val;
-                }
-            }
-            GenericVariableData::Dim2(data) => {
-                if dim1 < data.len() && dim2 < data[dim1].len() {
-                    data[dim2][dim1] = val;
-                }
-            }
-            GenericVariableData::Dim3(data) => {
-                if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
-                    data[dim3][dim2][dim1] = val;
-                }
-            }
-            _ => panic!("no array variable: {arr}"),
-        }
-    }
 }
 
 pub struct UserVariable {
@@ -827,7 +798,7 @@ lazy_static::lazy_static! {
 
         UserVariable { name: "U_SHORTDESC", version:340, value:VariableValue::new_bool(false) },
         UserVariable { name: "U_GENDER", version:340, value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_date(0) },
         UserVariable { name: "U_EMAIL", version:340, value:VariableValue::new_string(String::new()) },
         UserVariable { name: "U_WEB", version:340, value:VariableValue::new_string(String::new()) },
     ];

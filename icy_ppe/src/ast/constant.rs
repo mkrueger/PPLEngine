@@ -51,6 +51,7 @@ impl BuiltinConst {
     };
 }
 
+pub const STACK_LIMIT: i32 = 6022 + 1024;
 pub const BUILTIN_CONSTS: [BuiltinConst; 104] = [
     BuiltinConst {
         name: "TRUE",
@@ -64,7 +65,7 @@ pub const BUILTIN_CONSTS: [BuiltinConst; 104] = [
     },
     BuiltinConst {
         name: "STK_LIMIT",
-        value: 6022 + 1024,
+        value: STACK_LIMIT,
         used_by: &[ConstantType::General],
     },
     BuiltinConst {

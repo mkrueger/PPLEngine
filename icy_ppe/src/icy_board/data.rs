@@ -248,7 +248,6 @@ fn convert_path(c_drive: &str, path: &str) -> String {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UserRecord {
     pub name: String,
-    pub city: String,
     pub password: String,
 
     pub bus_data_phone: String,
@@ -262,9 +261,18 @@ pub struct UserRecord {
     /// Protocol (A->Z)
     pub protocol: char,
 
-    // packedbyte     PackedFlags;        /* Bit packed flags */
+    pub msg_clear: bool,
+    pub has_mail: bool,
+    pub dont_ask_fse: bool,
+    pub use_fsedefault: bool,
+    pub scroll_msg_body: bool,
+    pub short_header: bool,
+    pub wide_editor: bool,
+
     // datetype       DateLastDirRead;    /* Date for Last DIR Scan (most recent file) */
     pub security_level: i32,
+    /// Expired security level
+    pub exp_security_level: i32,
 
     /// Number of times the caller has connected
     pub num_times_on: usize,
@@ -285,8 +293,8 @@ pub struct UserRecord {
 
     pub scroll_flag: bool,
 
-    // unsigned short RegExpDate;         /* Julian date for Registration Expiration Date */
-    // short          ExpSecurityLevel;   /* Expired Security Level */
+    /// Julian date for Registration Expiration Date
+    pub reg_exp_date: i32,
     // unsigned short LastConference;     /* Number of the conference the caller was in */
     pub total_dl_bytes: usize,
     pub total_ul_bytes: usize,
@@ -300,12 +308,24 @@ pub struct UserRecord {
     pub alias: String,
 
     pub address_support: bool,
-    // address: AddressType,
+
+    pub street1: String,
+    pub street2: String,
+    pub city: String,
+    pub state: String,
+    pub zip: String,
+    pub country: String,
+
+    pub notes: [String; 5],
 
     // bool           PasswordSupport;
-    // passwordtypez  PwrdHistory;
-    // bool           VerifySupport;
-    // char           Verify[26];
+    pub pwd_prev_pwd: [String; 3],
+    pub pwd_last_change: i32,
+    pub pwd_times_changed: usize,
+    pub pwd_expire_date: i32,
+
+    pub verify_support: bool,
+    pub verify: String,
     // bool           StatsSupport;
     // callerstattype Stats;
     // bool           NotesSupport;
@@ -314,6 +334,13 @@ pub struct UserRecord {
     // accounttype    Account;
     // bool           QwkSupport;
     // qwkconfigtype  QwkConfig;
+
+    // 3.40 vars
+    pub short_descr: bool,
+    pub gender: String,
+    pub birth_date: i32,
+    pub email: String,
+    pub web: String,
 }
 
 impl UserRecord {

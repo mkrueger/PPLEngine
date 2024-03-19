@@ -7,7 +7,6 @@ use crate::ast::BinOp;
 use crate::ast::Statement;
 use crate::ast::UnaryOp;
 use crate::executable::Executable;
-use crate::executable::GenericVariableData;
 use crate::executable::PPECommand;
 use crate::executable::PPEExpr;
 use crate::executable::PPEScript;
@@ -174,7 +173,7 @@ pub struct VirtualMachine<'a> {
 
     pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
 
-    return_addresses: Vec<ReturnAddress>,
+    pub return_addresses: Vec<ReturnAddress>,
     parameter_stack: Vec<VariableValue>,
     write_back_stack: Vec<PPEExpr>,
 
@@ -182,56 +181,182 @@ pub struct VirtualMachine<'a> {
 }
 
 impl<'a> VirtualMachine<'a> {
-    fn set_user_variables(&mut self, _cur_user: &UserRecord) {
-        // TODO
-        /*
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("self".to_string()),
-            Variable::new(
-                VariableType::Integer,
-                VariableData::from_int(cur_user.page_len),
-            ),
+    fn set_user_variables(&mut self, cur_user: &UserRecord) {
+        self.variable_table
+            .set_value(U_EXPERT, VariableValue::new_bool(cur_user.expert_mode));
+        self.variable_table
+            .set_value(U_FSE, VariableValue::new_bool(cur_user.use_fsedefault));
+        self.variable_table
+            .set_value(U_FSEP, VariableValue::new_bool(!cur_user.dont_ask_fse));
+        self.variable_table
+            .set_value(U_CLS, VariableValue::new_bool(cur_user.msg_clear));
+
+        self.variable_table
+            .set_value(U_EXPDATE, VariableValue::new_date(cur_user.reg_exp_date));
+        self.variable_table
+            .set_value(U_SEC, VariableValue::new_int(cur_user.security_level));
+        self.variable_table
+            .set_value(U_PAGELEN, VariableValue::new_int(cur_user.page_len));
+        self.variable_table.set_value(
+            U_EXPSEC,
+            VariableValue::new_int(cur_user.exp_security_level),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_PWD".to_string()),
-            Variable::new_string(cur_user.password.clone()),
+
+        self.variable_table
+            .set_value(U_CITY, VariableValue::new_string(cur_user.city.clone()));
+        self.variable_table.set_value(
+            U_BDPHONE,
+            VariableValue::new_string(cur_user.bus_data_phone.clone()),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_PWDEXP".to_string()),
-            Variable::new(
-                VariableType::Date,
-                VariableData::from_int(cur_user.security_level),
-            ),
+        self.variable_table.set_value(
+            U_HVPHONE,
+            VariableValue::new_string(cur_user.home_voice_phone.clone()),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_SCROLL".to_string()),
-            Variable::new_bool(cur_user.scroll_flag),
+        self.variable_table.set_value(
+            U_TRANS,
+            VariableValue::new_string(cur_user.protocol.to_string()),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_SEC".to_string()),
-            Variable::new(
-                VariableType::Integer,
-                VariableData::from_int(cur_user.security_level),
-            ),
+        self.variable_table.set_value(
+            U_CMNT1,
+            VariableValue::new_string(cur_user.user_comment.clone()),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_CITY".to_string()),
-            Variable::new_string(cur_user.city.clone()),
+        self.variable_table.set_value(
+            U_CMNT2,
+            VariableValue::new_string(cur_user.sysop_comment.clone()),
         );
-        self.cur_frame[0].values.insert(
-            unicase::Ascii::new("U_ADDR".to_string()),
-            Variable::new_vector(
-                VariableType::String,
-                vec![
-                    Variable::new_string("Address Line 1".to_string()),
-                    Variable::new_string("Address Line 2".to_string()),
-                    Variable::new_string(cur_user.city.clone()),
-                    Variable::new_string("State".to_string()),
-                    Variable::new_string("ZIP Code".to_string()),
-                    Variable::new_string("Country".to_string()),
-                ],
-            ),
-        );*/
+        self.variable_table
+            .set_value(U_PWD, VariableValue::new_string(cur_user.password.clone()));
+
+        self.variable_table
+            .set_value(U_SCROLL, VariableValue::new_bool(cur_user.scroll_msg_body));
+        self.variable_table
+            .set_value(U_LONGHDR, VariableValue::new_bool(!cur_user.short_header));
+        self.variable_table
+            .set_value(U_DEF79, VariableValue::new_bool(cur_user.wide_editor));
+        self.variable_table
+            .set_value(U_ALIAS, VariableValue::new_string(cur_user.alias.clone()));
+        self.variable_table
+            .set_value(U_VER, VariableValue::new_string(cur_user.verify.clone()));
+
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(0, 0, 0, VariableValue::new_string(cur_user.street1.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(1, 0, 0, VariableValue::new_string(cur_user.street2.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(2, 0, 0, VariableValue::new_string(cur_user.city.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(3, 0, 0, VariableValue::new_string(cur_user.state.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(4, 0, 0, VariableValue::new_string(cur_user.zip.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(5, 0, 0, VariableValue::new_string(cur_user.country.clone()));
+
+        for i in 0..5 {
+            self.variable_table
+                .get_var_entry_mut(U_NOTES)
+                .value
+                .set_array_value(
+                    i,
+                    0,
+                    0,
+                    VariableValue::new_string(cur_user.notes[i].clone()),
+                );
+        }
+        self.variable_table
+            .set_value(U_PWDEXP, VariableValue::new_date(cur_user.pwd_expire_date));
+
+        if self.variable_table.get_version() >= 300 {
+            // PCBoard seems not to set this variable ever.
+            // U_ACCOUNT
+        }
+
+        if self.variable_table.get_version() >= 340 {
+            self.variable_table
+                .set_value(U_SHORTDESC, VariableValue::new_bool(cur_user.short_descr));
+            self.variable_table
+                .set_value(U_GENDER, VariableValue::new_string(cur_user.gender.clone()));
+            self.variable_table
+                .set_value(U_BIRTHDATE, VariableValue::new_date(cur_user.birth_date));
+            self.variable_table
+                .set_value(U_EMAIL, VariableValue::new_string(cur_user.email.clone()));
+            self.variable_table
+                .set_value(U_WEB, VariableValue::new_string(cur_user.web.clone()));
+        }
+    }
+
+    pub fn put_user_variables(&self, cur_user: &mut UserRecord) {
+        cur_user.expert_mode = self.variable_table.get_value(U_EXPERT).as_bool();
+        cur_user.use_fsedefault = self.variable_table.get_value(U_FSE).as_bool();
+        cur_user.dont_ask_fse = self.variable_table.get_value(U_FSEP).as_bool();
+        cur_user.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
+
+        cur_user.reg_exp_date = self.variable_table.get_value(U_EXPDATE).as_int();
+        cur_user.security_level = self.variable_table.get_value(U_SEC).as_int();
+        cur_user.page_len = self.variable_table.get_value(U_PAGELEN).as_int();
+        cur_user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int();
+
+        cur_user.city = self.variable_table.get_value(U_CITY).as_string();
+        cur_user.bus_data_phone = self.variable_table.get_value(U_BDPHONE).as_string();
+        cur_user.home_voice_phone = self.variable_table.get_value(U_HVPHONE).as_string();
+        cur_user.protocol = self
+            .variable_table
+            .get_value(U_TRANS)
+            .as_string()
+            .chars()
+            .next()
+            .unwrap_or('Z');
+        cur_user.user_comment = self.variable_table.get_value(U_CMNT1).as_string();
+        cur_user.sysop_comment = self.variable_table.get_value(U_CMNT2).as_string();
+        cur_user.password = self.variable_table.get_value(U_PWD).as_string();
+
+        cur_user.scroll_msg_body = self.variable_table.get_value(U_SCROLL).as_bool();
+        cur_user.short_header = self.variable_table.get_value(U_LONGHDR).as_bool();
+        cur_user.wide_editor = self.variable_table.get_value(U_DEF79).as_bool();
+        cur_user.alias = self.variable_table.get_value(U_ALIAS).as_string();
+        cur_user.verify = self.variable_table.get_value(U_VER).as_string();
+
+        /* would overwrite some vars
+                self.variable_table.set_array_value(U_ADDR, 0,0, 0, VariableValue::new_string(cur_user.street1.clone()));
+                self.variable_table.set_array_value(U_ADDR, 1,0, 0, VariableValue::new_string(cur_user.street2.clone()));
+                self.variable_table.set_array_value(U_ADDR, 2,0, 0, VariableValue::new_string(cur_user.city.clone()));
+                self.variable_table.set_array_value(U_ADDR, 3,0, 0, VariableValue::new_string(cur_user.state.clone()));
+                self.variable_table.set_array_value(U_ADDR, 4,0, 0, VariableValue::new_string(cur_user.zip.clone()));
+                self.variable_table.set_array_value(U_ADDR, 5,0, 0, VariableValue::new_string(cur_user.country.clone()));
+        */
+        for i in 0..5 {
+            let v = self
+                .variable_table
+                .get_value(U_NOTES)
+                .get_array_value(i, 0, 0)
+                .as_string();
+            cur_user.notes[i] = v;
+        }
+        cur_user.pwd_expire_date = self.variable_table.get_value(U_PWDEXP).as_int();
+
+        if self.variable_table.get_version() >= 300 {
+            // PCBoard seems not to set this variable ever.
+            // U_ACCOUNT
+        }
+
+        if self.variable_table.get_version() >= 340 {
+            cur_user.short_descr = self.variable_table.get_value(U_SHORTDESC).as_bool();
+            cur_user.gender = self.variable_table.get_value(U_GENDER).as_string();
+            cur_user.birth_date = self.variable_table.get_value(U_BIRTHDATE).as_int();
+            cur_user.email = self.variable_table.get_value(U_EMAIL).as_string();
+            cur_user.web = self.variable_table.get_value(U_WEB).as_string();
+        }
     }
 
     fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
@@ -284,31 +409,10 @@ impl<'a> VirtualMachine<'a> {
                     0
                 };
 
-                let var = &self.variable_table.get_value(*id);
-                if let GenericVariableData::Dim1(data) = &var.generic_data {
-                    if dim_1 < data.len() {
-                        Ok(data[dim_1].clone())
-                    } else {
-                        Ok(var.vtype.create_empty_value())
-                    }
-                } else if let GenericVariableData::Dim2(data) = &var.generic_data {
-                    if dim_1 < data.len() && dim_2 < data[dim_1].len() {
-                        Ok(data[dim_1][dim_2].clone())
-                    } else {
-                        Ok(var.vtype.create_empty_value())
-                    }
-                } else if let GenericVariableData::Dim3(data) = &var.generic_data {
-                    if dim_1 < data.len()
-                        && dim_2 < data[dim_1].len()
-                        && dim_3 < data[dim_1][dim_2].len()
-                    {
-                        Ok(data[dim_1][dim_2][dim_3].clone())
-                    } else {
-                        Ok(var.vtype.create_empty_value())
-                    }
-                } else {
-                    Ok(var.vtype.create_empty_value())
-                }
+                Ok(self
+                    .variable_table
+                    .get_value(*id)
+                    .get_array_value(dim_1, dim_2, dim_3))
             }
             PPEExpr::PredefinedFunctionCall(func, arguments) => {
                 let mut args = Vec::new();
@@ -388,7 +492,9 @@ impl<'a> VirtualMachine<'a> {
                 };
 
                 self.variable_table
-                    .set_array_value(*id, dim_1, dim_2, dim_3, value);
+                    .get_var_entry_mut(*id)
+                    .value
+                    .set_array_value(dim_1, dim_2, dim_3, value);
             }
             _ => {
                 return Err(VMError::InternalVMError);
@@ -577,7 +683,6 @@ pub fn run(
         write_back_stack: Vec::new(),
     };
 
-    vm.set_user_variables(&UserRecord::default());
     vm.run()?;
     Ok(true)
 }
@@ -591,3 +696,36 @@ fn calc_labe_table(statements: &[PPEStatement]) -> HashMap<usize, usize> {
     }
     res
 }
+
+pub const U_EXPERT: usize = 1;
+pub const U_FSE: usize = 2;
+pub const U_FSEP: usize = 3;
+pub const U_CLS: usize = 4;
+pub const U_EXPDATE: usize = 5;
+pub const U_SEC: usize = 6;
+pub const U_PAGELEN: usize = 7;
+pub const U_EXPSEC: usize = 8;
+pub const U_CITY: usize = 9;
+pub const U_BDPHONE: usize = 10;
+pub const U_HVPHONE: usize = 11;
+pub const U_TRANS: usize = 12;
+pub const U_CMNT1: usize = 13;
+pub const U_CMNT2: usize = 14;
+pub const U_PWD: usize = 15;
+pub const U_SCROLL: usize = 16;
+pub const U_LONGHDR: usize = 17;
+pub const U_DEF79: usize = 18;
+pub const U_ALIAS: usize = 19;
+pub const U_VER: usize = 20;
+pub const U_ADDR: usize = 21;
+pub const U_NOTES: usize = 22;
+pub const U_PWDEXP: usize = 23;
+// 3.00
+pub const U_ACCOUNT: usize = 24;
+
+// 3.40
+pub const U_SHORTDESC: usize = 25;
+pub const U_GENDER: usize = 26;
+pub const U_BIRTHDATE: usize = 27;
+pub const U_EMAIL: usize = 28;
+pub const U_WEB: usize = 29;

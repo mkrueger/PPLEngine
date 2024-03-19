@@ -4,6 +4,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use crate::ast::constant::STACK_LIMIT;
 use crate::executable::{VariableData, VariableType, VariableValue};
 use crate::vm::VirtualMachine;
 use crate::Res;
@@ -1081,11 +1082,21 @@ pub fn pcbmac(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variable
 pub fn actmsgnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
 }
+
+/// Usage: `STACKLEFT()`
+//  Val: Returns the number of bytes left on the *system* stack.
 pub fn stackleft(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_int(
+        STACK_LIMIT - vm.return_addresses.len() as i32,
+    ))
 }
+
+/// `STACKERR()`
+/// Returns a boolean value which indicates a stack error has occured
 pub fn stackerr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_bool(
+        STACK_LIMIT > vm.return_addresses.len() as i32,
+    ))
 }
 
 pub fn dgetalias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {

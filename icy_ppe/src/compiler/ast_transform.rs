@@ -70,7 +70,7 @@ impl AstVisitorMut for AstTransformationVisitor {
             GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.extend(if_then.get_statements().iter().map(|s| s.visit_mut(self)));
-        
+
         if !if_then.get_else_if_blocks().is_empty() || if_then.get_else_block().is_some() {
             statements.push(GotoStatement::create_empty_statement(
                 last_exit_label.clone(),

@@ -34,18 +34,18 @@ impl AstVisitorMut for AstTransformationVisitor {
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
         if matches!(if_stmt.get_statement(), Statement::Goto(_)) {
             return Statement::If(IfStatement::empty(
-                Box::new(if_stmt.get_condition().visit_mut(self)),
-                Box::new(if_stmt.get_statement().visit_mut(self)),
+                if_stmt.get_condition().visit_mut(self),
+                if_stmt.get_statement().visit_mut(self),
             ));
         }
         let mut statements = Vec::new();
         let if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
-            Box::new(UnaryExpression::create_empty_expression(
+            UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
-                Box::new(if_stmt.get_condition().clone()),
-            )),
-            Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
+                if_stmt.get_condition().clone(),
+            ),
+            GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.push(if_stmt.get_statement().visit_mut(self));
         statements.push(LabelStatement::create_empty_statement(
@@ -60,14 +60,14 @@ impl AstVisitorMut for AstTransformationVisitor {
         let last_exit_label = self.next_label();
         let mut if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
-            Box::new(if_then.get_condition().clone()),
+            if_then.get_condition().clone(),
             /*
             Box::new(UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
                 Box::new(if_then.get_condition().clone()),
             )),
             */
-            Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
+            GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.extend(if_then.get_statements().iter().map(|s| s.visit_mut(self)));
         statements.push(GotoStatement::create_empty_statement(
@@ -80,11 +80,11 @@ impl AstVisitorMut for AstTransformationVisitor {
 
             if_exit_label = self.next_label();
             statements.push(IfStatement::create_empty_statement(
-                Box::new(UnaryExpression::create_empty_expression(
+                UnaryExpression::create_empty_expression(
                     crate::ast::UnaryOp::Not,
-                    Box::new(else_if.get_condition().clone()),
-                )),
-                Box::new(GotoStatement::create_empty_statement(if_exit_label.clone())),
+                    else_if.get_condition().clone(),
+                ),
+                GotoStatement::create_empty_statement(if_exit_label.clone()),
             ));
             statements.extend(else_if.get_statements().iter().map(|s| s.visit_mut(self)));
             statements.push(GotoStatement::create_empty_statement(
@@ -129,11 +129,11 @@ impl AstVisitorMut for AstTransformationVisitor {
             continue_label.clone(),
         ));
         statements.push(IfStatement::create_empty_statement(
-            Box::new(UnaryExpression::create_empty_expression(
+            UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
-                Box::new(while_do.get_condition().clone()),
-            )),
-            Box::new(GotoStatement::create_empty_statement(break_label.clone())),
+                while_do.get_condition().clone(),
+            ),
+            GotoStatement::create_empty_statement(break_label.clone()),
         ));
         statements.extend(while_do.get_statements().iter().map(|s| s.visit_mut(self)));
         statements.push(GotoStatement::create_empty_statement(
@@ -153,14 +153,12 @@ impl AstVisitorMut for AstTransformationVisitor {
         for case_block in select_stmt.get_case_blocks() {
             let next_case_label = self.next_label();
             statements.push(IfStatement::create_empty_statement(
-                Box::new(BinaryExpression::create_empty_expression(
+                BinaryExpression::create_empty_expression(
                     crate::ast::BinOp::NotEq,
                     expr.clone(),
                     case_block.get_expression().clone(),
-                )),
-                Box::new(GotoStatement::create_empty_statement(
-                    next_case_label.clone(),
-                )),
+                ),
+                GotoStatement::create_empty_statement(next_case_label.clone()),
             ));
             statements.extend(
                 case_block
@@ -205,7 +203,7 @@ impl AstVisitorMut for AstTransformationVisitor {
         statements.push(LetStatement::create_empty_statement(
             for_stmt.get_identifier().clone(),
             Vec::new(),
-            Box::new(for_stmt.get_start_expr().visit_mut(self)),
+            for_stmt.get_start_expr().visit_mut(self),
         ));
 
         // create loop
@@ -252,12 +250,12 @@ impl AstVisitorMut for AstTransformationVisitor {
         );
 
         statements.push(IfStatement::create_empty_statement(
-            Box::new(BinaryExpression::create_empty_expression(
+            BinaryExpression::create_empty_expression(
                 crate::ast::BinOp::And,
                 lower_bound,
                 upper_bound,
-            )),
-            Box::new(GotoStatement::create_empty_statement(break_label.clone())),
+            ),
+            GotoStatement::create_empty_statement(break_label.clone()),
         ));
 
         statements.extend(for_stmt.get_statements().iter().map(|s| s.visit_mut(self)));
@@ -267,11 +265,7 @@ impl AstVisitorMut for AstTransformationVisitor {
         statements.push(LetStatement::create_empty_statement(
             for_stmt.get_identifier().clone(),
             Vec::new(),
-            Box::new(BinaryExpression::create_empty_expression(
-                crate::ast::BinOp::Add,
-                id_expr,
-                increment,
-            )),
+            BinaryExpression::create_empty_expression(crate::ast::BinOp::Add, id_expr, increment),
         ));
 
         // loop & exit;

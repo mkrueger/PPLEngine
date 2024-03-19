@@ -14,122 +14,565 @@ pub enum Constant {
     Builtin(&'static BuiltinConst),
 }
 
-#[derive(Debug, PartialEq, Clone, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BuiltinConst {
     pub name: &'static str,
     pub value: i32,
+    pub used_by: &'static [ConstantType],
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Hash)]
+pub enum ConstantType {
+    General,
+    Account,
+    DispText,
+    InputStr,
+    PcbAccount,
+    Crc,
+    ConfFlag,
+    StartDisp,
+    DispFile,
+    ScanMsgHdr,
+    FileAccess,
+    FileSeek,
+    FileSec,
 }
 
 impl BuiltinConst {
-    pub const ACC_CUR_BAL: BuiltinConst = BuiltinConst::new("ACC_CUR_BAL", 0x04);
-    pub const ACC_MSGREAD: BuiltinConst = BuiltinConst::new("ACC_MSGREAD", 0x02);
-    pub const ACC_MSGWRITE: BuiltinConst = BuiltinConst::new("ACC_MSGWRITE", 0x03);
-    pub const ACC_STAT: BuiltinConst = BuiltinConst::new("ACC_STAT", 0x00);
-    pub const ACC_TIME: BuiltinConst = BuiltinConst::new("ACC_TIME", 0x01);
-    pub const ATTACH_LIM_P: BuiltinConst = BuiltinConst::new("ATTACH_LIM_P", 0x03);
-    pub const ATTACH_LIM_U: BuiltinConst = BuiltinConst::new("ATTACH_LIM_U", 0x02);
-    pub const AUTO: BuiltinConst = BuiltinConst::new("AUTO", 0x02000);
-    pub const BELL: BuiltinConst = BuiltinConst::new("BELL", 0x00800);
-    pub const CHRG_CALL: BuiltinConst = BuiltinConst::new("CHRG_CALL", 0x01);
-    pub const CHRG_CHAT: BuiltinConst = BuiltinConst::new("CHRG_CHAT", 0x04);
-    pub const CHRG_DOWNBYTES: BuiltinConst = BuiltinConst::new("CHRG_DOWNBYTES", 0x0B);
-    pub const CHRG_DOWNFILE: BuiltinConst = BuiltinConst::new("CHRG_DOWNFILE", 0x0A);
-    pub const CHRG_MSGCAP: BuiltinConst = BuiltinConst::new("CHRG_MSGCAP", 0x06);
-    pub const CHRG_MSGECHOED: BuiltinConst = BuiltinConst::new("CHRG_MSGECHOED", 0x08);
-    pub const CHRG_MSGPRIVATE: BuiltinConst = BuiltinConst::new("CHRG_MSGPRIVATE", 0x09);
-    pub const CHRG_MSGREAD: BuiltinConst = BuiltinConst::new("CHRG_MSGREAD", 0x05);
-    pub const CHRG_MSGWRITE: BuiltinConst = BuiltinConst::new("CHRG_MSGWRITE", 0x07);
-    pub const CHRG_PEAKTIME: BuiltinConst = BuiltinConst::new("CHRG_PEAKTIME", 0x03);
-    pub const CHRG_TIME: BuiltinConst = BuiltinConst::new("CHRG_TIME", 0x02);
-    pub const CMAXMSGS: BuiltinConst = BuiltinConst::new("CMAXMSGS", 0x01);
-    pub const CRC_FILE: BuiltinConst = BuiltinConst::new("CRC_FILE", 0x01);
-    pub const CRC_STR: BuiltinConst = BuiltinConst::new("CRC_STR", 0x00);
-    pub const CRED_SPECIAL: BuiltinConst = BuiltinConst::new("CRED_SPECIAL", 0x10);
-    pub const CRED_UPBYTES: BuiltinConst = BuiltinConst::new("CRED_UPBYTES", 0x0F);
-    pub const CRED_UPFILE: BuiltinConst = BuiltinConst::new("CRED_UPFILE", 0x0E);
-    pub const CUR_USER: BuiltinConst = BuiltinConst::new("CUR_USER", 0);
-    pub const DEB_CALL: BuiltinConst = BuiltinConst::new("DEB_CALL", 0x02);
-    pub const DEB_CHAT: BuiltinConst = BuiltinConst::new("DEB_CHAT", 0x0B);
-    pub const DEB_DOWNBYTES: BuiltinConst = BuiltinConst::new("DEB_DOWNBYTES", 0x0A);
-    pub const DEB_DOWNFILE: BuiltinConst = BuiltinConst::new("DEB_DOWNFILE", 0x09);
-    pub const DEB_MSGCAP: BuiltinConst = BuiltinConst::new("DEB_MSGCAP", 0x05);
-    pub const DEB_MSGECHOED: BuiltinConst = BuiltinConst::new("DEB_MSGECHOED", 0x07);
-    pub const DEB_MSGPRIVATE: BuiltinConst = BuiltinConst::new("DEB_MSGPRIVATE", 0x08);
-    pub const DEB_MSGREAD: BuiltinConst = BuiltinConst::new("DEB_MSGREAD", 0x04);
-    pub const DEB_MSGWRITE: BuiltinConst = BuiltinConst::new("DEB_MSGWRITE", 0x06);
-    pub const DEB_SPECIAL: BuiltinConst = BuiltinConst::new("DEB_SPECIAL", 0x0D);
-    pub const DEB_TIME: BuiltinConst = BuiltinConst::new("DEB_TIME", 0x03);
-    pub const DEB_TPU: BuiltinConst = BuiltinConst::new("DEB_TPU", 0x0C);
-    pub const DEFS: BuiltinConst = BuiltinConst::new("DEFS", 0x00);
-    pub const ECHODOTS: BuiltinConst = BuiltinConst::new("ECHODOTS", 0x00001);
-    pub const ERASELINE: BuiltinConst = BuiltinConst::new("ERASELINE", 0x00020);
-    pub const FALSE: BuiltinConst = BuiltinConst::new("FALSE", 0x00);
-    pub const FCL: BuiltinConst = BuiltinConst::new("FCL", 0x02);
-    pub const FIELDLEN: BuiltinConst = BuiltinConst::new("FIELDLEN", 0x00002);
-    pub const FNS: BuiltinConst = BuiltinConst::new("FNS", 0x01);
-    pub const F_EXP: BuiltinConst = BuiltinConst::new("F_EXP", 0x02);
-    pub const F_MW: BuiltinConst = BuiltinConst::new("F_MW", 0x10);
-    pub const F_NET: BuiltinConst = BuiltinConst::new("F_NET", 0x20);
-    pub const F_REG: BuiltinConst = BuiltinConst::new("F_REG", 0x01);
-    pub const F_SEL: BuiltinConst = BuiltinConst::new("F_SEL", 0x04);
-    pub const F_SYS: BuiltinConst = BuiltinConst::new("F_SYS", 0x08);
-    pub const GRAPH: BuiltinConst = BuiltinConst::new("GRAPH", 0x01);
-    pub const GUIDE: BuiltinConst = BuiltinConst::new("GUIDE", 0x00004);
-    pub const HDR_ACTIVE: BuiltinConst = BuiltinConst::new("HDR_ACTIVE", 0x0E);
-    pub const HDR_BLOCKS: BuiltinConst = BuiltinConst::new("HDR_BLOCKS", 0x04);
-    pub const HDR_DATE: BuiltinConst = BuiltinConst::new("HDR_DATE", 0x05);
-    pub const HDR_ECHO: BuiltinConst = BuiltinConst::new("HDR_ECHO", 0x0F);
-    pub const HDR_FROM: BuiltinConst = BuiltinConst::new("HDR_FROM", 0x0B);
-    pub const HDR_MSGNUM: BuiltinConst = BuiltinConst::new("HDR_MSGNUM", 0x02);
-    pub const HDR_MSGREF: BuiltinConst = BuiltinConst::new("HDR_MSGREF", 0x03);
-    pub const HDR_PWD: BuiltinConst = BuiltinConst::new("HDR_PWD", 0x0D);
-    pub const HDR_REPLY: BuiltinConst = BuiltinConst::new("HDR_REPLY", 0x0A);
-    pub const HDR_RPLYDATE: BuiltinConst = BuiltinConst::new("HDR_RPLYDATE", 0x08);
-    pub const HDR_RPLYTIME: BuiltinConst = BuiltinConst::new("HDR_RPLYTIME", 0x09);
-    pub const HDR_STATUS: BuiltinConst = BuiltinConst::new("HDR_STATUS", 0x01);
-    pub const HDR_SUBJ: BuiltinConst = BuiltinConst::new("HDR_SUBJ", 0x0C);
-    pub const HDR_TIME: BuiltinConst = BuiltinConst::new("HDR_TIME", 0x06);
-    pub const HDR_TO: BuiltinConst = BuiltinConst::new("HDR_TO", 0x07);
-    pub const HIGHASCII: BuiltinConst = BuiltinConst::new("HIGHASCII", 0x01000);
-    pub const LANG: BuiltinConst = BuiltinConst::new("LANG", 0x04);
-    pub const LFAFTER: BuiltinConst = BuiltinConst::new("LFAFTER", 0x00100);
-    pub const LFBEFORE: BuiltinConst = BuiltinConst::new("LFBEFORE", 0x00080);
-    pub const LOGIT: BuiltinConst = BuiltinConst::new("LOGIT", 0x08000);
-    pub const LOGITLEFT: BuiltinConst = BuiltinConst::new("LOGITLEFT", 0x10000);
-    pub const MAXMSGS: BuiltinConst = BuiltinConst::new("MAXMSGS", 0x00);
-    pub const NC: BuiltinConst = BuiltinConst::new("NC", 0x00);
-    pub const NEWBALANCE: BuiltinConst = BuiltinConst::new("NEWBALANCE", 0x00);
-    pub const NEWLINE: BuiltinConst = BuiltinConst::new("NEWLINE", 0x00040);
-    pub const NOCLEAR: BuiltinConst = BuiltinConst::new("NOCLEAR", 0x00400);
-    pub const NO_USER: BuiltinConst = BuiltinConst::new("NO_USER", -1);
-    pub const O_RD: BuiltinConst = BuiltinConst::new("O_RD", 0x00);
-    pub const O_RW: BuiltinConst = BuiltinConst::new("O_RW", 0x02);
-    pub const O_WR: BuiltinConst = BuiltinConst::new("O_WR", 0x01);
-    pub const PAY_UPBYTES: BuiltinConst = BuiltinConst::new("PAY_UPBYTES", 0x0D);
-    pub const PAY_UPFILE: BuiltinConst = BuiltinConst::new("PAY_UPFILE", 0x0C);
-    pub const SEC: BuiltinConst = BuiltinConst::new("SEC", 0x02);
-    pub const SEC_DROP: BuiltinConst = BuiltinConst::new("SEC_DROP", 0x11);
-    pub const SEEK_CUR: BuiltinConst = BuiltinConst::new("SEEK_CUR", 0x01);
-    pub const SEEK_END: BuiltinConst = BuiltinConst::new("SEEK_END", 0x02);
-    pub const SEEK_SET: BuiltinConst = BuiltinConst::new("SEEK_SET", 0x00);
-    pub const STACKED: BuiltinConst = BuiltinConst::new("STACKED", 0x00010);
-    pub const START_BAL: BuiltinConst = BuiltinConst::new("START_BAL", 0x00);
-    pub const START_SESSION: BuiltinConst = BuiltinConst::new("START_SESSION", 0x01);
-    pub const STK_LIMIT: BuiltinConst = BuiltinConst::new("STK_LIMIT", 6022 + 1024);
-    pub const S_DB: BuiltinConst = BuiltinConst::new("S_DB", 0x03);
-    pub const S_DN: BuiltinConst = BuiltinConst::new("S_DN", 0x00);
-    pub const S_DR: BuiltinConst = BuiltinConst::new("S_DR", 0x01);
-    pub const S_DW: BuiltinConst = BuiltinConst::new("S_DW", 0x02);
-    pub const TRUE: BuiltinConst = BuiltinConst::new("TRUE", 0x01);
-    pub const UPCASE: BuiltinConst = BuiltinConst::new("UPCASE", 0x00008);
-    pub const WARNLEVEL: BuiltinConst = BuiltinConst::new("WARNLEVEL", 0x0E);
-    pub const WORDWRAP: BuiltinConst = BuiltinConst::new("WORDWRAP", 0x00200);
-    pub const YESNO: BuiltinConst = BuiltinConst::new("YESNO", 0x04000);
-
-    const fn new(name: &'static str, value: i32) -> Self {
-        Self { name, value }
-    }
+    pub const TRUE: BuiltinConst = BuiltinConst {
+        name: "TRUE",
+        value: 0x01,
+        used_by: &[ConstantType::General],
+    };
+    pub const FALSE: BuiltinConst = BuiltinConst {
+        name: "FALSE",
+        value: 0x00,
+        used_by: &[ConstantType::General],
+    };
 }
+
+pub const BUILTIN_CONSTS: [BuiltinConst; 104] = [
+    BuiltinConst {
+        name: "TRUE",
+        value: 0x01,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "FALSE",
+        value: 0x00,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "STK_LIMIT",
+        value: 6022 + 1024,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "ATTACH_LIM_P",
+        value: 0x03,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "ATTACH_LIM_U",
+        value: 0x02,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "ACC_CUR_BAL",
+        value: 0x04,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "F_NET",
+        value: 0x20,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "CMAXMSGS",
+        value: 0x01,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "MAXMSGS",
+        value: 0x00,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "CUR_USER",
+        value: 0,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "NO_USER",
+        value: -1,
+        used_by: &[ConstantType::General],
+    },
+    BuiltinConst {
+        name: "ACC_STAT",
+        value: 0x00,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "ACC_TIME",
+        value: 0x01,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "ACC_MSGREAD",
+        value: 0x02,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "ACC_MSGWRITE",
+        value: 0x03,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEFS",
+        value: 0x00,
+        used_by: &[ConstantType::DispText, ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "BELL",
+        value: 0x00800,
+        used_by: &[ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "LOGIT",
+        value: 0x08000,
+        used_by: &[ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "LOGITLEFT",
+        value: 0x10000,
+        used_by: &[ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "AUTO",
+        value: 0x02000,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "ECHODOTS",
+        value: 0x00001,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "ERASELINE",
+        value: 0x00020,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "FIELDLEN",
+        value: 0x00002,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "GUIDE",
+        value: 0x00004,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "HIGHASCII",
+        value: 0x01000,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "LFAFTER",
+        value: 0x00100,
+        used_by: &[ConstantType::InputStr, ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "LFBEFORE",
+        value: 0x00080,
+        used_by: &[ConstantType::InputStr, ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "NEWLINE",
+        value: 0x00040,
+        used_by: &[ConstantType::InputStr, ConstantType::DispText],
+    },
+    BuiltinConst {
+        name: "NOCLEAR",
+        value: 0x00400,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "STACKED",
+        value: 0x00010,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "UPCASE",
+        value: 0x00008,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "WORDWRAP",
+        value: 0x00200,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "YESNO",
+        value: 0x04000,
+        used_by: &[ConstantType::InputStr],
+    },
+    BuiltinConst {
+        name: "NEWBALANCE",
+        value: 0x00,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_CALL",
+        value: 0x01,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_TIME",
+        value: 0x02,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_PEAKTIME",
+        value: 0x03,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_CHAT",
+        value: 0x04,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_MSGREAD",
+        value: 0x05,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_MSGCAP",
+        value: 0x06,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_MSGWRITE",
+        value: 0x07,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_MSGECHOED",
+        value: 0x08,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_MSGPRIVATE",
+        value: 0x09,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_DOWNFILE",
+        value: 0x0A,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CHRG_DOWNBYTES",
+        value: 0x0B,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "PAY_UPFILE",
+        value: 0x0C,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "PAY_UPBYTES",
+        value: 0x0D,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "WARNLEVEL",
+        value: 0x0E,
+        used_by: &[ConstantType::PcbAccount],
+    },
+    BuiltinConst {
+        name: "CRC_FILE",
+        value: 0x01,
+        used_by: &[ConstantType::Crc],
+    },
+    BuiltinConst {
+        name: "CRC_STR",
+        value: 0x00,
+        used_by: &[ConstantType::Crc],
+    },
+    BuiltinConst {
+        name: "START_BAL",
+        value: 0x00,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "START_SESSION",
+        value: 0x01,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_CALL",
+        value: 0x02,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_TIME",
+        value: 0x03,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_MSGREAD",
+        value: 0x04,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_MSGCAP",
+        value: 0x05,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_MSGWRITE",
+        value: 0x06,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_MSGECHOED",
+        value: 0x07,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_MSGPRIVATE",
+        value: 0x08,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_DOWNFILE",
+        value: 0x09,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_DOWNBYTES",
+        value: 0x0A,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_CHAT",
+        value: 0x0B,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_TPU",
+        value: 0x0C,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "DEB_SPECIAL",
+        value: 0x0D,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "CRED_UPFILE",
+        value: 0x0E,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "CRED_UPBYTES",
+        value: 0x0F,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "CRED_SPECIAL",
+        value: 0x10,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "SEC_DROP",
+        value: 0x11,
+        used_by: &[ConstantType::Account],
+    },
+    BuiltinConst {
+        name: "F_EXP",
+        value: 0x02,
+        used_by: &[ConstantType::ConfFlag],
+    },
+    BuiltinConst {
+        name: "F_MW",
+        value: 0x10,
+        used_by: &[ConstantType::ConfFlag],
+    },
+    BuiltinConst {
+        name: "F_REG",
+        value: 0x01,
+        used_by: &[ConstantType::ConfFlag],
+    },
+    BuiltinConst {
+        name: "F_SEL",
+        value: 0x04,
+        used_by: &[ConstantType::ConfFlag],
+    },
+    BuiltinConst {
+        name: "F_SYS",
+        value: 0x08,
+        used_by: &[ConstantType::ConfFlag],
+    },
+    BuiltinConst {
+        name: "FCL",
+        value: 0x02,
+        used_by: &[ConstantType::StartDisp],
+    },
+    BuiltinConst {
+        name: "FNS",
+        value: 0x01,
+        used_by: &[ConstantType::StartDisp],
+    },
+    BuiltinConst {
+        name: "NC",
+        value: 0x00,
+        used_by: &[ConstantType::StartDisp],
+    },
+    BuiltinConst {
+        name: "GRAPH",
+        value: 0x01,
+        used_by: &[ConstantType::DispFile],
+    },
+    BuiltinConst {
+        name: "SEC",
+        value: 0x02,
+        used_by: &[ConstantType::DispFile],
+    },
+    BuiltinConst {
+        name: "LANG",
+        value: 0x04,
+        used_by: &[ConstantType::DispFile],
+    },
+    BuiltinConst {
+        name: "HDR_ACTIVE",
+        value: 0x0E,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_BLOCKS",
+        value: 0x04,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_DATE",
+        value: 0x05,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_ECHO",
+        value: 0x0F,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_FROM",
+        value: 0x0B,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_MSGNUM",
+        value: 0x02,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_MSGREF",
+        value: 0x03,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_PWD",
+        value: 0x0D,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_REPLY",
+        value: 0x0A,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_RPLYDATE",
+        value: 0x08,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_RPLYTIME",
+        value: 0x09,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_STATUS",
+        value: 0x01,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_SUBJ",
+        value: 0x0C,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_TIME",
+        value: 0x06,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "HDR_TO",
+        value: 0x07,
+        used_by: &[ConstantType::ScanMsgHdr],
+    },
+    BuiltinConst {
+        name: "O_RD",
+        value: 0x00,
+        used_by: &[ConstantType::FileAccess],
+    },
+    BuiltinConst {
+        name: "O_RW",
+        value: 0x02,
+        used_by: &[ConstantType::FileAccess],
+    },
+    BuiltinConst {
+        name: "O_WR",
+        value: 0x01,
+        used_by: &[ConstantType::FileAccess],
+    },
+    BuiltinConst {
+        name: "SEEK_CUR",
+        value: 0x01,
+        used_by: &[ConstantType::FileSeek],
+    },
+    BuiltinConst {
+        name: "SEEK_END",
+        value: 0x02,
+        used_by: &[ConstantType::FileSeek],
+    },
+    BuiltinConst {
+        name: "SEEK_SET",
+        value: 0x00,
+        used_by: &[ConstantType::FileSeek],
+    },
+    BuiltinConst {
+        name: "S_DB",
+        value: 0x03,
+        used_by: &[ConstantType::FileSec],
+    },
+    BuiltinConst {
+        name: "S_DN",
+        value: 0x00,
+        used_by: &[ConstantType::FileSec],
+    },
+    BuiltinConst {
+        name: "S_DR",
+        value: 0x01,
+        used_by: &[ConstantType::FileSec],
+    },
+    BuiltinConst {
+        name: "S_DW",
+        value: 0x02,
+        used_by: &[ConstantType::FileSec],
+    },
+];
 
 impl Constant {
     pub fn get_var_type(&self) -> VariableType {

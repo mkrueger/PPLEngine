@@ -26,7 +26,10 @@ fn check_error(input: &str) {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
     let expr = parser.parse_expression();
-    assert!(!parser.errors.is_empty(), "No error found parsed expr {expr:?}");
+    assert!(
+        !parser.errors.is_empty(),
+        "No error found parsed expr {expr:?}"
+    );
 }
 
 #[test]
@@ -52,8 +55,8 @@ fn test_unary_expressions() {
         "!FALSE",
         &UnaryExpression::create_empty_expression(
             UnaryOp::Not,
-            Box::new(ConstantExpression::create_empty_expression(
-                Constant::Builtin(&crate::ast::constant::BuiltinConst::FALSE),
+            ConstantExpression::create_empty_expression(Constant::Builtin(
+                &crate::ast::constant::BuiltinConst::FALSE,
             )),
         ),
     );
@@ -62,9 +65,7 @@ fn test_unary_expressions() {
         "-5",
         &UnaryExpression::create_empty_expression(
             UnaryOp::Minus,
-            Box::new(ConstantExpression::create_empty_expression(
-                Constant::Integer(5),
-            )),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
         ),
     );
 
@@ -72,9 +73,7 @@ fn test_unary_expressions() {
         "+5",
         &UnaryExpression::create_empty_expression(
             UnaryOp::Plus,
-            Box::new(ConstantExpression::create_empty_expression(
-                Constant::Integer(5),
-            )),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
         ),
     );
 }

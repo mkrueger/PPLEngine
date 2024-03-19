@@ -1,4 +1,3 @@
-use crate::ast::constant::BuiltinConst;
 use crate::ast::{
     AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement,
     Expression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
@@ -19,11 +18,11 @@ use std::intrinsics::transmute;
 use std::path::PathBuf;
 use std::{mem, vec};
 
+pub mod constant_scan_visitor;
 pub mod reconstruct;
 pub mod rename_visitor;
 
 pub const LAST_STMT: i16 = 0x00e2;
-
 struct FuncL {
     func: usize,
 }
@@ -612,118 +611,6 @@ impl Decompiler {
         expr.map(Decompiler::stripper)
     }
 
-    fn repl_const(expr: Expression, names: &'static [BuiltinConst]) -> Expression {
-        match expr {
-            Expression::Const(c) => match c.get_constant_value() {
-                Constant::Integer(parse_result) => {
-                    let mut i = 0;
-                    while i < names.len() && names[i].value != *parse_result {
-                        i += 1;
-                    }
-                    if i < names.len() {
-                        return ConstantExpression::create_empty_expression(Constant::Builtin(
-                            &names[i],
-                        ));
-                    }
-                    ConstantExpression::create_empty_expression(Constant::Integer(*parse_result))
-                }
-                _ => Expression::Const(c),
-            },
-            Expression::Identifier(s) => Expression::Identifier(s),
-            Expression::Parens(e) => ParensExpression::create_empty_expression(Self::repl_const(
-                e.get_expression().clone(),
-                names,
-            )),
-            Expression::FunctionCall(call_expr) => {
-                let mut p2 = vec![];
-                for e in call_expr.get_arguments() {
-                    p2.push(Self::repl_const(e.clone(), names));
-                }
-
-                FunctionCallExpression::create_empty_expression(
-                    call_expr.get_identifier().clone(),
-                    p2,
-                )
-            }
-            Expression::PredefinedFunctionCall(call_expr) => {
-                let mut p2 = vec![];
-                for e in call_expr.get_arguments() {
-                    p2.push(Self::repl_const(e.clone(), names));
-                }
-
-                PredefinedFunctionCallExpression::create_empty_expression(call_expr.get_func(), p2)
-            }
-            Expression::Unary(expr) => UnaryExpression::create_empty_expression(
-                expr.get_op(),
-                Box::new(Self::repl_const(expr.get_expression().clone(), names)),
-            ),
-            Expression::Binary(expr) => BinaryExpression::create_empty_expression(
-                expr.get_op(),
-                Self::repl_const(expr.get_left_expression().clone(), names),
-                Self::repl_const(expr.get_right_expression().clone(), names),
-            ),
-        }
-    }
-
-    fn const_name(&mut self, names: &'static [BuiltinConst]) -> Expression {
-        let temp_exr = self.popstrip().unwrap();
-        Self::repl_const(temp_exr, names)
-    }
-
-    fn trans_exp(&mut self, cur_expr: i16) -> Expression {
-        match self.cur_stmt {
-            0x00c if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00d if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00c | 0x00d => self.const_name(&crate::tables::CONSTANT_CONFERENCE_NAMES),
-
-            0x00e if cur_expr != 2 => self.popstrip().unwrap(),
-            0x00e => self.const_name(&crate::tables::CONSTANT_NAMES_DISPLAY),
-
-            0x010 => {
-                if cur_expr == 3 {
-                    self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES)
-                } else if cur_expr == 4 {
-                    self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES)
-                } else {
-                    self.popstrip().unwrap()
-                }
-            }
-
-            0x011 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES),
-            0x011 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES),
-            // 0x011 => self.popstrip().unwrap(),
-            0x012 if cur_expr == 3 => self.const_name(&crate::tables::CONSTANT_FACCESS_NAMES),
-            0x012 if cur_expr == 4 => self.const_name(&crate::tables::CONSTANT_OPENFLAGS_NAMES),
-            // 0x012 => self.popstrip().unwrap(),
-            0x018 => self.const_name(&crate::tables::CONSTANT_LINECOUNT_NAMES),
-            0x022 => {
-                if cur_expr == 6 {
-                    self.const_name(&crate::tables::CONSTANT_1_NAMES)
-                } else {
-                    self.popstrip().unwrap()
-                }
-            }
-            0x02b => {
-                if cur_expr == 5 {
-                    self.const_name(&crate::tables::CONSTANT_1_NAMES)
-                } else {
-                    self.popstrip().unwrap()
-                }
-            }
-
-            0x039 if cur_expr != 2 => self.popstrip().unwrap(),
-            0x039 => self.const_name(&crate::tables::CONSTANT_1_NAMES),
-
-            0x070 if cur_expr != 3 => self.popstrip().unwrap(),
-            0x070 => self.const_name(&crate::tables::CONSTANT_SEEK_NAMES),
-
-            0x0cd | 0x0ce if cur_expr != 1 => self.popstrip().unwrap(),
-            0x0cd | 0x0ce => self.const_name(&crate::tables::CONSTANT_2_NAMES),
-
-            _ => self.popstrip().unwrap(),
-        }
-    }
-
     fn varout(&mut self, var_number: i16) -> Expression {
         let var_nr = var_number as usize - 1;
 
@@ -803,21 +690,18 @@ impl Decompiler {
                 let tmp = self.pop_expr().unwrap();
                 match func_def.opcode {
                     FuncOpCode::NOT => {
-                        self.push_expr(UnaryExpression::create_empty_expression(
-                            UnaryOp::Not,
-                            Box::new(tmp),
-                        ));
+                        self.push_expr(UnaryExpression::create_empty_expression(UnaryOp::Not, tmp));
                     }
                     FuncOpCode::UMINUS => {
                         self.push_expr(UnaryExpression::create_empty_expression(
                             UnaryOp::Minus,
-                            Box::new(tmp),
+                            tmp,
                         ));
                     }
                     FuncOpCode::UPLUS => {
                         self.push_expr(UnaryExpression::create_empty_expression(
                             UnaryOp::Plus,
-                            Box::new(tmp),
+                            tmp,
                         ));
                     }
                     _ => {
@@ -825,7 +709,7 @@ impl Decompiler {
                             .push(format!("unknown unary function {func} at {}", self.src_ptr));
                         self.push_expr(UnaryExpression::create_empty_expression(
                             UnaryOp::Plus,
-                            Box::new(tmp),
+                            tmp,
                         ));
                     }
                 }
@@ -1192,7 +1076,7 @@ impl Decompiler {
 
             self.src_ptr += 1;
             if self.pass == 1 {
-                let tmp2 = self.trans_exp(cur_expr);
+                let tmp2 = self.popstrip().unwrap();
                 let tmp3 = self.pop_expr();
                 if let Some(t) = tmp3 {
                     self.push_expr(t);
@@ -1237,15 +1121,11 @@ impl Decompiler {
                 let expr = Statement::try_boolean_conversion(&expr);
                 match op {
                     OpCode::WHILE => {
-                        self.output_stmt(
-                            prg,
-                            WhileStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
-                        );
+                        self.output_stmt(prg, WhileStatement::create_empty_statement(expr, stmt));
                     }
-                    OpCode::IFNOT => self.output_stmt(
-                        prg,
-                        IfStatement::create_empty_statement(Box::new(expr), Box::new(stmt)),
-                    ),
+                    OpCode::IFNOT => {
+                        self.output_stmt(prg, IfStatement::create_empty_statement(expr, stmt))
+                    }
                     _ => {}
                 }
             } else {
@@ -1420,11 +1300,7 @@ impl Decompiler {
                     self.outputpass2(
                         prg,
                         &mut if_while_stack,
-                        LetStatement::create_empty_statement(
-                            identifier,
-                            arguments,
-                            Box::new(value),
-                        ),
+                        LetStatement::create_empty_statement(identifier, arguments, value),
                     );
                 }
                 OpCode::WHILE | OpCode::IFNOT => {

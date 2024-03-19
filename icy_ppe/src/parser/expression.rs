@@ -21,7 +21,7 @@ impl Parser {
             };
             return Some(UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
-                Box::new(expr),
+                expr,
             ));
         }
 
@@ -173,7 +173,7 @@ impl Parser {
             if let Some(e) = expr {
                 return Some(UnaryExpression::create_empty_expression(
                     crate::ast::UnaryOp::Plus,
-                    Box::new(e),
+                    e,
                 ));
             }
         }
@@ -183,7 +183,7 @@ impl Parser {
             if let Some(e) = expr {
                 return Some(UnaryExpression::create_empty_expression(
                     crate::ast::UnaryOp::Minus,
-                    Box::new(e),
+                    e,
                 ));
             }
         }
@@ -193,7 +193,7 @@ impl Parser {
             if let Some(e) = expr {
                 return Some(UnaryExpression::create_empty_expression(
                     crate::ast::UnaryOp::Not,
-                    Box::new(e),
+                    e,
                 ));
             }
         }

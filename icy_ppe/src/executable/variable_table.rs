@@ -594,7 +594,8 @@ impl VariableTable {
 
     pub fn scan_user_variables_version(&self) -> u16 {
         for (i, u_var) in USER_VARIABLES.iter().enumerate() {
-            if self.entries[i].header.variable_type != u_var.value.vtype
+            if i >= self.entries.len()
+                || self.entries[i].header.variable_type != u_var.value.vtype
                 || self.entries[i].header.vector_size != u_var.value.get_vector_size()
             {
                 return if u_var.version > 340 {
@@ -604,7 +605,7 @@ impl VariableTable {
                 } else if u_var.version > 100 {
                     100
                 } else {
-                     0
+                    0
                 };
             }
         }
@@ -818,11 +819,11 @@ lazy_static::lazy_static! {
         UserVariable { name: "U_ADDR", version:100, value:VariableValue::new_vector(
             VariableType::String,
             vec![VariableValue::new_string(String::new()); 5],
-        )  },
-        UserVariable { name: "U_NOTES", version:100, value:VariableValue::new_vector(VariableType::String, vec![VariableValue::new_string(String::new()); 4], ), },
-        UserVariable { name: "U_PWDEXP", version:100, value:VariableValue::new(VariableType::Date, VariableData::default()),  },
+        )},
+        UserVariable { name: "U_NOTES", version:100, value:VariableValue::new_vector(VariableType::String, vec![VariableValue::new_string(String::new()); 4]) },
+        UserVariable { name: "U_PWDEXP", version:100, value:VariableValue::new(VariableType::Date, VariableData::default()) },
 
-        UserVariable { name: "U_ACCOUNT", version:300, value:VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]), },
+        UserVariable { name: "U_ACCOUNT", version:300, value:VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]) },
 
         UserVariable { name: "U_SHORTDESC", version:340, value:VariableValue::new_bool(false) },
         UserVariable { name: "U_GENDER", version:340, value:VariableValue::new_string(String::new()) },

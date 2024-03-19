@@ -1,9 +1,12 @@
 use crate::ast::{
-    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, RenameVisitor, SelectStatement, UnaryExpression, WhileDoStatement
+    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock,
+    ForStatement, IdentifierExpression, IfStatement, IfThenStatement, RenameVisitor,
+    SelectStatement, UnaryExpression, WhileDoStatement,
 };
 
 use super::{
-    rename_visitor::RenameScanVistitor, Expression, HashSet, Program, Statement
+    constant_scan_visitor::ConstantScanVisitor, rename_visitor::RenameScanVistitor, Expression,
+    HashSet, Program, Statement,
 };
 
 pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
@@ -162,7 +165,7 @@ fn scan_select_statements(statements: &mut [Statement]) {
                 )
             });
             statements[i] = SelectStatement::create_empty_statement(
-                Box::new(bin_expr.get_left_expression().clone()),
+                bin_expr.get_left_expression().clone(),
                 case_blocks,
                 case_else_block,
             );
@@ -246,10 +249,10 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                                 }
                                 label_idx
                             };
-                            let cond = Box::new(UnaryExpression::create_empty_expression(
+                            let cond = UnaryExpression::create_empty_expression(
                                 crate::ast::UnaryOp::Not,
-                                Box::new(if_stmt.get_condition().clone()),
-                            ));
+                                if_stmt.get_condition().clone(),
+                            );
                             let mut block: Vec<Statement> =
                                 else_block2.drain(0..label_idx).collect();
 
@@ -289,10 +292,10 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                 }
 
                 statements[i] = IfThenStatement::create_empty_statement(
-                    Box::new(UnaryExpression::create_empty_expression(
+                    UnaryExpression::create_empty_expression(
                         crate::ast::UnaryOp::Not,
-                        Box::new(if_stmt.get_condition().clone()),
-                    )),
+                        if_stmt.get_condition().clone(),
+                    ),
                     if_block,
                     elseif_blocks,
                     else_block,
@@ -330,10 +333,10 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_ifs(&mut statements2);
 
                 statements[i] = IfThenStatement::create_empty_statement(
-                    Box::new(UnaryExpression::create_empty_expression(
+                    UnaryExpression::create_empty_expression(
                         crate::ast::UnaryOp::Not,
-                        Box::new(if_stmt.get_condition().clone()),
-                    )),
+                        if_stmt.get_condition().clone(),
+                    ),
                     statements2,
                     Vec::new(),
                     None,
@@ -505,7 +508,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                     continue;
                 }
 
-                let from_expr = Box::new(outer_let.get_value_expression().clone());
+                let from_expr = outer_let.get_value_expression().clone();
                 let var_name = outer_let.get_identifier().clone();
 
                 statements.remove((matching_goto - 1) as usize); // remove LET
@@ -530,7 +533,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                     statements[i] = ForStatement::create_empty_statement(
                         var_name,
                         from_expr,
-                        Box::new(to_expr),
+                        to_expr,
                         None,
                         statements2,
                     );
@@ -538,7 +541,7 @@ fn scan_for_next(statements: &mut Vec<Statement>) {
                     statements[i] = ForStatement::create_empty_statement(
                         var_name,
                         from_expr,
-                        Box::new(to_expr),
+                        to_expr,
                         Some(Box::new(step_expr)),
                         statements2,
                     );
@@ -557,8 +560,8 @@ fn scan_possible_breaks(block: &mut [Statement], break_label: &unicase::Ascii<St
                 if let Statement::Goto(label) = if_stmt.get_statement() {
                     if label.get_label() == break_label {
                         *cur_stmt = IfStatement::create_empty_statement(
-                            Box::new(if_stmt.get_condition().clone()),
-                            Box::new(BreakStatement::create_empty_statement()),
+                            if_stmt.get_condition().clone(),
+                            BreakStatement::create_empty_statement(),
                         );
                     }
                 }
@@ -581,8 +584,8 @@ fn scan_possible_continues(block: &mut [Statement], continue_label: &unicase::As
                 if let Statement::Goto(label) = if_stmt.get_statement() {
                     if label.get_label() == continue_label {
                         *cur_stmt = IfStatement::create_empty_statement(
-                            Box::new(if_stmt.get_condition().clone()),
-                            Box::new(ContinueStatement::create_empty_statement()),
+                            if_stmt.get_condition().clone(),
+                            ContinueStatement::create_empty_statement(),
                         );
                     }
                 }
@@ -651,10 +654,10 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                     optimize_ifs(&mut statements2);
 
                     statements[i] = WhileDoStatement::create_empty_statement(
-                        Box::new(UnaryExpression::create_empty_expression(
+                        UnaryExpression::create_empty_expression(
                             crate::ast::UnaryOp::Not,
-                            Box::new(if_stmt.get_condition().clone()),
-                        )),
+                            if_stmt.get_condition().clone(),
+                        ),
                         statements2,
                     );
                     statements.remove(i + 1);
@@ -860,11 +863,12 @@ fn strip_unused_labels2(
         i += 1;
     }
 }
- 
+
 #[must_use]
 pub fn do_pass4(prg: &mut Program) -> Program {
     let mut scanner = RenameScanVistitor::default();
     prg.visit(&mut scanner);
+    let prg = prg.visit_mut(&mut ConstantScanVisitor::default());
     let mut renamer = RenameVisitor::new(scanner.rename_map);
     prg.visit_mut(&mut renamer)
 }

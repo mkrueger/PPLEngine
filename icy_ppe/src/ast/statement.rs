@@ -343,26 +343,26 @@ impl IfStatement {
     pub fn new(
         if_token: SpannedToken,
         leftpar_token: SpannedToken,
-        condition: Box<Expression>,
+        condition: Expression,
         rightpar_token: SpannedToken,
-        statement: Box<Statement>,
+        statement: Statement,
     ) -> Self {
         Self {
             if_token,
             leftpar_token,
-            condition,
+            condition: Box::new(condition),
             rightpar_token,
-            statement,
+            statement: Box::new(statement),
         }
     }
 
-    pub fn empty(condition: Box<Expression>, statement: Box<Statement>) -> Self {
+    pub fn empty(condition: Expression, statement: Statement) -> Self {
         Self {
             if_token: SpannedToken::create_empty(Token::While),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
-            condition,
+            condition: Box::new(condition),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            statement,
+            statement: Box::new(statement),
         }
     }
 
@@ -393,14 +393,11 @@ impl IfStatement {
         &mut self.statement
     }
 
-    pub fn set_statement(&mut self, statement: Box<Statement>) {
-        self.statement = statement;
+    pub fn set_statement(&mut self, statement: Statement) {
+        self.statement = Box::new(statement);
     }
 
-    pub fn create_empty_statement(
-        condition: Box<Expression>,
-        statement: Box<Statement>,
-    ) -> Statement {
+    pub fn create_empty_statement(condition: Expression, statement: Statement) -> Statement {
         Statement::If(IfStatement::empty(condition, statement))
     }
 }
@@ -419,7 +416,7 @@ impl ElseIfBlock {
     pub fn new(
         elseif_token: SpannedToken,
         leftpar_token: SpannedToken,
-        cond: Box<Expression>,
+        cond: Expression,
         rightpar_token: SpannedToken,
         then_token: SpannedToken,
         statements: Vec<Statement>,
@@ -427,18 +424,18 @@ impl ElseIfBlock {
         Self {
             elseif_token,
             leftpar_token,
-            cond,
+            cond: Box::new(cond),
             rightpar_token,
             then_token,
             statements,
         }
     }
 
-    pub fn empty(cond: Box<Expression>, statements: Vec<Statement>) -> Self {
+    pub fn empty(cond: Expression, statements: Vec<Statement>) -> Self {
         Self {
             elseif_token: SpannedToken::create_empty(Token::ElseIf),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
-            cond,
+            cond: Box::new(cond),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
             then_token: SpannedToken::create_empty(Token::Then),
             statements,
@@ -541,7 +538,7 @@ impl IfThenStatement {
     pub fn new(
         if_token: SpannedToken,
         leftpar_token: SpannedToken,
-        condition: Box<Expression>,
+        condition: Expression,
         rightpar_token: SpannedToken,
         then_token: SpannedToken,
         statements: Vec<Statement>,
@@ -552,7 +549,7 @@ impl IfThenStatement {
         Self {
             if_token,
             leftpar_token,
-            condition,
+            condition: Box::new(condition),
             rightpar_token,
             then_token,
             statements,
@@ -614,7 +611,7 @@ impl IfThenStatement {
     }
 
     pub fn empty(
-        condition: Box<Expression>,
+        condition: Expression,
         statements: Vec<Statement>,
         else_if_blocks: Vec<ElseIfBlock>,
         else_block: Option<ElseBlock>,
@@ -622,7 +619,7 @@ impl IfThenStatement {
         Self {
             if_token: SpannedToken::create_empty(Token::If),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
-            condition,
+            condition: Box::new(condition),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
             then_token: SpannedToken::create_empty(Token::Then),
             statements,
@@ -633,7 +630,7 @@ impl IfThenStatement {
     }
 
     pub fn create_empty_statement(
-        condition: Box<Expression>,
+        condition: Expression,
         statements: Vec<Statement>,
         else_if_blocks: Vec<ElseIfBlock>,
         else_block: Option<ElseBlock>,
@@ -660,26 +657,26 @@ impl WhileStatement {
     pub fn new(
         while_token: SpannedToken,
         leftpar_token: SpannedToken,
-        condition: Box<Expression>,
+        condition: Expression,
         rightpar_token: SpannedToken,
-        statement: Box<Statement>,
+        statement: Statement,
     ) -> Self {
         Self {
             while_token,
             leftpar_token,
-            condition,
+            condition: Box::new(condition),
             rightpar_token,
-            statement,
+            statement: Box::new(statement),
         }
     }
 
-    pub fn empty(condition: Box<Expression>, statement: Box<Statement>) -> Self {
+    pub fn empty(condition: Expression, statement: Statement) -> Self {
         Self {
             while_token: SpannedToken::create_empty(Token::While),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
-            condition,
+            condition: Box::new(condition),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            statement,
+            statement: Box::new(statement),
         }
     }
 
@@ -710,10 +707,7 @@ impl WhileStatement {
         &mut self.statement
     }
 
-    pub fn create_empty_statement(
-        condition: Box<Expression>,
-        statement: Box<Statement>,
-    ) -> Statement {
+    pub fn create_empty_statement(condition: Expression, statement: Statement) -> Statement {
         Statement::While(WhileStatement::empty(condition, statement))
     }
 }
@@ -733,7 +727,7 @@ impl WhileDoStatement {
     pub fn new(
         while_token: SpannedToken,
         leftpar_token: SpannedToken,
-        condition: Box<Expression>,
+        condition: Expression,
         rightpar_token: SpannedToken,
         do_token: SpannedToken,
         statements: Vec<Statement>,
@@ -742,7 +736,7 @@ impl WhileDoStatement {
         Self {
             while_token,
             leftpar_token,
-            condition,
+            condition: Box::new(condition),
             rightpar_token,
             do_token,
             statements,
@@ -750,11 +744,11 @@ impl WhileDoStatement {
         }
     }
 
-    pub fn empty(condition: Box<Expression>, statements: Vec<Statement>) -> Self {
+    pub fn empty(condition: Expression, statements: Vec<Statement>) -> Self {
         Self {
             while_token: SpannedToken::create_empty(Token::While),
             leftpar_token: SpannedToken::create_empty(Token::LPar),
-            condition,
+            condition: Box::new(condition),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
             do_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 "Do".to_string(),
@@ -800,10 +794,7 @@ impl WhileDoStatement {
         &self.endwhile_token
     }
 
-    pub fn create_empty_statement(
-        condition: Box<Expression>,
-        statements: Vec<Statement>,
-    ) -> Statement {
+    pub fn create_empty_statement(condition: Expression, statements: Vec<Statement>) -> Statement {
         Statement::WhileDo(WhileDoStatement::empty(condition, statements))
     }
 }
@@ -828,9 +819,9 @@ impl ForStatement {
         for_token: SpannedToken,
         identifier_token: SpannedToken,
         eq_token: SpannedToken,
-        start_expr: Box<Expression>,
+        start_expr: Expression,
         to_token: SpannedToken,
-        end_expr: Box<Expression>,
+        end_expr: Expression,
         step_token: Option<SpannedToken>,
         step_expr: Option<Box<Expression>>,
         statements: Vec<Statement>,
@@ -840,9 +831,9 @@ impl ForStatement {
             for_token,
             identifier_token,
             eq_token,
-            start_expr,
+            start_expr: Box::new(start_expr),
             to_token,
-            end_expr,
+            end_expr: Box::new(end_expr),
             step_token,
             step_expr,
             statements,
@@ -852,8 +843,8 @@ impl ForStatement {
 
     pub fn empty(
         variable_name: unicase::Ascii<String>,
-        start_expr: Box<Expression>,
-        end_expr: Box<Expression>,
+        start_expr: Expression,
+        end_expr: Expression,
         step_expr: Option<Box<Expression>>,
         statements: Vec<Statement>,
     ) -> Self {
@@ -861,11 +852,11 @@ impl ForStatement {
             for_token: SpannedToken::create_empty(Token::For),
             identifier_token: SpannedToken::create_empty(Token::Identifier(variable_name)),
             eq_token: SpannedToken::create_empty(Token::Eq),
-            start_expr,
+            start_expr: Box::new(start_expr),
             to_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                 "TO".to_string(),
             ))),
-            end_expr,
+            end_expr: Box::new(end_expr),
             step_token: step_expr.as_ref().map(|_| {
                 SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
                     "Step".to_string(),
@@ -953,8 +944,8 @@ impl ForStatement {
 
     pub fn create_empty_statement(
         variable_name: unicase::Ascii<String>,
-        start_expr: Box<Expression>,
-        end_expr: Box<Expression>,
+        start_expr: Expression,
+        end_expr: Expression,
         step_expr: Option<Box<Expression>>,
         statements: Vec<Statement>,
     ) -> Statement {
@@ -976,14 +967,10 @@ pub struct CaseBlock {
 }
 
 impl CaseBlock {
-    pub fn new(
-        case_token: SpannedToken,
-        expr: Box<Expression>,
-        statements: Vec<Statement>,
-    ) -> Self {
+    pub fn new(case_token: SpannedToken, expr: Expression, statements: Vec<Statement>) -> Self {
         Self {
             case_token,
-            expression: expr,
+            expression: Box::new(expr),
             statements,
         }
     }
@@ -1036,7 +1023,7 @@ impl SelectStatement {
     pub fn new(
         select_token: SpannedToken,
         case_token: SpannedToken,
-        expr: Box<Expression>,
+        expr: Expression,
         case_blocks: Vec<CaseBlock>,
         case_else_block: Option<CaseBlock>,
         endselect_token: SpannedToken,
@@ -1044,7 +1031,7 @@ impl SelectStatement {
         Self {
             select_token,
             case_token,
-            expression: expr,
+            expression: Box::new(expr),
             case_blocks,
             case_else_block,
             endselect_token,
@@ -1052,14 +1039,14 @@ impl SelectStatement {
     }
 
     pub fn empty(
-        expr: Box<Expression>,
+        expr: Expression,
         case_blocks: Vec<CaseBlock>,
         case_else_block: Option<CaseBlock>,
     ) -> Self {
         Self {
             select_token: SpannedToken::create_empty(Token::Select),
             case_token: SpannedToken::create_empty(Token::Case),
-            expression: expr,
+            expression: Box::new(expr),
             case_blocks,
             case_else_block,
             endselect_token: SpannedToken::create_empty(Token::EndSelect),
@@ -1106,7 +1093,7 @@ impl SelectStatement {
     }
 
     pub fn create_empty_statement(
-        expr: Box<Expression>,
+        expr: Expression,
         case_blocks: Vec<CaseBlock>,
         case_else_block: Option<CaseBlock>,
     ) -> Statement {
@@ -1433,7 +1420,7 @@ impl LetStatement {
         arguments: Vec<Expression>,
         rightpar_token: Option<SpannedToken>,
         eq_token: SpannedToken,
-        value_expression: Box<Expression>,
+        value_expression: Expression,
     ) -> Self {
         Self {
             let_token,
@@ -1442,14 +1429,14 @@ impl LetStatement {
             arguments,
             rightpar_token,
             eq_token,
-            value_expression,
+            value_expression: Box::new(value_expression),
         }
     }
 
     pub fn empty(
         identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
-        value_expression: Box<Expression>,
+        value_expression: Expression,
     ) -> Self {
         Self {
             let_token: None,
@@ -1458,7 +1445,7 @@ impl LetStatement {
             arguments,
             rightpar_token: None,
             eq_token: SpannedToken::create_empty(Token::Eq),
-            value_expression,
+            value_expression: Box::new(value_expression),
         }
     }
 
@@ -1514,7 +1501,7 @@ impl LetStatement {
     pub fn create_empty_statement(
         identifier: unicase::Ascii<String>,
         arguments: Vec<Expression>,
-        value_expression: Box<Expression>,
+        value_expression: Expression,
     ) -> Statement {
         Statement::Let(LetStatement::empty(identifier, arguments, value_expression))
     }
@@ -1582,7 +1569,7 @@ impl Statement {
                         }
                         UnaryExpression::create_empty_expression(
                             un_expr.get_op(),
-                            Box::new(Statement::try_boolean_conversion(un_expr.get_expression())),
+                            Statement::try_boolean_conversion(un_expr.get_expression()),
                         )
                     }
                     _ => expr.clone(),

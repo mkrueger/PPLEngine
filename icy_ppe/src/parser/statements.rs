@@ -99,7 +99,7 @@ impl Parser {
             Some(Statement::WhileDo(WhileDoStatement::new(
                 while_token,
                 lpar_token,
-                Box::new(cond),
+                cond,
                 rightpar_token,
                 do_token,
                 statements.into_iter().flatten().collect(),
@@ -112,9 +112,9 @@ impl Parser {
                 Some(Statement::While(WhileStatement::new(
                     while_token,
                     lpar_token,
-                    Box::new(cond),
+                    cond,
                     rightpar_token,
-                    Box::new(stmt),
+                    stmt,
                 )))
             } else {
                 self.errors
@@ -243,9 +243,9 @@ impl Parser {
             for_token,
             identifier_token,
             eq_token,
-            Box::new(start_expr),
+            start_expr,
             to_token,
-            Box::new(end_expr),
+            end_expr,
             step_token,
             step_expr,
             statements.into_iter().flatten().collect(),
@@ -295,9 +295,9 @@ impl Parser {
                 return Some(Statement::If(IfStatement::new(
                     if_token,
                     lpar_token,
-                    Box::new(cond),
+                    cond,
                     rightpar_token,
-                    Box::new(stmt),
+                    stmt,
                 )));
             }
             self.errors
@@ -425,7 +425,7 @@ impl Parser {
                 else_if_blocks.push(ElseIfBlock::new(
                     else_if_token,
                     else_if_lpar_token,
-                    Box::new(cond),
+                    cond,
                     else_if_rightpar_token,
                     then_token,
                     statements.into_iter().flatten().collect(),
@@ -489,7 +489,7 @@ impl Parser {
         Some(Statement::IfThen(IfThenStatement::new(
             if_token,
             lpar_token,
-            Box::new(cond),
+            cond,
             rightpar_token,
             then_token,
             statements.into_iter().flatten().collect(),
@@ -558,9 +558,7 @@ impl Parser {
                 }
                 else_block = Some(CaseBlock::new(
                     inner_case_token,
-                    Box::new(Expression::Identifier(IdentifierExpression::new(
-                        else_token,
-                    ))),
+                    Expression::Identifier(IdentifierExpression::new(else_token)),
                     statements.into_iter().flatten().collect(),
                 ));
                 break;
@@ -601,7 +599,7 @@ impl Parser {
             }
             case_blocks.push(CaseBlock::new(
                 inner_case_token,
-                Box::new(expr),
+                expr,
                 statements.into_iter().flatten().collect(),
             ));
         }
@@ -612,7 +610,7 @@ impl Parser {
         Some(Statement::Select(SelectStatement::new(
             select_token,
             case_token,
-            Box::new(case_expr),
+            case_expr,
             case_blocks,
             else_block,
             end_select_token.unwrap(),
@@ -740,7 +738,7 @@ impl Parser {
                         params,
                         rightpar_token,
                         eq_token,
-                        Box::new(value_expression),
+                        value_expression,
                     )));
                 }
 
@@ -883,12 +881,13 @@ impl Parser {
                     }
                 }
 
-                if def.opcode == OpCode::GETUSER ||
-                def.opcode == OpCode::PUTUSER ||
-                def.opcode == OpCode::GETALTUSER ||
-                def.opcode == OpCode::FREALTUSER ||
-                def.opcode == OpCode::DELUSER ||
-                def.opcode == OpCode::ADDUSER {
+                if def.opcode == OpCode::GETUSER
+                    || def.opcode == OpCode::PUTUSER
+                    || def.opcode == OpCode::GETALTUSER
+                    || def.opcode == OpCode::FREALTUSER
+                    || def.opcode == OpCode::DELUSER
+                    || def.opcode == OpCode::ADDUSER
+                {
                     self.require_user_variables = true;
                 }
 
@@ -916,7 +915,7 @@ impl Parser {
                 Vec::new(),
                 None,
                 eq_token,
-                Box::new(value_expression),
+                value_expression,
             )));
         }
 
@@ -969,7 +968,7 @@ impl Parser {
                         params,
                         Some(rightpar_token),
                         eq_token,
-                        Box::new(value_expression),
+                        value_expression,
                     )));
                 }
                 self.errors

@@ -1,7 +1,4 @@
-use crate::{
-    ast::{constant::BuiltinConst, BinOp},
-    executable::VariableType,
-};
+use crate::{ast::BinOp, executable::VariableType};
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp
@@ -67,82 +64,6 @@ pub const TYPE_NAMES: [VariableType; 18] = [
     VariableType::Unknown,
     VariableType::DDate,
 ];
-
-pub const CONSTANT_2_NAMES: [BuiltinConst; 18] = [
-    BuiltinConst::START_BAL,
-    BuiltinConst::START_SESSION,
-    BuiltinConst::DEB_CALL,
-    BuiltinConst::DEB_TIME,
-    BuiltinConst::DEB_MSGREAD,
-    BuiltinConst::DEB_MSGCAP,
-    BuiltinConst::DEB_MSGWRITE,
-    BuiltinConst::DEB_MSGECHOED,
-    BuiltinConst::DEB_MSGPRIVATE,
-    BuiltinConst::DEB_DOWNFILE,
-    BuiltinConst::DEB_DOWNBYTES,
-    BuiltinConst::DEB_CHAT,
-    BuiltinConst::DEB_TPU,
-    BuiltinConst::DEB_SPECIAL,
-    BuiltinConst::CRED_UPFILE,
-    BuiltinConst::CRED_UPBYTES,
-    BuiltinConst::CRED_SPECIAL,
-    BuiltinConst::SEC_DROP,
-];
-
-pub const CONSTANT_CONFERENCE_NAMES: [BuiltinConst; 5] = [
-    BuiltinConst::F_EXP,
-    BuiltinConst::F_MW,
-    BuiltinConst::F_REG,
-    BuiltinConst::F_SEL,
-    BuiltinConst::F_SYS,
-];
-
-pub const CONSTANT_NAMES_DISPLAY: [BuiltinConst; 4] = [
-    BuiltinConst::DEFS,
-    BuiltinConst::GRAPH,
-    BuiltinConst::LANG,
-    BuiltinConst::SEC,
-];
-
-pub const CONSTANT_FACCESS_NAMES: [BuiltinConst; 3] =
-    [BuiltinConst::O_RD, BuiltinConst::O_RW, BuiltinConst::O_WR];
-
-pub const CONSTANT_SEEK_NAMES: [BuiltinConst; 3] = [
-    BuiltinConst::SEEK_CUR,
-    BuiltinConst::SEEK_END,
-    BuiltinConst::SEEK_SET,
-];
-
-pub const CONSTANT_OPENFLAGS_NAMES: [BuiltinConst; 4] = [
-    BuiltinConst::S_DB,
-    BuiltinConst::S_DN,
-    BuiltinConst::S_DR,
-    BuiltinConst::S_DW,
-];
-
-pub const CONSTANT_1_NAMES: [BuiltinConst; 18] = [
-    BuiltinConst::AUTO,
-    BuiltinConst::BELL,
-    BuiltinConst::DEFS,
-    BuiltinConst::ECHODOTS,
-    BuiltinConst::ERASELINE,
-    BuiltinConst::FIELDLEN,
-    BuiltinConst::GUIDE,
-    BuiltinConst::HIGHASCII,
-    BuiltinConst::LFAFTER,
-    BuiltinConst::LFBEFORE,
-    BuiltinConst::LOGIT,
-    BuiltinConst::LOGITLEFT,
-    BuiltinConst::NEWLINE,
-    BuiltinConst::NOCLEAR,
-    BuiltinConst::STACKED,
-    BuiltinConst::UPCASE,
-    BuiltinConst::WORDWRAP,
-    BuiltinConst::YESNO,
-];
-
-pub const CONSTANT_LINECOUNT_NAMES: [BuiltinConst; 3] =
-    [BuiltinConst::FCL, BuiltinConst::FNS, BuiltinConst::NC];
 
 pub const BIN_EXPR: [BinOp; 19] = [
     BinOp::Add, // END

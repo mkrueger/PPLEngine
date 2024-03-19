@@ -11,7 +11,6 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
 struct Args {
-
     /// Don't egnerate a binary just output the disassembly
     #[arg(short, long)]
     disassemble: bool,

@@ -54,12 +54,11 @@ pub struct VariableNameGenerator {
 
 impl VariableNameGenerator {
     pub fn get_next_name(&mut self, decl: &TableEntry) -> (String, bool) {
-        let var_idx = decl.header.id  - 1;
-        if var_idx < USER_VARIABLES.len() && self.user_vars_version >= USER_VARIABLES[var_idx].version {
-            return (
-                USER_VARIABLES[var_idx].name.to_string(),
-                true,
-            );
+        let var_idx = decl.header.id - 1;
+        if var_idx < USER_VARIABLES.len()
+            && self.user_vars_version >= USER_VARIABLES[var_idx].version
+        {
+            return (USER_VARIABLES[var_idx].name.to_string(), true);
         }
 
         if decl.get_type() == EntryType::Constant {
@@ -115,7 +114,6 @@ impl VariableNameGenerator {
         };
         (name, false)
     }
-
 
     pub fn new(version: u16, user_vars_version: u16) -> Self {
         Self {

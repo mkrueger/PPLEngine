@@ -10,8 +10,8 @@ pub struct RenameScanVistitor {
     pub rename_map: HashMap<unicase::Ascii<String>, unicase::Ascii<String>>,
     cur_index_var: usize,
     file_names: usize,
-    x_coords : usize,
-    y_coords : usize,
+    x_coords: usize,
+    y_coords: usize,
 }
 
 const INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];

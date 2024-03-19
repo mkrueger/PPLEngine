@@ -320,7 +320,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_unary_expression(&mut self, unary: &UnaryExpression) -> Expression {
         let expr = unary.get_expression().visit_mut(self);
-        Expression::Unary(UnaryExpression::empty(unary.get_op(), Box::new(expr)))
+        Expression::Unary(UnaryExpression::empty(unary.get_op(), expr))
     }
 
     fn visit_predefined_function_call_expression(
@@ -375,14 +375,14 @@ pub trait AstVisitorMut: Sized {
     }
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
         Statement::If(IfStatement::empty(
-            Box::new(if_stmt.get_condition().visit_mut(self)),
-            Box::new(if_stmt.get_statement().visit_mut(self)),
+            if_stmt.get_condition().visit_mut(self),
+            if_stmt.get_statement().visit_mut(self),
         ))
     }
 
     fn visit_if_then_statement(&mut self, if_then: &IfThenStatement) -> Statement {
         Statement::IfThen(IfThenStatement::empty(
-            Box::new(if_then.get_condition().visit_mut(self)),
+            if_then.get_condition().visit_mut(self),
             if_then
                 .get_statements()
                 .iter()
@@ -402,7 +402,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_else_if_block(&mut self, else_if: &ElseIfBlock) -> ElseIfBlock {
         ElseIfBlock::empty(
-            Box::new(else_if.get_condition().visit_mut(self)),
+            else_if.get_condition().visit_mut(self),
             else_if
                 .get_statements()
                 .iter()
@@ -423,7 +423,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_select_statement(&mut self, select_stmt: &SelectStatement) -> Statement {
         Statement::Select(SelectStatement::empty(
-            Box::new(select_stmt.get_expression().visit_mut(self)),
+            select_stmt.get_expression().visit_mut(self),
             select_stmt
                 .get_case_blocks()
                 .iter()
@@ -449,14 +449,14 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> Statement {
         Statement::While(WhileStatement::empty(
-            Box::new(while_stmt.get_condition().visit_mut(self)),
-            Box::new(while_stmt.get_statement().visit_mut(self)),
+            while_stmt.get_condition().visit_mut(self),
+            while_stmt.get_statement().visit_mut(self),
         ))
     }
 
     fn visit_while_do_statement(&mut self, while_do: &WhileDoStatement) -> Statement {
         Statement::WhileDo(WhileDoStatement::empty(
-            Box::new(while_do.get_condition().visit_mut(self)),
+            while_do.get_condition().visit_mut(self),
             while_do
                 .get_statements()
                 .iter()
@@ -468,8 +468,8 @@ pub trait AstVisitorMut: Sized {
     fn visit_for_statement(&mut self, for_stmt: &ForStatement) -> Statement {
         Statement::For(ForStatement::empty(
             self.visit_identifier(for_stmt.get_identifier()),
-            Box::new(for_stmt.get_start_expr().visit_mut(self)),
-            Box::new(for_stmt.get_end_expr().visit_mut(self)),
+            for_stmt.get_start_expr().visit_mut(self),
+            for_stmt.get_end_expr().visit_mut(self),
             for_stmt
                 .get_step_expr()
                 .as_ref()
@@ -503,7 +503,7 @@ pub trait AstVisitorMut: Sized {
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
-            Box::new(let_stmt.get_value_expression().visit_mut(self)),
+            let_stmt.get_value_expression().visit_mut(self),
         ))
     }
 

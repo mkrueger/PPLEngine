@@ -1,11 +1,20 @@
 f = open("constants.dat", "r")
-for line in f:
-	split = line.split(",")	
-	print("     #[token(\""+split[0].strip()+"\", |_| Constant::Builtin(&BuiltinConst::"+split[0].strip()+"), ignore(case))]") 
 print("------------------")
 f = open("constants.dat", "r")
-for line in f:
-	split = line.split(",")	
-	print("        m.insert(unicase::Ascii::new(\""+split[0].strip()+"\".to_string()), Token::Const(Constant::Builtin(&BuiltinConst::"+split[0].strip()+")));") 
 
-#	print("    pub const " + split[0].strip() +": BuiltinConst = BuiltinConst::new(\""+ split[0].strip() + "\", "+ split[1].strip() +");") 
+categories = {}
+
+for line in f:
+	line = line.strip()
+	if line == "":
+		continue
+	split = line.split(",")	
+	v = split[2].strip().split("+")	
+	for i in range(len(v)):
+		categories[v[i]] = 1
+		v[i] = "ConstantType::"+v[i] 
+	print(" BuiltinConst { name: \""+split[0].strip()+"\", value: "+split[1].strip()+", used_by: &["+','.join(v)+"]},")
+
+print()
+for key, cat in categories.items():
+	print(key + ",")

@@ -47,7 +47,7 @@ impl fmt::Display for BinOp {
 }
 
 #[repr(i16)]
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Eq)]
 pub enum UnaryOp {
     Plus = -2,
     Minus = -3,
@@ -497,21 +497,21 @@ pub struct UnaryExpression {
 }
 
 impl UnaryExpression {
-    pub fn new(op_token: SpannedToken, expression: Box<Expression>) -> Self {
+    pub fn new(op_token: SpannedToken, expression: Expression) -> Self {
         Self {
             op_token,
-            expression,
+            expression: Box::new(expression),
         }
     }
 
-    pub fn empty(op: UnaryOp, expression: Box<Expression>) -> Self {
+    pub fn empty(op: UnaryOp, expression: Expression) -> Self {
         Self {
             op_token: SpannedToken::create_empty(match op {
                 UnaryOp::Plus => Token::Add,
                 UnaryOp::Minus => Token::Sub,
                 UnaryOp::Not => Token::Not,
             }),
-            expression,
+            expression: Box::new(expression),
         }
     }
 
@@ -541,7 +541,7 @@ impl UnaryExpression {
         &mut self.expression
     }
 
-    pub(crate) fn create_empty_expression(op: UnaryOp, expression: Box<Expression>) -> Expression {
+    pub(crate) fn create_empty_expression(op: UnaryOp, expression: Expression) -> Expression {
         Expression::Unary(UnaryExpression::empty(op, expression))
     }
 }

@@ -171,6 +171,22 @@ fn test_if_then_ifelse_statement() {
             None,
         ),
     );
+
+    check_statement(
+        r"if (A) THEN
+        ELSE IF (B) THEN
+            CONTINUE
+        END IF",
+        &IfThenStatement::create_empty_statement(
+            IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
+            vec![],
+            vec![ElseIfBlock::empty(
+                IdentifierExpression::create_empty_expression(unicase::Ascii::new("B".to_string())),
+                vec![ContinueStatement::create_empty_statement()],
+            )],
+            None,
+        ),
+    );
 }
 
 #[test]

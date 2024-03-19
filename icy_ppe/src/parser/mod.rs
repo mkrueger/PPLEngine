@@ -156,6 +156,8 @@ pub struct Parser {
     pub require_user_variables: bool,
 
     cur_token: Option<SpannedToken>,
+    lookahead_token: Option<SpannedToken>,
+
     lex: Lexer,
 }
 
@@ -166,6 +168,7 @@ impl Parser {
             errors: Vec::new(),
             warnings: Vec::new(),
             cur_token: None,
+            lookahead_token: None,
             lex,
             require_user_variables: false,
         }
@@ -181,10 +184,68 @@ impl Parser {
     ///
     /// Panics if .
     pub fn next_token(&mut self) -> Option<SpannedToken> {
+        if let Some(token) = self.lookahead_token.take() {
+            self.cur_token = Some(token);
+            return self.cur_token.clone();
+        }
+
         if let Some(token) = self.lex.next_token() {
             match token {
                 Ok(token) => {
+                    let is_else = token == Token::Else;
+                    let is_end = token == Token::End;
                     self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
+
+                    if is_else {
+                        if let Some(Ok(lookahed)) = self.lex.next_token() {
+                            if lookahed == Token::If {
+                                self.cur_token = Some(SpannedToken::new(
+                                    Token::ElseIf,
+                                    self.lex.span(),
+                                ));
+                            } else {
+                                self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                            }
+                        }
+                    } else if is_end {
+                        if let Some(Ok(lookahed)) = self.lex.next_token() {
+                            match lookahed {
+                                Token::If => {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndIf,
+                                        self.lex.span(),
+                                    ));
+                                } 
+                                Token::While => {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndWhile,
+                                        self.lex.span(),
+                                    ));
+                                } 
+                                Token::Select => {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndSelect,
+                                        self.lex.span(),
+                                    ));
+                                } 
+                                Token::Procedure => {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndProc,
+                                        self.lex.span(),
+                                    ));
+                                } 
+                                Token::Function => {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndFunc,
+                                        self.lex.span(),
+                                    ));
+                                } 
+                                _ => {
+                                    self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                                }
+                            }
+                        }
+                    }
                 }
                 Err(err) => {
                     self.errors.push(Error::TokenizerError(err));

@@ -73,21 +73,6 @@ impl Parser {
                         }));
                     return None;
                 }
-                if let Some(Token::End) = self.get_cur_token() {
-                    let ct = self.save_spannedtoken();
-                    self.next_token();
-                    if let Some(Token::While) = self.get_cur_token() {
-                        end_while_token = Some(SpannedToken {
-                            token: Token::EndWhile,
-                            span: ct.span.start..self.lex.span().end,
-                        });
-                        break;
-                    }
-                    self.skip_eol();
-
-                    statements.push(Some(Statement::End(EndStatement::new(ct))));
-                    continue;
-                }
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
@@ -328,113 +313,85 @@ impl Parser {
                     }));
                 return None;
             }
-            if let Some(Token::End) = self.get_cur_token() {
-                let ct = self.save_spannedtoken();
-                self.next_token();
-                if let Some(Token::If) = self.get_cur_token() {
-                    end_if_token = Some(SpannedToken {
-                        token: Token::EndIf,
-                        span: ct.span.start..self.lex.span().end,
-                    });
-                    break;
-                }
-                self.skip_eol();
-                statements.push(Some(Statement::End(EndStatement::new(ct))));
-                continue;
-            }
+
             statements.push(self.parse_statement());
             self.skip_eol();
         }
 
         let mut else_if_blocks = Vec::new();
-        if self.get_cur_token() == Some(Token::ElseIf) {
-            while self.get_cur_token() == Some(Token::ElseIf) {
-                let else_if_token = self.save_spannedtoken();
+        while self.get_cur_token() == Some(Token::ElseIf) {
+            let else_if_token = self.save_spannedtoken();
 
-                self.next_token();
+            self.next_token();
 
-                if self.get_cur_token() != Some(Token::LPar) {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingOpenParens(self.save_token()),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                }
-                let else_if_lpar_token = self.save_spannedtoken();
-
-                self.next_token();
-                let Some(cond) = self.parse_expression() else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::ExpressionExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                };
-
-                if self.get_cur_token() != Some(Token::RPar) {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.save_token()),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                }
-                let else_if_rightpar_token = self.save_spannedtoken();
-                self.next_token();
-                if self.get_cur_token() != Some(Token::Then) {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::ThenExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                }
-                let then_token = self.save_spannedtoken();
-                self.next_token();
-
-                let mut statements = Vec::new();
-                while self.get_cur_token() != Some(Token::EndIf)
-                    && self.get_cur_token() != Some(Token::Else)
-                    && self.get_cur_token() != Some(Token::ElseIf)
-                {
-                    if self.get_cur_token().is_none() {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::EndExpected,
-                                range: self.lex.span(),
-                            }));
-                        return None;
-                    }
-
-                    if let Some(Token::End) = self.get_cur_token() {
-                        let ct = self.save_spannedtoken();
-                        self.next_token();
-                        if let Some(Token::If) = self.get_cur_token() {
-                            end_if_token = Some(SpannedToken {
-                                token: Token::EndIf,
-                                span: ct.span.start..self.lex.span().end,
-                            });
-                            break;
-                        }
-                        self.skip_eol();
-                        statements.push(Some(Statement::End(EndStatement::new(ct))));
-                        continue;
-                    }
-                    statements.push(self.parse_statement());
-                    self.skip_eol();
-                }
-                else_if_blocks.push(ElseIfBlock::new(
-                    else_if_token,
-                    else_if_lpar_token,
-                    cond,
-                    else_if_rightpar_token,
-                    then_token,
-                    statements.into_iter().flatten().collect(),
-                ));
+            if self.get_cur_token() != Some(Token::LPar) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingOpenParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
             }
-        };
+            let else_if_lpar_token = self.save_spannedtoken();
+
+            self.next_token();
+            let Some(cond) = self.parse_expression() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::ExpressionExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            };
+
+            if self.get_cur_token() != Some(Token::RPar) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::MissingCloseParens(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
+            let else_if_rightpar_token = self.save_spannedtoken();
+            self.next_token();
+            if self.get_cur_token() != Some(Token::Then) {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::ThenExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            }
+            let then_token = self.save_spannedtoken();
+            self.next_token();
+
+            let mut statements = Vec::new();
+            while self.get_cur_token() != Some(Token::EndIf)
+                && self.get_cur_token() != Some(Token::Else)
+                && self.get_cur_token() != Some(Token::ElseIf)
+            {
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+
+                statements.push(self.parse_statement());
+                self.skip_eol();
+            }
+            
+            else_if_blocks.push(ElseIfBlock::new(
+                else_if_token,
+                else_if_lpar_token,
+                cond,
+                else_if_rightpar_token,
+                then_token,
+                statements.into_iter().flatten().collect(),
+            ));
+        }
 
         let else_block = if self.get_cur_token() == Some(Token::Else) {
             let else_token = self.save_spannedtoken();
@@ -452,21 +409,6 @@ impl Parser {
                     return None;
                 }
 
-                if let Some(Token::End) = self.get_cur_token() {
-                    let ct = self.save_spannedtoken();
-                    self.next_token();
-                    if let Some(Token::If) = self.get_cur_token() {
-                        end_if_token = Some(SpannedToken {
-                            token: Token::EndIf,
-                            span: ct.span.start..self.lex.span().end,
-                        });
-                        break;
-                    }
-                    self.skip_eol();
-                    statements.push(Statement::End(EndStatement::new(ct)));
-                    continue;
-                }
-
                 if let Some(stmt) = self.parse_statement() {
                     statements.push(stmt);
                 }
@@ -477,7 +419,7 @@ impl Parser {
             None
         };
 
-        if self.get_cur_token() != Some(Token::EndIf) && self.get_cur_token() != Some(Token::If) {
+        if self.get_cur_token() != Some(Token::EndIf) {
             self.errors
                 .push(crate::parser::Error::ParserError(ParserError {
                     error: ParserErrorType::InvalidToken(self.save_token()),
@@ -582,21 +524,6 @@ impl Parser {
                     return None;
                 }
 
-                if let Some(Token::End) = self.get_cur_token() {
-                    let ct = self.save_spannedtoken();
-                    self.next_token();
-                    if let Some(Token::Select) = self.get_cur_token() {
-                        end_select_token = Some(SpannedToken {
-                            token: Token::EndSelect,
-                            span: ct.span.start..self.lex.span().end,
-                        });
-                        break;
-                    }
-                    self.skip_eol();
-                    statements.push(Some(Statement::End(EndStatement::new(ct))));
-                    continue;
-                }
-
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
@@ -650,20 +577,6 @@ impl Parser {
                 return;
             }
 
-            if let Some(Token::End) = self.get_cur_token() {
-                let ct = self.save_spannedtoken();
-                self.next_token();
-                if let Some(Token::Select) = self.get_cur_token() {
-                    *end_select_token = Some(SpannedToken {
-                        token: Token::EndSelect,
-                        span: ct.span.start..self.lex.span().end,
-                    });
-                    break;
-                }
-                self.skip_eol();
-                default_statements.push(Statement::End(EndStatement::new(ct)));
-                continue;
-            }
             if let Some(stmt) = self.parse_statement() {
                 default_statements.push(stmt);
             }

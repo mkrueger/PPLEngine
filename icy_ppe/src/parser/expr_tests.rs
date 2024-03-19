@@ -11,7 +11,9 @@ use std::path::PathBuf;
 fn parse_expression(input: &str) -> Expression {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
-    parser.parse_expression().unwrap()
+    let res = parser.parse_expression().unwrap();
+    assert!(parser.next_token().is_none());
+    res
 }
 
 fn check_expression(input: &str, check: &Expression) {

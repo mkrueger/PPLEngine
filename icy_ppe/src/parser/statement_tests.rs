@@ -12,7 +12,9 @@ use super::Parser;
 fn parse_statement(input: &str) -> Statement {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
-    parser.parse_statement().unwrap()
+    let res = parser.parse_statement().unwrap();
+    assert!(parser.next_token().is_none());
+    res
 }
 
 fn check_statement(input: &str, check: &Statement) {

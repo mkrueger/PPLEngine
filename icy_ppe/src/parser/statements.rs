@@ -238,6 +238,8 @@ impl Parser {
             self.skip_eol();
         }
         let next_token = self.save_spannedtoken();
+        // skip next
+        self.next_token();
 
         Some(Statement::For(ForStatement::new(
             for_token,
@@ -331,7 +333,7 @@ impl Parser {
                 self.next_token();
                 if let Some(Token::If) = self.get_cur_token() {
                     end_if_token = Some(SpannedToken {
-                        token: Token::EndSelect,
+                        token: Token::EndIf,
                         span: ct.span.start..self.lex.span().end,
                     });
                     break;
@@ -343,6 +345,7 @@ impl Parser {
             statements.push(self.parse_statement());
             self.skip_eol();
         }
+
         let mut else_if_blocks = Vec::new();
         if self.get_cur_token() == Some(Token::ElseIf) {
             while self.get_cur_token() == Some(Token::ElseIf) {
@@ -482,6 +485,9 @@ impl Parser {
                 }));
             return None;
         }
+        // skip endif token
+        self.next_token();
+
         if end_if_token.is_none() {
             end_if_token = Some(self.save_spannedtoken());
         }
@@ -567,6 +573,15 @@ impl Parser {
             while self.get_cur_token() != Some(Token::Case)
                 && self.get_cur_token() != Some(Token::EndSelect)
             {
+                if self.get_cur_token().is_none() {
+                    self.errors
+                        .push(crate::parser::Error::ParserError(ParserError {
+                            error: ParserErrorType::EndExpected,
+                            range: self.lex.span(),
+                        }));
+                    return None;
+                }
+
                 if let Some(Token::End) = self.get_cur_token() {
                     let ct = self.save_spannedtoken();
                     self.next_token();
@@ -602,6 +617,8 @@ impl Parser {
             self.next_token();
             self.parse_default_block(&mut end_select_token, &mut default_statements);
         }
+        // skip endselect token
+        self.next_token();
 
         if end_select_token.is_none() {
             end_select_token = Some(self.save_spannedtoken());
@@ -624,6 +641,15 @@ impl Parser {
         default_statements: &mut Vec<Statement>,
     ) {
         while self.get_cur_token() != Some(Token::EndSelect) {
+            if self.get_cur_token().is_none() {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::EndExpected,
+                        range: self.lex.span(),
+                    }));
+                return;
+            }
+
             if let Some(Token::End) = self.get_cur_token() {
                 let ct = self.save_spannedtoken();
                 self.next_token();
@@ -676,6 +702,7 @@ impl Parser {
     ///
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
+        println!("start stmt:{:?}", self.get_cur_token());
         match self.get_cur_token() {
             Some(Token::Begin | Token::Eol) => {
                 self.next_token();

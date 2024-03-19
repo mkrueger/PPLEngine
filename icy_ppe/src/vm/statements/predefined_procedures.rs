@@ -215,7 +215,6 @@ pub fn putuser(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()
 
     vm.icy_board_data.users.insert(vm.cur_user, user);
     Ok(())
-
 }
 
 pub fn defcolor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {

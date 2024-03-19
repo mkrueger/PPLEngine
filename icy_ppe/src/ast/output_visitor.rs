@@ -213,7 +213,12 @@ impl AstVisitor<()> for OutputVisitor {
         for case_block in select_stmt.get_case_blocks() {
             self.indent();
             self.output_keyword("Case ");
-            case_block.get_expression().visit(self);
+            for (i, spec) in case_block.get_case_specifiers().iter().enumerate() {
+                if i > 0 {
+                    self.output.push_str(", ");
+                }
+                spec.visit(self);
+            }
             self.eol();
 
             self.indent += 1;
@@ -221,13 +226,13 @@ impl AstVisitor<()> for OutputVisitor {
             self.indent -= 1;
         }
 
-        if let Some(else_block) = select_stmt.get_case_else_block() {
+        if !select_stmt.get_default_statements().is_empty() {
             self.indent();
-            self.output_keyword("Case Else");
+            self.output_keyword("Default");
             self.eol();
 
             self.indent += 1;
-            self.output_statements(else_block.get_statements());
+            self.output_statements(select_stmt.get_default_statements());
             self.indent -= 1;
         }
 

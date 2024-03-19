@@ -4,7 +4,7 @@ use icy_ppe::{
         walk_function_implementation, walk_if_stmt, walk_if_then_stmt, walk_let_stmt,
         walk_predefined_call_statement, walk_procedure_call_statement,
         walk_procedure_implementation, walk_select_stmt, walk_while_do_stmt, walk_while_stmt,
-        AstVisitor, Constant, Expression, ParameterSpecifier, Program,
+        AstVisitor, Constant, ParameterSpecifier, Program,
     },
     parser::lexer::SpannedToken,
 };
@@ -212,11 +212,8 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         select_stmt.get_case_blocks().iter().for_each(|case| {
             self.highlight_token(case.get_case_token(), SemanticTokenType::KEYWORD);
         });
-        if let Some(case_else) = select_stmt.get_case_else_block() {
-            self.highlight_token(case_else.get_case_token(), SemanticTokenType::KEYWORD);
-            if let Expression::Identifier(id) = case_else.get_expression() {
-                self.highlight_token(id.get_identifier_token(), SemanticTokenType::KEYWORD);
-            }
+        if let Some(default_token) = select_stmt.get_default_token() {
+            self.highlight_token(default_token, SemanticTokenType::KEYWORD);
         }
         walk_select_stmt(self, select_stmt);
     }

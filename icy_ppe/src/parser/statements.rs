@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        BlockStatement, BreakStatement, CaseBlock, CommentAstNode, Constant, ContinueStatement,
-        ElseBlock, ElseIfBlock, EndStatement, Expression, ForStatement, GosubStatement,
+        BlockStatement, BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant,
+        ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
         LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
         SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
@@ -507,7 +507,7 @@ impl Parser {
         if self.get_cur_token() != Some(Token::Case) {
             self.errors
                 .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::CaseExpected(self.save_token()),
+                    error: ParserErrorType::CaseExpectedAfterSelect(self.save_token()),
                     range: self.lex.span(),
                 }));
             return None;
@@ -527,52 +527,40 @@ impl Parser {
         self.skip_eol();
 
         let mut case_blocks = Vec::new();
-        let mut else_block = None;
+        let mut default_token = None;
         let mut end_select_token = None;
+        let mut default_statements = Vec::new();
 
         while self.get_cur_token() == Some(Token::Case) {
             let inner_case_token = self.save_spannedtoken();
             self.next_token();
+            // parse "default block"
             if self.get_cur_token() == Some(Token::Else) {
-                let else_token = self.save_spannedtoken();
+                default_token = Some(SpannedToken {
+                    token: Token::Identifier(unicase::Ascii::new("CASE ELSE".to_string())),
+                    span: inner_case_token.span.start..self.lex.span().end,
+                });
                 self.next_token();
-                let mut statements = Vec::new();
                 self.skip_eol();
-                while self.get_cur_token() != Some(Token::EndSelect) {
-                    if let Some(Token::End) = self.get_cur_token() {
-                        let ct = self.save_spannedtoken();
-                        self.next_token();
-                        if let Some(Token::Select) = self.get_cur_token() {
-                            end_select_token = Some(SpannedToken {
-                                token: Token::EndSelect,
-                                span: ct.span.start..self.lex.span().end,
-                            });
-                            break;
-                        }
-                        self.skip_eol();
-                        statements.push(Some(Statement::End(EndStatement::new(ct))));
-                        continue;
-                    }
-                    statements.push(self.parse_statement());
-                    self.skip_eol();
-                }
-                else_block = Some(CaseBlock::new(
-                    inner_case_token,
-                    Expression::Identifier(IdentifierExpression::new(else_token)),
-                    statements.into_iter().flatten().collect(),
-                ));
+                self.parse_default_block(&mut end_select_token, &mut default_statements);
                 break;
             };
 
-            let Some(expr) = self.parse_expression() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ExpressionExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+            let mut case_specifiers = Vec::new();
+
+            if let Some(cs) = self.parse_case_specifier() {
+                case_specifiers.push(cs);
+            } else {
                 return None;
-            };
-            self.next_token();
+            }
+            while self.get_cur_token() == Some(Token::Comma) {
+                self.next_token();
+                if let Some(cs) = self.parse_case_specifier() {
+                    case_specifiers.push(cs);
+                } else {
+                    return None;
+                }
+            }
             self.skip_eol();
 
             let mut statements = Vec::new();
@@ -599,10 +587,22 @@ impl Parser {
             }
             case_blocks.push(CaseBlock::new(
                 inner_case_token,
-                expr,
+                case_specifiers,
                 statements.into_iter().flatten().collect(),
             ));
         }
+
+        if default_token.is_none()
+            && self.get_cur_token()
+                == Some(Token::Identifier(unicase::Ascii::new(
+                    "DEFAULT".to_string(),
+                )))
+        {
+            default_token = Some(self.save_spannedtoken());
+            self.next_token();
+            self.parse_default_block(&mut end_select_token, &mut default_statements);
+        }
+
         if end_select_token.is_none() {
             end_select_token = Some(self.save_spannedtoken());
         }
@@ -612,11 +612,64 @@ impl Parser {
             case_token,
             case_expr,
             case_blocks,
-            else_block,
+            default_token,
+            default_statements,
             end_select_token.unwrap(),
         )))
     }
 
+    fn parse_default_block(
+        &mut self,
+        end_select_token: &mut Option<SpannedToken>,
+        default_statements: &mut Vec<Statement>,
+    ) {
+        while self.get_cur_token() != Some(Token::EndSelect) {
+            if let Some(Token::End) = self.get_cur_token() {
+                let ct = self.save_spannedtoken();
+                self.next_token();
+                if let Some(Token::Select) = self.get_cur_token() {
+                    *end_select_token = Some(SpannedToken {
+                        token: Token::EndSelect,
+                        span: ct.span.start..self.lex.span().end,
+                    });
+                    break;
+                }
+                self.skip_eol();
+                default_statements.push(Statement::End(EndStatement::new(ct)));
+                continue;
+            }
+            if let Some(stmt) = self.parse_statement() {
+                default_statements.push(stmt);
+            }
+            self.skip_eol();
+        }
+    }
+
+    fn parse_case_specifier(&mut self) -> Option<crate::ast::CaseSpecifier> {
+        let Some(expr) = self.parse_expression() else {
+            self.errors
+                .push(crate::parser::Error::ParserError(ParserError {
+                    error: ParserErrorType::ExpressionExpected(self.save_token()),
+                    range: self.lex.span(),
+                }));
+            return None;
+        };
+
+        if self.get_cur_token() == Some(Token::DotDot) {
+            self.next_token();
+            let Some(to) = self.parse_expression() else {
+                self.errors
+                    .push(crate::parser::Error::ParserError(ParserError {
+                        error: ParserErrorType::ExpressionExpected(self.save_token()),
+                        range: self.lex.span(),
+                    }));
+                return None;
+            };
+            Some(CaseSpecifier::FromTo(Box::new(expr), Box::new(to)))
+        } else {
+            Some(CaseSpecifier::Expression(Box::new(expr)))
+        }
+    }
     /// Returns the parse statement of this [`Tokenizer`].
     ///
     /// # Panics

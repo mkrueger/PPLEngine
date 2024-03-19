@@ -1,4 +1,5 @@
 pub use ast_transform::*;
+use unicase::Ascii;
 pub mod ast_transform;
 
 use std::collections::HashMap;
@@ -368,9 +369,9 @@ impl PPECompiler {
                     };
                     let mut entry =
                         TableEntry::new(header, func.get_return_type().create_empty_value());
-                    entry.set_name(format!("#{}", func.get_identifier()));
+                    entry.set_name(format!("#{id} result"));
                     entry.set_type(EntryType::FunctionResult);
-                    self.push_variable(func.get_identifier().clone(), entry);
+                    self.push_variable(Ascii::new(entry.get_name().clone()), entry);
 
                     func.get_statements().iter().for_each(|s| {
                         self.compile_add_statement(s);

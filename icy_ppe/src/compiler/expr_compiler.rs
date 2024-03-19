@@ -84,16 +84,11 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             };
 
             let var = self.compiler.variable_table.get_var_entry(table_idx);
+
             if var.value.get_type() == VariableType::Function {
                 return PPEExpr::FunctionCall(var.header.id, arguments);
             }
             if var.header.dim as usize != arguments.len() {
-                println!(
-                    "Invalid dimensions for function call: {} (expected: {}, got args: {})",
-                    func_call.get_identifier(),
-                    var.value.get_dimensions(),
-                    arguments.len()
-                );
                 self.compiler.errors.push(CompilationError {
                     error: CompilationErrorType::InvalidDimensions(
                         func_call.get_identifier().to_string(),

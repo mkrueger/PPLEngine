@@ -1,7 +1,7 @@
 use crate::ast::{
-    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock,
-    ForStatement, IdentifierExpression, IfStatement, IfThenStatement, RenameVisitor,
-    SelectStatement, UnaryExpression, WhileDoStatement,
+    AstNode, BinOp, BreakStatement, CaseBlock, CaseSpecifier, ContinueStatement, ElseBlock,
+    ElseIfBlock, ForStatement, IfStatement, IfThenStatement, RenameVisitor, SelectStatement,
+    UnaryExpression, WhileDoStatement,
 };
 
 use super::{
@@ -134,7 +134,9 @@ fn scan_select_statements(statements: &mut [Statement]) {
 
             if !if_then_stmt.get_statements().is_empty() {
                 case_blocks.push(CaseBlock::empty(
-                    Box::new(bin_expr.get_right_expression().clone()),
+                    vec![CaseSpecifier::Expression(Box::new(
+                        bin_expr.get_right_expression().clone(),
+                    ))],
                     if_then_stmt.get_statements().clone(),
                 ));
             }
@@ -152,22 +154,21 @@ fn scan_select_statements(statements: &mut [Statement]) {
                     continue;
                 }
                 case_blocks.push(CaseBlock::empty(
-                    Box::new(bin_expr2.get_right_expression().clone()),
+                    vec![CaseSpecifier::Expression(Box::new(
+                        bin_expr2.get_right_expression().clone(),
+                    ))],
                     if_else_block.get_statements().clone(),
                 ));
             }
-            let case_else_block = if_then_stmt.get_else_block().as_ref().map(|else_block| {
-                CaseBlock::empty(
-                    Box::new(IdentifierExpression::create_empty_expression(
-                        unicase::Ascii::new("Else".to_string()),
-                    )),
-                    else_block.get_statements().clone(),
-                )
-            });
+            let default_statements = if let Some(smts) = if_then_stmt.get_else_block() {
+                smts.get_statements().clone()
+            } else {
+                Vec::new()
+            };
             statements[i] = SelectStatement::create_empty_statement(
                 bin_expr.get_left_expression().clone(),
                 case_blocks,
-                case_else_block,
+                default_statements,
             );
         }
         i += 1;
@@ -777,10 +778,8 @@ fn gather_labels(stmt: &Statement, used_labels: &mut HashSet<unicase::Ascii<Stri
                     gather_labels(stmt, used_labels);
                 }
             }
-            if let Some(stmts) = select_stmt.get_case_else_block() {
-                for stmt in stmts.get_statements() {
-                    gather_labels(stmt, used_labels);
-                }
+            for stmt in select_stmt.get_default_statements() {
+                gather_labels(stmt, used_labels);
             }
         }
         Statement::Block(block_stmt) => {
@@ -845,9 +844,7 @@ fn strip_unused_labels2(
                 for block in case_stmt.get_case_blocks_mut() {
                     strip_unused_labels2(block.get_statements_mut(), used_labels);
                 }
-                if let Some(stmts) = case_stmt.get_case_else_block_mut() {
-                    strip_unused_labels2(stmts.get_statements_mut(), used_labels);
-                }
+                strip_unused_labels2(case_stmt.get_default_statements_mut(), used_labels);
             }
             Statement::Block(block_stmt) => {
                 strip_unused_labels2(block_stmt.get_statements_mut(), used_labels);

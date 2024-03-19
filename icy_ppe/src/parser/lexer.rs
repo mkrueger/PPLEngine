@@ -71,6 +71,8 @@ pub enum Token {
 
     Comma,
 
+    DotDot,
+
     LPar,
     RPar,
 
@@ -171,6 +173,7 @@ impl fmt::Display for Token {
             Token::And => write!(f, "&"),
             Token::Or => write!(f, "|"),
             Token::Not => write!(f, "!"),
+            Token::DotDot => write!(f, ".."),
 
             Token::Label(s) => write!(f, ":{s}"),
 
@@ -198,7 +201,7 @@ impl fmt::Display for Token {
             Token::EndSelect => write!(f, "ENDSELECT"),
 
             Token::Comment(ct, s) | Token::UseFuncs(ct, s) => write!(f, "{ct}{s}"),
-            Token::Eol => writeln!(f),
+            Token::Eol => write!(f, "<End Of Line>"),
 
             // Token::VarType(t) => write!(f, "{:?}", t),
             Token::Declare => write!(f, "DECLARE"),
@@ -523,8 +526,8 @@ impl Lexer {
                 }
             },
             '>' => {
-                 let next = self.next_ch();
-                 match next {
+                let next = self.next_ch();
+                match next {
                      Some('<') => Some(Ok(Token::NotEq)),
                      Some('=') => Some(Ok(Token::GreaterEq)),
                      _ => {
@@ -532,6 +535,18 @@ impl Lexer {
                          Some(Ok(Token::Greater))
                      }
                  }
+             }
+             '.' => {
+                let next = self.next_ch();
+                if next == Some('.') {
+                    Some(Ok(Token::DotDot))
+                } else { 
+                    self.put_back();
+                    Some(Err(LexingError {
+                        error: LexingErrorType::InvalidToken,
+                        range: self.token_start..self.token_end,
+                    }))
+                }
              }
             _ => {
                 if ch.is_ascii_alphabetic() || ch == '_' {
@@ -542,12 +557,15 @@ impl Lexer {
                     self.lexer_state = LexerState::BeyondEOL;
 
                     let start = self.token_start;
+                    let mut cur_ch = ch;
                     loop {
                         let Some(ch) = self.next_ch() else {
                             break;
                         };
+                        cur_ch = ch;
 
                         match ch {
+                            '.' => {  break; }
                             'D' | 'd' => {
                                 let r = self.text[start..self.token_end - 1].iter().collect::<String>().parse::<i32>();
                                 match r {
@@ -598,12 +616,25 @@ impl Lexer {
                             }
                             _ => {}
                         }
-                        if !ch.is_ascii_hexdigit() && ch != '.'  {
+                        if !ch.is_ascii_hexdigit()  {
                             self.put_back();
                             break;
                         }
                     }
-                    let end: usize = self.token_end;
+                    let mut end = self.token_end;
+                    if cur_ch == '.' {
+                        if let Some(ch) = self.next_ch()  {
+                            // got dotdot, put back
+                            if ch == '.' {
+                                println!("got dotdot");
+                                self.put_back();
+                                self.put_back();
+                                end -= 1;
+                            }
+                        } else {
+                            self.put_back();
+                        }
+                    }
 
                     let r = self.text[start..end].iter().collect::<String>().parse::<i64>();
                     match r {

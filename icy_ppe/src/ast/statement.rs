@@ -85,6 +85,149 @@ impl Statement {
             Statement::VariableDeclaration(s) => visitor.visit_variable_declaration_statement(s),
         }
     }
+
+    pub fn is_similar(&self, check: &Statement) -> bool {
+        match (self, check) {
+            (Statement::Comment(c1), Statement::Comment(c2)) => c1.get_comment() == c2.get_comment(),
+            (Statement::End(_), Statement::End(_)) |
+            (Statement::Return(_), Statement::Return(_)) |
+            (Statement::Break(_), Statement::Break(_)) |
+            (Statement::Continue(_), Statement::Continue(_)) => true,
+            
+            (Statement::Block(_), Statement::Block(_)) => panic!("Not implemented PPL has no blocks, it's just used as a container for statements during compiling."),
+
+            (Statement::If(i1), Statement::If(i2)) => i1.get_condition().is_similar(i2.get_condition()) && i1.get_statement().is_similar(i2.get_statement()),
+            (Statement::IfThen(i1), Statement::IfThen(i2)) => {
+                if !(i1.get_condition().is_similar(i2.get_condition())) || i1.get_statements().len() != i2.get_statements().len() {
+                    return false;
+                }
+                for i in 0..i1.get_statements().len() {
+                    if !i1.get_statements()[i].is_similar(&i2.get_statements()[i]) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (Statement::Select(s1), Statement::Select(s2)) => {
+                if !s1.get_expression().is_similar(s2.get_expression()) {
+                    return false;
+                }
+                if s1.get_case_blocks().len() != s2.get_case_blocks().len() {
+                    return false;
+                }
+                for i in 0..s1.get_case_blocks().len() {
+                    if !s1.get_case_blocks()[i].is_similar(&s2.get_case_blocks()[i]) {
+                        return false;
+                    }
+                }
+                if s1.get_default_statements().len() != s2.get_default_statements().len() {
+                    return false;
+                }
+                for i in 0..s1.get_default_statements().len() {
+                    if !s1.get_default_statements()[i].is_similar(&s2.get_default_statements()[i]) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (Statement::While(w1), Statement::While(w2)) => {
+                w1.get_condition().is_similar(w2.get_condition()) && w1.get_statement().is_similar(w2.get_statement())
+            }
+            (Statement::WhileDo(i1), Statement::WhileDo(i2)) => {
+                if !(i1.get_condition().is_similar(i2.get_condition())) || i1.get_statements().len() != i2.get_statements().len() {
+                    return false;
+                }
+                for i in 0..i1.get_statements().len() {
+                    if !i1.get_statements()[i].is_similar(&i2.get_statements()[i]) {
+                        return false;
+                    }
+                } 
+                true
+            }
+            (Statement::For(f1), Statement::For(f2)) => {
+                if f1.get_identifier() != f2.get_identifier() {
+                    return false;
+                }
+                if !f1.get_start_expr().is_similar(f2.get_start_expr()) {
+                    return false;
+                }
+                if !f1.get_end_expr().is_similar(f2.get_end_expr()) {
+                    return false;
+                }
+                if f1.get_step_expr().is_none() && f2.get_step_expr().is_none() {
+                    return true;
+                }
+                if f1.get_step_expr().is_none() || f2.get_step_expr().is_none() {
+                    return false;
+                }
+                if !f1.get_step_expr().as_ref().unwrap().is_similar(f2.get_step_expr().as_ref().unwrap()) {
+                    return false;
+                }
+
+                if f1.get_statements().len() != f2.get_statements().len() {
+                    return false;
+                }
+                for i in 0..f1.get_statements().len() {
+                    if !f1.get_statements()[i].is_similar(&f2.get_statements()[i]) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (Statement::Let(l1), Statement::Let(l2)) => 
+                l1.get_identifier() == l2.get_identifier() && 
+                l1.get_value_expression().is_similar(l2.get_value_expression()),
+            (Statement::Goto(g1), Statement::Goto(g2)) => g1.get_label() == g2.get_label(),
+            (Statement::Gosub(g1), Statement::Gosub(g2)) => g1.get_label() == g2.get_label(),
+            (Statement::Label(g1), Statement::Label(g2)) => g1.get_label() == g2.get_label(),
+            (Statement::Call(c1), Statement::Call(c2)) => {
+                if c1.get_identifier() != c2.get_identifier() {
+                    return false;
+                }
+                if c1.get_arguments().len() != c2.get_arguments().len() {
+                    return false;
+                }
+                for i in 0..c1.get_arguments().len() {
+                    if !c1.get_arguments()[i].is_similar(&c2.get_arguments()[i]) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (Statement::PredifinedCall(p1), Statement::PredifinedCall(p2)) => {
+                if p1.get_identifier() != p2.get_identifier() {
+                    return false;
+                }
+                if p1.get_arguments().len() != p2.get_arguments().len() {
+                    return false;
+                }
+                for i in 0..p1.get_arguments().len() {
+                    if !p1.get_arguments()[i].is_similar(&p2.get_arguments()[i]) {
+                        return false;
+                    }
+                }
+                true
+            
+            },
+            (Statement::VariableDeclaration(v1), Statement::VariableDeclaration(v2)) => {
+                if v1.get_variable_type() != v2.get_variable_type() {
+                    return false;
+                }
+                if v1.get_variables().len() != v2.get_variables().len() {
+                    return false;
+                }
+                for i in 0..v1.get_variables().len() {
+                    if v1.get_variables()[i].get_identifier() != v2.get_variables()[i].get_identifier() ||
+                    v1.get_variables()[i].get_dimensions() != v2.get_variables()[i].get_dimensions(){
+                        return false;
+                    }
+                }
+
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Statement {
@@ -960,25 +1103,55 @@ impl ForStatement {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum CaseSpecifier {
+    Expression(Box<Expression>),
+    FromTo(Box<Expression>, Box<Expression>),
+}
+impl CaseSpecifier {
+    fn is_similar(&self, i: &CaseSpecifier) -> bool {
+        match (self, i) {
+            (CaseSpecifier::Expression(e1), CaseSpecifier::Expression(e2)) => e1.is_similar(e2),
+            (CaseSpecifier::FromTo(f1, t1), CaseSpecifier::FromTo(f2, t2)) => {
+                f1.is_similar(f2) && t1.is_similar(t2)
+            }
+            _ => false,
+        }
+    }
+
+    pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
+        visitor.visit_case_specifier(self)
+    }
+
+    #[must_use]
+    pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
+        visitor.visit_case_specifier(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CaseBlock {
     case_token: SpannedToken,
-    expression: Box<Expression>,
+    case_specifiers: Vec<CaseSpecifier>,
     statements: Vec<Statement>,
 }
 
 impl CaseBlock {
-    pub fn new(case_token: SpannedToken, expr: Expression, statements: Vec<Statement>) -> Self {
+    pub fn new(
+        case_token: SpannedToken,
+        case_specifiers: Vec<CaseSpecifier>,
+        statements: Vec<Statement>,
+    ) -> Self {
         Self {
             case_token,
-            expression: Box::new(expr),
+            case_specifiers,
             statements,
         }
     }
 
-    pub fn empty(expr: Box<Expression>, statements: Vec<Statement>) -> Self {
+    pub fn empty(case_specifiers: Vec<CaseSpecifier>, statements: Vec<Statement>) -> Self {
         Self {
             case_token: SpannedToken::create_empty(Token::Case),
-            expression: expr,
+            case_specifiers,
             statements,
         }
     }
@@ -987,12 +1160,12 @@ impl CaseBlock {
         &self.case_token
     }
 
-    pub fn get_expression(&self) -> &Expression {
-        &self.expression
+    pub fn get_case_specifiers(&self) -> &Vec<CaseSpecifier> {
+        &self.case_specifiers
     }
 
-    pub fn get_expression_mut(&mut self) -> &mut Expression {
-        &mut self.expression
+    pub fn get_case_specifiers_mut(&mut self) -> &mut Vec<CaseSpecifier> {
+        &mut self.case_specifiers
     }
 
     pub fn get_statements(&self) -> &Vec<Statement> {
@@ -1007,6 +1180,26 @@ impl CaseBlock {
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         visitor.visit_case_block(self)
     }
+
+    fn is_similar(&self, other: &CaseBlock) -> bool {
+        if self.get_case_specifiers().len() != other.get_case_specifiers().len() {
+            return false;
+        }
+        for i in 0..self.get_case_specifiers().len() {
+            if !self.get_case_specifiers()[i].is_similar(&other.get_case_specifiers()[i]) {
+                return false;
+            }
+        }
+        if self.get_statements().len() != other.get_statements().len() {
+            return false;
+        }
+        for i in 0..self.get_statements().len() {
+            if !self.get_statements()[i].is_similar(&other.get_statements()[i]) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -1015,7 +1208,8 @@ pub struct SelectStatement {
     case_token: SpannedToken,
     expression: Box<Expression>,
     case_blocks: Vec<CaseBlock>,
-    case_else_block: Option<CaseBlock>,
+    default_token: Option<SpannedToken>,
+    default_statements: Vec<Statement>,
     endselect_token: SpannedToken,
 }
 
@@ -1025,7 +1219,8 @@ impl SelectStatement {
         case_token: SpannedToken,
         expr: Expression,
         case_blocks: Vec<CaseBlock>,
-        case_else_block: Option<CaseBlock>,
+        default_token: Option<SpannedToken>,
+        default_statements: Vec<Statement>,
         endselect_token: SpannedToken,
     ) -> Self {
         Self {
@@ -1033,7 +1228,8 @@ impl SelectStatement {
             case_token,
             expression: Box::new(expr),
             case_blocks,
-            case_else_block,
+            default_token,
+            default_statements,
             endselect_token,
         }
     }
@@ -1041,14 +1237,21 @@ impl SelectStatement {
     pub fn empty(
         expr: Expression,
         case_blocks: Vec<CaseBlock>,
-        case_else_block: Option<CaseBlock>,
+        default_statements: Vec<Statement>,
     ) -> Self {
         Self {
             select_token: SpannedToken::create_empty(Token::Select),
             case_token: SpannedToken::create_empty(Token::Case),
             expression: Box::new(expr),
             case_blocks,
-            case_else_block,
+            default_token: if default_statements.is_empty() {
+                None
+            } else {
+                Some(SpannedToken::create_empty(Token::Identifier(
+                    unicase::Ascii::new("DEFAULT".to_string()),
+                )))
+            },
+            default_statements,
             endselect_token: SpannedToken::create_empty(Token::EndSelect),
         }
     }
@@ -1080,12 +1283,16 @@ impl SelectStatement {
         &mut self.case_blocks
     }
 
-    pub fn get_case_else_block(&self) -> &Option<CaseBlock> {
-        &self.case_else_block
+    pub fn get_default_token(&self) -> &Option<SpannedToken> {
+        &self.default_token
     }
 
-    pub fn get_case_else_block_mut(&mut self) -> &mut Option<CaseBlock> {
-        &mut self.case_else_block
+    pub fn get_default_statements(&self) -> &Vec<Statement> {
+        &self.default_statements
+    }
+
+    pub fn get_default_statements_mut(&mut self) -> &mut Vec<Statement> {
+        &mut self.default_statements
     }
 
     pub fn get_endselect_token(&self) -> &SpannedToken {
@@ -1095,9 +1302,13 @@ impl SelectStatement {
     pub fn create_empty_statement(
         expr: Expression,
         case_blocks: Vec<CaseBlock>,
-        case_else_block: Option<CaseBlock>,
+        default_statements: Vec<Statement>,
     ) -> Statement {
-        Statement::Select(SelectStatement::empty(expr, case_blocks, case_else_block))
+        Statement::Select(SelectStatement::empty(
+            expr,
+            case_blocks,
+            default_statements,
+        ))
     }
 }
 

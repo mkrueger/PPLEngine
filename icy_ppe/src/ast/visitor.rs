@@ -1,15 +1,15 @@
 use crate::parser::lexer::SpannedToken;
 
 use super::{
-    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CommentAstNode,
-    ConstantExpression, ContinueStatement, DimensionSpecifier, ElseBlock, ElseIfBlock,
-    EndStatement, Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode,
-    FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
-    IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
-    PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
-    ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement,
-    SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, VariableSpecifier,
-    WhileDoStatement, WhileStatement,
+    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
+    CommentAstNode, ConstantExpression, ContinueStatement, DimensionSpecifier, ElseBlock,
+    ElseIfBlock, EndStatement, Expression, ForStatement, FunctionCallExpression,
+    FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement,
+    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+    ParameterSpecifier, ParensExpression, PredefinedCallStatement,
+    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
+    ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+    VariableDeclarationStatement, VariableSpecifier, WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -66,6 +66,19 @@ pub trait AstVisitor<T: Default>: Sized {
         walk_select_stmt(self, select_stmt);
         T::default()
     }
+    fn visit_case_specifier(&mut self, case_specfier: &CaseSpecifier) -> T {
+        match case_specfier {
+            CaseSpecifier::Expression(expr) => {
+                expr.visit(self);
+            }
+            CaseSpecifier::FromTo(from, to) => {
+                from.visit(self);
+                to.visit(self);
+            }
+        }
+        T::default()
+    }
+
     fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> T {
         walk_while_stmt(self, while_stmt);
         T::default()
@@ -154,17 +167,16 @@ pub fn walk_select_stmt<T: Default, V: AstVisitor<T>>(
     select_stmt.get_expression().visit(visitor);
 
     for case_block in select_stmt.get_case_blocks() {
-        case_block.get_expression().visit(visitor);
+        for specifier in case_block.get_case_specifiers() {
+            specifier.visit(visitor);
+        }
         for stmt in case_block.get_statements() {
             stmt.visit(visitor);
         }
     }
-    if let Some(else_block) = select_stmt.get_case_else_block() {
-        else_block.get_expression().visit(visitor);
 
-        for stmt in else_block.get_statements() {
-            stmt.visit(visitor);
-        }
+    for stmt in select_stmt.get_default_statements() {
+        stmt.visit(visitor);
     }
 }
 
@@ -434,21 +446,37 @@ pub trait AstVisitorMut: Sized {
                 .map(|block| block.visit_mut(self))
                 .collect(),
             select_stmt
-                .get_case_else_block()
-                .as_ref()
-                .map(|else_block| else_block.visit_mut(self)),
+                .get_default_statements()
+                .iter()
+                .map(|stmt| stmt.visit_mut(self))
+                .collect(),
         ))
     }
 
     fn visit_case_block(&mut self, case_block: &CaseBlock) -> CaseBlock {
         CaseBlock::empty(
-            Box::new(case_block.get_expression().visit_mut(self)),
+            case_block
+                .get_case_specifiers()
+                .iter()
+                .map(|specifier| specifier.visit_mut(self))
+                .collect(),
             case_block
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
         )
+    }
+
+    fn visit_case_specifier(&mut self, case_specfier: &CaseSpecifier) -> CaseSpecifier {
+        match case_specfier {
+            CaseSpecifier::Expression(expr) => {
+                CaseSpecifier::Expression(Box::new(expr.visit_mut(self)))
+            }
+            CaseSpecifier::FromTo(from, to) => {
+                CaseSpecifier::FromTo(Box::new(from.visit_mut(self)), Box::new(to.visit_mut(self)))
+            }
+        }
     }
 
     fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> Statement {

@@ -249,3 +249,17 @@ fn test_labels() {
         Token::Label(unicase::Ascii::new("label001".to_string()))
     );
 }
+
+#[test]
+fn test_dotdot() {
+    assert_eq!(Token::DotDot, get_token(".."));
+
+    let src = "1..";
+    let mut lex = Lexer::new(PathBuf::from("."), src);
+
+    assert_eq!(
+        Token::Const(Constant::Integer(1)),
+        lex.next_token().unwrap().unwrap()
+    );
+    assert_eq!(Token::DotDot, lex.next_token().unwrap().unwrap());
+}

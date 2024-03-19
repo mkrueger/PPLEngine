@@ -22,6 +22,8 @@ mod statements;
 mod expr_tests;
 #[cfg(test)]
 mod lexer_tests;
+#[cfg(test)]
+mod statement_tests;
 
 // #[cfg(test)]
 // mod parser_tests;
@@ -122,6 +124,9 @@ pub enum ParserErrorType {
 
     #[error("Expected 'THEN', got '{0}'")]
     ThenExpected(Token),
+
+    #[error("Expected 'CASE' keyword after 'SELECT', got '{0}'")]
+    CaseExpectedAfterSelect(Token),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -741,8 +746,7 @@ impl Parser {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
-            let endproc_token = self.save_spannedtoken();
-
+            let endfunc_token = self.save_spannedtoken();
             self.next_token();
 
             return Some(FunctionImplementation::new(
@@ -755,7 +759,7 @@ impl Parser {
                 return_type_token,
                 return_type,
                 statements.into_iter().flatten().collect(),
-                endproc_token,
+                endfunc_token,
             ));
         }
         None

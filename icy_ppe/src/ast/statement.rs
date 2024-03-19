@@ -1323,7 +1323,13 @@ pub struct GosubStatement {
 }
 
 impl GosubStatement {
-    pub fn new(gosub_token: SpannedToken, label_token: SpannedToken) -> Self {
+    pub fn new(gosub_token: SpannedToken, mut label_token: SpannedToken) -> Self {
+        if !matches!(label_token.token, Token::Identifier(_)) {
+            label_token = SpannedToken {
+                token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
+                span: label_token.span
+            };
+        }
         Self {
             gosub_token,
             label_token,
@@ -1375,7 +1381,13 @@ pub struct GotoStatement {
 }
 
 impl GotoStatement {
-    pub fn new(goto_token: SpannedToken, label_token: SpannedToken) -> Self {
+    pub fn new(goto_token: SpannedToken, mut label_token: SpannedToken) -> Self {
+        if !matches!(label_token.token, Token::Identifier(_)) {
+            label_token = SpannedToken {
+                token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
+                span: label_token.span
+            };
+        }
         Self {
             goto_token,
             label_token,
@@ -1384,7 +1396,7 @@ impl GotoStatement {
 
     pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
-            goto_token: SpannedToken::create_empty(Token::Gosub),
+            goto_token: SpannedToken::create_empty(Token::Goto),
             label_token: SpannedToken::create_empty(Token::Identifier(label)),
         }
     }

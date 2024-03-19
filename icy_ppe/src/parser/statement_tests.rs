@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{ast::{
-    BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement
+    BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement
 }, executable::OpCode};
 
 use super::Parser;
@@ -60,7 +60,26 @@ fn test_label_statement() {
         ":MyLabel",
         &LabelStatement::create_empty_statement(unicase::Ascii::new("MyLabel".to_string())),
     );
+    
+    check_statement(
+        ":END",
+        &LabelStatement::create_empty_statement(unicase::Ascii::new("END".to_string())),
+    );
 }
+
+
+#[test]
+fn test_goto_statement() {
+    check_statement("Goto Foo", &GotoStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())));
+    check_statement("goto end", &GotoStatement::create_empty_statement(unicase::Ascii::new("end".to_string())));
+}
+
+#[test]
+fn test_gosub_statement() {
+    check_statement("GOSUB Foo", &GosubStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())));
+    check_statement("GOSUB end", &GosubStatement::create_empty_statement(unicase::Ascii::new("end".to_string())));
+}
+
 
 #[test]
 fn test_parse_break_statement() {

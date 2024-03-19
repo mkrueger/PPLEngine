@@ -151,6 +151,39 @@ pub enum Token {
     Const(Constant),
 }
 
+impl Token {
+    pub fn is_valid_label(&self) -> bool { 
+        matches!(self, Token::Identifier(_)| 
+            Token::If |
+            Token::Let |
+            Token::Begin |
+            Token::While |
+            Token::EndWhile |
+            Token::Then |
+            Token::Else |
+            Token::ElseIf |
+            Token::EndIf |
+            Token::For |
+            Token::Next |
+            Token::Break |
+            Token::Continue |
+            Token::Return |
+            Token::Gosub |
+            Token::Goto |
+            Token::Select |
+            Token::Case |
+            Token::Default |
+            Token::EndSelect |
+            Token::Declare |
+            Token::Function |
+            Token::Procedure |
+            Token::EndProc |
+            Token::EndFunc |
+            Token::End)
+
+    }
+}
+
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

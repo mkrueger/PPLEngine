@@ -757,33 +757,39 @@ impl Parser {
             Some(Token::Gosub) => {
                 let gosub_token = self.save_spannedtoken();
                 self.next_token();
-                if let Some(Token::Identifier(_)) = self.get_cur_token() {
-                    let id_token = self.save_spannedtoken();
+                if let Some(token) = self.get_cur_token() {
+                    if token.is_valid_label() {
+                        let id_token = self.save_spannedtoken();
+                        self.next_token();
+                        return Some(Statement::Gosub(GosubStatement::new(gosub_token, id_token)));
+                    }
                     self.next_token();
-                    return Some(Statement::Gosub(GosubStatement::new(gosub_token, id_token)));
                 }
-                self.next_token();
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::LabelExpected(self.save_token()),
                         range: self.lex.span(),
                     }));
-                None
+                    self.next_token();
+                    None
             }
             Some(Token::Goto) => {
                 let goto_token = self.save_spannedtoken();
                 self.next_token();
-                if let Some(Token::Identifier(_)) = self.get_cur_token() {
-                    let id_token = self.save_spannedtoken();
+                if let Some(token) = self.get_cur_token() {
+                    if token.is_valid_label() {
+                        let id_token = self.save_spannedtoken();
+                        self.next_token();
+                        return Some(Statement::Goto(GotoStatement::new(goto_token, id_token)));
+                    }
                     self.next_token();
-                    return Some(Statement::Goto(GotoStatement::new(goto_token, id_token)));
                 }
-                self.next_token();
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::LabelExpected(self.save_token()),
                         range: self.lex.span(),
                     }));
+                self.next_token();
                 None
             }
             Some(Token::Const(Constant::Builtin(c))) => {

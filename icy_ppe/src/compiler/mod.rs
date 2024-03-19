@@ -494,8 +494,14 @@ impl PPECompiler {
                     });
                     return None;
                 };
+            
+                let mut decl = self.variable_table.get_var_entry(decl_idx);
+                if decl.header.variable_type == VariableType::Function {
+                    unsafe {
+                        decl = self.variable_table.get_var_entry(decl.value.data.function_value.return_var as usize);
+                    }
+                }
 
-                let decl = self.variable_table.get_var_entry(decl_idx);
                 if decl.header.dim != let_smt.get_arguments().len() as u8 {
                     self.errors.push(CompilationError {
                         error: CompilationErrorType::InvalidDimensions(

@@ -615,7 +615,6 @@ impl Parser {
     ///
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
-        println!("start stmt:{:?}", self.get_cur_token());
         match self.get_cur_token() {
             Some(Token::Begin | Token::Eol) => {
                 self.next_token();

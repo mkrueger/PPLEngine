@@ -354,7 +354,10 @@ impl Parser {
             }
             let else_if_rightpar_token = self.save_spannedtoken();
             self.next_token();
-            if self.get_cur_token() != Some(Token::Then) {
+            if self.get_cur_token() != Some(Token::Then)
+                && self.get_cur_token() != Some(Token::Eol)
+                && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+            {
                 self.errors
                     .push(crate::parser::Error::ParserError(ParserError {
                         error: ParserErrorType::ThenExpected(self.save_token()),
@@ -362,7 +365,11 @@ impl Parser {
                     }));
                 return None;
             }
-            let then_token = self.save_spannedtoken();
+            let then_token = if self.get_cur_token() == Some(Token::Then) {
+                Some(self.save_spannedtoken())
+            } else {
+                None
+            };
             self.next_token();
 
             let mut statements = Vec::new();
@@ -382,7 +389,7 @@ impl Parser {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
-            
+
             else_if_blocks.push(ElseIfBlock::new(
                 else_if_token,
                 else_if_lpar_token,
@@ -546,10 +553,7 @@ impl Parser {
         )))
     }
 
-    fn parse_default_block(
-        &mut self,
-        default_statements: &mut Vec<Statement>,
-    ) {
+    fn parse_default_block(&mut self, default_statements: &mut Vec<Statement>) {
         while self.get_cur_token() != Some(Token::EndSelect) {
             if self.get_cur_token().is_none() {
                 self.errors

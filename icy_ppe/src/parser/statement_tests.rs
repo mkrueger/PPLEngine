@@ -190,6 +190,41 @@ fn test_if_then_ifelse_statement() {
 }
 
 #[test]
+fn test_if_then_ifelse_withoutthen_statement() {
+    check_statement(
+        r"if (A) THEN
+        ELSEIF (B)
+            CONTINUE
+        END IF",
+        &IfThenStatement::create_empty_statement(
+            IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
+            vec![],
+            vec![ElseIfBlock::empty(
+                IdentifierExpression::create_empty_expression(unicase::Ascii::new("B".to_string())),
+                vec![ContinueStatement::create_empty_statement()],
+            )],
+            None,
+        ),
+    );
+
+    check_statement(
+        r"if (A) THEN
+        ELSE IF (B)
+            CONTINUE
+        END IF",
+        &IfThenStatement::create_empty_statement(
+            IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
+            vec![],
+            vec![ElseIfBlock::empty(
+                IdentifierExpression::create_empty_expression(unicase::Ascii::new("B".to_string())),
+                vec![ContinueStatement::create_empty_statement()],
+            )],
+            None,
+        ),
+    );
+}
+
+#[test]
 fn test_if_then_ifelse_else_statement() {
     check_statement(
         r"if (A) THEN

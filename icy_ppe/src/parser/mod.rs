@@ -200,60 +200,49 @@ impl Parser {
                     if is_else {
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             if lookahed == Token::If {
-                                self.cur_token = Some(SpannedToken::new(
-                                    Token::ElseIf,
-                                    self.lex.span(),
-                                ));
+                                self.cur_token =
+                                    Some(SpannedToken::new(Token::ElseIf, self.lex.span()));
                             } else {
-                                self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                                self.lookahead_token =
+                                    Some(SpannedToken::new(lookahed, self.lex.span()));
                             }
                         }
                     } else if is_case {
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             if lookahed == Token::Else {
-                                self.cur_token = Some(SpannedToken::new(
-                                    Token::Default,
-                                    self.lex.span(),
-                                ));
+                                self.cur_token =
+                                    Some(SpannedToken::new(Token::Default, self.lex.span()));
                             } else {
-                                self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                                self.lookahead_token =
+                                    Some(SpannedToken::new(lookahed, self.lex.span()));
                             }
                         }
                     } else if is_end {
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             match lookahed {
                                 Token::If => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndIf,
-                                        self.lex.span(),
-                                    ));
-                                } 
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::EndIf, self.lex.span()));
+                                }
                                 Token::While => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndWhile,
-                                        self.lex.span(),
-                                    ));
-                                } 
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::EndWhile, self.lex.span()));
+                                }
                                 Token::Select => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndSelect,
-                                        self.lex.span(),
-                                    ));
-                                } 
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::EndSelect, self.lex.span()));
+                                }
                                 Token::Procedure => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndProc,
-                                        self.lex.span(),
-                                    ));
-                                } 
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::EndProc, self.lex.span()));
+                                }
                                 Token::Function => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndFunc,
-                                        self.lex.span(),
-                                    ));
-                                } 
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::EndFunc, self.lex.span()));
+                                }
                                 _ => {
-                                    self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                                    self.lookahead_token =
+                                        Some(SpannedToken::new(lookahed, self.lex.span()));
                                 }
                             }
                         }

@@ -494,11 +494,13 @@ impl PPECompiler {
                     });
                     return None;
                 };
-            
+
                 let mut decl = self.variable_table.get_var_entry(decl_idx);
                 if decl.header.variable_type == VariableType::Function {
                     unsafe {
-                        decl = self.variable_table.get_var_entry(decl.value.data.function_value.return_var as usize);
+                        decl = self
+                            .variable_table
+                            .get_var_entry(decl.value.data.function_value.return_var as usize);
                     }
                 }
 

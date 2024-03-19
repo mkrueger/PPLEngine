@@ -551,7 +551,7 @@ pub struct ElseIfBlock {
     leftpar_token: SpannedToken,
     cond: Box<Expression>,
     rightpar_token: SpannedToken,
-    then_token: SpannedToken,
+    then_token: Option<SpannedToken>,
     statements: Vec<Statement>,
 }
 
@@ -561,7 +561,7 @@ impl ElseIfBlock {
         leftpar_token: SpannedToken,
         cond: Expression,
         rightpar_token: SpannedToken,
-        then_token: SpannedToken,
+        then_token: Option<SpannedToken>,
         statements: Vec<Statement>,
     ) -> Self {
         Self {
@@ -580,7 +580,7 @@ impl ElseIfBlock {
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             cond: Box::new(cond),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            then_token: SpannedToken::create_empty(Token::Then),
+            then_token: None,
             statements,
         }
     }
@@ -605,7 +605,7 @@ impl ElseIfBlock {
         &self.rightpar_token
     }
 
-    pub fn get_then_token(&self) -> &SpannedToken {
+    pub fn get_then_token(&self) -> &Option<SpannedToken> {
         &self.then_token
     }
 

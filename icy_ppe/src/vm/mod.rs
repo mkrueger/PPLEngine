@@ -233,194 +233,6 @@ impl<'a> VirtualMachine<'a> {
             ),
         );*/
     }
-    /*
-        /// .
-        ///
-        /// # Panics
-        ///
-        /// Panics if .
-        pub fn get_variable(&self, var_name: &unicase::Ascii<String>) -> Option<&Variable> {
-            if self.cur_frame.len() > 1 {
-                let last = self.cur_frame.last().unwrap();
-                if let Some(val) = last.values.get(var_name) {
-                    return Some(val);
-                }
-            }
-            self.cur_frame.first().unwrap().values.get(var_name)
-        }
-
-        /// .
-        ///
-        /// # Panics
-        ///
-        /// Panics if .
-        pub fn variable_table.get_var_entry_mut(&mut self, var_name: &unicase::Ascii<String>) -> Option<&mut Variable> {
-            let cf = &mut self.cur_frame;
-            if cf.len() > 1 && cf.last().unwrap().values.contains_key(var_name) {
-                if let Some(last) = cf.last_mut() {
-                    if let Some(val) = last.values.get_mut(var_name) {
-                        return Some(val);
-                    }
-                }
-            } else if let Some(first) = cf.first_mut() {
-                return first.values.get_mut(var_name);
-            }
-            None
-        }
-
-        fn set_default_variables(&mut self) {
-            self.add_predefined_variable("U_EXPERT", Variable::new_bool(false));
-            self.add_predefined_variable("U_FSE", Variable::new_bool(false));
-            self.add_predefined_variable("U_FSEP", Variable::new_bool(false));
-            self.add_predefined_variable("U_CLS", Variable::new_bool(false));
-            self.add_predefined_variable(
-                "U_EXPDATE",
-                Variable::new(VariableType::Date, VariableData::default()),
-            );
-            self.add_predefined_variable("U_SEC", Variable::new_int(0));
-            self.add_predefined_variable("U_PAGELEN", Variable::new_int(0));
-            self.add_predefined_variable("U_EXPSEC", Variable::new_int(0));
-            self.add_predefined_variable("U_CITY", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_BDPHONE", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_HVPHONE", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_TRANS", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_CMNT1", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_CMNT2", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_PWD", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_SCROLL", Variable::new_bool(false));
-            self.add_predefined_variable("U_LONGHDR", Variable::new_bool(false));
-            self.add_predefined_variable("U_DEF79", Variable::new_bool(false));
-
-            self.add_predefined_variable("U_VER", Variable::new_string(String::new()));
-            self.add_predefined_variable(
-                "U_ADDR",
-                Variable::new_vector(
-                    VariableType::String,
-                    vec![Variable::new_string(String::new()); 5],
-                ),
-            );
-            self.add_predefined_variable(
-                "U_NOTES",
-                Variable::new_vector(
-                    VariableType::String,
-                    vec![Variable::new_string(String::new()); 4],
-                ),
-            );
-
-            self.add_predefined_variable(
-                "U_PWDEXP",
-                Variable::new(VariableType::Date, VariableData::default()),
-            );
-
-            self.add_predefined_variable(
-                "U_ACCOUNT",
-                Variable::new_vector(VariableType::Integer, vec![Variable::new_int(0); 16]),
-            );
-
-            // 3.40 variables
-            self.add_predefined_variable("U_SHORTDESC", Variable::new_bool(false));
-            self.add_predefined_variable("U_GENDER", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_BIRTHDATE", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_EMAIL", Variable::new_string(String::new()));
-            self.add_predefined_variable("U_WEB", Variable::new_string(String::new()));
-        }
-
-        fn add_predefined_variable(&mut self, arg: &str, val: Variable) {
-            self.cur_frame[0]
-                .values
-                .insert(unicase::Ascii::new(arg.to_string()), val);
-        }
-
-        fn set_variable_value(&mut self, params: &Expression, value: &Variable) -> Res<()> {
-            match params {
-                Expression::Identifier(ident) => {
-                    if let Some(val) = self.variable_table.get_var_entry_mut(ident.get_identifier()) {
-                        *val = convert_to(val.get_type(), value);
-                    } else {
-                        panic!("variable not found {}", ident.get_identifier());
-                    }
-                }
-                Expression::FunctionCall(func_call) => {
-                    let val = if let Some(val) = self.get_variable(func_call.get_identifier()) {
-                        val.clone()
-                    } else {
-                        panic!("variable not found {}", func_call.get_identifier());
-                    };
-                    let var_type = val.get_type();
-                    match val.generic_data {
-                        VariableValue::Dim1(args) => {
-                            if func_call.get_arguments().len() == 1 {
-                                let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
-                                    as usize;
-                                if dim1 < args.len() {
-                                    if let Some(v) = self.variable_table.get_var_entry_mut(func_call.get_identifier()) {
-                                        if let VariableValue::Dim1(args) = &mut v.generic_data {
-                                            args[dim1] = convert_to(var_type, value);
-                                        }
-                                    }
-                                }
-                            } else {
-                                panic!("incompatible variable {}", func_call.get_identifier());
-                            }
-                        }
-                        VariableValue::Dim2(args) => {
-                            if func_call.get_arguments().len() == 2 {
-                                let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
-                                    as usize;
-                                if dim1 < args.len() {
-                                    let dim2 = evaluate_exp(self, &func_call.get_arguments()[1])?
-                                        .as_int() as usize;
-                                    if dim2 < args[dim1].len() {
-                                        if let Some(v) =
-                                            self.variable_table.get_var_entry_mut(func_call.get_identifier())
-                                        {
-                                            if let VariableValue::Dim2(args) = &mut v.generic_data {
-                                                args[dim1][dim2] = convert_to(var_type, value);
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                panic!("incompatible variable {}", func_call.get_identifier());
-                            }
-                        }
-                        VariableValue::Dim3(args) => {
-                            if func_call.get_arguments().len() == 2 {
-                                let dim1 = evaluate_exp(self, &func_call.get_arguments()[0])?.as_int()
-                                    as usize;
-                                if dim1 < args.len() {
-                                    let dim2 = evaluate_exp(self, &func_call.get_arguments()[1])?
-                                        .as_int() as usize;
-                                    if dim2 < args[dim1].len() {
-                                        let dim3 = evaluate_exp(self, &func_call.get_arguments()[2])?
-                                            .as_int()
-                                            as usize;
-                                        if dim3 < args[dim1][dim2].len() {
-                                            if let Some(v) =
-                                                self.variable_table.get_var_entry_mut(func_call.get_identifier())
-                                            {
-                                                if let VariableValue::Dim3(args) = &mut v.generic_data {
-                                                    args[dim1][dim2][dim3] =
-                                                        convert_to(var_type, value);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                panic!("incompatible variable {}", func_call.get_identifier());
-                            }
-                        }
-                        _ => {
-                            panic!("incompatible variable {}", func_call.get_identifier());
-                        }
-                    }
-                }
-                _ => panic!("unsupported expression {params:?}"),
-            }
-            Ok(())
-        }
-    */
 
     fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
         match expr {
@@ -520,6 +332,7 @@ impl<'a> VirtualMachine<'a> {
                     parameters = proc.value.data.function_value.parameters as usize;
                     return_var_id = proc.value.data.function_value.return_var as usize;
                 }
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..locals {
                     let id = first + i;
                     if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0
@@ -671,6 +484,7 @@ impl<'a> VirtualMachine<'a> {
                     parameters = proc.value.data.procedure_value.parameters as usize;
                     pass_flags = proc.value.data.procedure_value.pass_flags;
                 }
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..locals {
                     let id = first + i;
                     if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {

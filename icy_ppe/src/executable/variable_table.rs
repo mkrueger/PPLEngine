@@ -503,8 +503,8 @@ impl VariableTable {
     }
 
     pub fn generate_names(&mut self) {
-        let has_user_vars = self.has_user_variables();
-        let mut name_generator = VariableNameGenerator::new(self.version, has_user_vars);
+        let user_vars_version = self.scan_user_variables_version();
+        let mut name_generator = VariableNameGenerator::new(self.version, user_vars_version);
         let mut function_result = 1;
         for res in &mut self.entries {
             if res.get_type() == EntryType::FunctionResult {
@@ -592,15 +592,23 @@ impl VariableTable {
         &mut self.entries[id - 1]
     }
 
-    pub fn has_user_variables(&self) -> bool {
-        for i in 0..20 {
-            if self.entries[i].header.variable_type != USER_VARIABLES[i].value.vtype
-                || self.entries[i].header.vector_size != USER_VARIABLES[i].value.get_vector_size()
+    pub fn scan_user_variables_version(&self) -> u16 {
+        for (i, u_var) in USER_VARIABLES.iter().enumerate() {
+            if self.entries[i].header.variable_type != u_var.value.vtype
+                || self.entries[i].header.vector_size != u_var.value.get_vector_size()
             {
-                return false;
+                return if u_var.version > 340 {
+                    340
+                } else if u_var.version > 300 {
+                    300
+                } else if u_var.version > 100 {
+                    100
+                } else {
+                     0
+                };
             }
         }
-        true
+        0
     }
 
     pub fn print_variable_table(&self) {
@@ -781,46 +789,45 @@ impl VariableTable {
 
 pub struct UserVariable {
     pub name: &'static str,
+    pub version: u16,
     pub value: VariableValue,
 }
 
 lazy_static::lazy_static! {
     pub static ref USER_VARIABLES: [UserVariable;29] = [
-        UserVariable { name: "U_EXPERT", value: VariableValue::new_bool(false)  },
-        UserVariable { name: "U_FSE", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_FSEP", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_CLS", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_EXPDATE", value:VariableValue::new(VariableType::Date, VariableData::default()) },
-        UserVariable { name: "U_SEC", value:VariableValue::new_int(0) },
-        UserVariable { name: "U_PAGELEN", value:VariableValue::new_int(0) },
-        UserVariable { name: "U_EXPSEC", value:VariableValue::new_int(0) },
-        UserVariable { name: "U_CITY", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_BDPHONE", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_HVPHONE", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_TRANS", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_CMNT1", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_CMNT2", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_PWD", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_SCROLL", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_LONGHDR", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_DEF79", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_ALIAS", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_VER", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_ADDR", value:VariableValue::new_vector(
+        UserVariable { name: "U_EXPERT", version:100, value: VariableValue::new_bool(false)  },
+        UserVariable { name: "U_FSE", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_FSEP", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_CLS", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_EXPDATE", version:100, value:VariableValue::new(VariableType::Date, VariableData::default()) },
+        UserVariable { name: "U_SEC", version:100, value:VariableValue::new_int(0) },
+        UserVariable { name: "U_PAGELEN", version:100, value:VariableValue::new_int(0) },
+        UserVariable { name: "U_EXPSEC", version:100, value:VariableValue::new_int(0) },
+        UserVariable { name: "U_CITY", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BDPHONE", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_HVPHONE", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_TRANS", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_CMNT1", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_CMNT2", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_PWD", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_SCROLL", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_LONGHDR", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_DEF79", version:100, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_ALIAS", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_VER", version:100, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_ADDR", version:100, value:VariableValue::new_vector(
             VariableType::String,
             vec![VariableValue::new_string(String::new()); 5],
         )  },
-        UserVariable { name: "U_NOTES", value:VariableValue::new_vector(VariableType::String, vec![VariableValue::new_string(String::new()); 4], ), },
-        UserVariable { name: "U_PWDEXP", value:VariableValue::new(VariableType::Date, VariableData::default()),  },
+        UserVariable { name: "U_NOTES", version:100, value:VariableValue::new_vector(VariableType::String, vec![VariableValue::new_string(String::new()); 4], ), },
+        UserVariable { name: "U_PWDEXP", version:100, value:VariableValue::new(VariableType::Date, VariableData::default()),  },
 
-        // 3.10
-        UserVariable { name: "U_ACCOUNT", value:VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]), },
+        UserVariable { name: "U_ACCOUNT", version:300, value:VariableValue::new_vector(VariableType::Integer, vec![VariableValue::new_int(0); 16]), },
 
-        // 3.40
-        UserVariable { name: "U_SHORTDESC", value:VariableValue::new_bool(false) },
-        UserVariable { name: "U_GENDER", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_BIRTHDATE", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_EMAIL", value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_WEB", value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_SHORTDESC", version:340, value:VariableValue::new_bool(false) },
+        UserVariable { name: "U_GENDER", version:340, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_EMAIL", version:340, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_WEB", version:340, value:VariableValue::new_string(String::new()) },
     ];
 }

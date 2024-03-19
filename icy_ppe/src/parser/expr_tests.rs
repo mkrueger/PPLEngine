@@ -26,7 +26,7 @@ fn check_error(input: &str) {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
     let expr = parser.parse_expression();
-    assert!(!parser.errors.is_empty(), "No error found parsed expr {:?}", expr);
+    assert!(!parser.errors.is_empty(), "No error found parsed expr {expr:?}");
 }
 
 #[test]

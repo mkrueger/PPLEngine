@@ -6,7 +6,7 @@ use crate::{
         LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
         SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
-    executable::STATEMENT_DEFINITIONS,
+    executable::{OpCode, STATEMENT_DEFINITIONS},
     parser::{ParserError, ParserErrorType},
 };
 
@@ -626,8 +626,7 @@ impl Parser {
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
-            Some(Token::Begin) => {
-                // Just ignore begin
+            Some(Token::Begin | Token::Eol) => {
                 self.next_token();
                 None
             }
@@ -843,10 +842,6 @@ impl Parser {
                 Some(Statement::Label(LabelStatement::new(label_token)))
             }
 
-            Some(Token::Eol) => {
-                self.next_token();
-                None
-            }
             None => None,
             _ => {
                 self.errors
@@ -868,10 +863,6 @@ impl Parser {
             if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
                 let mut params = Vec::new();
                 while self.get_cur_token() != Some(Token::Eol) && self.cur_token.is_some() {
-                    // TODO : Signature check
-                    /*If params.len() as i8 >= def.max_args {
-                        break;
-                    }*/
                     let Some(value) = self.parse_expression() else {
                         self.errors
                             .push(crate::parser::Error::ParserError(ParserError {
@@ -891,32 +882,16 @@ impl Parser {
                         break;
                     }
                 }
-                /*  TODO : Signature check.
-                if (params.len() as i8) < def.min_args {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::TooFewArguments(
-                                def.name.to_string(),
-                                params.len(),
-                                def.min_args,
-                            ),
-                            range: self.lex.span(),
-                        }));
-                    return None;
+
+                if def.opcode == OpCode::GETUSER ||
+                def.opcode == OpCode::PUTUSER ||
+                def.opcode == OpCode::GETALTUSER ||
+                def.opcode == OpCode::FREALTUSER ||
+                def.opcode == OpCode::DELUSER ||
+                def.opcode == OpCode::ADDUSER {
+                    self.require_user_variables = true;
                 }
 
-                if (params.len() as i8) > def.max_args {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::TooManyArguments(
-                                def.name.to_string(),
-                                params.len(),
-                                def.max_args,
-                            ),
-                            range: self.lex.span(),
-                        }));
-                    return None;
-                }*/
                 return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
                     id_token, def, params,
                 )));

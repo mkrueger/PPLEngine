@@ -7,6 +7,8 @@ pub struct Program {
     pub file_name: PathBuf,
     pub errors: Vec<crate::parser::Error>,
     pub warnings: Vec<crate::parser::ParserWarning>,
+
+    pub require_user_variables: bool,
 }
 
 impl Program {
@@ -16,6 +18,7 @@ impl Program {
             file_name: PathBuf::new(),
             errors: Vec::new(),
             warnings: Vec::new(),
+            require_user_variables: false,
         }
     }
 

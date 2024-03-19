@@ -35,8 +35,8 @@ pub mod stmt_tests;
 
 #[derive(Clone, Debug, Default)]
 pub struct VariableNameGenerator {
-    version: u16,
-    has_user_vars: bool,
+    _version: u16,
+    user_vars_version: u16,
 
     string_vars: usize,
     int_vars: usize,
@@ -54,12 +54,10 @@ pub struct VariableNameGenerator {
 
 impl VariableNameGenerator {
     pub fn get_next_name(&mut self, decl: &TableEntry) -> (String, bool) {
-        if self.has_user_vars
-            && (self.version < 300 && decl.header.id <= 0x17
-                || self.version >= 300 && decl.header.id <= 0x18)
-        {
+        let var_idx = decl.header.id  - 1;
+        if var_idx < USER_VARIABLES.len() && self.user_vars_version >= USER_VARIABLES[var_idx].version {
             return (
-                VariableNameGenerator::get_user_variable_name(decl.header.id),
+                USER_VARIABLES[var_idx].name.to_string(),
                 true,
             );
         }
@@ -118,18 +116,11 @@ impl VariableNameGenerator {
         (name, false)
     }
 
-    fn get_user_variable_name(number: usize) -> String {
-        if let Some(name) = USER_VARIABLES.get(number - 1) {
-            return name.name.to_string();
-        }
-        log::error!("Unknown user variable number: {number}");
-        format!("UNKNOWN_VAR{number}")
-    }
 
-    pub fn new(version: u16, has_user_vars: bool) -> Self {
+    pub fn new(version: u16, user_vars_version: u16) -> Self {
         Self {
-            version,
-            has_user_vars,
+            _version: version,
+            user_vars_version,
             ..Default::default()
         }
     }

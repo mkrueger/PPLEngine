@@ -1518,9 +1518,9 @@ impl Decompiler {
     }
 
     fn name_variables(&mut self) {
-        let has_user_vars = self.executable.variable_table.has_user_variables();
+        let user_var_version = self.executable.variable_table.scan_user_variables_version();
         let mut name_generator: VariableNameGenerator =
-            VariableNameGenerator::new(self.executable.version, has_user_vars);
+            VariableNameGenerator::new(self.executable.version, user_var_version);
         let mut function_result = 1;
         for i in 0..self.executable.variable_table.len() {
             let res = self.get_var_mut(i);

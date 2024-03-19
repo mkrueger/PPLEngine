@@ -11,9 +11,6 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
 struct Args {
-    /// Disable automatic user variable generation
-    #[arg(long = "nouvar")]
-    no_user_variables: bool,
 
     /// Don't egnerate a binary just output the disassembly
     #[arg(short, long)]
@@ -46,8 +43,8 @@ fn main() {
     let prg = parse_program(PathBuf::from(&file_name), &src);
     println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
-    let mut compiler = PPECompiler::new();
-    compiler.compile(&prg, arguments.no_user_variables);
+    let mut compiler = PPECompiler::new(LAST_PPLC);
+    compiler.compile(&prg);
 
     if !prg.errors.is_empty()
         || !prg.warnings.is_empty()

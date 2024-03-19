@@ -19,6 +19,9 @@ pub use self::visitor::*;
 pub mod output_visitor;
 pub use self::output_visitor::*;
 
+pub mod rename_visitor;
+pub use self::rename_visitor::*;
+
 use crate::executable::VariableType;
 use crate::parser::lexer::{SpannedToken, Token};
 

@@ -10,6 +10,8 @@ pub struct RenameScanVistitor {
     pub rename_map: HashMap<unicase::Ascii<String>, unicase::Ascii<String>>,
     cur_index_var: usize,
     file_names: usize,
+    x_coords : usize,
+    y_coords : usize,
 }
 
 const INDEX_VARS: [&str; 4] = ["i", "j", "k", "l"];
@@ -29,6 +31,28 @@ impl AstVisitor<()> for RenameScanVistitor {
 
     fn visit_predefined_call_statement(&mut self, call: &crate::ast::PredefinedCallStatement) {
         match &call.get_func().opcode {
+            OpCode::ANSIPOS => {
+                if let Expression::Identifier(id) = &call.get_arguments()[0] {
+                    let var_name = id.get_identifier();
+                    if !self.rename_map.contains_key(var_name) {
+                        self.x_coords += 1;
+                        self.rename_map.insert(
+                            var_name.clone(),
+                            unicase::Ascii::new(format!("X{}", self.x_coords)),
+                        );
+                    }
+                }
+                if let Expression::Identifier(id) = &call.get_arguments()[1] {
+                    let var_name = id.get_identifier();
+                    if !self.rename_map.contains_key(var_name) {
+                        self.y_coords += 1;
+                        self.rename_map.insert(
+                            var_name.clone(),
+                            unicase::Ascii::new(format!("Y{}", self.y_coords)),
+                        );
+                    }
+                }
+            }
             OpCode::FOPEN | OpCode::DELETE | OpCode::DISPFILE => {
                 if let Expression::Identifier(id) = &call.get_arguments()[0] {
                     let var_name = id.get_identifier();
@@ -42,28 +66,6 @@ impl AstVisitor<()> for RenameScanVistitor {
                 }
             }
             _ => {}
-        }
-    }
-}
-
-use crate::ast::AstVisitorMut;
-#[derive(Default)]
-pub struct RenameVisitor {
-    pub rename_map: HashMap<unicase::Ascii<String>, unicase::Ascii<String>>,
-}
-
-impl RenameVisitor {
-    pub fn new(rename_map: HashMap<unicase::Ascii<String>, unicase::Ascii<String>>) -> Self {
-        Self { rename_map }
-    }
-}
-
-impl AstVisitorMut for RenameVisitor {
-    fn visit_identifier(&mut self, id: &unicase::Ascii<String>) -> unicase::Ascii<String> {
-        if let Some(rename) = self.rename_map.get(id) {
-            rename.clone()
-        } else {
-            id.clone()
         }
     }
 }

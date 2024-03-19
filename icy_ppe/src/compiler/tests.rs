@@ -2,7 +2,7 @@ use std::{env, fs::read_to_string, path::PathBuf};
 
 use crate::{
     compiler,
-    executable::Executable,
+    executable::{Executable, LAST_PPLC},
     icy_board::data::IcyBoardData,
     parser::parse_program,
     vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
@@ -53,8 +53,8 @@ fn test_compiler() {
 
 fn run_test(data: &str, output: &str) {
     let prg = parse_program(PathBuf::from("."), data);
-    let mut exec = compiler::PPECompiler::new();
-    exec.compile(&prg, false);
+    let mut exec = compiler::PPECompiler::new(LAST_PPLC);
+    exec.compile(&prg);
     if !exec.errors.is_empty() {
         println!("Errors:");
         for e in &exec.errors {

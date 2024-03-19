@@ -1,12 +1,9 @@
 use crate::ast::{
-    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock,
-    ForStatement, IdentifierExpression, IfStatement, IfThenStatement, SelectStatement,
-    UnaryExpression, WhileDoStatement,
+    AstNode, BinOp, BreakStatement, CaseBlock, ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, RenameVisitor, SelectStatement, UnaryExpression, WhileDoStatement
 };
 
 use super::{
-    rename_visitor::{RenameScanVistitor, RenameVisitor},
-    Expression, HashSet, Program, Statement,
+    rename_visitor::RenameScanVistitor, Expression, HashSet, Program, Statement
 };
 
 pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
@@ -863,7 +860,7 @@ fn strip_unused_labels2(
         i += 1;
     }
 }
-
+ 
 #[must_use]
 pub fn do_pass4(prg: &mut Program) -> Program {
     let mut scanner = RenameScanVistitor::default();

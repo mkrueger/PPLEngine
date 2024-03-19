@@ -147,6 +147,9 @@ pub struct ParserWarning {
 pub struct Parser {
     pub errors: Vec<Error>,
     pub warnings: Vec<ParserWarning>,
+
+    pub require_user_variables: bool,
+
     cur_token: Option<SpannedToken>,
     lex: Lexer,
 }
@@ -159,6 +162,7 @@ impl Parser {
             warnings: Vec::new(),
             cur_token: None,
             lex,
+            require_user_variables: false,
         }
     }
 
@@ -867,6 +871,7 @@ pub fn parse_program(file_name: PathBuf, input: &str) -> Program {
         file_name,
         errors: parser.errors,
         warnings: parser.warnings,
+        require_user_variables: parser.require_user_variables,
     }
 }
 

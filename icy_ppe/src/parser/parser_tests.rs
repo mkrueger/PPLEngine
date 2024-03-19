@@ -12,7 +12,7 @@ fn test_function() {
     assert_eq!(1, prg.function_implementations.len());
 }*/
 
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
 use crate::ast::{AstNode, Program, VariableDeclarationStatement};
 

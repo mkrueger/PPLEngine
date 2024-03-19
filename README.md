@@ -33,7 +33,6 @@ It adds:
 
 ### Compiler
 
-* Supports --nouvar Disable automatic user variable generation
 * Supports 15.4 PPL extensions but not the container format
 
 ### Runner

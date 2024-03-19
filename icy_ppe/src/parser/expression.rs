@@ -256,7 +256,6 @@ impl Parser {
                     self.next_token();
 
                     let predef = get_function_definition(id);
-                    // TODO: Check parameter signature
                     if predef >= 0 {
                         return Some(Expression::PredefinedFunctionCall(
                             PredefinedFunctionCallExpression::new(

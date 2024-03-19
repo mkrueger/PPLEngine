@@ -7,9 +7,7 @@ use thiserror::Error;
 use crate::{
     ast::{AstNode, Constant, Expression, ParameterSpecifier, Program, Statement},
     executable::{
-        EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
-        PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
-        VariableType, VariableValue, USER_VARIABLES,
+        EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode, PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable, VariableType, VariableValue, LAST_PPLC, USER_VARIABLES
     },
     parser::lexer::{SpannedToken, Token},
 };
@@ -65,6 +63,7 @@ pub struct CompilationWarning {
 }
 
 pub struct PPECompiler {
+    version: u16,
     variable_id: usize,
     variable_table: VariableTable,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
@@ -87,8 +86,9 @@ pub struct PPECompiler {
 }
 
 impl PPECompiler {
-    pub fn new() -> Self {
+    pub fn new(version: u16) -> Self {
         Self {
+            version,
             variable_table: VariableTable::default(),
             variable_lookup: HashMap::new(),
             label_table: Vec::new(),
@@ -160,9 +160,11 @@ impl PPECompiler {
         self.push_variable(unicase::Ascii::new(name.to_string()), entry);
     }
 
-    fn initialize_variables(&mut self) {
+    fn initialize_user_variables(&mut self) {
         for user_var in USER_VARIABLES.iter() {
-            self.add_predefined_variable(user_var.name, user_var.value.clone());
+            if user_var.version <= self.version {
+                self.add_predefined_variable(user_var.name, user_var.value.clone());
+            }
         }
     }
 
@@ -171,9 +173,9 @@ impl PPECompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn compile(&mut self, prg: &Program, no_user_vars: bool) {
-        if !no_user_vars {
-            self.initialize_variables();
+    pub fn compile(&mut self, prg: &Program) {
+        if prg.require_user_variables {
+            self.initialize_user_variables();
         }
 
         let prg = prg.visit_mut(&mut AstTransformationVisitor::default());
@@ -725,6 +727,6 @@ impl PPECompiler {
 
 impl Default for PPECompiler {
     fn default() -> Self {
-        Self::new()
+        Self::new(LAST_PPLC)
     }
 }

@@ -18,6 +18,13 @@ use crate::ast::{AstNode, Program, VariableDeclarationStatement};
 
 use super::{lexer::SpannedToken, parse_program};
 
+/*
+Test cases:
+BOOLEAN forward
+forward  = FALSE
+(forward is a function as well)
+
+*/
 #[test]
 fn test_var_declarations() {
     let prg = get_ast("BOOLEAN VAR001");

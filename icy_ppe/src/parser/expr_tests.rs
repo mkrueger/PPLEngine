@@ -12,7 +12,7 @@ fn parse_expression(input: &str) -> Expression {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
     let res = parser.parse_expression().unwrap();
-    assert!(parser.next_token().is_none());
+    assert_eq!(parser.get_cur_token(), None);
     res
 }
 

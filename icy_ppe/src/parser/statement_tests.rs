@@ -1,24 +1,34 @@
 use std::path::PathBuf;
 
-use crate::ast::{
-    BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
-    ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, IdentifierExpression, IfStatement,
-    IfThenStatement, LabelStatement, ReturnStatement, SelectStatement, Statement, WhileDoStatement,
-    WhileStatement,
-};
+use crate::{ast::{
+    BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement
+}, executable::OpCode};
 
 use super::Parser;
 
-fn parse_statement(input: &str) -> Statement {
+fn parse_statement(input: &str, assert_eof: bool) -> Statement {
     let mut parser = Parser::new(PathBuf::from("."), input);
     parser.next_token();
     let res = parser.parse_statement().unwrap();
-    assert!(parser.next_token().is_none());
+    if assert_eof {
+        assert!(parser.get_cur_token().is_none());
+    }
     res
 }
 
 fn check_statement(input: &str, check: &Statement) {
-    let stmt = parse_statement(input);
+    let stmt = parse_statement(input, true);
+
+    if !stmt.is_similar(check) {
+        println!("Statement {stmt:?} is not similar to {check:?}");
+
+        println!("was:\n{stmt}\nShould be:\n{check}");
+
+        panic!();
+    }
+}
+fn check_statement_without_eol(input: &str, check: &Statement) {
+    let stmt = parse_statement(input, false);
 
     if !stmt.is_similar(check) {
         println!("Statement {stmt:?} is not similar to {check:?}");
@@ -452,6 +462,98 @@ ENDSELECT",
             IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
             vec![],
             vec![BreakStatement::create_empty_statement()],
+        ),
+    );
+}
+
+
+#[test]
+fn test_predefined_call() {
+    check_statement("PRINTLN", &PredefinedCallStatement::create_empty_statement(OpCode::PRINTLN.get_definition(), Vec::new()));
+    check_statement_without_eol("PRINTLN ;COMMENT", &PredefinedCallStatement::create_empty_statement(OpCode::PRINTLN.get_definition(), Vec::new()));
+}
+
+#[test]
+fn test_for_statement() {
+    check_statement(
+        r"FOR I = 0 TO 5 
+NEXT",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            None,
+            vec![],
+        ),
+    );
+
+    check_statement(
+        r"FOR I = 0 TO 5 
+NEXT I",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            None,
+            vec![],
+        ),
+    );
+}
+
+
+#[test]
+fn test_for_statement_alt_next() {
+    check_statement(
+        r"FOR I = 0 TO 5 
+ENDFOR",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            None,
+            vec![],
+        ),
+    );
+
+    check_statement(
+        r"FOR I = 0 TO 5 
+END FOR",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            None,
+            vec![],
+        ),
+    );
+}
+
+#[test]
+fn test_for_step_statement() {
+    check_statement(
+        r"FOR I = 0 TO 5 STEP 3
+NEXT",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            Some(Box::new(ConstantExpression::create_empty_expression(Constant::Integer(3)))),
+            vec![],
+        ),
+    );
+
+    check_statement(
+        r"FOR I = 5 TO 0 STEP -4
+NEXT I",
+        &ForStatement::create_empty_statement(
+            unicase::Ascii::new("I".to_string()),
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+            ConstantExpression::create_empty_expression(Constant::Integer(0)),
+            Some(Box::new(UnaryExpression::create_empty_expression(
+                UnaryOp::Minus,
+                ConstantExpression::create_empty_expression(Constant::Integer(4)),
+            ))),
+            vec![],
         ),
     );
 }

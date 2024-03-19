@@ -198,51 +198,58 @@ impl Parser {
                     self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
 
                     if is_else {
+                        let start = self.lex.span().start;
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             if lookahed == Token::If {
                                 self.cur_token =
-                                    Some(SpannedToken::new(Token::ElseIf, self.lex.span()));
+                                    Some(SpannedToken::new(Token::ElseIf, start..self.lex.span().end));
                             } else {
                                 self.lookahead_token =
-                                    Some(SpannedToken::new(lookahed, self.lex.span()));
+                                    Some(SpannedToken::new(lookahed, start..self.lex.span().end));
                             }
                         }
                     } else if is_case {
+                        let start = self.lex.span().start;
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             if lookahed == Token::Else {
                                 self.cur_token =
-                                    Some(SpannedToken::new(Token::Default, self.lex.span()));
+                                    Some(SpannedToken::new(Token::Default, start..self.lex.span().end));
                             } else {
                                 self.lookahead_token =
-                                    Some(SpannedToken::new(lookahed, self.lex.span()));
+                                    Some(SpannedToken::new(lookahed, start..self.lex.span().end));
                             }
                         }
                     } else if is_end {
+                        let start = self.lex.span().start;
                         if let Some(Ok(lookahed)) = self.lex.next_token() {
                             match lookahed {
                                 Token::If => {
                                     self.cur_token =
-                                        Some(SpannedToken::new(Token::EndIf, self.lex.span()));
+                                        Some(SpannedToken::new(Token::EndIf, start..self.lex.span().end));
                                 }
                                 Token::While => {
                                     self.cur_token =
-                                        Some(SpannedToken::new(Token::EndWhile, self.lex.span()));
+                                        Some(SpannedToken::new(Token::EndWhile, start..self.lex.span().end));
                                 }
                                 Token::Select => {
                                     self.cur_token =
-                                        Some(SpannedToken::new(Token::EndSelect, self.lex.span()));
+                                        Some(SpannedToken::new(Token::EndSelect, start..self.lex.span().end));
+                                }
+                                Token::For => {
+                                    self.cur_token =
+                                        Some(SpannedToken::new(Token::Next, start..self.lex.span().end));
                                 }
                                 Token::Procedure => {
                                     self.cur_token =
-                                        Some(SpannedToken::new(Token::EndProc, self.lex.span()));
+                                        Some(SpannedToken::new(Token::EndProc, start..self.lex.span().end));
                                 }
                                 Token::Function => {
                                     self.cur_token =
-                                        Some(SpannedToken::new(Token::EndFunc, self.lex.span()));
+                                        Some(SpannedToken::new(Token::EndFunc, start..self.lex.span().end));
                                 }
                                 _ => {
                                     self.lookahead_token =
-                                        Some(SpannedToken::new(lookahed, self.lex.span()));
+                                        Some(SpannedToken::new(lookahed, start..self.lex.span().end));
                                 }
                             }
                         }

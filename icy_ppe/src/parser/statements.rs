@@ -226,6 +226,16 @@ impl Parser {
         // skip next
         self.next_token();
 
+        let next_identifier_token = if matches!(self.get_cur_token(), Some(Token::Identifier(_))) {
+            // next token is not checked by pplc and doesn't even need to be defined
+            // should be checked in a later compiler version.
+            let t = self.save_spannedtoken();
+            self.next_token();
+            Some(t)
+        } else {
+            None
+        };
+
         Some(Statement::For(ForStatement::new(
             for_token,
             identifier_token,
@@ -237,6 +247,7 @@ impl Parser {
             step_expr,
             statements.into_iter().flatten().collect(),
             next_token,
+            next_identifier_token
         )))
     }
 
@@ -834,45 +845,47 @@ impl Parser {
 
     fn parse_call(&mut self, id: &str) -> Option<Statement> {
         let id_token = self.save_spannedtoken();
-
         self.next_token();
-        for def in &STATEMENT_DEFINITIONS {
-            if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
-                let mut params = Vec::new();
-                while self.get_cur_token() != Some(Token::Eol) && self.cur_token.is_some() {
-                    let Some(value) = self.parse_expression() else {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::ExpressionExpected(self.save_token()),
-                                range: self.lex.span(),
-                            }));
-                        return None;
-                    };
-                    params.push(value);
+        if self.get_cur_token() != Some(Token::Eq) {
 
-                    if self.cur_token.is_none() {
-                        break;
+            for def in &STATEMENT_DEFINITIONS {
+                if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
+                    let mut params = Vec::new();
+                    while self.get_cur_token() != Some(Token::Eol) &&  !matches!(self.get_cur_token(), Some(Token::Comment(_, _))) && self.cur_token.is_some() {
+                        let Some(value) = self.parse_expression() else {
+                            self.errors
+                                .push(crate::parser::Error::ParserError(ParserError {
+                                    error: ParserErrorType::ExpressionExpected(self.save_token()),
+                                    range: self.lex.span(),
+                                }));
+                            return None;
+                        };
+                        params.push(value);
+
+                        if self.cur_token.is_none() {
+                            break;
+                        }
+                        if self.get_cur_token() == Some(Token::Comma) {
+                            self.next_token();
+                        } else {
+                            break;
+                        }
                     }
-                    if self.get_cur_token() == Some(Token::Comma) {
-                        self.next_token();
-                    } else {
-                        break;
+
+                    if def.opcode == OpCode::GETUSER
+                        || def.opcode == OpCode::PUTUSER
+                        || def.opcode == OpCode::GETALTUSER
+                        || def.opcode == OpCode::FREALTUSER
+                        || def.opcode == OpCode::DELUSER
+                        || def.opcode == OpCode::ADDUSER
+                    {
+                        self.require_user_variables = true;
                     }
-                }
 
-                if def.opcode == OpCode::GETUSER
-                    || def.opcode == OpCode::PUTUSER
-                    || def.opcode == OpCode::GETALTUSER
-                    || def.opcode == OpCode::FREALTUSER
-                    || def.opcode == OpCode::DELUSER
-                    || def.opcode == OpCode::ADDUSER
-                {
-                    self.require_user_variables = true;
+                    return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
+                        id_token, def, params,
+                    )));
                 }
-
-                return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
-                    id_token, def, params,
-                )));
             }
         }
 

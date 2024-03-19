@@ -247,6 +247,7 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("endif".to_string()), Token::EndIf);
         m.insert(unicase::Ascii::new("for".to_string()), Token::For);
         m.insert(unicase::Ascii::new("next".to_string()), Token::Next);
+        m.insert(unicase::Ascii::new("endfor".to_string()), Token::Next);
         m.insert(unicase::Ascii::new("break".to_string()), Token::Break);
         m.insert(unicase::Ascii::new("quit".to_string()), Token::Break);
 
@@ -290,6 +291,10 @@ impl Lexer {
             None
         } else {
             let t = self.text[self.token_end];
+            // Some files take that as end of file char.
+            if t == '\x1A' {
+                return None;
+            }
             self.token_end += 1;
             Some(t)
         }
@@ -498,8 +503,10 @@ impl Lexer {
             }
             '$' => {
                 let mut identifier = String::new();
+                let mut is_last = false;
                 loop {
                     let Some(ch) = self.next_ch() else {
+                        is_last = true;
                         break;
                     };
                     if !ch.is_ascii_digit() && ch != '.' {
@@ -507,7 +514,9 @@ impl Lexer {
                     }
                     identifier.push(ch);
                 }
-                self.put_back();
+                if !is_last {
+                    self.put_back();
+                }
                 let Ok(r) = identifier.parse::<f64>() else {
                     return Some(Err(LexingError {
                         error: LexingErrorType::InvalidToken,

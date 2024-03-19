@@ -954,6 +954,7 @@ pub struct ForStatement {
     step_expr: Option<Box<Expression>>,
     statements: Vec<Statement>,
     next_token: SpannedToken,
+    next_identifier_token: Option<SpannedToken>,
 }
 
 impl ForStatement {
@@ -969,6 +970,7 @@ impl ForStatement {
         step_expr: Option<Box<Expression>>,
         statements: Vec<Statement>,
         next_token: SpannedToken,
+        next_identifier_token: Option<SpannedToken>,
     ) -> Self {
         Self {
             for_token,
@@ -981,6 +983,7 @@ impl ForStatement {
             step_expr,
             statements,
             next_token,
+            next_identifier_token
         }
     }
 
@@ -1008,6 +1011,7 @@ impl ForStatement {
             step_expr,
             statements,
             next_token: SpannedToken::create_empty(Token::Next),
+            next_identifier_token: None
         }
     }
 

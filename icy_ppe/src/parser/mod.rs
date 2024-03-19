@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     ast::{
@@ -8,6 +12,7 @@ use crate::{
     },
     executable::VariableType,
     parser::lexer::LexingError,
+    tables::CP437_TO_UNICODE,
 };
 
 use self::lexer::{Lexer, SpannedToken, Token};
@@ -160,10 +165,14 @@ pub struct Parser {
 
     lex: Lexer,
 }
+lazy_static::lazy_static! {
+    static ref PROC_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("PROC".to_string());
+    static ref FUNC_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("FUNC".to_string());
+}
 
 impl Parser {
-    pub fn new(file: PathBuf, text: &str) -> Self {
-        let lex = Lexer::new(file, text);
+    pub fn new(file: PathBuf, text: &str, encoding: Encoding) -> Self {
+        let lex = Lexer::new(file, text, encoding);
         Parser {
             errors: Vec::new(),
             warnings: Vec::new(),
@@ -251,23 +260,33 @@ impl Parser {
                                         start..self.lex.span().end,
                                     ));
                                 }
-                                Token::Procedure => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndProc,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
-                                Token::Function => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndFunc,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
                                 _ => {
-                                    self.lookahead_token = Some(SpannedToken::new(
-                                        lookahed,
-                                        start..self.lex.span().end,
-                                    ));
+                                    let set_lookahad = if let Token::Identifier(id) = &lookahed {
+                                        if *id == *PROC_TOKEN {
+                                            self.cur_token = Some(SpannedToken::new(
+                                                Token::EndProc,
+                                                start..self.lex.span().end,
+                                            ));
+                                            false
+                                        } else if *id == *FUNC_TOKEN {
+                                            self.cur_token = Some(SpannedToken::new(
+                                                Token::EndFunc,
+                                                start..self.lex.span().end,
+                                            ));
+                                            false
+                                        } else {
+                                            true
+                                        }
+                                    } else {
+                                        true
+                                    };
+
+                                    if set_lookahad {
+                                        self.lookahead_token = Some(SpannedToken::new(
+                                            lookahed,
+                                            start..self.lex.span().end,
+                                        ));
+                                    }
                                 }
                             }
                         }
@@ -853,9 +872,9 @@ impl Parser {
     }
 }
 
-pub fn parse_program(file_name: PathBuf, input: &str) -> Program {
+pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Program {
     let mut nodes = Vec::new();
-    let mut parser = Parser::new(file_name.clone(), input);
+    let mut parser = Parser::new(file_name.clone(), input, encoding);
     parser.next_token();
     parser.skip_eol();
     let mut use_funcs = false;
@@ -967,3 +986,23 @@ pub fn parse_program(file_name: PathBuf, input: &str) -> Program {
 }
 
 // type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Encoding {
+    Utf8,
+    CP437,
+}
+
+pub fn load_with_encoding(file_name: &Path, encoding: Encoding) -> std::io::Result<String> {
+    let src_data = fs::read(file_name)?;
+    let src = if encoding == Encoding::CP437 {
+        let mut res = String::new();
+        for b in src_data {
+            res.push(CP437_TO_UNICODE[b as usize]);
+        }
+        res
+    } else {
+        String::from_utf8_lossy(&src_data).to_string()
+    };
+    Ok(src)
+}

@@ -1,7 +1,7 @@
 use crate::ast::{
-    AstVisitorMut, BinaryExpression, BlockStatement, Constant, ConstantExpression, Expression,
-    ForStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
-    SelectStatement, Statement, UnaryExpression,
+    AstVisitorMut, BinaryExpression, BlockStatement, CommentAstNode, Constant, ConstantExpression,
+    Expression, ForStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement,
+    LetStatement, SelectStatement, Statement, UnaryExpression,
 };
 
 #[derive(Default)]
@@ -23,10 +23,16 @@ impl AstVisitorMut for AstTransformationVisitor {
         &mut self,
         _continue_stmt: &crate::ast::ContinueStatement,
     ) -> Statement {
+        if self.continue_break_labels.is_empty() {
+            return CommentAstNode::create_empty_statement("no continue block");
+        }
         let (continue_label, _) = self.continue_break_labels.last().unwrap();
         GotoStatement::create_empty_statement(continue_label.clone())
     }
     fn visit_break_statement(&mut self, _break_stmt: &crate::ast::BreakStatement) -> Statement {
+        if self.continue_break_labels.is_empty() {
+            return CommentAstNode::create_empty_statement("no break block");
+        }
         let (_, break_label) = self.continue_break_labels.last().unwrap();
         GotoStatement::create_empty_statement(break_label.clone())
     }

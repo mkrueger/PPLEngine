@@ -725,10 +725,16 @@ impl PPECompiler {
     }
 
     fn fill_labels(&mut self) {
+        let last = (self.commands.statements.len() as i32 - 1) as usize;
         for stmt in &mut self.commands.statements {
             match &mut stmt.command {
                 PPECommand::IfNot(_, idx) | PPECommand::Goto(idx) | PPECommand::Gosub(idx) => {
-                    *idx = self.label_table[*idx] as usize * 2;
+                    let label_idx = self.label_table[*idx];
+                    if label_idx < 0 {
+                        *idx = last;
+                    } else {
+                        *idx = label_idx as usize * 2;
+                    }
                 }
                 _ => {}
             }

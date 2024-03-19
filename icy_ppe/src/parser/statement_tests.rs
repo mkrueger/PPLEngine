@@ -11,10 +11,10 @@ use crate::{
     executable::OpCode,
 };
 
-use super::Parser;
+use super::{Encoding, Parser};
 
 fn parse_statement(input: &str, assert_eof: bool) -> Statement {
-    let mut parser = Parser::new(PathBuf::from("."), input);
+    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
     parser.next_token();
     let res = parser.parse_statement().unwrap();
     if assert_eof {

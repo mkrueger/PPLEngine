@@ -4,7 +4,7 @@ use crate::{
     compiler,
     executable::{Executable, LAST_PPLC},
     icy_board::data::IcyBoardData,
-    parser::parse_program,
+    parser::{parse_program, Encoding},
     vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
     Res,
 };
@@ -52,7 +52,7 @@ fn test_compiler() {
 }
 
 fn run_test(data: &str, output: &str) {
-    let prg = parse_program(PathBuf::from("."), data);
+    let prg = parse_program(PathBuf::from("."), data, Encoding::Utf8);
     let mut exec = compiler::PPECompiler::new(LAST_PPLC);
     exec.compile(&prg);
     if !exec.errors.is_empty() {

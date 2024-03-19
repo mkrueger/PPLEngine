@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use i18n_embed_fl::fl;
 use icy_ppe::ast::{AstVisitor, Program};
 use icy_ppe::executable::OpCode;
-use icy_ppe::parser::parse_program;
+use icy_ppe::parser::{parse_program, Encoding};
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ppl_language_server::{ImCompleteSemanticToken, LANGUAGE_LOADER};
 use ropey::Rope;
@@ -504,7 +504,7 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         let uri = params.uri.to_string();
         self.document_map.insert(uri.clone(), rope.clone());
-        let prg = parse_program(PathBuf::from(uri), &params.text);
+        let prg = parse_program(PathBuf::from(uri), &params.text, Encoding::Utf8);
         let semantic_tokens = semantic_token_from_ast(&prg);
 
         let diagnostics = prg

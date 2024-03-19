@@ -1,7 +1,10 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
 use icy_ppe::{
-    compiler::PPECompiler, executable::LAST_PPLC, parser::parse_program, tables::CP437_TO_UNICODE,
+    compiler::PPECompiler,
+    executable::LAST_PPLC,
+    parser::{load_with_encoding, parse_program, Encoding},
+    tables::CP437_TO_UNICODE,
 };
 use semver::Version;
 use std::{
@@ -18,7 +21,7 @@ struct Args {
     disassemble: bool,
 
     /// Input file is CP437
-    #[arg(short, long)]
+    #[arg(long)]
     dos: bool,
 
     /// file[.pps] to compile (extension defaults to .pps if not specified)
@@ -30,10 +33,10 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    println!(
+    /*println!(
         "PCBoard Programming Language Compiler^RUST {}",
         *crate::VERSION
-    );
+    );*/
     let arguments = Args::parse();
 
     let mut file_name = arguments.input;
@@ -41,22 +44,17 @@ fn main() {
     if extension.is_none() {
         file_name.push_str(".pps");
     }
-
-    let src_data = fs::read(&file_name).expect("Failed to read file");
-    let src = if arguments.dos {
-        let mut res = String::new();
-        for b in src_data {
-            res.push(CP437_TO_UNICODE[b as usize]);
-        }
-        res
+    let encoding = if arguments.dos {
+        Encoding::CP437
     } else {
-        String::from_utf8_lossy(&src_data).to_string()
+        Encoding::Utf8
     };
+    let src = load_with_encoding(&PathBuf::from(&file_name), encoding).unwrap();
 
-    println!();
-    println!("Parsing...");
-    let prg = parse_program(PathBuf::from(&file_name), &src);
-    println!("Compiling...");
+    //println!();
+    //println!("Parsing...");
+    let prg = parse_program(PathBuf::from(&file_name), &src, encoding);
+    //println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
     let mut compiler = PPECompiler::new(LAST_PPLC);
     compiler.compile(&prg);
@@ -142,7 +140,7 @@ fn main() {
         return;
     }
 
-    println!();
+    // println!();
 
     match compiler.create_executable(LAST_PPLC) {
         Ok(executable) => {
@@ -168,13 +166,14 @@ fn main() {
             let len = bin.len();
             fs::write(&out_file_name, bin).expect("Unable to write file");
             let lines = src.lines().count();
+            /*
             println!(
                 "{} lines, {} chars compiled. {} bytes written to {:?}",
                 lines,
                 src.len(),
                 len,
                 &out_file_name
-            );
+            );*/
         }
         Err(err) => {
             println!("Error while creating binary {}", err);

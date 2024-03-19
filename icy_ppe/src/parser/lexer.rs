@@ -1,8 +1,13 @@
-use crate::ast::{constant::BUILTIN_CONSTS, Constant};
+use crate::{
+    ast::{constant::BUILTIN_CONSTS, Constant},
+    parser::load_with_encoding,
+};
 use core::fmt;
 use std::{collections::HashMap, fs, path::PathBuf};
 use thiserror::Error;
 use unicase::Ascii;
+
+use super::Encoding;
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum LexingErrorType {
@@ -256,6 +261,7 @@ pub enum LexerState {
 
 pub struct Lexer {
     file: PathBuf,
+    encoding: Encoding,
     text: Vec<char>,
 
     lexer_state: LexerState,
@@ -305,9 +311,10 @@ lazy_static::lazy_static! {
 }
 
 impl Lexer {
-    pub fn new(file: PathBuf, text: &str) -> Self {
+    pub fn new(file: PathBuf, text: &str, encoding: Encoding) -> Self {
         Self {
             file,
+            encoding,
             text: text.chars().collect(),
             lexer_state: LexerState::AfterEol,
             token_start: 0,
@@ -748,11 +755,20 @@ impl Lexer {
             .iter()
             .collect::<String>();
 
-        if comment.len() > "$INCLUDE".len()
-            && comment[.."$INCLUDE".len()].to_ascii_uppercase() == "$INCLUDE"
+        if comment.len() > "$INCLUDE:".len()
+            && comment
+                .chars()
+                .take("$INCLUDE:".len())
+                .collect::<String>()
+                .to_ascii_uppercase()
+                == "$INCLUDE:"
         {
-            let include_file = comment["$INCLUDE:".len()..].trim();
-
+            let include_file = comment
+                .chars()
+                .skip("$INCLUDE:".len())
+                .collect::<String>()
+                .trim()
+                .to_string();
             let Some(parent) = self.file.parent() else {
                 return Err(LexingError {
                     error: LexingErrorType::PathError(self.file.to_string_lossy().to_string()),
@@ -760,11 +776,11 @@ impl Lexer {
                 });
             };
 
-            let path = parent.join(include_file);
+            let path = parent.join(include_file.clone());
 
-            match fs::read_to_string(&path) {
+            match load_with_encoding(&path, self.encoding) {
                 Ok(k) => {
-                    self.include_lexer = Some(Box::new(Lexer::new(path, &k)));
+                    self.include_lexer = Some(Box::new(Lexer::new(path, &k, Encoding::Utf8)));
                 }
                 Err(err) => {
                     return Err(LexingError {
@@ -779,7 +795,12 @@ impl Lexer {
         }
 
         if comment.len() > "$USEFUNCS".len()
-            && comment[.."$USEFUNCS".len()].to_ascii_uppercase() == "$USEFUNCS"
+            && comment
+                .chars()
+                .take("$USEFUNCS".len())
+                .collect::<String>()
+                .to_ascii_uppercase()
+                == "$USEFUNCS"
         {
             return Ok(Token::UseFuncs(cmt_type, comment));
         }

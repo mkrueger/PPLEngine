@@ -871,6 +871,7 @@ impl Parser {
         None
     }
 }
+const MAX_ERRORS: usize = 22;
 
 pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Program {
     let mut nodes = Vec::new();
@@ -883,6 +884,9 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
     let mut got_funcs = false;
 
     while let Some(cur_token) = &parser.cur_token {
+        if parser.errors.len() > MAX_ERRORS {
+            break;
+        }
         match cur_token.token {
             Token::Function => {
                 if let Some(func) = parser.parse_function() {

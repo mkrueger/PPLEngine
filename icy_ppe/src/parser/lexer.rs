@@ -264,6 +264,7 @@ pub struct Lexer {
     encoding: Encoding,
     text: Vec<char>,
 
+    errors: Vec<LexingError>,
     lexer_state: LexerState,
     token_start: usize,
     token_end: usize,
@@ -317,6 +318,7 @@ impl Lexer {
             encoding,
             text: text.chars().collect(),
             lexer_state: LexerState::AfterEol,
+            errors: Vec::new(),
             token_start: 0,
             token_end: 0,
             include_lexer: None,
@@ -398,6 +400,25 @@ impl Lexer {
                 }
                 Some(Ok(Token::Const(Constant::String(string_result))))
             }
+            '\\' => { // eol continuation
+                let next = self.next_ch();
+                if let Some('\r') = next {
+                    if let Some('\n') = self.next_ch() {
+                        return self.next_token();
+                    }
+                    return Some(Err(LexingError {
+                        error: LexingErrorType::InvalidToken,
+                        range: self.token_start..self.token_end,
+                    }));
+                }
+                if let Some('\n') = next {
+                    return self.next_token();
+                }
+                return Some(Err(LexingError {
+                    error: LexingErrorType::InvalidToken,
+                    range: self.token_start..self.token_end,
+                }));
+            },
             '_' => { // eol continuation
                 let next = self.next_ch();
                 if let Some('\r') = next {
@@ -433,22 +454,25 @@ impl Lexer {
                     self.lexer_state = LexerState::AfterColonEol;
                     return Some(Ok(Token::Eol));
                 }
-
+                let mut got_non_ws = false;
+                let mut label_start = 0;
                 loop {
                     let Some(ch) = self.next_ch() else {
                         break;
                     };
+                    if !got_non_ws && (ch == ' ' || ch == '\t') {
+                        label_start += 1;
+                        continue;
+                    }
                     //assert!(ch.is_some(), "Unexpected eof in string_literal at ({}, {}).", self.line, self.col);
                     if !(ch.is_ascii_alphanumeric() || "_@#$¢£¥€".contains(ch)) {
-                            self.put_back();
-                            break;
+                        self.put_back();
+                        break;
                     }
+                    got_non_ws = true;
                 }
 
-                let identifier = unicase::Ascii::new(self.text[self.token_start+1..self.token_end].iter().collect::<String>());
-                if let Some(token) = TOKEN_LOOKUP_TABLE.get(&identifier) {
-                    return Some(Ok(token.clone()));
-                }
+                let identifier = unicase::Ascii::new(self.text[self.token_start+1+label_start..self.token_end].iter().collect::<String>());
                 Some(Ok(Token::Label(identifier)))
             },
 
@@ -622,10 +646,14 @@ impl Lexer {
                                     Ok(i) => {
                                         return Some(Ok(Token::Const(Constant::Integer(i))));
                                     }
-                                    Err(r) => return Some(Err(LexingError {
-                                        error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
-                                        range: self.token_start..self.token_end,
-                                    }))
+                                    Err(r) => {
+                                        
+                                        self.errors.push(LexingError {
+                                            error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                            range: self.token_start..self.token_end,
+                                        });
+                                        return Some(Ok(Token::Const(Constant::Integer(-1))));
+                                    }
                                 }
                             }
                             'H' | 'h' => {
@@ -634,10 +662,14 @@ impl Lexer {
                                     Ok(i) => {
                                         return Some(Ok(Token::Const(Constant::Integer(i))));
                                     }
-                                    Err(r) => return Some(Err(LexingError {
-                                        error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
-                                        range: self.token_start..self.token_end,
-                                    }))
+                                    Err(r) => {
+                                        
+                                        self.errors.push(LexingError {
+                                            error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                            range: self.token_start..self.token_end,
+                                        });
+                                        return Some(Ok(Token::Const(Constant::Integer(-1))));
+                                    }
                                 }
                             }
                             'O' | 'o' => {
@@ -646,22 +678,38 @@ impl Lexer {
                                     Ok(i) => {
                                         return Some(Ok(Token::Const(Constant::Integer(i))));
                                     }
-                                    Err(r) => return Some(Err(LexingError {
-                                        error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
-                                        range: self.token_start..self.token_end,
-                                    }))
+                                    Err(r) => {
+                                        
+                                        self.errors.push(LexingError {
+                                            error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                            range: self.token_start..self.token_end,
+                                        });
+                                        return Some(Ok(Token::Const(Constant::Integer(-1))));
+                                    }
                                 }
                             }
                             'B' | 'b' => {
+                                if let Some(ch) = self.next_ch()  {
+                                    if ch.is_ascii_hexdigit() {
+                                        continue;
+                                    } 
+                                    self.put_back();
+                                }
+
                                 let r = i32::from_str_radix(&self.text[start..self.token_end - 1].iter().collect::<String>(), 2);
+
                                 match r {
                                     Ok(i) => {
                                         return Some(Ok(Token::Const(Constant::Integer(i))));
                                     }
-                                    Err(r) => return Some(Err(LexingError {
-                                        error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
-                                        range: self.token_start..self.token_end,
-                                    }))
+                                    Err(r) => {
+                                        
+                                        self.errors.push(LexingError {
+                                            error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                            range: self.token_start..self.token_end,
+                                        });
+                                        return Some(Ok(Token::Const(Constant::Integer(-1))));
+                                    }
                                 }
                             }
                             _ => {}
@@ -673,16 +721,48 @@ impl Lexer {
                     }
                     let mut end = self.token_end;
                     if cur_ch == '.' {
+                        let mut found_dot_dot = false;
                         if let Some(ch) = self.next_ch()  {
                             // got dotdot, put back
                             if ch == '.' {
                                 self.put_back();
                                 self.put_back();
                                 end -= 1;
+                                found_dot_dot = true;
                             }
                         } else {
                             self.put_back();
                         }
+                        if !found_dot_dot {
+                            let mut is_last = false;
+                            loop {
+                                let Some(ch) = self.next_ch() else {
+                                    is_last = true;
+                                    break;
+                                };
+                                if !ch.is_ascii_digit() && ch != '.' {
+                                    break;
+                                }
+                            }
+                            if !is_last {
+                                self.put_back();
+                            }
+                            end = self.token_end;
+                            let r = self.text[start..end].iter().collect::<String>().parse::<f64>();
+                            match r {
+                                Ok(f) => {
+                                    return Some(Ok(Token::Const(Constant::Double(f))));
+                                }
+                                Err(r) => {
+                                    self.errors.push(LexingError {
+                                        error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                        range: self.token_start..self.token_end,
+                                    });
+                                    return Some(Ok(Token::Const(Constant::Double(-1.0))));
+                                }
+                            }
+                        }
+
                     }
 
                     let r = self.text[start..end].iter().collect::<String>().parse::<i64>();
@@ -695,10 +775,13 @@ impl Lexer {
                                 return Some(Ok(Token::Const(Constant::Unsigned(i as u32))));
                             }
                         }
-                        Err(r) => return Some(Err(LexingError {
-                            error: LexingErrorType::InvalidInteger(r.to_string(), self.text[start..end].iter().collect::<String>()),
-                            range: self.token_start..self.token_end,
-                        }))
+                        Err(r) => {
+                            self.errors.push(LexingError {
+                                error: LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>()),
+                                range: self.token_start..self.token_end,
+                            });
+                            return Some(Ok(Token::Const(Constant::Integer(-1))));
+                        }
                     }
                 }
 
@@ -715,23 +798,37 @@ impl Lexer {
     #[allow(clippy::unnecessary_wraps)]
     fn read_identifier(&mut self) -> Result<Token, LexingError> {
         self.lexer_state = LexerState::BeyondEOL;
+        let mut open_bracket = false;
         loop {
             let Some(ch) = self.next_ch() else {
                 break;
             };
             //assert!(ch.is_some(), "Unexpected eof in string_literal at ({}, {}).", self.line, self.col);
             if !(ch.is_ascii_alphanumeric() || "_@#$¢£¥€".contains(ch)) {
+                let mut ch2 = ch;
+                while ch2 == ' ' && ch2 == '\t' {
+                    let Some(ch) = self.next_ch() else {
+                        break;
+                    };
+                    ch2 = ch;
+                }  
+                if ch2 == '(' || ch2 == '[' || ch2 == '{'  {
+                    open_bracket = true;
+                }
                 self.put_back();
                 break;
             }
         }
+       
         let identifier = unicase::Ascii::new(
             self.text[self.token_start..self.token_end]
                 .iter()
                 .collect::<String>(),
         );
-        if let Some(token) = TOKEN_LOOKUP_TABLE.get(&identifier) {
-            return Ok(token.clone());
+        if !open_bracket {
+            if let Some(token) = TOKEN_LOOKUP_TABLE.get(&identifier) {
+                return Ok(token.clone());
+            }
         }
         Ok(Token::Identifier(identifier))
     }

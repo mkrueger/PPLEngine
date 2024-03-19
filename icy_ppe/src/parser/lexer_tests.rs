@@ -156,15 +156,25 @@ fn test_constants() {
         )),
         get_token("FALSE")
     );
+    assert_eq!(Token::Const(Constant::Double(3.15)), get_token("3.15"));
+    assert_eq!(Token::Const(Constant::Double(3.15)), get_token("3.15"));
+    assert_eq!(Token::Const(Constant::Integer(0x0B00)), get_token("0B00h"));
+}
+
+#[test]
+fn test_no_constant() {
+    assert_eq!(Token::Identifier(unicase::Ascii::new("SEC".to_string())), get_token("SEC("));
 }
 
 #[test]
 fn test_errors() {
+    /* PPLC takes these numbers and parses them to -1
     let src = "34877539875349573940";
     let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
     let res = lex.next_token().unwrap();
     assert!(res.is_err());
     println!("got expected error: {res:?}");
+    */
 }
 
 #[test]
@@ -247,6 +257,19 @@ fn test_skip() {
         Token::Identifier(unicase::Ascii::new("World".to_string())),
         lex.next_token().unwrap().unwrap()
     );
+
+
+    let src = "Hello \\\n World";
+    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+
+    assert_eq!(
+        Token::Identifier(unicase::Ascii::new("Hello".to_string())),
+        lex.next_token().unwrap().unwrap()
+    );
+    assert_eq!(
+        Token::Identifier(unicase::Ascii::new("World".to_string())),
+        lex.next_token().unwrap().unwrap()
+    );
 }
 #[test]
 fn test_if_then() {
@@ -261,6 +284,15 @@ fn test_labels() {
     assert_eq!(
         get_token(":label001"),
         Token::Label(unicase::Ascii::new("label001".to_string()))
+    );
+    assert_eq!(
+        get_token(":           label001"),
+        Token::Label(unicase::Ascii::new("label001".to_string()))
+    );
+
+    assert_eq!(
+        get_token(":END"),
+        Token::Label(unicase::Ascii::new("END".to_string()))
     );
 }
 

@@ -281,7 +281,7 @@ pub struct StatementDefinition {
     pub function: PredefProc,
 }
 
-pub static STATEMENT_DEFINITIONS: [StatementDefinition; 231] = [
+pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
     StatementDefinition {
         name: "WHILE",
         opcode: OpCode::WHILE,
@@ -1663,13 +1663,20 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 231] = [
         sig: StatementSignature::ArgumentsWithVariable(0, 2),
         function: predefined_procedures::sounddelay,
     },
-    // Special case 'DLOCKF' is a synonym  to DLOCK
+    // Alias section
     // Moving to the end, so that the opcode <--> index mapping is not broken
     StatementDefinition {
         name: "DLockF",
         opcode: OpCode::DLOCK,
         sig: StatementSignature::ArgumentsWithVariable(0, 1),
         function: predefined_procedures::dlock,
+    },
+
+    StatementDefinition {
+        name: "PutAltUser",
+        opcode: OpCode::PUTUSER,
+        sig: StatementSignature::ArgumentsWithVariable(0, 0),
+        function: predefined_procedures::putuser,
     },
 ];
 

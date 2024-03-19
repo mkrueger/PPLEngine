@@ -301,6 +301,10 @@ pub trait AstVisitorMut: Sized {
         id.clone()
     }
 
+    fn visit_condition(&mut self, condition: &Expression) -> Expression {
+        condition.visit_mut(self)
+    }
+
     // visit expressions
     fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) -> Expression {
         Expression::Identifier(IdentifierExpression::empty(
@@ -375,14 +379,14 @@ pub trait AstVisitorMut: Sized {
     }
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
         Statement::If(IfStatement::empty(
-            if_stmt.get_condition().visit_mut(self),
+            self.visit_condition(if_stmt.get_condition()),
             if_stmt.get_statement().visit_mut(self),
         ))
     }
 
     fn visit_if_then_statement(&mut self, if_then: &IfThenStatement) -> Statement {
         Statement::IfThen(IfThenStatement::empty(
-            if_then.get_condition().visit_mut(self),
+            self.visit_condition(if_then.get_condition()),
             if_then
                 .get_statements()
                 .iter()
@@ -402,7 +406,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_else_if_block(&mut self, else_if: &ElseIfBlock) -> ElseIfBlock {
         ElseIfBlock::empty(
-            else_if.get_condition().visit_mut(self),
+            self.visit_condition(else_if.get_condition()),
             else_if
                 .get_statements()
                 .iter()
@@ -449,14 +453,14 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_while_statement(&mut self, while_stmt: &WhileStatement) -> Statement {
         Statement::While(WhileStatement::empty(
-            while_stmt.get_condition().visit_mut(self),
+            self.visit_condition(while_stmt.get_condition()),
             while_stmt.get_statement().visit_mut(self),
         ))
     }
 
     fn visit_while_do_statement(&mut self, while_do: &WhileDoStatement) -> Statement {
         Statement::WhileDo(WhileDoStatement::empty(
-            while_do.get_condition().visit_mut(self),
+            self.visit_condition(while_do.get_condition()),
             while_do
                 .get_statements()
                 .iter()

@@ -30,6 +30,15 @@ impl AstVisitorMut for ConstantReplaceVisitor {
 /// Used to scan for constants and replace them with their respective built-in constants in decompiled output.
 #[derive(Default)]
 pub struct ConstantScanVisitor {}
+impl ConstantScanVisitor {
+    fn strip_parens(get_expression: &Expression) -> &Expression {
+        let mut condition = get_expression;
+        while let Expression::Parens(expr) = condition {
+            condition = expr.get_expression();
+        }
+        condition
+    }
+}
 
 impl AstVisitorMut for ConstantScanVisitor {
     fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) -> Statement {
@@ -43,7 +52,7 @@ impl AstVisitorMut for ConstantScanVisitor {
         for (i, arg) in call.get_arguments().iter().enumerate() {
             let new_arg = if is_conf_flag_call && i == 1 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::ConfFlag))
-            } else if op == OpCode::DISPFILE && i == 0 {
+            } else if op == OpCode::DISPFILE && i == 1 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::DispFile))
             } else if is_fopen_call && i == 3 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::FileSec))
@@ -53,7 +62,7 @@ impl AstVisitorMut for ConstantScanVisitor {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::StartDisp))
             } else if op == OpCode::INPUTSTR && i == 5 || op == OpCode::PROMPTSTR && i == 4 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::InputStr))
-            } else if op == OpCode::DISPTEXT && i == 0 {
+            } else if op == OpCode::DISPTEXT && i == 1 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::DispText))
             } else if (op == OpCode::ACCOUNT || op == OpCode::RECORDUSAGE) && i == 0 {
                 arg.visit_mut(&mut ConstantReplaceVisitor::new(ConstantType::Account))
@@ -67,11 +76,18 @@ impl AstVisitorMut for ConstantScanVisitor {
         Statement::PredifinedCall(PredefinedCallStatement::empty(call.get_func(), args))
     }
 
+    fn visit_condition(&mut self, condition: &Expression) -> Expression {
+        if let Expression::Parens(expr) = condition {
+            return expr.get_expression().visit_mut(self);
+        }
+        condition.visit_mut(self)
+    }
+
     fn visit_unary_expression(&mut self, unary: &crate::ast::UnaryExpression) -> Expression {
         if unary.get_op() == UnaryOp::Not {
-            if let Expression::Unary(u) = unary.get_expression() {
+            if let Expression::Unary(u) = Self::strip_parens(unary.get_expression()) {
                 if u.get_op() == UnaryOp::Not {
-                    return u.get_expression().visit_mut(self);
+                    return Self::strip_parens(u.get_expression()).visit_mut(self);
                 }
             } else if let Expression::Const(c) = unary.get_expression() {
                 if let Constant::Boolean(b) = c.get_constant_value() {

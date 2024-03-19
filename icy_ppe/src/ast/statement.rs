@@ -764,7 +764,9 @@ impl IfThenStatement {
             leftpar_token: SpannedToken::create_empty(Token::LPar),
             condition: Box::new(condition),
             rightpar_token: SpannedToken::create_empty(Token::RPar),
-            then_token: SpannedToken::create_empty(Token::Then),
+            then_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                "THEN".to_string(),
+            ))),
             statements,
             else_if_blocks,
             else_block,
@@ -983,7 +985,7 @@ impl ForStatement {
             step_expr,
             statements,
             next_token,
-            next_identifier_token
+            next_identifier_token,
         }
     }
 
@@ -1011,7 +1013,7 @@ impl ForStatement {
             step_expr,
             statements,
             next_token: SpannedToken::create_empty(Token::Next),
-            next_identifier_token: None
+            next_identifier_token: None,
         }
     }
 
@@ -1327,7 +1329,7 @@ impl GosubStatement {
         if !matches!(label_token.token, Token::Identifier(_)) {
             label_token = SpannedToken {
                 token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
-                span: label_token.span
+                span: label_token.span,
             };
         }
         Self {
@@ -1385,7 +1387,7 @@ impl GotoStatement {
         if !matches!(label_token.token, Token::Identifier(_)) {
             label_token = SpannedToken {
                 token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
-                span: label_token.span
+                span: label_token.span,
             };
         }
         Self {

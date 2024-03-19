@@ -1,8 +1,15 @@
 use std::path::PathBuf;
 
-use crate::{ast::{
-    BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement
-}, executable::OpCode};
+use crate::{
+    ast::{
+        BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
+        ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement,
+        GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
+        PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+        UnaryOp, WhileDoStatement, WhileStatement,
+    },
+    executable::OpCode,
+};
 
 use super::Parser;
 
@@ -60,26 +67,36 @@ fn test_label_statement() {
         ":MyLabel",
         &LabelStatement::create_empty_statement(unicase::Ascii::new("MyLabel".to_string())),
     );
-    
+
     check_statement(
         ":END",
         &LabelStatement::create_empty_statement(unicase::Ascii::new("END".to_string())),
     );
 }
 
-
 #[test]
 fn test_goto_statement() {
-    check_statement("Goto Foo", &GotoStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())));
-    check_statement("goto end", &GotoStatement::create_empty_statement(unicase::Ascii::new("end".to_string())));
+    check_statement(
+        "Goto Foo",
+        &GotoStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())),
+    );
+    check_statement(
+        "goto end",
+        &GotoStatement::create_empty_statement(unicase::Ascii::new("end".to_string())),
+    );
 }
 
 #[test]
 fn test_gosub_statement() {
-    check_statement("GOSUB Foo", &GosubStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())));
-    check_statement("GOSUB end", &GosubStatement::create_empty_statement(unicase::Ascii::new("end".to_string())));
+    check_statement(
+        "GOSUB Foo",
+        &GosubStatement::create_empty_statement(unicase::Ascii::new("Foo".to_string())),
+    );
+    check_statement(
+        "GOSUB end",
+        &GosubStatement::create_empty_statement(unicase::Ascii::new("end".to_string())),
+    );
 }
-
 
 #[test]
 fn test_parse_break_statement() {
@@ -159,6 +176,30 @@ fn test_if_then_statement() {
                 ContinueStatement::create_empty_statement(),
                 LabelStatement::create_empty_statement(unicase::Ascii::new("FOO".to_string())),
             ],
+            vec![],
+            None,
+        ),
+    );
+}
+
+#[test]
+fn test_if_do_statement() {
+    check_statement(
+        r"if (A) DO
+        END IF",
+        &IfThenStatement::create_empty_statement(
+            IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
+            vec![],
+            vec![],
+            None,
+        ),
+    );
+    check_statement(
+        r"if (A) DO ;COMMENT
+        END IF",
+        &IfThenStatement::create_empty_statement(
+            IdentifierExpression::create_empty_expression(unicase::Ascii::new("A".to_string())),
+            vec![],
             vec![],
             None,
         ),
@@ -485,11 +526,22 @@ ENDSELECT",
     );
 }
 
-
 #[test]
 fn test_predefined_call() {
-    check_statement("PRINTLN", &PredefinedCallStatement::create_empty_statement(OpCode::PRINTLN.get_definition(), Vec::new()));
-    check_statement_without_eol("PRINTLN ;COMMENT", &PredefinedCallStatement::create_empty_statement(OpCode::PRINTLN.get_definition(), Vec::new()));
+    check_statement(
+        "PRINTLN",
+        &PredefinedCallStatement::create_empty_statement(
+            OpCode::PRINTLN.get_definition(),
+            Vec::new(),
+        ),
+    );
+    check_statement_without_eol(
+        "PRINTLN ;COMMENT",
+        &PredefinedCallStatement::create_empty_statement(
+            OpCode::PRINTLN.get_definition(),
+            Vec::new(),
+        ),
+    );
 }
 
 #[test]
@@ -518,7 +570,6 @@ NEXT I",
         ),
     );
 }
-
 
 #[test]
 fn test_for_statement_alt_next() {
@@ -556,7 +607,9 @@ NEXT",
             unicase::Ascii::new("I".to_string()),
             ConstantExpression::create_empty_expression(Constant::Integer(0)),
             ConstantExpression::create_empty_expression(Constant::Integer(5)),
-            Some(Box::new(ConstantExpression::create_empty_expression(Constant::Integer(3)))),
+            Some(Box::new(ConstantExpression::create_empty_expression(
+                Constant::Integer(3),
+            ))),
             vec![],
         ),
     );

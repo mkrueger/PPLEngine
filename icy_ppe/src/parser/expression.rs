@@ -274,7 +274,7 @@ impl Parser {
                         rightpar_token,
                     )));
                 }
-                
+
                 Some(Expression::Identifier(IdentifierExpression::new(
                     identifier_token,
                 )))

@@ -103,7 +103,6 @@ pub enum Token {
     Begin,
     While,
     EndWhile,
-    Then,
     Else,
     ElseIf,
     EndIf,
@@ -152,35 +151,36 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn is_valid_label(&self) -> bool { 
-        matches!(self, Token::Identifier(_)| 
-            Token::If |
-            Token::Let |
-            Token::Begin |
-            Token::While |
-            Token::EndWhile |
-            Token::Then |
-            Token::Else |
-            Token::ElseIf |
-            Token::EndIf |
-            Token::For |
-            Token::Next |
-            Token::Break |
-            Token::Continue |
-            Token::Return |
-            Token::Gosub |
-            Token::Goto |
-            Token::Select |
-            Token::Case |
-            Token::Default |
-            Token::EndSelect |
-            Token::Declare |
-            Token::Function |
-            Token::Procedure |
-            Token::EndProc |
-            Token::EndFunc |
-            Token::End)
-
+    pub fn is_valid_label(&self) -> bool {
+        matches!(
+            self,
+            Token::Identifier(_)
+                | Token::If
+                | Token::Let
+                | Token::Begin
+                | Token::While
+                | Token::EndWhile
+                | Token::Else
+                | Token::ElseIf
+                | Token::EndIf
+                | Token::For
+                | Token::Next
+                | Token::Break
+                | Token::Continue
+                | Token::Return
+                | Token::Gosub
+                | Token::Goto
+                | Token::Select
+                | Token::Case
+                | Token::Default
+                | Token::EndSelect
+                | Token::Declare
+                | Token::Function
+                | Token::Procedure
+                | Token::EndProc
+                | Token::EndFunc
+                | Token::End
+        )
     }
 }
 
@@ -217,7 +217,6 @@ impl fmt::Display for Token {
             Token::While => write!(f, "WHILE"),
             Token::EndWhile => write!(f, "ENDWHILE"),
             Token::If => write!(f, "IF"),
-            Token::Then => write!(f, "THEN"),
             Token::Else => write!(f, "ELSE"),
             Token::ElseIf => write!(f, "ELSEIF"),
             Token::EndIf => write!(f, "ENDIF"),
@@ -274,7 +273,6 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("begin".to_string()), Token::Begin);
         m.insert(unicase::Ascii::new("while".to_string()), Token::While);
         m.insert(unicase::Ascii::new("endwhile".to_string()), Token::EndWhile);
-        m.insert(unicase::Ascii::new("then".to_string()), Token::Then);
         m.insert(unicase::Ascii::new("else".to_string()), Token::Else);
         m.insert(unicase::Ascii::new("elseif".to_string()), Token::ElseIf);
         m.insert(unicase::Ascii::new("endif".to_string()), Token::EndIf);
@@ -447,8 +445,8 @@ impl Lexer {
                 Some(Ok(Token::Label(identifier)))
             },
 
-            '(' => Some(Ok(Token::LPar)),
-            ')' => Some(Ok(Token::RPar)),
+            '(' | '[' | '{' => Some(Ok(Token::LPar)),
+            ')' | ']' | '}' => Some(Ok(Token::RPar)),
             ',' => Some(Ok(Token::Comma)),
             '^' => Some(Ok(Token::PoW)),
             '*' => {

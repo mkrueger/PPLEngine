@@ -93,6 +93,18 @@ fn test_op() {
 }
 
 #[test]
+fn test_parens() {
+    assert_eq!(Token::LPar, get_token("("));
+    assert_eq!(Token::RPar, get_token(")"));
+
+    assert_eq!(Token::LPar, get_token("["));
+    assert_eq!(Token::RPar, get_token("]"));
+
+    assert_eq!(Token::LPar, get_token("{"));
+    assert_eq!(Token::RPar, get_token("}"));
+}
+
+#[test]
 fn test_identifier() {
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("PRINT".to_string())),
@@ -236,7 +248,6 @@ fn test_skip() {
 #[test]
 fn test_if_then() {
     assert_eq!(Token::If, get_token("IF"));
-    assert_eq!(Token::Then, get_token("THEN"));
     assert_eq!(Token::Else, get_token("ELSE"));
     assert_eq!(Token::ElseIf, get_token("ElseIf"));
     assert_eq!(Token::EndIf, get_token("EndIf"));

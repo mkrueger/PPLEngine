@@ -21,6 +21,13 @@ impl Parser {
             self.next_token();
         }
     }
+    pub fn skip_eol_and_comments(&mut self) {
+        while self.get_cur_token() == Some(Token::Eol)
+            || matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+        {
+            self.next_token();
+        }
+    }
 
     fn parse_while(&mut self) -> Option<Statement> {
         let while_token = self.save_spannedtoken();
@@ -247,7 +254,7 @@ impl Parser {
             step_expr,
             statements.into_iter().flatten().collect(),
             next_token,
-            next_identifier_token
+            next_identifier_token,
         )))
     }
 
@@ -285,7 +292,7 @@ impl Parser {
         let rightpar_token = self.save_spannedtoken();
         self.next_token();
 
-        if self.get_cur_token() != Some(Token::Then) {
+        if !is_do_then(&self.cur_token) {
             self.skip_eol();
 
             let start = self.lex.span().start;
@@ -309,7 +316,7 @@ impl Parser {
 
         self.next_token();
         let mut statements = Vec::new();
-        self.skip_eol();
+        self.skip_eol_and_comments();
         let mut end_if_token = None;
 
         while self.get_cur_token() != Some(Token::EndIf)
@@ -365,7 +372,7 @@ impl Parser {
             }
             let else_if_rightpar_token = self.save_spannedtoken();
             self.next_token();
-            if self.get_cur_token() != Some(Token::Then)
+            if !is_do_then(&self.cur_token)
                 && self.get_cur_token() != Some(Token::Eol)
                 && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
             {
@@ -376,7 +383,7 @@ impl Parser {
                     }));
                 return None;
             }
-            let then_token = if self.get_cur_token() == Some(Token::Then) {
+            let then_token = if is_do_then(&self.cur_token) {
                 Some(self.save_spannedtoken())
             } else {
                 None
@@ -770,8 +777,8 @@ impl Parser {
                         error: ParserErrorType::LabelExpected(self.save_token()),
                         range: self.lex.span(),
                     }));
-                    self.next_token();
-                    None
+                self.next_token();
+                None
             }
             Some(Token::Goto) => {
                 let goto_token = self.save_spannedtoken();
@@ -853,11 +860,14 @@ impl Parser {
         let id_token = self.save_spannedtoken();
         self.next_token();
         if self.get_cur_token() != Some(Token::Eq) {
-
             for def in &STATEMENT_DEFINITIONS {
-                if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string()) {
+                if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string())
+                {
                     let mut params = Vec::new();
-                    while self.get_cur_token() != Some(Token::Eol) &&  !matches!(self.get_cur_token(), Some(Token::Comment(_, _))) && self.cur_token.is_some() {
+                    while self.get_cur_token() != Some(Token::Eol)
+                        && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+                        && self.cur_token.is_some()
+                    {
                         let Some(value) = self.parse_expression() else {
                             self.errors
                                 .push(crate::parser::Error::ParserError(ParserError {
@@ -990,6 +1000,23 @@ impl Parser {
                 range: id_token.span,
             }));
         None
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref DO_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("DO".to_string());
+    static ref THEN_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("THEN".to_string());
+}
+
+fn is_do_then(token: &Option<SpannedToken>) -> bool {
+    if let Some(t) = token {
+        if let Token::Identifier(id) = &t.token {
+            *id == *THEN_TOKEN || *id == *DO_TOKEN
+        } else {
+            false
+        }
+    } else {
+        false
     }
 }
 /*

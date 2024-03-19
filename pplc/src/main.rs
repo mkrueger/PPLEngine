@@ -1,6 +1,8 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
-use icy_ppe::{compiler::PPECompiler, executable::LAST_PPLC, parser::parse_program};
+use icy_ppe::{
+    compiler::PPECompiler, executable::LAST_PPLC, parser::parse_program, tables::CP437_TO_UNICODE,
+};
 use semver::Version;
 use std::{
     ffi::OsStr,
@@ -14,6 +16,10 @@ struct Args {
     /// Don't egnerate a binary just output the disassembly
     #[arg(short, long)]
     disassemble: bool,
+
+    /// Input file is CP437
+    #[arg(short, long)]
+    dos: bool,
 
     /// file[.pps] to compile (extension defaults to .pps if not specified)
     input: String,
@@ -36,7 +42,17 @@ fn main() {
         file_name.push_str(".pps");
     }
 
-    let src = fs::read_to_string(&file_name).expect("Failed to read file");
+    let src_data = fs::read(&file_name).expect("Failed to read file");
+    let src = if arguments.dos {
+        let mut res = String::new();
+        for b in src_data {
+            res.push(CP437_TO_UNICODE[b as usize]);
+        }
+        res
+    } else {
+        String::from_utf8_lossy(&src_data).to_string()
+    };
+
     println!();
     println!("Parsing...");
     let prg = parse_program(PathBuf::from(&file_name), &src);

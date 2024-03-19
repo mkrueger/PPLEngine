@@ -20,6 +20,14 @@ struct Args {
     #[arg(short, long)]
     disassemble: bool,
 
+    /// Force no user variables
+    #[arg(long)]
+    nouvar: bool,
+    
+    /// Force user variables
+    #[arg(long)]
+    forceuvar: bool,
+    
     /// Input file is CP437
     #[arg(long)]
     dos: bool,
@@ -39,6 +47,10 @@ fn main() {
     );*/
     let arguments = Args::parse();
 
+    if arguments.nouvar && arguments.forceuvar {
+        println!("--nouvar can't be used in conjunction with --forceuvar");
+        return;
+    }
     let mut file_name = arguments.input;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
@@ -53,7 +65,13 @@ fn main() {
 
     //println!();
     //println!("Parsing...");
-    let prg = parse_program(PathBuf::from(&file_name), &src, encoding);
+    let mut prg = parse_program(PathBuf::from(&file_name), &src, encoding);
+    if arguments.nouvar {
+        prg.require_user_variables = false;
+    }
+    if arguments.forceuvar {
+        prg.require_user_variables = true;
+    }
     //println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
     let mut compiler = PPECompiler::new(LAST_PPLC);

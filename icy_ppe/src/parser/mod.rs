@@ -194,6 +194,7 @@ impl Parser {
                 Ok(token) => {
                     let is_else = token == Token::Else;
                     let is_end = token == Token::End;
+                    let is_case = token == Token::Case;
                     self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
 
                     if is_else {
@@ -201,6 +202,17 @@ impl Parser {
                             if lookahed == Token::If {
                                 self.cur_token = Some(SpannedToken::new(
                                     Token::ElseIf,
+                                    self.lex.span(),
+                                ));
+                            } else {
+                                self.lookahead_token = Some(SpannedToken::new(lookahed, self.lex.span()));
+                            }
+                        }
+                    } else if is_case {
+                        if let Some(Ok(lookahed)) = self.lex.next_token() {
+                            if lookahed == Token::Else {
+                                self.cur_token = Some(SpannedToken::new(
+                                    Token::Default,
                                     self.lex.span(),
                                 ));
                             } else {

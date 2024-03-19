@@ -482,20 +482,8 @@ impl Parser {
         while self.get_cur_token() == Some(Token::Case) {
             let inner_case_token = self.save_spannedtoken();
             self.next_token();
-            // parse "default block"
-            if self.get_cur_token() == Some(Token::Else) {
-                default_token = Some(SpannedToken {
-                    token: Token::Identifier(unicase::Ascii::new("CASE ELSE".to_string())),
-                    span: inner_case_token.span.start..self.lex.span().end,
-                });
-                self.next_token();
-                self.skip_eol();
-                self.parse_default_block(&mut end_select_token, &mut default_statements);
-                break;
-            };
 
             let mut case_specifiers = Vec::new();
-
             if let Some(cs) = self.parse_case_specifier() {
                 case_specifiers.push(cs);
             } else {
@@ -514,6 +502,7 @@ impl Parser {
             let mut statements = Vec::new();
             while self.get_cur_token() != Some(Token::Case)
                 && self.get_cur_token() != Some(Token::EndSelect)
+                && self.get_cur_token() != Some(Token::Default)
             {
                 if self.get_cur_token().is_none() {
                     self.errors
@@ -534,17 +523,12 @@ impl Parser {
             ));
         }
 
-        if default_token.is_none()
-            && self.get_cur_token()
-                == Some(Token::Identifier(unicase::Ascii::new(
-                    "DEFAULT".to_string(),
-                )))
-        {
+        if self.get_cur_token() == Some(Token::Default) {
             default_token = Some(self.save_spannedtoken());
             self.next_token();
-            self.parse_default_block(&mut end_select_token, &mut default_statements);
+            self.parse_default_block(&mut default_statements);
         }
-        // skip endselect token
+        // skip Default
         self.next_token();
 
         if end_select_token.is_none() {
@@ -564,7 +548,6 @@ impl Parser {
 
     fn parse_default_block(
         &mut self,
-        end_select_token: &mut Option<SpannedToken>,
         default_statements: &mut Vec<Statement>,
     ) {
         while self.get_cur_token() != Some(Token::EndSelect) {

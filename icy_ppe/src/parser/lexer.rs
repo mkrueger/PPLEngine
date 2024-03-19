@@ -117,6 +117,7 @@ pub enum Token {
 
     Select,
     Case,
+    Default,
     EndSelect,
 
     Label(unicase::Ascii<String>),
@@ -198,6 +199,7 @@ impl fmt::Display for Token {
 
             Token::Select => write!(f, "SELECT"),
             Token::Case => write!(f, "CASE"),
+            Token::Default => write!(f, "DEFAULT"),
             Token::EndSelect => write!(f, "ENDSELECT"),
 
             Token::Comment(ct, s) | Token::UseFuncs(ct, s) => write!(f, "{ct}{s}"),
@@ -255,6 +257,7 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("goto".to_string()), Token::Goto);
         m.insert(unicase::Ascii::new("select".to_string()), Token::Select);
         m.insert(unicase::Ascii::new("case".to_string()), Token::Case);
+        m.insert(unicase::Ascii::new("default".to_string()), Token::Default);
         m.insert(unicase::Ascii::new("endselect".to_string()), Token::EndSelect);
         m.insert(unicase::Ascii::new("declare".to_string()), Token::Declare);
         m.insert(unicase::Ascii::new("function".to_string()), Token::Function);
@@ -626,7 +629,6 @@ impl Lexer {
                         if let Some(ch) = self.next_ch()  {
                             // got dotdot, put back
                             if ch == '.' {
-                                println!("got dotdot");
                                 self.put_back();
                                 self.put_back();
                                 end -= 1;

@@ -1123,7 +1123,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
         function: predefined_procedures::adjtbytes,
     },
     StatementDefinition {
-        name: "AyjTFiles",
+        name: "AdjTFiles",
         opcode: OpCode::ADJTFILES,
         sig: StatementSignature::ArgumentsWithVariable(0, 1),
         function: predefined_procedures::ayjtfiles,

@@ -114,8 +114,10 @@ fn main() {
                     .print((&file_name, Source::from(&src)))
                     .unwrap();
             }
-            println!("{} errors, {} warnings", error_count, warning_count);
-        } else {
+            if error_count > 0 || warning_count > 0 {
+                println!("{} errors, {} warnings", error_count, warning_count);
+            }
+        } else if error_count > 0 {
             println!("{} errors", error_count);
         }
         return;

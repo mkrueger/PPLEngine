@@ -1671,7 +1671,6 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
         sig: StatementSignature::ArgumentsWithVariable(0, 1),
         function: predefined_procedures::dlock,
     },
-
     StatementDefinition {
         name: "PutAltUser",
         opcode: OpCode::PUTUSER,

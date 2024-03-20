@@ -5,7 +5,7 @@ use crate::{
         IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression,
     },
     executable::{get_function_definition, FUNCTION_DEFINITIONS},
-    parser::{Error, ParserError, ParserErrorType},
+    parser::ParserErrorType,
 };
 
 impl Parser {
@@ -33,10 +33,10 @@ impl Parser {
                 Some(Token::Or) => BinOp::Or,
                 Some(Token::And) => BinOp::And,
                 _ => {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::UnexpectedError,
-                        range: self.save_token_span(),
-                    }));
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_error(self.save_token_span(), ParserErrorType::UnexpectedError);
                     return None;
                 }
             };
@@ -70,10 +70,10 @@ impl Parser {
                 Some(Token::Eq) => BinOp::Eq,
                 Some(Token::NotEq) => BinOp::NotEq,
                 _ => {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::UnexpectedError,
-                        range: self.save_token_span(),
-                    }));
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_error(self.save_token_span(), ParserErrorType::UnexpectedError);
                     return None;
                 }
             };
@@ -99,10 +99,10 @@ impl Parser {
                 Some(Token::Add) => BinOp::Add,
                 Some(Token::Sub) => BinOp::Sub,
                 _ => {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::UnexpectedError,
-                        range: self.save_token_span(),
-                    }));
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_error(self.save_token_span(), ParserErrorType::UnexpectedError);
                     return None;
                 }
             };
@@ -131,10 +131,10 @@ impl Parser {
                 Some(Token::Div) => BinOp::Div,
                 Some(Token::Mod) => BinOp::Mod,
                 _ => {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::UnexpectedError,
-                        range: self.save_token_span(),
-                    }));
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_error(self.save_token_span(), ParserErrorType::UnexpectedError);
                     return None;
                 }
             };
@@ -225,10 +225,11 @@ impl Parser {
 
                     while self.get_cur_token() != Some(Token::RPar) {
                         let Some(value) = self.parse_expression() else {
-                            self.errors.push(Error::ParserError(ParserError {
-                                error: ParserErrorType::InvalidToken(self.save_token()),
-                                range: self.save_token_span(),
-                            }));
+                            self.errors.lock().unwrap().report_error(
+                                self.save_token_span(),
+                                ParserErrorType::InvalidToken(self.save_token()),
+                            );
+
                             return None;
                         };
                         arguments.push(value);
@@ -245,10 +246,10 @@ impl Parser {
                     }
 
                     if self.get_cur_token() != Some(Token::RPar) {
-                        self.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.save_token()),
-                            range: self.save_token_span(),
-                        }));
+                        self.errors.lock().unwrap().report_error(
+                            self.save_token_span(),
+                            ParserErrorType::MissingCloseParens(self.save_token()),
+                        );
                         return None;
                     }
                     let rightpar_token = self.save_spannedtoken();
@@ -282,18 +283,18 @@ impl Parser {
             Token::LPar => {
                 self.next_token();
                 let Some(expr) = self.parse_expression() else {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::ExpressionExpected(self.save_token()),
-                        range: self.save_token_span(),
-                    }));
+                    self.errors.lock().unwrap().report_error(
+                        self.save_token_span(),
+                        ParserErrorType::ExpressionExpected(self.save_token()),
+                    );
                     return None;
                 };
                 let ret = ParensExpression::create_empty_expression(expr);
                 if self.get_cur_token() != Some(Token::RPar) {
-                    self.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingCloseParens(self.save_token()),
-                        range: self.save_token_span(),
-                    }));
+                    self.errors.lock().unwrap().report_error(
+                        self.save_token_span(),
+                        ParserErrorType::MissingCloseParens(self.save_token()),
+                    );
                     return None;
                 }
                 self.next_token();

@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -11,7 +12,6 @@ use crate::{
         ProcedureImplementation, Program, VariableSpecifier,
     },
     executable::VariableType,
-    parser::lexer::LexingError,
     tables::CP437_TO_UNICODE,
 };
 
@@ -32,13 +32,6 @@ mod statement_tests;
 
 // #[cfg(test)]
 // mod parser_tests;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    /// Triggered if there's an issue when tokenizing, and an AST can't be made
-    TokenizerError(LexingError),
-    ParserError(ParserError),
-}
 
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum ParserErrorType {
@@ -140,6 +133,9 @@ pub enum ParserWarningType {
     UsefuncsIgnored,
     #[error("$USEFUNCS already set, ignoring.")]
     UsefuncsAlreadySet,
+
+    #[error("Next Identifier '{1}' should match next variable '{0}'")]
+    NextIdentifierInvalid(unicase::Ascii<String>, Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -155,8 +151,7 @@ pub struct ParserWarning {
 }
 
 pub struct Parser {
-    pub errors: Vec<Error>,
-    pub warnings: Vec<ParserWarning>,
+    pub errors: Arc<Mutex<ErrorRepoter>>,
 
     pub require_user_variables: bool,
 
@@ -172,10 +167,11 @@ lazy_static::lazy_static! {
 
 impl Parser {
     pub fn new(file: PathBuf, text: &str, encoding: Encoding) -> Self {
-        let lex = Lexer::new(file, text, encoding);
+        let errors = Arc::new(Mutex::new(ErrorRepoter::default()));
+
+        let lex = Lexer::new(file, text, encoding, errors.clone());
         Parser {
-            errors: Vec::new(),
-            warnings: Vec::new(),
+            errors,
             cur_token: None,
             lookahead_token: None,
             lex,
@@ -199,102 +195,86 @@ impl Parser {
         }
 
         if let Some(token) = self.lex.next_token() {
-            match token {
-                Ok(token) => {
-                    let is_else = token == Token::Else;
-                    let is_end = token == Token::End;
-                    let is_case = token == Token::Case;
-                    self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
+            let is_else = token == Token::Else;
+            let is_end = token == Token::End;
+            let is_case = token == Token::Case;
+            self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
 
-                    if is_else {
-                        let start = self.lex.span().start;
-                        if let Some(Ok(lookahed)) = self.lex.next_token() {
-                            if lookahed == Token::If {
-                                self.cur_token = Some(SpannedToken::new(
-                                    Token::ElseIf,
-                                    start..self.lex.span().end,
-                                ));
+            if is_else {
+                let start = self.lex.span().start;
+                if let Some(lookahed) = self.lex.next_token() {
+                    if lookahed == Token::If {
+                        self.cur_token =
+                            Some(SpannedToken::new(Token::ElseIf, start..self.lex.span().end));
+                    } else {
+                        self.lookahead_token =
+                            Some(SpannedToken::new(lookahed, start..self.lex.span().end));
+                    }
+                }
+            } else if is_case {
+                let start = self.lex.span().start;
+                if let Some(lookahed) = self.lex.next_token() {
+                    if lookahed == Token::Else {
+                        self.cur_token = Some(SpannedToken::new(
+                            Token::Default,
+                            start..self.lex.span().end,
+                        ));
+                    } else {
+                        self.lookahead_token =
+                            Some(SpannedToken::new(lookahed, start..self.lex.span().end));
+                    }
+                }
+            } else if is_end {
+                let start = self.lex.span().start;
+                if let Some(lookahed) = self.lex.next_token() {
+                    match lookahed {
+                        Token::If => {
+                            self.cur_token =
+                                Some(SpannedToken::new(Token::EndIf, start..self.lex.span().end));
+                        }
+                        Token::While => {
+                            self.cur_token = Some(SpannedToken::new(
+                                Token::EndWhile,
+                                start..self.lex.span().end,
+                            ));
+                        }
+                        Token::Select => {
+                            self.cur_token = Some(SpannedToken::new(
+                                Token::EndSelect,
+                                start..self.lex.span().end,
+                            ));
+                        }
+                        Token::For => {
+                            self.cur_token =
+                                Some(SpannedToken::new(Token::Next, start..self.lex.span().end));
+                        }
+                        _ => {
+                            let set_lookahad = if let Token::Identifier(id) = &lookahed {
+                                if *id == *PROC_TOKEN {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndProc,
+                                        start..self.lex.span().end,
+                                    ));
+                                    false
+                                } else if *id == *FUNC_TOKEN {
+                                    self.cur_token = Some(SpannedToken::new(
+                                        Token::EndFunc,
+                                        start..self.lex.span().end,
+                                    ));
+                                    false
+                                } else {
+                                    true
+                                }
                             } else {
+                                true
+                            };
+
+                            if set_lookahad {
                                 self.lookahead_token =
                                     Some(SpannedToken::new(lookahed, start..self.lex.span().end));
-                            }
-                        }
-                    } else if is_case {
-                        let start = self.lex.span().start;
-                        if let Some(Ok(lookahed)) = self.lex.next_token() {
-                            if lookahed == Token::Else {
-                                self.cur_token = Some(SpannedToken::new(
-                                    Token::Default,
-                                    start..self.lex.span().end,
-                                ));
-                            } else {
-                                self.lookahead_token =
-                                    Some(SpannedToken::new(lookahed, start..self.lex.span().end));
-                            }
-                        }
-                    } else if is_end {
-                        let start = self.lex.span().start;
-                        if let Some(Ok(lookahed)) = self.lex.next_token() {
-                            match lookahed {
-                                Token::If => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndIf,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
-                                Token::While => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndWhile,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
-                                Token::Select => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::EndSelect,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
-                                Token::For => {
-                                    self.cur_token = Some(SpannedToken::new(
-                                        Token::Next,
-                                        start..self.lex.span().end,
-                                    ));
-                                }
-                                _ => {
-                                    let set_lookahad = if let Token::Identifier(id) = &lookahed {
-                                        if *id == *PROC_TOKEN {
-                                            self.cur_token = Some(SpannedToken::new(
-                                                Token::EndProc,
-                                                start..self.lex.span().end,
-                                            ));
-                                            false
-                                        } else if *id == *FUNC_TOKEN {
-                                            self.cur_token = Some(SpannedToken::new(
-                                                Token::EndFunc,
-                                                start..self.lex.span().end,
-                                            ));
-                                            false
-                                        } else {
-                                            true
-                                        }
-                                    } else {
-                                        true
-                                    };
-
-                                    if set_lookahad {
-                                        self.lookahead_token = Some(SpannedToken::new(
-                                            lookahed,
-                                            start..self.lex.span().end,
-                                        ));
-                                    }
-                                }
                             }
                         }
                     }
-                }
-                Err(err) => {
-                    self.errors.push(Error::TokenizerError(err));
-                    self.next_token();
                 }
             }
         } else {
@@ -401,11 +381,10 @@ impl Parser {
     /// Panics if .
     pub fn parse_var_info(&mut self) -> Option<VariableSpecifier> {
         let Some(Token::Identifier(_)) = self.get_cur_token() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::IdentifierExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::IdentifierExpected(self.save_token()),
+            );
             return None;
         };
         let identifier_token = self.save_spannedtoken();
@@ -417,11 +396,10 @@ impl Parser {
             leftpar_token = Some(self.save_spannedtoken());
             self.next_token();
             let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::NumberExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::NumberExpected(self.save_token()),
+                );
                 return None;
             };
             dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
@@ -430,11 +408,11 @@ impl Parser {
             if let Some(Token::Comma) = &self.get_cur_token() {
                 self.next_token();
                 let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::NumberExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::NumberExpected(self.save_token()),
+                    );
+
                     return None;
                 };
                 dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
@@ -442,11 +420,11 @@ impl Parser {
 
                 if let Some(Token::Comma) = &self.get_cur_token() {
                     let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::NumberExpected(self.save_token()),
-                                range: self.lex.span(),
-                            }));
+                        self.errors.lock().unwrap().report_error(
+                            self.lex.span(),
+                            ParserErrorType::NumberExpected(self.save_token()),
+                        );
+
                         return None;
                     };
                     dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
@@ -454,19 +432,19 @@ impl Parser {
                 }
             };
             if dimensions.len() > 3 {
-                self.errors.push(Error::ParserError(ParserError {
-                    error: ParserErrorType::TooManyDimensions(dimensions.len()),
-                    range: self.lex.span(),
-                }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::TooManyDimensions(dimensions.len()),
+                );
+
                 return None;
             }
 
             if !matches!(self.get_cur_token(), Some(Token::RPar)) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingCloseParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingCloseParens(self.save_token()),
+                );
                 return None;
             }
             rightpar_token = Some(self.save_spannedtoken());
@@ -495,33 +473,31 @@ impl Parser {
         } else if Some(Token::Function) == self.get_cur_token() {
             true
         } else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::InvalidDeclaration(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::InvalidDeclaration(self.save_token()),
+            );
             return None;
         };
         let func_or_proc_token = self.save_spannedtoken();
         self.next_token();
 
         let Some(Token::Identifier(_name)) = self.get_cur_token() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::IdentifierExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::IdentifierExpected(self.save_token()),
+            );
+
             return None;
         };
         let identifier_token = self.save_spannedtoken();
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingOpenParens(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::MissingOpenParens(self.save_token()),
+            );
             return None;
         }
 
@@ -532,11 +508,11 @@ impl Parser {
 
         while self.get_cur_token() != Some(Token::RPar) {
             if self.get_cur_token().is_none() {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingCloseParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingCloseParens(self.save_token()),
+                );
+
                 return None;
             }
 
@@ -544,11 +520,10 @@ impl Parser {
             if let Some(Token::Identifier(id)) = self.get_cur_token() {
                 if id == Ascii::new("VAR".to_string()) {
                     if is_function {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::VarNotAllowedInFunctions,
-                                range: self.lex.span(),
-                            }));
+                        self.errors.lock().unwrap().report_error(
+                            self.lex.span(),
+                            ParserErrorType::VarNotAllowedInFunctions,
+                        );
                     } else {
                         var_token = Some(self.save_spannedtoken());
                     }
@@ -566,11 +541,10 @@ impl Parser {
                     var_token, type_token, var_type, info,
                 ));
             } else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::TypeExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::TypeExpected(self.save_token()),
+                );
                 return None;
             }
 
@@ -596,11 +570,10 @@ impl Parser {
         }
 
         let Some(return_type) = self.get_variable_type() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::TypeExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::TypeExpected(self.save_token()),
+            );
             return None;
         };
         let return_type_token = self.save_spannedtoken();
@@ -626,11 +599,10 @@ impl Parser {
         {
             let err_token = self.save_spannedtoken();
             self.next_token();
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::EolExpected(err_token.token),
-                    range: err_token.span,
-                }));
+            self.errors.lock().unwrap().report_error(
+                err_token.span,
+                ParserErrorType::EolExpected(err_token.token),
+            );
             false
         } else {
             true
@@ -648,21 +620,20 @@ impl Parser {
             self.next_token();
 
             let Some(Token::Identifier(_)) = self.get_cur_token() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::IdentifierExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::IdentifierExpected(self.save_token()),
+                );
+
                 return None;
             };
             let identifier_token = self.save_spannedtoken();
             self.next_token();
             if self.get_cur_token() != Some(Token::LPar) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingOpenParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingOpenParens(self.save_token()),
+                );
                 return None;
             }
 
@@ -673,11 +644,11 @@ impl Parser {
 
             while self.get_cur_token() != Some(Token::RPar) {
                 if self.get_cur_token().is_none() {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::MissingCloseParens(self.save_token()),
+                    );
+
                     return None;
                 }
                 let mut var_token = None;
@@ -699,11 +670,10 @@ impl Parser {
                         var_token, type_token, var_type, info,
                     ));
                 } else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::TypeExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::TypeExpected(self.save_token()),
+                    );
                     return None;
                 }
 
@@ -721,10 +691,9 @@ impl Parser {
             while self.get_cur_token() != Some(Token::EndProc) {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
                 statements.push(self.parse_statement());
@@ -759,21 +728,20 @@ impl Parser {
             self.next_token();
 
             let Some(Token::Identifier(_)) = self.get_cur_token() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::IdentifierExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::IdentifierExpected(self.save_token()),
+                );
+
                 return None;
             };
             let identifier_token = self.save_spannedtoken();
             self.next_token();
             if self.get_cur_token() != Some(Token::LPar) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingOpenParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingOpenParens(self.save_token()),
+                );
                 return None;
             }
 
@@ -784,20 +752,19 @@ impl Parser {
 
             while self.get_cur_token() != Some(Token::RPar) {
                 if self.get_cur_token().is_none() {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::MissingCloseParens(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::MissingCloseParens(self.save_token()),
+                    );
+
                     return None;
                 }
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
                     if id == Ascii::new("VAR".to_string()) {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::VarNotAllowedInFunctions,
-                                range: self.lex.span(),
-                            }));
+                        self.errors.lock().unwrap().report_error(
+                            self.lex.span(),
+                            ParserErrorType::VarNotAllowedInFunctions,
+                        );
                         self.next_token();
                     }
                 }
@@ -811,11 +778,10 @@ impl Parser {
                     };
                     parameters.push(ParameterSpecifier::new(None, type_token, var_type, info));
                 } else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::TypeExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::TypeExpected(self.save_token()),
+                    );
                     return None;
                 }
 
@@ -827,11 +793,10 @@ impl Parser {
             self.next_token();
 
             let Some(return_type) = self.get_variable_type() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::TypeExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::TypeExpected(self.save_token()),
+                );
                 return None;
             };
             let return_type_token = self.save_spannedtoken();
@@ -843,10 +808,9 @@ impl Parser {
             while self.get_cur_token() != Some(Token::EndFunc) {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
                 statements.push(self.parse_statement());
@@ -871,9 +835,17 @@ impl Parser {
         None
     }
 }
-const MAX_ERRORS: usize = 22;
 
-pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Program {
+/// .
+///
+/// # Panics
+///
+/// Panics if .
+pub fn parse_program(
+    file_name: PathBuf,
+    input: &str,
+    encoding: Encoding,
+) -> (Program, Arc<Mutex<ErrorRepoter>>) {
     let mut nodes = Vec::new();
     let mut parser = Parser::new(file_name.clone(), input, encoding);
     parser.next_token();
@@ -884,9 +856,6 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
     let mut got_funcs = false;
 
     while let Some(cur_token) = &parser.cur_token {
-        if parser.errors.len() > MAX_ERRORS {
-            break;
-        }
         match cur_token.token {
             Token::Function => {
                 if let Some(func) = parser.parse_function() {
@@ -911,16 +880,18 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
             }
             Token::UseFuncs(_, _) => {
                 if use_funcs {
-                    parser.warnings.push(ParserWarning {
-                        error: ParserWarningType::UsefuncsAlreadySet,
-                        range: parser.lex.span(),
-                    });
+                    parser
+                        .errors
+                        .lock()
+                        .unwrap()
+                        .report_warning(parser.lex.span(), ParserWarningType::UsefuncsAlreadySet);
                 }
                 if got_statement {
-                    parser.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::UsefuncAfterStatement,
-                        range: parser.lex.span(),
-                    }));
+                    parser
+                        .errors
+                        .lock()
+                        .unwrap()
+                        .report_error(parser.lex.span(), ParserErrorType::UsefuncAfterStatement);
                     parser.next_token();
                     continue;
                 }
@@ -931,17 +902,19 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
             Token::Eol => {}
             Token::Begin => {
                 if parsed_begin {
-                    parser.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::OnlyOneBeginBlockAllowed,
-                        range: parser.lex.span(),
-                    }));
+                    parser
+                        .errors
+                        .lock()
+                        .unwrap()
+                        .report_error(parser.lex.span(), ParserErrorType::OnlyOneBeginBlockAllowed);
+
                     break;
                 }
                 if got_funcs && !use_funcs {
-                    parser.errors.push(Error::ParserError(ParserError {
-                        error: ParserErrorType::NoStatementsAfterFunctions,
-                        range: parser.lex.span(),
-                    }));
+                    parser.errors.lock().unwrap().report_error(
+                        parser.lex.span(),
+                        ParserErrorType::NoStatementsAfterFunctions,
+                    );
                     break;
                 }
                 parsed_begin = true;
@@ -951,27 +924,27 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
                 let stmt = parser.parse_statement();
                 if let Some(stmt) = stmt {
                     if use_funcs && !parsed_begin {
-                        parser.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::NoStatementsAllowedOutsideBlock,
-                            range: parser.lex.span(),
-                        }));
+                        parser.errors.lock().unwrap().report_error(
+                            parser.lex.span(),
+                            ParserErrorType::NoStatementsAllowedOutsideBlock,
+                        );
                         break;
                     }
                     if got_funcs && !use_funcs {
-                        parser.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::NoStatementsAfterFunctions,
-                            range: parser.lex.span(),
-                        }));
+                        parser.errors.lock().unwrap().report_error(
+                            parser.lex.span(),
+                            ParserErrorType::NoStatementsAfterFunctions,
+                        );
                         break;
                     }
                     got_statement = true;
                     nodes.push(AstNode::Statement(stmt));
                 } else if let Some(t) = tok {
                     if !matches!(t.token, Token::Eol | Token::Comment(_, _)) {
-                        parser.errors.push(Error::ParserError(ParserError {
-                            error: ParserErrorType::InvalidToken(t.token),
-                            range: t.span,
-                        }));
+                        parser.errors.lock().unwrap().report_error(
+                            parser.lex.span(),
+                            ParserErrorType::InvalidToken(t.token),
+                        );
                     }
                 }
             }
@@ -980,16 +953,60 @@ pub fn parse_program(file_name: PathBuf, input: &str, encoding: Encoding) -> Pro
         parser.next_token();
     }
 
-    Program {
-        nodes,
-        file_name,
-        errors: parser.errors,
-        warnings: parser.warnings,
-        require_user_variables: parser.require_user_variables,
-    }
+    (
+        Program {
+            nodes,
+            file_name,
+            require_user_variables: parser.require_user_variables,
+        },
+        parser.errors.clone(),
+    )
 }
 
-// type ParserInput<'tokens> = chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
+pub struct ErrorContainer {
+    pub error: Box<dyn std::error::Error + Send + Sync>,
+    pub span: core::ops::Range<usize>,
+}
+
+#[derive(Default)]
+pub struct ErrorRepoter {
+    pub errors: Vec<ErrorContainer>,
+    pub warnings: Vec<ErrorContainer>,
+}
+
+impl ErrorRepoter {
+    pub fn report_error<T: std::error::Error + 'static + Send + Sync>(
+        &mut self,
+        span: core::ops::Range<usize>,
+        error: T,
+    ) {
+        self.errors.push(ErrorContainer {
+            error: Box::new(error),
+            span,
+        });
+    }
+
+    pub fn report_warning<T: std::error::Error + 'static + Send + Sync>(
+        &mut self,
+        span: core::ops::Range<usize>,
+        warning: T,
+    ) {
+        self.warnings.push(ErrorContainer {
+            error: Box::new(warning),
+            span,
+        });
+    }
+
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    pub fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
+    }
+
+    pub fn report(&self) {}
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Encoding {
@@ -997,6 +1014,11 @@ pub enum Encoding {
     CP437,
 }
 
+/// .
+///
+/// # Errors
+///
+/// This function will return an error if .
 pub fn load_with_encoding(file_name: &Path, encoding: Encoding) -> std::io::Result<String> {
     let src_data = fs::read(file_name)?;
     let src = if encoding == Encoding::CP437 {

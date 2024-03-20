@@ -29,7 +29,7 @@ fn check_error(input: &str) {
     parser.next_token();
     let expr = parser.parse_expression();
     assert!(
-        !parser.errors.is_empty(),
+        !parser.errors.lock().unwrap().has_errors(),
         "No error found parsed expr {expr:?}"
     );
 }

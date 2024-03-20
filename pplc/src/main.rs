@@ -4,10 +4,10 @@ use icy_ppe::{
     compiler::PPECompiler,
     executable::LAST_PPLC,
     parser::{load_with_encoding, parse_program, Encoding},
-    tables::CP437_TO_UNICODE,
 };
 use semver::Version;
 use std::{
+    env::args,
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
@@ -23,11 +23,15 @@ struct Args {
     /// Force no user variables
     #[arg(long)]
     nouvar: bool,
-    
+
+    /// Don't report any warnings
+    #[arg(long)]
+    nowarnings: bool,
+
     /// Force user variables
     #[arg(long)]
     forceuvar: bool,
-    
+
     /// Input file is CP437
     #[arg(long)]
     dos: bool,
@@ -65,7 +69,7 @@ fn main() {
 
     //println!();
     //println!("Parsing...");
-    let mut prg = parse_program(PathBuf::from(&file_name), &src, encoding);
+    let (mut prg, errors) = parse_program(PathBuf::from(&file_name), &src, encoding);
     if arguments.nouvar {
         prg.require_user_variables = false;
     }
@@ -77,84 +81,43 @@ fn main() {
     let mut compiler = PPECompiler::new(LAST_PPLC);
     compiler.compile(&prg);
 
-    if !prg.errors.is_empty()
-        || !prg.warnings.is_empty()
-        || !compiler.warnings.is_empty()
-        || !compiler.errors.is_empty()
+    if !errors.lock().unwrap().has_errors()
+        || (!errors.lock().unwrap().has_warnings() && !arguments.nowarnings)
     {
-        let mut errors = 0;
-        let mut warnings = 0;
+        let mut error_count = 0;
+        let mut warning_count = 0;
 
-        for e in &prg.errors {
-            match e {
-                icy_ppe::parser::Error::ParserError(err) => {
-                    errors += 1;
-                    Report::build(ReportKind::Error, &file_name, 12)
-                        .with_code(errors)
-                        .with_message(format!("{}", err.error))
-                        .with_label(
-                            Label::new((&file_name, err.range.clone()))
-                                .with_color(ariadne::Color::Red),
-                        )
-                        .finish()
-                        .print((&file_name, Source::from(&src)))
-                        .unwrap();
-                }
-                icy_ppe::parser::Error::TokenizerError(err) => {
-                    errors += 1;
-                    Report::build(ReportKind::Error, &file_name, 12)
-                        .with_code(errors)
-                        .with_message(format!("{}", err.error))
-                        .with_label(
-                            Label::new((&file_name, err.range.clone()))
-                                .with_color(ariadne::Color::Red),
-                        )
-                        .finish()
-                        .print((&file_name, Source::from(&src)))
-                        .unwrap();
-                }
-            }
-        }
-
-        for err in &prg.warnings {
-            warnings += 1;
-            Report::build(ReportKind::Warning, &file_name, 12)
-                .with_code(warnings)
-                .with_message(format!("{}", err.error))
-                .with_label(
-                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Yellow),
-                )
-                .finish()
-                .print((&file_name, Source::from(&src)))
-                .unwrap();
-        }
-
-        for err in &compiler.errors {
-            errors += 1;
+        for err in &errors.lock().unwrap().errors {
+            error_count += 1;
             Report::build(ReportKind::Error, &file_name, 12)
-                .with_code(errors)
+                .with_code(error_count)
                 .with_message(format!("{}", err.error))
                 .with_label(
-                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Red),
+                    Label::new((&file_name, err.span.clone())).with_color(ariadne::Color::Red),
                 )
                 .finish()
                 .print((&file_name, Source::from(&src)))
                 .unwrap();
         }
 
-        for err in &compiler.warnings {
-            warnings += 1;
-            Report::build(ReportKind::Warning, &file_name, 12)
-                .with_code(warnings)
-                .with_message(format!("{}", err.error))
-                .with_label(
-                    Label::new((&file_name, err.range.clone())).with_color(ariadne::Color::Yellow),
-                )
-                .finish()
-                .print((&file_name, Source::from(&src)))
-                .unwrap();
+        if !arguments.nowarnings {
+            for err in &errors.lock().unwrap().warnings {
+                warning_count += 1;
+                Report::build(ReportKind::Warning, &file_name, 12)
+                    .with_code(warning_count)
+                    .with_message(format!("{}", err.error))
+                    .with_label(
+                        Label::new((&file_name, err.span.clone()))
+                            .with_color(ariadne::Color::Yellow),
+                    )
+                    .finish()
+                    .print((&file_name, Source::from(&src)))
+                    .unwrap();
+            }
+            println!("{} errors, {} warnings", error_count, warning_count);
+        } else {
+            println!("{} errors", error_count);
         }
-        println!("{} errors, {} warnings", errors, warnings);
         return;
     }
 

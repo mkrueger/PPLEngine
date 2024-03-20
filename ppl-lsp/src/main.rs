@@ -504,31 +504,35 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         let uri = params.uri.to_string();
         self.document_map.insert(uri.clone(), rope.clone());
-        let prg = parse_program(PathBuf::from(uri), &params.text, Encoding::Utf8);
+        let (prg, errors) = parse_program(PathBuf::from(uri), &params.text, Encoding::Utf8);
         let semantic_tokens = semantic_token_from_ast(&prg);
 
-        let diagnostics = prg
-            .errors
-            .iter()
-            .filter_map(|e| match e {
-                icy_ppe::parser::Error::ParserError(err) => {
-                    let start_position = offset_to_position(err.range.start, &rope)?;
-                    let end_position = offset_to_position(err.range.end, &rope)?;
-                    Some(Diagnostic::new_simple(
-                        Range::new(start_position, end_position),
-                        format!("{}", err.error),
-                    ))
-                }
-                icy_ppe::parser::Error::TokenizerError(err) => {
-                    let start_position = offset_to_position(err.range.start, &rope)?;
-                    let end_position = offset_to_position(err.range.end, &rope)?;
-                    Some(Diagnostic::new_simple(
-                        Range::new(start_position, end_position),
-                        format!("{}", err.error),
-                    ))
-                }
-            })
-            .collect::<Vec<_>>();
+        let mut diagnostics = Vec::new();
+
+        for err in &errors.lock().unwrap().errors {
+            let start_position =
+                offset_to_position(err.span.start, &rope).unwrap_or(Position::new(0, 0));
+            let end_position =
+                offset_to_position(err.span.end, &rope).unwrap_or(Position::new(0, 0));
+            let mut diag = Diagnostic::new_simple(
+                Range::new(start_position, end_position),
+                format!("{}", err.error),
+            );
+            diag.severity = Some(DiagnosticSeverity::ERROR);
+            diagnostics.push(diag);
+        }
+        for err in &errors.lock().unwrap().warnings {
+            let start_position =
+                offset_to_position(err.span.start, &rope).unwrap_or(Position::new(0, 0));
+            let end_position =
+                offset_to_position(err.span.end, &rope).unwrap_or(Position::new(0, 0));
+            let mut diag = Diagnostic::new_simple(
+                Range::new(start_position, end_position),
+                format!("{}", err.error),
+            );
+            diag.severity = Some(DiagnosticSeverity::WARNING);
+            diagnostics.push(diag);
+        }
 
         self.client
             .publish_diagnostics(params.uri.clone(), diagnostics, Some(params.version))

@@ -1,10 +1,13 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     ast::Constant,
     parser::{
         lexer::{CommentType, Lexer, Token},
-        Encoding,
+        Encoding, ErrorRepoter,
     },
 };
 
@@ -26,14 +29,19 @@ fn test_comments() {
 }
 
 fn get_token(src: &str) -> Token {
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
-    match lex.next_token().unwrap() {
-        Ok(t) => {
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
+    match lex.next_token() {
+        Some(t) => {
             //println!("got token: {t:?}");
             t
         }
-        Err(e) => {
-            panic!("Error: {e:?}")
+        None => {
+            panic!("Error")
         }
     }
 }
@@ -55,15 +63,20 @@ fn test_string() {
     );
 
     let src = "\"Hello World\" \"foo\"";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Const(Constant::String("Hello World".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
     assert_eq!(
         Token::Const(Constant::String("foo".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
 }
 
@@ -124,15 +137,20 @@ fn test_identifier() {
     );
 
     let src = "Hello World";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("Hello".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("World".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
 }
 
@@ -163,7 +181,10 @@ fn test_constants() {
 
 #[test]
 fn test_no_constant() {
-    assert_eq!(Token::Identifier(unicase::Ascii::new("SEC".to_string())), get_token("SEC("));
+    assert_eq!(
+        Token::Identifier(unicase::Ascii::new("SEC".to_string())),
+        get_token("SEC(")
+    );
 }
 
 #[test]
@@ -180,42 +201,52 @@ fn test_errors() {
 #[test]
 fn test_eol() {
     let src = "A\nB\r\nC";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("A".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-    assert_eq!(Token::Eol, lex.next_token().unwrap().unwrap());
+    assert_eq!(Token::Eol, lex.next_token().unwrap());
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("B".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-    assert_eq!(Token::Eol, lex.next_token().unwrap().unwrap());
+    assert_eq!(Token::Eol, lex.next_token().unwrap());
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("C".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
 }
 
 #[test]
 fn test_colon_eol() {
     let src = "A:B:C";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("A".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-    assert_eq!(Token::Eol, lex.next_token().unwrap().unwrap());
+    assert_eq!(Token::Eol, lex.next_token().unwrap());
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("B".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-    assert_eq!(Token::Eol, lex.next_token().unwrap().unwrap());
+    assert_eq!(Token::Eol, lex.next_token().unwrap());
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("C".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
 }
 
@@ -247,28 +278,37 @@ fn test_continue() {
 #[test]
 fn test_skip() {
     let src = "Hello _\n World";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("Hello".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("World".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-
 
     let src = "Hello \\\n World";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("Hello".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
     assert_eq!(
         Token::Identifier(unicase::Ascii::new("World".to_string())),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
 }
 #[test]
@@ -301,11 +341,16 @@ fn test_dotdot() {
     assert_eq!(Token::DotDot, get_token(".."));
 
     let src = "1..";
-    let mut lex = Lexer::new(PathBuf::from("."), src, Encoding::Utf8);
+    let mut lex = Lexer::new(
+        PathBuf::from("."),
+        src,
+        Encoding::Utf8,
+        Arc::new(Mutex::new(ErrorRepoter::default())),
+    );
 
     assert_eq!(
         Token::Const(Constant::Integer(1)),
-        lex.next_token().unwrap().unwrap()
+        lex.next_token().unwrap()
     );
-    assert_eq!(Token::DotDot, lex.next_token().unwrap().unwrap());
+    assert_eq!(Token::DotDot, lex.next_token().unwrap());
 }

@@ -52,7 +52,7 @@ fn test_compiler() {
 }
 
 fn run_test(data: &str, output: &str) {
-    let prg = parse_program(PathBuf::from("."), data, Encoding::Utf8);
+    let (prg, _errors) = parse_program(PathBuf::from("."), data, Encoding::Utf8);
     let mut exec = compiler::PPECompiler::new(LAST_PPLC);
     exec.compile(&prg);
     if !exec.errors.is_empty() {

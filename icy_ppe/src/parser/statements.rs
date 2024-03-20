@@ -7,12 +7,12 @@ use crate::{
         SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
     executable::{OpCode, STATEMENT_DEFINITIONS},
-    parser::{ParserError, ParserErrorType},
+    parser::ParserErrorType,
 };
 
 use super::{
     lexer::{SpannedToken, Token},
-    Error, Parser, ParserWarning, ParserWarningType,
+    Parser, ParserWarningType,
 };
 
 impl Parser {
@@ -34,31 +34,28 @@ impl Parser {
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingOpenParens(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::MissingOpenParens(self.save_token()),
+            );
             return None;
         }
         let lpar_token = self.save_spannedtoken();
 
         self.next_token();
         let Some(cond) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
             return None;
         };
 
         if self.get_cur_token() != Some(Token::RPar) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingCloseParens(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::MissingCloseParens(self.save_token()),
+            );
             return None;
         }
         let rightpar_token = self.save_spannedtoken();
@@ -74,10 +71,9 @@ impl Parser {
             while self.get_cur_token() != Some(Token::EndWhile) {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
                 statements.push(self.parse_statement());
@@ -109,11 +105,10 @@ impl Parser {
                     stmt,
                 )))
             } else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::StatementExpected,
-                        range: start..self.lex.span().end,
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    start..self.lex.span().end,
+                    ParserErrorType::StatementExpected,
+                );
                 None
             }
         }
@@ -126,10 +121,9 @@ impl Parser {
         loop {
             let Some(token) = self.get_cur_token() else {
                 self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::EndExpected,
-                        range: self.lex.span(),
-                    }));
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::EndExpected);
                 return None;
             };
             if token == Token::End {
@@ -155,41 +149,37 @@ impl Parser {
             self.next_token();
             IdentifierExpression::create_empty_expression(id)
         } else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::IdentifierExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::IdentifierExpected(self.save_token()),
+            );
             return None;
         };
 
         if self.get_cur_token() != Some(Token::Eq) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::EqTokenExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::EqTokenExpected(self.save_token()),
+            );
             return None;
         }
 
         let eq_token = self.save_spannedtoken();
         self.next_token();
         let Some(start_expr) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
             return None;
         };
 
         if let Some(Token::Identifier(id)) = self.get_cur_token() {
             if id != "TO" {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ToExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::ToExpected(self.save_token()),
+                );
                 return None;
             }
         }
@@ -197,11 +187,11 @@ impl Parser {
         let to_token = self.save_spannedtoken();
         self.next_token();
         let Some(end_expr) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
+
             return None;
         };
 
@@ -220,10 +210,9 @@ impl Parser {
         while self.get_cur_token() != Some(Token::Next) {
             if self.get_cur_token().is_none() {
                 self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::EndExpected,
-                        range: self.lex.span(),
-                    }));
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::EndExpected);
                 return None;
             }
             statements.push(self.parse_statement());
@@ -233,9 +222,16 @@ impl Parser {
         // skip next
         self.next_token();
 
-        let next_identifier_token = if matches!(self.get_cur_token(), Some(Token::Identifier(_))) {
-            // next token is not checked by pplc and doesn't even need to be defined
-            // should be checked in a later compiler version.
+        let next_identifier_token = if let Some(Token::Identifier(next_id)) = &self.get_cur_token() {
+            let start_id = identifier_token.token.get_identifier();
+            if *next_id != start_id {
+                self.errors.lock().unwrap().report_warning(
+                    self.lex.span(),
+                    ParserWarningType::NextIdentifierInvalid(start_id, self.save_token()),
+                );
+                return None;
+            }
+
             let t = self.save_spannedtoken();
             self.next_token();
             Some(t)
@@ -263,30 +259,29 @@ impl Parser {
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingOpenParens(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::MissingOpenParens(self.save_token()),
+            );
             return None;
         }
         let lpar_token = self.save_spannedtoken();
         self.next_token();
         let Some(cond) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
+
             return None;
         };
 
         if self.get_cur_token() != Some(Token::RPar) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingCloseParens(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::MissingCloseParens(self.save_token()),
+            );
+
             return None;
         }
         let rightpar_token = self.save_spannedtoken();
@@ -305,11 +300,10 @@ impl Parser {
                     stmt,
                 )));
             }
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::StatementExpected,
-                    range: start..self.lex.span().end,
-                }));
+            self.errors.lock().unwrap().report_error(
+                start..self.lex.span().end,
+                ParserErrorType::StatementExpected,
+            );
             return None;
         }
         let then_token = self.save_spannedtoken();
@@ -325,10 +319,9 @@ impl Parser {
         {
             if self.get_cur_token().is_none() {
                 self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::EndExpected,
-                        range: self.lex.span(),
-                    }));
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::EndExpected);
                 return None;
             }
 
@@ -343,31 +336,30 @@ impl Parser {
             self.next_token();
 
             if self.get_cur_token() != Some(Token::LPar) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingOpenParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingOpenParens(self.save_token()),
+                );
                 return None;
             }
             let else_if_lpar_token = self.save_spannedtoken();
 
             self.next_token();
             let Some(cond) = self.parse_expression() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ExpressionExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::ExpressionExpected(self.save_token()),
+                );
+
                 return None;
             };
 
             if self.get_cur_token() != Some(Token::RPar) {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::MissingCloseParens(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::MissingCloseParens(self.save_token()),
+                );
+
                 return None;
             }
             let else_if_rightpar_token = self.save_spannedtoken();
@@ -376,11 +368,10 @@ impl Parser {
                 && self.get_cur_token() != Some(Token::Eol)
                 && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
             {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ThenExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::ThenExpected(self.save_token()),
+                );
                 return None;
             }
             let then_token = if is_do_then(&self.cur_token) {
@@ -397,10 +388,9 @@ impl Parser {
             {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
 
@@ -427,10 +417,9 @@ impl Parser {
             while self.get_cur_token() != Some(Token::EndIf) {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
 
@@ -445,11 +434,10 @@ impl Parser {
         };
 
         if self.get_cur_token() != Some(Token::EndIf) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::InvalidToken(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::InvalidToken(self.save_token()),
+            );
             return None;
         }
         // skip endif token
@@ -478,22 +466,21 @@ impl Parser {
         self.next_token();
 
         if self.get_cur_token() != Some(Token::Case) {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::CaseExpectedAfterSelect(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::CaseExpectedAfterSelect(self.save_token()),
+            );
             return None;
         }
 
         let case_token = self.save_spannedtoken();
         self.next_token();
         let Some(case_expr) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
+
             return None;
         };
         self.next_token();
@@ -531,10 +518,9 @@ impl Parser {
             {
                 if self.get_cur_token().is_none() {
                     self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::EndExpected,
-                            range: self.lex.span(),
-                        }));
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
                 }
 
@@ -575,10 +561,9 @@ impl Parser {
         while self.get_cur_token() != Some(Token::EndSelect) {
             if self.get_cur_token().is_none() {
                 self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::EndExpected,
-                        range: self.lex.span(),
-                    }));
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::EndExpected);
                 return;
             }
 
@@ -591,22 +576,22 @@ impl Parser {
 
     fn parse_case_specifier(&mut self) -> Option<crate::ast::CaseSpecifier> {
         let Some(expr) = self.parse_expression() else {
-            self.errors
-                .push(crate::parser::Error::ParserError(ParserError {
-                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                    range: self.lex.span(),
-                }));
+            self.errors.lock().unwrap().report_error(
+                self.lex.span(),
+                ParserErrorType::ExpressionExpected(self.save_token()),
+            );
+
             return None;
         };
 
         if self.get_cur_token() == Some(Token::DotDot) {
             self.next_token();
             let Some(to) = self.parse_expression() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ExpressionExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::ExpressionExpected(self.save_token()),
+                );
+
                 return None;
             };
             Some(CaseSpecifier::FromTo(Box::new(expr), Box::new(to)))
@@ -631,10 +616,10 @@ impl Parser {
                 Some(Statement::Comment(CommentAstNode::new(cmt)))
             }
             Some(Token::UseFuncs(_, _)) => {
-                self.warnings.push(ParserWarning {
-                    error: ParserWarningType::UsefuncsIgnored,
-                    range: self.lex.span(),
-                });
+                self.errors
+                    .lock()
+                    .unwrap()
+                    .report_warning(self.lex.span(), ParserWarningType::UsefuncsIgnored);
                 self.next_token();
                 None
             }
@@ -660,11 +645,10 @@ impl Parser {
                     self.next_token();
                     id
                 } else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::IdentifierExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::IdentifierExpected(self.save_token()),
+                    );
                     return None;
                 };
                 let mut leftpar_token = None;
@@ -678,10 +662,9 @@ impl Parser {
                     loop {
                         let Some(token) = self.get_cur_token() else {
                             self.errors
-                                .push(crate::parser::Error::ParserError(ParserError {
-                                    error: ParserErrorType::EndExpected,
-                                    range: self.lex.span(),
-                                }));
+                                .lock()
+                                .unwrap()
+                                .report_error(self.lex.span(), ParserErrorType::EndExpected);
                             return None;
                         };
 
@@ -690,10 +673,9 @@ impl Parser {
                         }
                         let Some(expr) = self.parse_expression() else {
                             self.errors
-                                .push(crate::parser::Error::ParserError(ParserError {
-                                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                                    range: self.lex.span(),
-                                }));
+                                .lock()
+                                .unwrap()
+                                .report_error(self.lex.span(), ParserErrorType::EndExpected);
                             return None;
                         };
                         params.push(expr);
@@ -705,11 +687,10 @@ impl Parser {
                         if self.get_cur_token() == Some(Token::Comma) {
                             self.next_token();
                         } else {
-                            self.errors
-                                .push(crate::parser::Error::ParserError(ParserError {
-                                    error: ParserErrorType::CommaExpected(self.save_token()),
-                                    range: self.lex.span(),
-                                }));
+                            self.errors.lock().unwrap().report_error(
+                                self.lex.span(),
+                                ParserErrorType::CommaExpected(self.save_token()),
+                            );
                             return None;
                         }
                     }
@@ -721,11 +702,11 @@ impl Parser {
                     let eq_token = self.save_spannedtoken();
                     self.next_token();
                     let Some(value_expression) = self.parse_expression() else {
-                        self.errors
-                            .push(crate::parser::Error::ParserError(ParserError {
-                                error: ParserErrorType::ExpressionExpected(self.save_token()),
-                                range: self.lex.span(),
-                            }));
+                        self.errors.lock().unwrap().report_error(
+                            self.lex.span(),
+                            ParserErrorType::ExpressionExpected(self.save_token()),
+                        );
+
                         return None;
                     };
                     return Some(Statement::Let(LetStatement::new(
@@ -739,11 +720,10 @@ impl Parser {
                     )));
                 }
 
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::EqTokenExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::EqTokenExpected(self.save_token()),
+                );
                 None
             }
             Some(Token::Break) => {
@@ -765,18 +745,17 @@ impl Parser {
                 let gosub_token = self.save_spannedtoken();
                 self.next_token();
                 if let Some(token) = self.get_cur_token() {
-                    if token.is_valid_label() {
+                    if token.token_can_be_identifier() {
                         let id_token = self.save_spannedtoken();
                         self.next_token();
                         return Some(Statement::Gosub(GosubStatement::new(gosub_token, id_token)));
                     }
                     self.next_token();
                 }
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::LabelExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::LabelExpected(self.save_token()),
+                );
                 self.next_token();
                 None
             }
@@ -784,18 +763,17 @@ impl Parser {
                 let goto_token = self.save_spannedtoken();
                 self.next_token();
                 if let Some(token) = self.get_cur_token() {
-                    if token.is_valid_label() {
+                    if token.token_can_be_identifier() {
                         let id_token = self.save_spannedtoken();
                         self.next_token();
                         return Some(Statement::Goto(GotoStatement::new(goto_token, id_token)));
                     }
                     self.next_token();
                 }
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::LabelExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::LabelExpected(self.save_token()),
+                );
                 self.next_token();
                 None
             }
@@ -845,11 +823,10 @@ impl Parser {
 
             None => None,
             _ => {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::InvalidToken(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::InvalidToken(self.save_token()),
+                );
                 self.next_token();
                 None
             }
@@ -869,11 +846,11 @@ impl Parser {
                         && self.cur_token.is_some()
                     {
                         let Some(value) = self.parse_expression() else {
-                            self.errors
-                                .push(crate::parser::Error::ParserError(ParserError {
-                                    error: ParserErrorType::ExpressionExpected(self.save_token()),
-                                    range: self.lex.span(),
-                                }));
+                            self.errors.lock().unwrap().report_error(
+                                self.lex.span(),
+                                ParserErrorType::ExpressionExpected(self.save_token()),
+                            );
+
                             return None;
                         };
                         params.push(value);
@@ -909,11 +886,11 @@ impl Parser {
             let eq_token = self.save_spannedtoken();
             self.next_token();
             let Some(value_expression) = self.parse_expression() else {
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::ExpressionExpected(self.save_token()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::ExpressionExpected(self.save_token()),
+                );
+
                 return None;
             };
             return Some(Statement::Let(LetStatement::new(
@@ -935,11 +912,11 @@ impl Parser {
 
             while self.get_cur_token() != Some(Token::RPar) {
                 let Some(right) = self.parse_expression() else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::ExpressionExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::ExpressionExpected(self.save_token()),
+                    );
+
                     return None;
                 };
                 params.push(right);
@@ -948,10 +925,11 @@ impl Parser {
                 }
             }
             if self.get_cur_token() != Some(Token::RPar) {
-                self.errors.push(Error::ParserError(ParserError {
-                    error: ParserErrorType::MissingCloseParens(self.save_token()),
-                    range: self.save_token_span(),
-                }));
+                self.errors.lock().unwrap().report_error(
+                    self.save_token_span(),
+                    ParserErrorType::MissingCloseParens(self.save_token()),
+                );
+
                 return None;
             }
             let rightpar_token = self.save_spannedtoken();
@@ -961,11 +939,11 @@ impl Parser {
                 let eq_token = self.save_spannedtoken();
                 self.next_token();
                 let Some(value_expression) = self.parse_expression() else {
-                    self.errors
-                        .push(crate::parser::Error::ParserError(ParserError {
-                            error: ParserErrorType::ExpressionExpected(self.save_token()),
-                            range: self.lex.span(),
-                        }));
+                    self.errors.lock().unwrap().report_error(
+                        self.lex.span(),
+                        ParserErrorType::ExpressionExpected(self.save_token()),
+                    );
+
                     return None;
                 };
                 if !params.is_empty() && params.len() <= 3 {
@@ -979,11 +957,10 @@ impl Parser {
                         value_expression,
                     )));
                 }
-                self.errors
-                    .push(crate::parser::Error::ParserError(ParserError {
-                        error: ParserErrorType::TooManyDimensions(params.len()),
-                        range: self.lex.span(),
-                    }));
+                self.errors.lock().unwrap().report_error(
+                    self.lex.span(),
+                    ParserErrorType::TooManyDimensions(params.len()),
+                );
                 return None;
             }
 
@@ -994,11 +971,10 @@ impl Parser {
                 rightpar_token,
             )));
         }
-        self.errors
-            .push(crate::parser::Error::ParserError(ParserError {
-                error: ParserErrorType::UnknownIdentifier(id_token.token.to_string()),
-                range: id_token.span,
-            }));
+        self.errors.lock().unwrap().report_error(
+            id_token.span,
+            ParserErrorType::UnknownIdentifier(id_token.token.to_string()),
+        );
         None
     }
 }

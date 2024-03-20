@@ -86,6 +86,11 @@ impl Statement {
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn is_similar(&self, check: &Statement) -> bool {
         match (self, check) {
             (Statement::Comment(c1), Statement::Comment(c2)) => c1.get_comment() == c2.get_comment(),
@@ -93,7 +98,7 @@ impl Statement {
             (Statement::Return(_), Statement::Return(_)) |
             (Statement::Break(_), Statement::Break(_)) |
             (Statement::Continue(_), Statement::Continue(_)) => true,
-            
+
             (Statement::Block(_), Statement::Block(_)) => panic!("Not implemented PPL has no blocks, it's just used as a container for statements during compiling."),
 
             (Statement::If(i1), Statement::If(i2)) => i1.get_condition().is_similar(i2.get_condition()) && i1.get_statement().is_similar(i2.get_statement()),
@@ -141,7 +146,7 @@ impl Statement {
                     if !i1.get_statements()[i].is_similar(&i2.get_statements()[i]) {
                         return false;
                     }
-                } 
+                }
                 true
             }
             (Statement::For(f1), Statement::For(f2)) => {
@@ -174,8 +179,8 @@ impl Statement {
                 }
                 true
             }
-            (Statement::Let(l1), Statement::Let(l2)) => 
-                l1.get_identifier() == l2.get_identifier() && 
+            (Statement::Let(l1), Statement::Let(l2)) =>
+                l1.get_identifier() == l2.get_identifier() &&
                 l1.get_value_expression().is_similar(l2.get_value_expression()),
             (Statement::Goto(g1), Statement::Goto(g2)) => g1.get_label() == g2.get_label(),
             (Statement::Gosub(g1), Statement::Gosub(g2)) => g1.get_label() == g2.get_label(),
@@ -207,7 +212,6 @@ impl Statement {
                     }
                 }
                 true
-            
             },
             (Statement::VariableDeclaration(v1), Statement::VariableDeclaration(v2)) => {
                 if v1.get_variable_type() != v2.get_variable_type() {

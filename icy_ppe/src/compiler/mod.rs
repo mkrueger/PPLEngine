@@ -13,7 +13,7 @@ use crate::{
     executable::{
         EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
         PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
-        VariableType, VariableValue, LAST_PPLC, USER_VARIABLES,
+        VariableType, VariableValue, USER_VARIABLES,
     },
     parser::{
         lexer::{SpannedToken, Token},

@@ -331,7 +331,7 @@ pub fn get_function_definition(str: &str) -> i32 {
     -1
 }
 
-pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 292] = [
+pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 293] = [
     FunctionDefinition {
         name: "END",
         opcode: FuncOpCode::END,
@@ -2084,6 +2084,12 @@ pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 292] = [
         opcode: FuncOpCode::TOSTRING,
         args: 0x01,
         function: predefined_functions::tostring,
+    },
+    FunctionDefinition {
+        name: "ToInt",
+        opcode: FuncOpCode::TOSWORD, // Note: This is correct it's not TOINTEGER for some reason.
+        args: 0x01,
+        function: predefined_functions::tosword,
     },
 ];
 

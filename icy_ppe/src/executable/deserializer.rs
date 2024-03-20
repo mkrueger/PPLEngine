@@ -179,6 +179,14 @@ impl PPEDeserializer {
 
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
+                    crate::executable::StatementSignature::SpecialCaseVarSeg => {
+                        let arguments = vec![
+                            self.read_variable_expression(executable)?,
+                            self.read_variable_expression(executable)?
+                        ];
+
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
+                    }
                     _ => {
                         panic!("unhandled statement signature {:?}", def.sig);
                     }

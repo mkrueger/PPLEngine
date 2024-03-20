@@ -71,14 +71,15 @@ fn main() {
     match read_file(file_name, !arguments.output) {
         Ok(mut executable) => {
             if arguments.disassemble {
+                executable.print_script_buffer_dump();
+                println!();
+                
                 if let Ok(script) = PPEScript::from_ppe_file(&executable) {
                     executable.variable_table.analyze_usage(&script);
                     executable.variable_table.generate_names();
                 }
 
                 executable.print_variable_table();
-                println!();
-                executable.print_script_buffer_dump();
                 println!();
                 executable.print_disassembler();
                 println!();

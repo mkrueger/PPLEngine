@@ -20,6 +20,7 @@ pub enum StatementSignature {
     SpecialCasePop,
     Label,
     SpecialIfWhen,
+    SpecialCaseVarSeg,
 }
 
 #[repr(i16)]
@@ -281,7 +282,12 @@ pub struct StatementDefinition {
     pub function: PredefProc,
 }
 
-pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
+// Missing:
+// "LAST IN" == "LASTIN"
+// "WAIT FOR" == "WAITFOR"
+// "GO SUB"
+// " GO TO"
+pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "WHILE",
         opcode: OpCode::WHILE,
@@ -771,13 +777,13 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
     StatementDefinition {
         name: "VarSeg",
         opcode: OpCode::VARSEG,
-        sig: StatementSignature::ArgumentsWithVariable(2, 15),
+        sig: StatementSignature::SpecialCaseVarSeg,
         function: predefined_procedures::varseg,
     },
     StatementDefinition {
         name: "VarOff",
         opcode: OpCode::VAROFF,
-        sig: StatementSignature::ArgumentsWithVariable(2, 15),
+        sig: StatementSignature::SpecialCaseVarSeg,
         function: predefined_procedures::varoff,
     },
     StatementDefinition {
@@ -795,7 +801,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
     StatementDefinition {
         name: "VarAddr",
         opcode: OpCode::VARADDR,
-        sig: StatementSignature::ArgumentsWithVariable(2, 15),
+        sig: StatementSignature::SpecialCaseVarSeg,
         function: predefined_procedures::varaddr,
     },
     StatementDefinition {
@@ -1677,6 +1683,19 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 232] = [
         sig: StatementSignature::ArgumentsWithVariable(0, 0),
         function: predefined_procedures::putuser,
     },
+    StatementDefinition {
+        name: "Erase",
+        opcode: OpCode::DELETE,
+        sig: StatementSignature::ArgumentsWithVariable(0, 1),
+        function: predefined_procedures::delete,
+    },
+    StatementDefinition {
+        name: "Poke",
+        opcode: OpCode::POKEB,
+        sig: StatementSignature::ArgumentsWithVariable(0, 2),
+        function: predefined_procedures::pokeb,
+    },
+
 ];
 
 #[test]

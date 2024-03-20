@@ -131,13 +131,17 @@ impl PPECommand {
                 vec.push(def.opcode as i16);
                 match def.sig {
                     super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
-                        assert!(arg_count == args.len(), "Invalid argument count");
+                        assert!(arg_count == args.len(), "Invalid argument count for {} was {} should be {}", def.name, args.len(), arg_count);
                         for (i, arg) in args.iter().enumerate() {
                             arg.serialize(vec);
                             if i + 1 != var_index {
                                 vec.push(0);
                             }
                         }
+                    }
+                    super::StatementSignature::SpecialCaseVarSeg => {
+                        args[0].serialize(vec);
+                        args[1].serialize(vec);
                     }
                     super::StatementSignature::SpecialCaseProcedure => {
                         panic!("SpecialCaseProcedure is not allowed here")
@@ -227,6 +231,7 @@ impl PPECommand {
                         }
                 }
                 super::StatementSignature::SpecialCaseSort => 3,
+                super::StatementSignature::SpecialCaseVarSeg => 1 + 2 + 2,
 
                 _ => panic!("Invalid signature {:?} for function {}", def.sig, def.name),
             },

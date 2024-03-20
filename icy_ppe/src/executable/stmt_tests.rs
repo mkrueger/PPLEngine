@@ -59,6 +59,15 @@ fn test_let_serialization() {
 }
 
 #[test]
+fn test_special_case_sort() {
+    let val = PPECommand::PredefinedCall(
+        OpCode::SORT.get_definition(),
+        vec![PPEExpr::Value(2), PPEExpr::Value(3)],
+    );
+    test_serialize(&val, &[OpCode::SORT as i16, 2, 3]);
+}
+
+#[test]
 fn test_print_midserialization() {
     let left = PPEExpr::FunctionCall(7, vec![PPEExpr::Value(2)]);
     let right = PPEExpr::PredefinedFunctionCall(

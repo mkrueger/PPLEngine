@@ -52,18 +52,18 @@ fn test_compiler() {
 }
 
 fn run_test(data: &str, output: &str) {
-    let (prg, _errors) = parse_program(PathBuf::from("."), data, Encoding::Utf8);
-    let mut exec = compiler::PPECompiler::new(LAST_PPLC);
+    let (prg, errors) = parse_program(PathBuf::from("."), data, Encoding::Utf8);
+    let mut exec = compiler::PPECompiler::new(LAST_PPLC, errors);
     exec.compile(&prg);
-    if !exec.errors.is_empty() {
+    if exec.errors.lock().unwrap().has_errors() {
         println!("Errors:");
-        for e in &exec.errors {
+        for e in &exec.errors.lock().unwrap().errors {
             println!("{}", e.error);
         }
         panic!();
     }
     let binary = exec.create_executable(330).unwrap();
-    let mut buffer = binary.to_buffer().unwrap();
+    let mut buffer: Vec<u8> = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();
     let mut io = MemoryIO::new();
     let mut ctx = TestContext::new();

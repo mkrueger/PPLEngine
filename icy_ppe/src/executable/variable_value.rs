@@ -159,6 +159,30 @@ pub enum GenericVariableData {
     Dim2(Vec<Vec<VariableValue>>),
     Dim3(Vec<Vec<Vec<VariableValue>>>),
 }
+impl GenericVariableData {
+    pub(crate) fn create_array(
+        dim: u8,
+        vector_size: usize,
+        matrix_size: usize,
+        cube_size: usize,
+    ) -> GenericVariableData {
+                match dim {
+            1 => GenericVariableData::Dim1(vec![VariableValue::default(); vector_size + 1]),
+            2 => GenericVariableData::Dim2(vec![
+                vec![VariableValue::default(); matrix_size + 1];
+                vector_size + 1
+            ]),
+            3 => GenericVariableData::Dim3(vec![
+                vec![
+                    vec![VariableValue::default(); cube_size + 1];
+                    matrix_size + 1
+                ];
+                vector_size + 1
+            ]),
+            _ => panic!("Invalid dimension: {dim}"),
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct VariableValue {
@@ -785,24 +809,24 @@ impl VariableValue {
 
     pub fn get_vector_size(&self) -> usize {
         match &self.generic_data {
-            GenericVariableData::Dim1(data) => data.len(),
-            GenericVariableData::Dim2(data) => data.len(),
-            GenericVariableData::Dim3(data) => data.len(),
+            GenericVariableData::Dim1(data) => data.len() - 1,
+            GenericVariableData::Dim2(data) => data.len() - 1,
+            GenericVariableData::Dim3(data) => data.len() - 1,
             _ => 0,
         }
     }
 
     pub fn get_matrix_size(&self) -> usize {
         match &self.generic_data {
-            GenericVariableData::Dim2(data) => data[0].len(),
-            GenericVariableData::Dim3(data) => data[0].len(),
+            GenericVariableData::Dim2(data) => data[0].len() - 1,
+            GenericVariableData::Dim3(data) => data[0].len() - 1,
             _ => 0,
         }
     }
 
     pub fn get_cube_size(&self) -> usize {
         match &self.generic_data {
-            GenericVariableData::Dim3(data) => data[0][0].len(),
+            GenericVariableData::Dim3(data) => data[0][0].len() - 1,
             _ => 0,
         }
     }
@@ -1069,6 +1093,10 @@ impl VariableValue {
         } else {
             self.vtype.create_empty_value()
         }
+    }
+
+    pub(crate) fn redim(&mut self, dim: u8, vs: usize, ms: usize, cs: usize) {
+        self.generic_data = GenericVariableData::create_array(dim, vs, ms, cs);
     }
 
     pub(crate) fn set_array_value(

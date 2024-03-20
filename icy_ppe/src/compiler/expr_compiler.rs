@@ -3,7 +3,7 @@ use crate::{
     executable::{get_function_definition, PPEExpr, VariableType, FUNCTION_DEFINITIONS},
 };
 
-use super::{CompilationError, CompilationErrorType, PPECompiler};
+use super::{CompilationErrorType, PPECompiler};
 
 pub struct ExpressionCompiler<'a> {
     pub compiler: &'a mut PPECompiler,
@@ -17,10 +17,10 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier()) {
             return PPEExpr::Value(decl.header.id);
         }
-        self.compiler.errors.push(CompilationError {
-            error: CompilationErrorType::VariableNotFound(identifier.get_identifier().to_string()),
-            range: identifier.get_identifier_token().span.clone(),
-        });
+        self.compiler.errors.lock().unwrap().report_error(
+            identifier.get_identifier_token().span.clone(),
+            CompilationErrorType::VariableNotFound(identifier.get_identifier().to_string()),
+        );
         PPEExpr::Value(0)
     }
 
@@ -46,15 +46,16 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
     ) -> PPEExpr {
         let predef = get_function_definition(call.get_identifier());
         if predef < 0 {
-            self.compiler.errors.push(CompilationError {
-                error: CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
-                range: call.get_identifier_token().span.clone(),
-            });
+            self.compiler.errors.lock().unwrap().report_error(
+                call.get_identifier_token().span.clone(),
+                CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
+            );
             return PPEExpr::Value(0);
         }
-        // TODO: Check parameter signature
+        let def = &FUNCTION_DEFINITIONS[predef as usize];
+
         PPEExpr::PredefinedFunctionCall(
-            &FUNCTION_DEFINITIONS[predef as usize],
+            def,
             call.get_arguments().iter().map(|e| e.visit(self)).collect(),
         )
     }
@@ -74,12 +75,10 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 .compiler
                 .lookup_variable_index(func_call.get_identifier())
             else {
-                self.compiler.errors.push(CompilationError {
-                    error: CompilationErrorType::FunctionNotFound(
-                        func_call.get_identifier().to_string(),
-                    ),
-                    range: func_call.get_identifier_token().span.clone(),
-                });
+                self.compiler.errors.lock().unwrap().report_error(
+                    func_call.get_identifier_token().span.clone(),
+                    CompilationErrorType::FunctionNotFound(func_call.get_identifier().to_string()),
+                );
                 return PPEExpr::Value(0);
             };
 
@@ -89,14 +88,15 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 return PPEExpr::FunctionCall(var.header.id, arguments);
             }
             if var.header.dim as usize != arguments.len() {
-                self.compiler.errors.push(CompilationError {
-                    error: CompilationErrorType::InvalidDimensions(
+                self.compiler.errors.lock().unwrap().report_error(
+                    func_call.get_identifier_token().span.clone(),
+                    CompilationErrorType::InvalidDimensions(
                         func_call.get_identifier().to_string(),
                         var.value.get_dimensions(),
                         arguments.len(),
                     ),
-                    range: func_call.get_identifier_token().span.clone(),
-                });
+                );
+
                 return PPEExpr::Value(0);
             }
             return PPEExpr::Dim(var.header.id, arguments);
@@ -106,24 +106,22 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             .compiler
             .lookup_variable_index(func_call.get_identifier())
         else {
-            self.compiler.errors.push(CompilationError {
-                error: CompilationErrorType::VariableNotFound(
-                    func_call.get_identifier().to_string(),
-                ),
-                range: func_call.get_identifier_token().span.clone(),
-            });
+            self.compiler.errors.lock().unwrap().report_error(
+                func_call.get_identifier_token().span.clone(),
+                CompilationErrorType::VariableNotFound(func_call.get_identifier().to_string()),
+            );
             return PPEExpr::Value(0);
         };
         let var = &self.compiler.variable_table.get_var_entry(table_idx);
         if var.header.dim as usize != arguments.len() {
-            self.compiler.errors.push(CompilationError {
-                error: CompilationErrorType::InvalidDimensions(
+            self.compiler.errors.lock().unwrap().report_error(
+                func_call.get_identifier_token().span.clone(),
+                CompilationErrorType::InvalidDimensions(
                     func_call.get_identifier().to_string(),
                     var.header.dim,
                     arguments.len(),
                 ),
-                range: func_call.get_identifier_token().span.clone(),
-            });
+            );
             return PPEExpr::Value(0);
         }
         PPEExpr::Dim(table_idx, arguments)

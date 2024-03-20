@@ -149,7 +149,10 @@ impl PPECommand {
                         panic!("SpecialCaseDcreate is not allowed here")
                     }
                     super::StatementSignature::SpecialCaseSort => {
-                        panic!("SpecialCaseSort is not allowed here")
+                        let id1 = args[0].get_id().unwrap();
+                        let id2 = args[1].get_id().unwrap();
+                        vec.push(id1 as i16);
+                        vec.push(id2 as i16);
                     }
                     super::StatementSignature::VariableArguments(var_index) => {
                         vec.push(args.len() as i16);
@@ -223,7 +226,9 @@ impl PPECommand {
                             args.len()
                         }
                 }
-                _ => panic!("Invalid signature"),
+                super::StatementSignature::SpecialCaseSort => 3,
+
+                _ => panic!("Invalid signature {:?} for function {}", def.sig, def.name),
             },
             PPECommand::Let(target, value) => 2 + target.get_size() + value.get_size(),
         }

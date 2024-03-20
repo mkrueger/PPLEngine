@@ -331,7 +331,7 @@ pub fn get_function_definition(str: &str) -> i32 {
     -1
 }
 
-pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 291] = [
+pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 292] = [
     FunctionDefinition {
         name: "END",
         opcode: FuncOpCode::END,
@@ -2077,6 +2077,13 @@ pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 291] = [
         opcode: FuncOpCode::SetMsgHdr,
         args: 0x04,
         function: predefined_functions::setmsghdr,
+    },
+    // ALIASES
+    FunctionDefinition {
+        name: "ToString",
+        opcode: FuncOpCode::TOSTRING,
+        args: 0x01,
+        function: predefined_functions::tostring,
     },
 ];
 

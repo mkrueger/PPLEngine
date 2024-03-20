@@ -191,7 +191,7 @@ impl Token {
                 | Token::End
         )
     }
-    
+
     pub(crate) fn get_identifier(&self) -> Ascii<String> {
         Ascii::new(self.to_string())
     }

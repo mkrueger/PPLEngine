@@ -1,4 +1,5 @@
 use std::{
+    backtrace::Backtrace,
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
@@ -13,6 +14,7 @@ use crate::{
     },
     executable::VariableType,
     tables::CP437_TO_UNICODE,
+    vm::expressions::cwd,
 };
 
 use self::lexer::{Lexer, SpannedToken, Token};
@@ -45,10 +47,10 @@ pub enum ParserErrorType {
     #[error("Too '{0}' from {1}")]
     InvalidInteger(String, String),
 
-    #[error("Too few arguments for {0} expected {1} got {2}")]
+    #[error("Not enough arguments passed ({0}:{1}:{2})")]
     TooFewArguments(String, usize, i8),
 
-    #[error("Too many arguments for {0} expected {1} got {2}")]
+    #[error("Too many arguments passed ({0}:{1}:{2})")]
     TooManyArguments(String, usize, i8),
 
     #[error("Invalid token {0}")]
@@ -125,6 +127,12 @@ pub enum ParserErrorType {
 
     #[error("Expected 'CASE' keyword after 'SELECT', got '{0}'")]
     CaseExpectedAfterSelect(Token),
+
+    #[error("IF/WHILE requires a conditional expression to evaluate")]
+    IfWhileConditionNotFound,
+
+    #[error("Block start (IF/WHILE/FOR/SELECT) must come before block end statement")]
+    BlockEndBeforeBlockStart,
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -136,18 +144,6 @@ pub enum ParserWarningType {
 
     #[error("Next Identifier '{1}' should match next variable '{0}'")]
     NextIdentifierInvalid(unicase::Ascii<String>, Token),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ParserError {
-    pub error: ParserErrorType,
-    pub range: core::ops::Range<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ParserWarning {
-    pub error: ParserWarningType,
-    pub range: core::ops::Range<usize>,
 }
 
 pub struct Parser {
@@ -941,10 +937,11 @@ pub fn parse_program(
                     nodes.push(AstNode::Statement(stmt));
                 } else if let Some(t) = tok {
                     if !matches!(t.token, Token::Eol | Token::Comment(_, _)) {
-                        parser.errors.lock().unwrap().report_error(
-                            parser.lex.span(),
-                            ParserErrorType::InvalidToken(t.token),
-                        );
+                        parser
+                            .errors
+                            .lock()
+                            .unwrap()
+                            .report_error(t.span, ParserErrorType::InvalidToken(t.token));
                     }
                 }
             }

@@ -2,7 +2,10 @@ pub use ast_transform::*;
 use unicase::Ascii;
 pub mod ast_transform;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use thiserror::Error;
 
 use crate::{
@@ -12,7 +15,10 @@ use crate::{
         PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
         VariableType, VariableValue, LAST_PPLC, USER_VARIABLES,
     },
-    parser::lexer::{SpannedToken, Token},
+    parser::{
+        lexer::{SpannedToken, Token},
+        ErrorRepoter,
+    },
 };
 
 use self::expr_compiler::ExpressionCompiler;
@@ -24,7 +30,7 @@ pub mod tests;
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
-    #[error("Variable not found: {0}")]
+    #[error("Variable not found ({0})")]
     VariableNotFound(String),
 
     #[error("Procedure not found: {0}")]
@@ -49,20 +55,10 @@ pub enum CompilationErrorType {
     InvalidDimensions(String, u8, usize),
 }
 
-pub struct CompilationError {
-    pub error: CompilationErrorType,
-    pub range: core::ops::Range<usize>,
-}
-
 #[derive(Error, Debug)]
 pub enum CompilationWarningType {
     #[error("Unused label {0}")]
     UnusedLabel(String),
-}
-
-pub struct CompilationWarning {
-    pub error: CompilationWarningType,
-    pub range: core::ops::Range<usize>,
 }
 
 pub struct PPECompiler {
@@ -79,9 +75,7 @@ pub struct PPECompiler {
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 
-    pub errors: Vec<CompilationError>,
-    pub warnings: Vec<CompilationWarning>,
-
+    pub errors: Arc<Mutex<ErrorRepoter>>,
     cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
 
@@ -89,15 +83,14 @@ pub struct PPECompiler {
 }
 
 impl PPECompiler {
-    pub fn new(version: u16) -> Self {
+    pub fn new(version: u16, errors: Arc<Mutex<ErrorRepoter>>) -> Self {
         Self {
             version,
             variable_table: VariableTable::default(),
             variable_lookup: HashMap::new(),
             label_table: Vec::new(),
             label_lookup_table: HashMap::new(),
-            errors: Vec::new(),
-            warnings: Vec::new(),
+            errors,
             commands: PPEScript::default(),
             cur_function: unicase::Ascii::new(String::new()),
             cur_offset: 0,
@@ -190,12 +183,12 @@ impl PPECompiler {
                 AstNode::Procedure(_proc) => {}
                 AstNode::FunctionDeclaration(func) => {
                     if self.has_variable(func.get_identifier()) {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::FunctionAlreadyDefined(
+                        self.errors.lock().unwrap().report_error(
+                            func.get_identifier_token().span.clone(),
+                            CompilationErrorType::FunctionAlreadyDefined(
                                 func.get_identifier().to_string(),
                             ),
-                            range: func.get_identifier_token().span.clone(),
-                        });
+                        );
                         return;
                     }
 
@@ -225,12 +218,12 @@ impl PPECompiler {
                 }
                 AstNode::ProcedureDeclaration(proc) => {
                     if self.has_variable(proc.get_identifier()) {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::ProcedureAlreadyDefined(
+                        self.errors.lock().unwrap().report_error(
+                            proc.get_identifier_token().span.clone(),
+                            CompilationErrorType::ProcedureAlreadyDefined(
                                 proc.get_identifier().to_string(),
                             ),
-                            range: proc.get_identifier_token().span.clone(),
-                        });
+                        );
                         return;
                     }
                     let id: usize = self.next_id();
@@ -286,12 +279,12 @@ impl PPECompiler {
             match imp {
                 AstNode::Procedure(proc) => {
                     let Some(idx) = self.lookup_variable_index(proc.get_identifier()) else {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::ProcedureNotFound(
+                        self.errors.lock().unwrap().report_error(
+                            proc.get_identifier_token().span.clone(),
+                            CompilationErrorType::ProcedureNotFound(
                                 proc.get_identifier().to_string(),
                             ),
-                            range: proc.get_identifier_token().span.clone(),
-                        });
+                        );
                         continue;
                     };
                     let first = self.variable_count();
@@ -336,12 +329,12 @@ impl PPECompiler {
                 }
                 AstNode::Function(func) => {
                     let Some(idx) = self.lookup_variable_index(func.get_identifier()) else {
-                        self.errors.push(CompilationError {
-                            error: CompilationErrorType::FunctionNotFound(
+                        self.errors.lock().unwrap().report_error(
+                            func.get_identifier_token().span.clone(),
+                            CompilationErrorType::FunctionNotFound(
                                 func.get_identifier().to_string(),
                             ),
-                            range: func.get_identifier_token().span.clone(),
-                        });
+                        );
                         continue;
                     };
                     let first = self.variable_count();
@@ -486,12 +479,12 @@ impl PPECompiler {
                 let var_name = let_smt.get_identifier();
 
                 let Some(decl_idx) = self.lookup_variable_index(var_name) else {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::VariableNotFound(
+                    self.errors.lock().unwrap().report_error(
+                        let_smt.get_identifier_token().span.clone(),
+                        CompilationErrorType::VariableNotFound(
                             let_smt.get_identifier().to_string(),
                         ),
-                        range: let_smt.get_identifier_token().span.clone(),
-                    });
+                    );
                     return None;
                 };
 
@@ -505,14 +498,14 @@ impl PPECompiler {
                 }
 
                 if decl.header.dim != let_smt.get_arguments().len() as u8 {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::InvalidDimensions(
+                    self.errors.lock().unwrap().report_error(
+                        let_smt.get_identifier_token().span.clone(),
+                        CompilationErrorType::InvalidDimensions(
                             let_smt.get_identifier().to_string(),
                             decl.header.dim,
                             let_smt.get_arguments().len(),
                         ),
-                        range: let_smt.get_identifier_token().span.clone(),
-                    });
+                    );
                     return None;
                 }
                 let decl_id = decl.header.id;
@@ -553,12 +546,12 @@ impl PPECompiler {
             }
             Statement::Call(call_stmt) => {
                 let Some(decl_idx) = self.lookup_variable_index(call_stmt.get_identifier()) else {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::ProcedureNotFound(
+                    self.errors.lock().unwrap().report_error(
+                        call_stmt.get_identifier_token().span.clone(),
+                        CompilationErrorType::ProcedureNotFound(
                             call_stmt.get_identifier().to_string(),
                         ),
-                        range: call_stmt.get_identifier_token().span.clone(),
-                    });
+                    );
                     return None;
                 };
                 let mut arguments = Vec::new();
@@ -576,12 +569,12 @@ impl PPECompiler {
                         vec![PPEExpr::FunctionCall(decl.header.id, arguments)],
                     ))
                 } else {
-                    self.errors.push(CompilationError {
-                        error: CompilationErrorType::ProcedureNotFound(
+                    self.errors.lock().unwrap().report_error(
+                        call_stmt.get_identifier_token().span.clone(),
+                        CompilationErrorType::ProcedureNotFound(
                             call_stmt.get_identifier().to_string(),
                         ),
-                        range: call_stmt.get_identifier_token().span.clone(),
-                    });
+                    );
                     return None;
                 }
             }
@@ -694,10 +687,11 @@ impl PPECompiler {
         };
         if let Some(idx) = self.label_lookup_table.get_mut(identifier) {
             if self.label_table[*idx] >= 0 {
-                self.errors.push(CompilationError {
-                    error: CompilationErrorType::LabelAlreadyDefined(identifier.to_string()),
-                    range: label_token.span.clone(),
-                });
+                self.errors.lock().unwrap().report_error(
+                    label_token.span.clone(),
+                    CompilationErrorType::LabelAlreadyDefined(identifier.to_string()),
+                );
+
                 return;
             }
             self.label_table[*idx] = self.cur_offset as i32;
@@ -739,11 +733,5 @@ impl PPECompiler {
                 _ => {}
             }
         }
-    }
-}
-
-impl Default for PPECompiler {
-    fn default() -> Self {
-        Self::new(LAST_PPLC)
     }
 }

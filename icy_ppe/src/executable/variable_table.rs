@@ -55,7 +55,7 @@ impl VarHeader {
         buffer.push(self.dim);
         buffer.extend(u16::to_le_bytes(self.vector_size as u16));
         buffer.extend(u16::to_le_bytes(self.matrix_size as u16));
-        buffer.extend(u16::to_le_bytes(self.cube_size as u16));
+        buffer.extend(u16::to_le_bytes(self.cube_size as u16));         
 
         buffer.push(self.variable_type as u8);
         buffer.push(self.flags);
@@ -70,27 +70,12 @@ impl VarHeader {
     pub fn create_generic_data(&self) -> GenericVariableData {
         match self.dim {
             0 => GenericVariableData::None,
-            1 => GenericVariableData::Dim1(vec![
-                self.variable_type.create_empty_value();
-                self.vector_size
-            ]),
-            2 => GenericVariableData::Dim2(vec![
-                vec![
-                    self.variable_type.create_empty_value();
-                    self.matrix_size
-                ];
-                self.vector_size
-            ]),
-            3 => GenericVariableData::Dim3(vec![
-                vec![
-                    vec![
-                        self.variable_type.create_empty_value();
-                        self.cube_size
-                    ];
-                    self.matrix_size
-                ];
-                self.vector_size
-            ]),
+            1 => GenericVariableData::create_array(
+                self.dim,
+                self.vector_size,
+                self.matrix_size,
+                self.cube_size,
+            ),
             _ => panic!("Invalid dimension: {}", self.dim),
         }
     }
@@ -248,15 +233,7 @@ impl TableEntry {
     ///
     /// This function will return an error if .
     pub fn to_buffer(&self, version: u16) -> Result<Vec<u8>, ExecutableError> {
-        let mut buffer = Vec::new();
-        buffer.extend(u16::to_le_bytes(self.header.id as u16));
-        buffer.push(self.header.dim);
-        buffer.extend(u16::to_le_bytes(self.header.vector_size as u16));
-        buffer.extend(u16::to_le_bytes(self.header.matrix_size as u16));
-        buffer.extend(u16::to_le_bytes(self.header.cube_size as u16));
-
-        buffer.push(self.header.variable_type as u8);
-        buffer.push(self.header.flags);
+        let mut buffer = self.header.to_bytes();
         encrypt(&mut buffer, version);
 
         let b = buffer.len();
@@ -568,6 +545,10 @@ impl VariableTable {
 
     pub fn get_value(&self, id: usize) -> &VariableValue {
         &self.entries[id - 1].value
+    }
+    
+    pub fn get_value_mut(&mut self, id: usize) -> &mut VariableValue {
+        &mut self.entries[id - 1].value
     }
 
     pub fn try_get_value(&self, id: usize) -> Option<&VariableValue> {

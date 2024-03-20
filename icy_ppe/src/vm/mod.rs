@@ -7,6 +7,7 @@ use crate::ast::BinOp;
 use crate::ast::Statement;
 use crate::ast::UnaryOp;
 use crate::executable::Executable;
+use crate::executable::OpCode;
 use crate::executable::PPECommand;
 use crate::executable::PPEExpr;
 use crate::executable::PPEScript;
@@ -35,7 +36,7 @@ pub enum VMError {
     #[error("Internal VM error")]
     InternalVMError,
 
-    #[error("Label not found: {0}")]
+    #[error("Label not found ({0})")]
     LabelNotFound(usize),
 }
 
@@ -611,6 +612,17 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(proc_offset)?;
             }
             PPECommand::PredefinedCall(proc, arguments) => {
+
+                if proc.opcode == OpCode::SORT {
+                    let PPEExpr::Value(array_idx) = arguments[0] else { return Err(VMError::InternalVMError); };
+                    let PPEExpr::Value(indices_idx) = arguments[1] else { return Err(VMError::InternalVMError); };
+                    
+                    sort_impl(&mut self.variable_table, array_idx, indices_idx);
+
+                    return Ok(());
+                }
+
+
                 let mut args = Vec::new();
                 for arg in arguments {
                     let expr = self.eval_expr(arg)?;

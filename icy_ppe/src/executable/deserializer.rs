@@ -170,6 +170,15 @@ impl PPEDeserializer {
                         self.offset += 1;
                         (var_idx, argument_count as usize)
                     }
+                    crate::executable::StatementSignature::SpecialCaseSort => {
+                        let arguments = vec![
+                            PPEExpr::Value(executable.script_buffer[self.offset] as usize),
+                            PPEExpr::Value(executable.script_buffer[self.offset + 1] as usize),
+                        ];
+                        self.offset += 2;
+
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
+                    }
                     _ => {
                         panic!("unhandled statement signature {:?}", def.sig);
                     }

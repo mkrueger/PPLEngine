@@ -1,7 +1,7 @@
 use std::{fs, thread, time::Duration};
 
 use crate::{
-    executable::VariableValue,
+    executable::{VariableTable, VariableType, VariableValue},
     icy_board::text_messages,
     vm::{TerminalTarget, VirtualMachine},
     Res,
@@ -819,8 +819,43 @@ pub fn ayjtfiles(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<(
 pub fn lang(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn sort(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("Should not be called, sort requires special handling.")
+}
+
+pub fn sort_impl(table: &mut VariableTable, array_idx: usize, indices_idx: usize) -> Res<()> {
+    let array = table.get_value(array_idx);
+    {
+        let indices = table.get_value(indices_idx);
+        if indices.vtype != VariableType::Integer {
+            return Err(Box::new(IcyError::SortDestinationArrayIntRequired(
+                indices.vtype,
+            )));
+        }
+    }
+
+    let vs = array.get_vector_size() + 1;
+    let dim = array.get_dimensions();
+    println!("vs :{vs}");
+    let mut target_indices = (0..vs).collect::<Vec<usize>>();
+    for i in 0..vs {
+        for j in i + 1..vs {
+            let left = array.get_array_value(target_indices[i], 0, 0);
+            let right = array.get_array_value(target_indices[j], 0, 0);
+            if left > right {
+                target_indices.swap(i, j);
+            }
+        }
+    }
+    let indices = table.get_value_mut(indices_idx);
+    indices.redim(dim, vs, 0, 0);
+    for i in 0..vs {
+        println!("vs :{i} -> {}", target_indices[i]);
+        indices.set_array_value(i, 0, 0, VariableValue::new_int(target_indices[i] as i32));
+    }
+    println!("-----------------");
+    Ok(())
 }
 pub fn mousereg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")

@@ -229,7 +229,7 @@ impl Parser {
                                 self.save_token_span(),
                                 ParserErrorType::InvalidToken(self.save_token()),
                             );
-
+                            self.next_token();
                             return None;
                         };
                         arguments.push(value);
@@ -258,10 +258,21 @@ impl Parser {
 
                     let predef = get_function_definition(id);
                     if predef >= 0 {
+                        let def = &FUNCTION_DEFINITIONS[predef as usize];
+                        if (def.args as usize) < arguments.len() {
+                            self.errors.lock().unwrap().report_error(
+                                identifier_token.span.clone(),
+                                ParserErrorType::TooFewArguments(
+                                    identifier_token.token.to_string(),
+                                    arguments.len(),
+                                    def.args,
+                                ),
+                            );
+                        }
                         return Some(Expression::PredefinedFunctionCall(
                             PredefinedFunctionCallExpression::new(
                                 identifier_token,
-                                &FUNCTION_DEFINITIONS[predef as usize],
+                                def,
                                 leftpar_token,
                                 arguments,
                                 rightpar_token,

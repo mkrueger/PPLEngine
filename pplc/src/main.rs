@@ -78,7 +78,7 @@ fn main() {
     }
     //println!("Compiling...");
     //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
-    let mut compiler = PPECompiler::new(LAST_PPLC);
+    let mut compiler = PPECompiler::new(LAST_PPLC, errors.clone());
     compiler.compile(&prg);
 
     if !errors.lock().unwrap().has_errors()

@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::executable::VariableType;
+
 #[derive(Error, Debug)]
 pub enum IcyError {
     #[error("Parameter {0} should be from type String")]
@@ -25,4 +27,7 @@ pub enum IcyError {
 
     #[error("User not set.")]
     UserNotSet,
+
+    #[error("Sort dest array should be int, was {0}.")]
+    SortDestinationArrayIntRequired(VariableType),
 }

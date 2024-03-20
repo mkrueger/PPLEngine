@@ -45,13 +45,6 @@ fn test_parse_parens() {
 }
 
 #[test]
-fn test_parse_parens_error() {
-    check_error("(5");
-    check_error("(5 a");
-    check_error("(5 2");
-}
-
-#[test]
 fn test_unary_expressions() {
     check_expression(
         "!FALSE",

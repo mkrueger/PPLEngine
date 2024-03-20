@@ -34,20 +34,20 @@ impl Parser {
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
-            self.errors.lock().unwrap().report_error(
-                self.lex.span(),
-                ParserErrorType::MissingOpenParens(self.save_token()),
-            );
+            self.errors
+                .lock()
+                .unwrap()
+                .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
             return None;
         }
         let lpar_token = self.save_spannedtoken();
 
         self.next_token();
         let Some(cond) = self.parse_expression() else {
-            self.errors.lock().unwrap().report_error(
-                self.lex.span(),
-                ParserErrorType::ExpressionExpected(self.save_token()),
-            );
+            self.errors
+                .lock()
+                .unwrap()
+                .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
             return None;
         };
 
@@ -222,7 +222,8 @@ impl Parser {
         // skip next
         self.next_token();
 
-        let next_identifier_token = if let Some(Token::Identifier(next_id)) = &self.get_cur_token() {
+        let next_identifier_token = if let Some(Token::Identifier(next_id)) = &self.get_cur_token()
+        {
             let start_id = identifier_token.token.get_identifier();
             if *next_id != start_id {
                 self.errors.lock().unwrap().report_warning(
@@ -259,19 +260,19 @@ impl Parser {
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
-            self.errors.lock().unwrap().report_error(
-                self.lex.span(),
-                ParserErrorType::MissingOpenParens(self.save_token()),
-            );
+            self.errors
+                .lock()
+                .unwrap()
+                .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
             return None;
         }
         let lpar_token = self.save_spannedtoken();
         self.next_token();
         let Some(cond) = self.parse_expression() else {
-            self.errors.lock().unwrap().report_error(
-                self.lex.span(),
-                ParserErrorType::ExpressionExpected(self.save_token()),
-            );
+            self.errors
+                .lock()
+                .unwrap()
+                .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
 
             return None;
         };
@@ -336,20 +337,20 @@ impl Parser {
             self.next_token();
 
             if self.get_cur_token() != Some(Token::LPar) {
-                self.errors.lock().unwrap().report_error(
-                    self.lex.span(),
-                    ParserErrorType::MissingOpenParens(self.save_token()),
-                );
+                self.errors
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
                 return None;
             }
             let else_if_lpar_token = self.save_spannedtoken();
 
             self.next_token();
             let Some(cond) = self.parse_expression() else {
-                self.errors.lock().unwrap().report_error(
-                    self.lex.span(),
-                    ParserErrorType::ExpressionExpected(self.save_token()),
-                );
+                self.errors
+                    .lock()
+                    .unwrap()
+                    .report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
 
                 return None;
             };
@@ -820,11 +821,18 @@ impl Parser {
                 self.next_token();
                 Some(Statement::Label(LabelStatement::new(label_token)))
             }
-
+            Some(Token::EndIf | Token::EndWhile | Token::Next | Token::EndSelect) => {
+                self.errors.lock().unwrap().report_error(
+                    self.save_token_span(),
+                    ParserErrorType::BlockEndBeforeBlockStart,
+                );
+                self.next_token();
+                None
+            }
             None => None,
             _ => {
                 self.errors.lock().unwrap().report_error(
-                    self.lex.span(),
+                    self.save_token_span(),
                     ParserErrorType::InvalidToken(self.save_token()),
                 );
                 self.next_token();
@@ -850,7 +858,6 @@ impl Parser {
                                 self.lex.span(),
                                 ParserErrorType::ExpressionExpected(self.save_token()),
                             );
-
                             return None;
                         };
                         params.push(value);

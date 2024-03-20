@@ -1161,7 +1161,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "ScrFile",
         opcode: OpCode::SCRFILE,
-        sig: StatementSignature::ArgumentsWithVariable(2, 15),
+        sig: StatementSignature::SpecialCaseVarSeg,
         function: predefined_procedures::scrfile,
     },
     StatementDefinition {
@@ -1701,7 +1701,6 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         sig: StatementSignature::ArgumentsWithVariable(0, 2),
         function: predefined_procedures::pokeb,
     },
-
 ];
 
 #[test]

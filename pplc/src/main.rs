@@ -104,7 +104,6 @@ fn main() {
                 Report::build(ReportKind::Warning, &file_name, err.span.start)
                     .with_code(warning_count)
                     .with_message(format!("{}", err.error))
-                    
                     .with_label(
                         Label::new((&file_name, err.span.clone()))
                             .with_color(ariadne::Color::Yellow),

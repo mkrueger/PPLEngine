@@ -131,7 +131,13 @@ impl PPECommand {
                 vec.push(def.opcode as i16);
                 match def.sig {
                     super::StatementSignature::ArgumentsWithVariable(var_index, arg_count) => {
-                        assert!(arg_count == args.len(), "Invalid argument count for {} was {} should be {}", def.name, args.len(), arg_count);
+                        assert!(
+                            arg_count == args.len(),
+                            "Invalid argument count for {} was {} should be {}",
+                            def.name,
+                            args.len(),
+                            arg_count
+                        );
                         for (i, arg) in args.iter().enumerate() {
                             arg.serialize(vec);
                             if i + 1 != var_index {
@@ -243,10 +249,14 @@ impl PPECommand {
                 super::StatementSignature::SpecialCaseVarSeg => 1 + 2 + 2,
                 super::StatementSignature::SpecialCaseDcreate => {
                     1 + PPEExpr::count_size(&args[0..3]) + 3 /* args.count */  + 1
-                },
-                super::StatementSignature::SpecialCaseDlockg => 1 + args[0].get_size() + 1 + 1 + args[1].get_size() +1,
+                }
+                super::StatementSignature::SpecialCaseDlockg => {
+                    1 + args[0].get_size() + 1 + 1 + args[1].get_size() + 1
+                }
                 super::StatementSignature::SpecialCasePop => 1 + 1 + PPEExpr::count_size(args),
-                super::StatementSignature::Invalid => panic!("Invalid signature {:?} for function {}", def.sig, def.name),
+                super::StatementSignature::Invalid => {
+                    panic!("Invalid signature {:?} for function {}", def.sig, def.name)
+                }
             },
             PPECommand::Let(target, value) => 2 + target.get_size() + value.get_size(),
         }

@@ -612,10 +612,13 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(proc_offset)?;
             }
             PPECommand::PredefinedCall(proc, arguments) => {
-
                 if proc.opcode == OpCode::SORT {
-                    let PPEExpr::Value(array_idx) = arguments[0] else { return Err(VMError::InternalVMError); };
-                    let PPEExpr::Value(indices_idx) = arguments[1] else { return Err(VMError::InternalVMError); };
+                    let PPEExpr::Value(array_idx) = arguments[0] else {
+                        return Err(VMError::InternalVMError);
+                    };
+                    let PPEExpr::Value(indices_idx) = arguments[1] else {
+                        return Err(VMError::InternalVMError);
+                    };
                     let _ = sort_impl(&mut self.variable_table, array_idx, indices_idx);
                     return Ok(());
                 }

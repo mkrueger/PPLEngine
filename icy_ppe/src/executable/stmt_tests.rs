@@ -80,9 +80,17 @@ fn test_special_case_var_seg() {
 fn test_decreate() {
     let val = PPECommand::PredefinedCall(
         OpCode::DCREATE.get_definition(),
-        vec![PPEExpr::Value(2), PPEExpr::Value(3), PPEExpr::Value(4), PPEExpr::Value(5)],
+        vec![
+            PPEExpr::Value(2),
+            PPEExpr::Value(3),
+            PPEExpr::Value(4),
+            PPEExpr::Value(5),
+        ],
     );
-    test_serialize(&val, &[OpCode::DCREATE as i16, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5]);
+    test_serialize(
+        &val,
+        &[OpCode::DCREATE as i16, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5],
+    );
 }
 
 #[test]

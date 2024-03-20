@@ -73,7 +73,7 @@ fn main() {
             if arguments.disassemble {
                 executable.print_script_buffer_dump();
                 println!();
-                
+
                 if let Ok(script) = PPEScript::from_ppe_file(&executable) {
                     executable.variable_table.analyze_usage(&script);
                     executable.variable_table.generate_names();

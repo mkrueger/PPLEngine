@@ -308,11 +308,14 @@ impl Parser {
             SpannedToken::new(Token::Eol, 0..0)
         }
     }
-    
-    fn report_error(&mut self, span: std::ops::Range<usize>, save_token: ParserErrorType)  {
+
+    fn report_error(&mut self, span: std::ops::Range<usize>, save_token: ParserErrorType) {
         //println!("{}", std::backtrace::Backtrace::force_capture());
         self.errors.lock().unwrap().report_error(span, save_token);
-        while self.get_cur_token().is_some() && self.get_cur_token() != Some(Token::Eol) && !matches!(self.get_cur_token(), Some(Token::Comment(_, _))) {
+        while self.get_cur_token().is_some()
+            && self.get_cur_token() != Some(Token::Eol)
+            && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+        {
             self.next_token();
         }
     }
@@ -605,7 +608,7 @@ impl Parser {
 
     fn check_eol(&mut self) -> bool {
         if self.get_cur_token() != Some(Token::Eol)
-        && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+            && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
         {
             let err_token = self.save_spannedtoken();
             self.next_token();
@@ -698,7 +701,9 @@ impl Parser {
 
             let mut statements = Vec::new();
 
-            while self.get_cur_token() != Some(Token::EndProc) && self.get_cur_token() != Some(Token::EndFunc) {
+            while self.get_cur_token() != Some(Token::EndProc)
+                && self.get_cur_token() != Some(Token::EndFunc)
+            {
                 if self.get_cur_token().is_none() {
                     self.report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;
@@ -817,7 +822,9 @@ impl Parser {
 
             let mut statements = Vec::new();
 
-            while self.get_cur_token() != Some(Token::EndProc) && self.get_cur_token() != Some(Token::EndFunc) {
+            while self.get_cur_token() != Some(Token::EndProc)
+                && self.get_cur_token() != Some(Token::EndFunc)
+            {
                 if self.get_cur_token().is_none() {
                     self.report_error(self.lex.span(), ParserErrorType::EndExpected);
                     return None;

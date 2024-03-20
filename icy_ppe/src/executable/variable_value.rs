@@ -66,6 +66,33 @@ impl VariableType {
             _ => VariableValue::new(*self, VariableData::default()),
         }
     }
+
+    pub(crate) fn from_byte(b: u8) -> VariableType {
+        match b {
+            0 => VariableType::Boolean,
+            1 => VariableType::Unsigned,
+            2 => VariableType::Date,
+            3 => VariableType::EDate,
+            4 => VariableType::Integer,
+            5 => VariableType::Money,
+            6 => VariableType::Float,
+            7 => VariableType::String,
+            8 => VariableType::Time,
+            9 => VariableType::Byte,
+            10 => VariableType::Word,
+            11 => VariableType::SByte,
+            12 => VariableType::SWord,
+            13 => VariableType::BigStr,
+            14 => VariableType::Double,
+            15 => VariableType::Function,
+            16 => VariableType::Procedure,
+            17 => VariableType::DDate,
+            _ => {
+                log::warn!("Unknown variable type: {}", b);
+                VariableType::Integer
+            }
+        }
+    }
 }
 
 impl fmt::Display for VariableType {
@@ -166,19 +193,24 @@ impl GenericVariableData {
         matrix_size: usize,
         cube_size: usize,
     ) -> GenericVariableData {
-                match dim {
+        match dim {
             1 => GenericVariableData::Dim1(vec![VariableValue::default(); vector_size + 1]),
             2 => GenericVariableData::Dim2(vec![
                 vec![VariableValue::default(); matrix_size + 1];
                 vector_size + 1
             ]),
-            3 => GenericVariableData::Dim3(vec![
-                vec![
-                    vec![VariableValue::default(); cube_size + 1];
-                    matrix_size + 1
-                ];
-                vector_size + 1
-            ]),
+            3 => {
+                if vector_size * matrix_size * cube_size > 1_000_000_000 {
+                    log::error!("Creating a large array of size: {}x{}x{}={} elements - probably file is corrupt.", vector_size, matrix_size, cube_size, vector_size * matrix_size * cube_size);
+                }
+                GenericVariableData::Dim3(vec![
+                    vec![
+                        vec![VariableValue::default(); cube_size + 1];
+                        matrix_size + 1
+                    ];
+                    vector_size + 1
+                ])
+            }
             _ => panic!("Invalid dimension: {dim}"),
         }
     }

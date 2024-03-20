@@ -30,15 +30,18 @@ impl VarHeader {
     ///
     /// Panics if .
     pub fn from_bytes(cur_block: &[u8]) -> VarHeader {
-        let dim = cur_block[2];
-        assert!(dim <= 3, "Invalid dimension: {dim}");
+        let mut dim = cur_block[2];
+        if dim > 3 {
+            log::warn!("Invalid dimension: {}, setting to 3", dim);
+            dim = 3;
+        }
         Self {
             id: u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize,
             dim,
             vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as usize,
             matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as usize,
             cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as usize,
-            variable_type: unsafe { ::std::mem::transmute(cur_block[9]) },
+            variable_type: VariableType::from_byte(cur_block[9]),
             flags: cur_block[10],
         }
     }
@@ -55,7 +58,7 @@ impl VarHeader {
         buffer.push(self.dim);
         buffer.extend(u16::to_le_bytes(self.vector_size as u16));
         buffer.extend(u16::to_le_bytes(self.matrix_size as u16));
-        buffer.extend(u16::to_le_bytes(self.cube_size as u16));         
+        buffer.extend(u16::to_le_bytes(self.cube_size as u16));
 
         buffer.push(self.variable_type as u8);
         buffer.push(self.flags);
@@ -328,17 +331,26 @@ impl VariableTable {
                 },
             ));
         }
-        let mut var_count = max_var + 1;
-        while var_count > 1 {
+        let mut var_count = max_var as i32 - 1;
+
+        while var_count >= 0 {
             decrypt(&mut (buf[i..(i + 11)]), version);
             let cur_block = &buf[i..(i + 11)];
 
-            var_count = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
-
-            if var_count > max_var {
-                return Err(ExecutableError::InvalidVariableIndexInTable(
-                    max_var, var_count,
-                ));
+            let header_id = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
+            if header_id > max_var {
+                log::warn!(
+                    "Variable count exceeds maximum: {} ({})",
+                    var_count,
+                    max_var
+                );
+            }
+            if header_id != var_count as usize + 1 {
+                log::warn!(
+                    "Variable id mismatch: {} != {}",
+                    header_id,
+                    var_count as usize + 1
+                );
             }
 
             let header = VarHeader::from_bytes(cur_block);
@@ -367,10 +379,11 @@ impl VariableTable {
                     };
                     i += string_length;
                 }
+
                 VariableType::Function | VariableType::Procedure => {
                     decrypt(&mut buf[i..(i + 12)], version);
                     let cur_buf = &buf[i..(i + 12)];
-                    let vtype: VariableType = unsafe { ::std::mem::transmute(cur_buf[2]) };
+                    let vtype = VariableType::from_byte(cur_buf[2]);
                     assert!(
                         !(vtype != header.variable_type),
                         "Invalid function type: {vtype}"
@@ -385,10 +398,11 @@ impl VariableTable {
                     };
                     i += 8;
                 }
+
                 _ => {
                     if version <= 100 {
                         i += 2; // SKIP VTABLE - seems to get stored by accident.
-                        let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
+                        let vtype = VariableType::from_byte(buf[i]);
                         assert!(
                             !(vtype != header.variable_type),
                             "Invalid variable type: {vtype}"
@@ -406,11 +420,11 @@ impl VariableTable {
                     } else {
                         decrypt(&mut buf[i..(i + 12)], version);
                         i += 2; // SKIP VTABLE - seems to get stored by accident.
-                        let vtype: VariableType = unsafe { ::std::mem::transmute(buf[i]) };
-                        assert!(
-                            !(vtype != header.variable_type),
-                            "Invalid variable type: {vtype}"
-                        );
+                        let vtype = VariableType::from_byte(buf[i]);
+                        if vtype != header.variable_type {
+                            log::error!("Encountered anomaly in variable table: {} variable type and variable value {} are not matching.", header.variable_type, vtype);
+                            log::error!("File is potentially damaged.");
+                        }
                         i += 2; // what's stored here ?
                         let mut data = VariableData::default();
                         data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
@@ -425,21 +439,24 @@ impl VariableTable {
                 } // B9 4b
             }
 
-            result[var_count - 1] = TableEntry::new(header, variable);
+            result[var_count as usize] = TableEntry::new(header, variable);
+            var_count -= 1;
         }
 
         for k in (0..result.len()).rev() {
             let cur = result[k].clone();
             match cur.header.variable_type {
                 VariableType::Function => unsafe {
-                    let last = cur.value.data.function_value.local_variables as usize
-                        + cur.value.data.function_value.return_var as usize
-                        - 1;
+                    let last = (cur.value.data.function_value.local_variables as usize
+                        + cur.value.data.function_value.return_var as usize)
+                        .saturating_sub(1);
                     for (j, i) in
                         (cur.value.data.function_value.first_var_id as usize..last).enumerate()
                     {
                         let fvar = &mut result[i];
-                        if i == cur.value.data.function_value.return_var as usize - 1 {
+                        if i == (cur.value.data.function_value.return_var as usize)
+                            .saturating_sub(1)
+                        {
                             fvar.set_type(EntryType::FunctionResult);
                             fvar.number = k;
                         } else if j < cur.value.data.function_value.parameters as usize {
@@ -546,7 +563,7 @@ impl VariableTable {
     pub fn get_value(&self, id: usize) -> &VariableValue {
         &self.entries[id - 1].value
     }
-    
+
     pub fn get_value_mut(&mut self, id: usize) -> &mut VariableValue {
         &mut self.entries[id - 1].value
     }

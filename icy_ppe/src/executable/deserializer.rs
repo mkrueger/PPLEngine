@@ -182,7 +182,7 @@ impl PPEDeserializer {
                     crate::executable::StatementSignature::SpecialCaseVarSeg => {
                         let arguments = vec![
                             self.read_variable_expression(executable)?,
-                            self.read_variable_expression(executable)?
+                            self.read_variable_expression(executable)?,
                         ];
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
@@ -196,10 +196,11 @@ impl PPEDeserializer {
                         self.offset += 1;
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
-                    super::StatementSignature::SpecialCaseDlockg =>  {
+                    super::StatementSignature::SpecialCaseDlockg => {
                         let mut arguments = vec![
                             self.deserialize_expression(executable)?,
-                            PPEExpr::Value(executable.script_buffer[self.offset] as usize)];
+                            PPEExpr::Value(executable.script_buffer[self.offset] as usize),
+                        ];
                         self.offset += 1;
                         arguments.push(self.deserialize_expression(executable)?);
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
@@ -255,7 +256,12 @@ impl PPEDeserializer {
             }
             if id > 0 {
                 let id = id as usize;
-                match executable.variable_table.get_value(id).vtype {
+                let Some(val) = executable.variable_table.try_get_value(id) else {
+                    log::warn!("Potential error in expression deserialization: No variable table entry for {}, skipping.", id);
+                    self.offset += 1;
+                    break;
+                };
+                match val.vtype {
                     VariableType::Function => unsafe {
                         self.offset += 2;
                         let parameters = executable
@@ -284,8 +290,13 @@ impl PPEDeserializer {
                 let var = self.read_variable_expression(executable)?;
                 self.push_expr(var);
             } else {
+                if id == FuncOpCode::CPAR as i16 {
+                    self.offset += 1;
+                    break;
+                }
                 let func = -id as usize;
                 let func_def = &FUNCTION_DEFINITIONS[func];
+
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;
@@ -334,18 +345,22 @@ impl PPEDeserializer {
                     }
                     _ => {
                         self.offset += 1;
-                        if (self.expr_stack.len() as i8) < func_def.args {
-                            return Err(DeserializationErrorType::TooFewFunctionArguments(
-                                func_def.opcode,
-                                func_def.args,
-                                self.expr_stack.len(),
-                            ));
+                        if func_def.args < 0 {
+                            self.push_expr(PPEExpr::PredefinedFunctionCall(func_def, vec![]));
+                        } else {
+                            if (self.expr_stack.len() as i8) < func_def.args {
+                                return Err(DeserializationErrorType::TooFewFunctionArguments(
+                                    func_def.opcode,
+                                    func_def.args,
+                                    self.expr_stack.len(),
+                                ));
+                            }
+                            let arguments = self
+                                .expr_stack
+                                .drain(self.expr_stack.len() - func_def.args as usize..)
+                                .collect();
+                            self.push_expr(PPEExpr::PredefinedFunctionCall(func_def, arguments));
                         }
-                        let arguments = self
-                            .expr_stack
-                            .drain(self.expr_stack.len() - func_def.args as usize..)
-                            .collect();
-                        self.push_expr(PPEExpr::PredefinedFunctionCall(func_def, arguments));
                     }
                 }
             }

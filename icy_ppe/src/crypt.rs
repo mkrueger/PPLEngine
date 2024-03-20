@@ -156,7 +156,7 @@ pub fn decode_rle(src: &[u8]) -> Vec<u8> {
             if i >= src.len() {
                 break;
             }
-            let count = src[i] - 1;
+            let count = src[i].saturating_sub(1);
             i += 1;
             result.resize(result.len() + count as usize, 0);
         }

@@ -837,7 +837,6 @@ pub fn sort_impl(table: &mut VariableTable, array_idx: usize, indices_idx: usize
 
     let vs = array.get_vector_size() + 1;
     let dim = array.get_dimensions();
-    println!("vs :{vs}");
     let mut target_indices = (0..vs).collect::<Vec<usize>>();
     for i in 0..vs {
         for j in i + 1..vs {
@@ -850,11 +849,9 @@ pub fn sort_impl(table: &mut VariableTable, array_idx: usize, indices_idx: usize
     }
     let indices = table.get_value_mut(indices_idx);
     indices.redim(dim, vs, 0, 0);
-    for i in 0..vs {
-        println!("vs :{i} -> {}", target_indices[i]);
-        indices.set_array_value(i, 0, 0, VariableValue::new_int(target_indices[i] as i32));
+    for (i, target_index) in target_indices.iter().enumerate() {
+        indices.set_array_value(i, 0, 0, VariableValue::new_int(*target_index as i32));
     }
-    println!("-----------------");
     Ok(())
 }
 pub fn mousereg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {

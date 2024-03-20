@@ -616,12 +616,9 @@ impl<'a> VirtualMachine<'a> {
                 if proc.opcode == OpCode::SORT {
                     let PPEExpr::Value(array_idx) = arguments[0] else { return Err(VMError::InternalVMError); };
                     let PPEExpr::Value(indices_idx) = arguments[1] else { return Err(VMError::InternalVMError); };
-                    
-                    sort_impl(&mut self.variable_table, array_idx, indices_idx);
-
+                    let _ = sort_impl(&mut self.variable_table, array_idx, indices_idx);
                     return Ok(());
                 }
-
 
                 let mut args = Vec::new();
                 for arg in arguments {

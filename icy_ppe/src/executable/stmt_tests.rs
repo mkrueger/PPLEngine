@@ -77,6 +77,33 @@ fn test_special_case_var_seg() {
 }
 
 #[test]
+fn test_decreate() {
+    let val = PPECommand::PredefinedCall(
+        OpCode::DCREATE.get_definition(),
+        vec![PPEExpr::Value(2), PPEExpr::Value(3), PPEExpr::Value(4), PPEExpr::Value(5)],
+    );
+    test_serialize(&val, &[OpCode::DCREATE as i16, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5]);
+}
+
+#[test]
+fn test_dlockg() {
+    let val = PPECommand::PredefinedCall(
+        OpCode::DLOCKG.get_definition(),
+        vec![PPEExpr::Value(2), PPEExpr::Value(3), PPEExpr::Value(4)],
+    );
+    test_serialize(&val, &[OpCode::DLOCKG as i16, 2, 0, 0, 3, 4, 0, 0]);
+}
+
+#[test]
+fn test_pop() {
+    let val = PPECommand::PredefinedCall(
+        OpCode::POP.get_definition(),
+        vec![PPEExpr::Value(2), PPEExpr::Value(3), PPEExpr::Value(4)],
+    );
+    test_serialize(&val, &[OpCode::POP as i16, 3, 2, 0, 3, 0, 4, 0]);
+}
+
+#[test]
 fn test_print_midserialization() {
     let left = PPEExpr::FunctionCall(7, vec![PPEExpr::Value(2)]);
     let right = PPEExpr::PredefinedFunctionCall(

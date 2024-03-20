@@ -24,7 +24,7 @@ fn check_expression(input: &str, check: &Expression) {
     );
 }
 
-fn check_error(input: &str) {
+fn _check_error(input: &str) {
     let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
     parser.next_token();
     let expr = parser.parse_expression();

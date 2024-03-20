@@ -143,14 +143,23 @@ impl PPECommand {
                         args[0].serialize(vec);
                         args[1].serialize(vec);
                     }
-                    super::StatementSignature::SpecialCaseProcedure => {
-                        panic!("SpecialCaseProcedure is not allowed here")
-                    }
                     super::StatementSignature::SpecialCaseDlockg => {
-                        panic!("SpecialCaseDlockg is not allowed here")
+                        args[0].serialize(vec);
+                        vec.push(0);
+                        let id = args[1].get_id().unwrap();
+                        vec.push(id as i16);
+                        args[2].serialize(vec);
+                        vec.push(0);
                     }
                     super::StatementSignature::SpecialCaseDcreate => {
-                        panic!("SpecialCaseDcreate is not allowed here")
+                        args[0].serialize(vec);
+                        vec.push(0);
+                        args[1].serialize(vec);
+                        vec.push(0);
+                        args[2].serialize(vec);
+                        vec.push(0);
+                        let id = args[3].get_id().unwrap();
+                        vec.push(id as i16);
                     }
                     super::StatementSignature::SpecialCaseSort => {
                         let id1 = args[0].get_id().unwrap();
@@ -168,13 +177,13 @@ impl PPECommand {
                         }
                     }
                     super::StatementSignature::SpecialCasePop => {
-                        panic!("SpecialCasePop is not allowed here")
+                        vec.push(args.len() as i16);
+                        for arg in args {
+                            arg.serialize(vec);
+                        }
                     }
-                    super::StatementSignature::Label => {
-                        panic!("Label is not allowed here")
-                    }
-                    super::StatementSignature::SpecialIfWhen => {
-                        panic!("SpecialIfWhen is not allowed here")
+                    super::StatementSignature::Invalid => {
+                        panic!("Invalid signature (special case should be handled before)")
                     }
                 }
             }
@@ -232,8 +241,12 @@ impl PPECommand {
                 }
                 super::StatementSignature::SpecialCaseSort => 3,
                 super::StatementSignature::SpecialCaseVarSeg => 1 + 2 + 2,
-
-                _ => panic!("Invalid signature {:?} for function {}", def.sig, def.name),
+                super::StatementSignature::SpecialCaseDcreate => {
+                    1 + PPEExpr::count_size(&args[0..3]) + 3 /* args.count */  + 1
+                },
+                super::StatementSignature::SpecialCaseDlockg => 1 + args[0].get_size() + 1 + 1 + args[1].get_size() +1,
+                super::StatementSignature::SpecialCasePop => 1 + 1 + PPEExpr::count_size(args),
+                super::StatementSignature::Invalid => panic!("Invalid signature {:?} for function {}", def.sig, def.name),
             },
             PPECommand::Let(target, value) => 2 + target.get_size() + value.get_size(),
         }

@@ -184,10 +184,36 @@ impl PPEDeserializer {
                             self.read_variable_expression(executable)?,
                             self.read_variable_expression(executable)?
                         ];
-
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
-                    _ => {
+                    crate::executable::StatementSignature::SpecialCaseDcreate => {
+                        let arguments = vec![
+                            self.deserialize_expression(executable)?,
+                            self.deserialize_expression(executable)?,
+                            self.deserialize_expression(executable)?,
+                            PPEExpr::Value(executable.script_buffer[self.offset] as usize),
+                        ];
+                        self.offset += 1;
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
+                    }
+                    super::StatementSignature::SpecialCaseDlockg =>  {
+                        let mut arguments = vec![
+                            self.deserialize_expression(executable)?,
+                            PPEExpr::Value(executable.script_buffer[self.offset] as usize)];
+                        self.offset += 1;
+                        arguments.push(self.deserialize_expression(executable)?);
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
+                    }
+                    crate::executable::StatementSignature::SpecialCasePop => {
+                        let count = executable.script_buffer[self.offset] as usize;
+                        self.offset += 1;
+                        let mut arguments = Vec::new();
+                        for _ in 0..count {
+                            arguments.push(self.read_variable_expression(executable)?);
+                        }
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
+                    }
+                    crate::executable::smt_op_codes::StatementSignature::Invalid => {
                         panic!("unhandled statement signature {:?}", def.sig);
                     }
                 };

@@ -7,7 +7,6 @@ use icy_ppe::{
 };
 use semver::Version;
 use std::{
-    env::args,
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
@@ -45,10 +44,10 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    /*println!(
+    println!(
         "PCBoard Programming Language Compiler^RUST {}",
         *crate::VERSION
-    );*/
+    );
     let arguments = Args::parse();
 
     if arguments.nouvar && arguments.forceuvar {
@@ -67,8 +66,8 @@ fn main() {
     };
     let src = load_with_encoding(&PathBuf::from(&file_name), encoding).unwrap();
 
-    //println!();
-    //println!("Parsing...");
+    println!();
+    println!("Parsing...");
     let (mut prg, errors) = parse_program(PathBuf::from(&file_name), &src, encoding);
     if arguments.nouvar {
         prg.require_user_variables = false;
@@ -76,8 +75,7 @@ fn main() {
     if arguments.forceuvar {
         prg.require_user_variables = true;
     }
-    //println!("Compiling...");
-    //prg.visit_mut(&mut icy_ppe::interpreter::rename_vars_visitor::RenameVarsVisitor::default());
+    println!("Compiling...");
     let mut compiler = PPECompiler::new(LAST_PPLC, errors.clone());
     compiler.compile(&prg);
 
@@ -124,7 +122,7 @@ fn main() {
         return;
     }
 
-    // println!();
+    println!();
 
     match compiler.create_executable(LAST_PPLC) {
         Ok(executable) => {
@@ -141,7 +139,6 @@ fn main() {
                 println!("Generated:");
                 executable.print_script_buffer_dump();
                 println!();
-
                 return;
             }
 
@@ -150,14 +147,13 @@ fn main() {
             let len = bin.len();
             fs::write(&out_file_name, bin).expect("Unable to write file");
             let lines = src.lines().count();
-            /*
             println!(
                 "{} lines, {} chars compiled. {} bytes written to {:?}",
                 lines,
                 src.len(),
                 len,
                 &out_file_name
-            );*/
+            );
         }
         Err(err) => {
             println!("Error while creating binary {}", err);

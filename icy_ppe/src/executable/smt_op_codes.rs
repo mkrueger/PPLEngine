@@ -6,21 +6,27 @@ use super::VariableValue;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StatementSignature {
+    Invalid,
     /// The first usize is the variable - 0 for none, second is the number of arguments
     ArgumentsWithVariable(usize, usize),
-
-    SpecialCaseProcedure,
-    SpecialCaseDlockg,
-    SpecialCaseDcreate,
-    SpecialCaseSort,
 
     /// The first i32 is a variable, 0 for none
     VariableArguments(usize),
 
-    SpecialCasePop,
-    Label,
-    SpecialIfWhen,
+    /// 3 arguments, first expression, after that a single i16 for the table number of a variable, third an expression
+    SpecialCaseDlockg,
+
+    /// 4 arguments, 3 expressions after that a single i16 for the table number of a variable
+    SpecialCaseDcreate,
+
+    /// 2 arguments, 2 single numbers for the table numbers of the arguments
+    SpecialCaseSort,
+
+    /// 2 arguments, 2 id expressions (2 i16 each)
     SpecialCaseVarSeg,
+
+    /// n arguments, first 1 number for the number of arguments, followed by n table lookups
+    SpecialCasePop,
 }
 
 #[repr(i16)]
@@ -291,7 +297,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "WHILE",
         opcode: OpCode::WHILE,
-        sig: StatementSignature::SpecialIfWhen,
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -333,7 +339,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "GOTO",
         opcode: OpCode::GOTO,
-        sig: StatementSignature::Label,
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -357,7 +363,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "IF",
         opcode: OpCode::IFNOT,
-        sig: StatementSignature::SpecialIfWhen,
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -537,7 +543,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "GOSUB",
         opcode: OpCode::GOSUB,
-        sig: StatementSignature::Label,
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -663,7 +669,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "Pop",
         opcode: OpCode::POP,
-        sig: StatementSignature::ArgumentsWithVariable(12, 15),
+        sig: StatementSignature::SpecialCasePop,
         function: predefined_procedures::pop,
     },
     StatementDefinition {
@@ -1299,7 +1305,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
         name: "PCALL",
         opcode: OpCode::PCALL,
-        sig: StatementSignature::SpecialCaseProcedure,
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {

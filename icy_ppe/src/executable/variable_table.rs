@@ -70,7 +70,7 @@ impl VarHeader {
     pub fn create_generic_data(&self) -> GenericVariableData {
         match self.dim {
             0 => GenericVariableData::None,
-            1 => GenericVariableData::create_array(
+            1..=3 => GenericVariableData::create_array(
                 self.dim,
                 self.vector_size,
                 self.matrix_size,

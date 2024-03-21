@@ -5,8 +5,8 @@ use crate::{
         BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
         ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, GosubStatement, GotoStatement,
         IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
-        PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression,
-        UnaryOp, WhileDoStatement, WhileStatement,
+        ParensExpression, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement,
+        UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement,
     },
     executable::OpCode,
 };
@@ -535,6 +535,16 @@ fn test_predefined_call() {
         &PredefinedCallStatement::create_empty_statement(
             OpCode::PRINTLN.get_definition(),
             Vec::new(),
+        ),
+    );
+
+    check_statement(
+        "PRINTLN (1)",
+        &PredefinedCallStatement::create_empty_statement(
+            OpCode::PRINTLN.get_definition(),
+            vec![ParensExpression::create_empty_expression(
+                ConstantExpression::create_empty_expression(Constant::Integer(1)),
+            )],
         ),
     );
 }

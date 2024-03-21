@@ -756,11 +756,15 @@ impl Lexer {
                             if i32::try_from(i).is_ok()  {
                                 return Some(Token::Const(Constant::Integer(i as i32)));
                             }
-                            if i <= u32::MAX as i64 {
-                                return Some(Token::Const(Constant::Unsigned(i as u32)));
+                            if i >= 0 {
+                                return Some(Token::Const(Constant::Unsigned(i as u64)));
                             }
                         }
                         Err(r) => {
+                            let r2 = self.text[start..end].iter().collect::<String>().parse::<u64>();
+                            if let Ok(i) = r2 {
+                                return Some(Token::Const(Constant::Unsigned(i)));
+                            }
                             self.errors.lock().unwrap().report_warning(
                                 self.token_start..self.token_end,
                                 LexingErrorType::InvalidInteger(r.to_string(), self.text[self.token_start..self.token_end].iter().collect::<String>())

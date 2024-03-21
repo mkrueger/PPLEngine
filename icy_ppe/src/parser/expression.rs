@@ -4,7 +4,7 @@ use crate::{
         BinOp, BinaryExpression, ConstantExpression, Expression, FunctionCallExpression,
         IdentifierExpression, ParensExpression, PredefinedFunctionCallExpression, UnaryExpression,
     },
-    executable::{get_function_definition, FUNCTION_DEFINITIONS},
+    executable::{FunctionDefinition, FUNCTION_DEFINITIONS},
     parser::ParserErrorType,
 };
 
@@ -256,7 +256,7 @@ impl Parser {
 
                     self.next_token();
 
-                    let predef = get_function_definition(id);
+                    let predef = FunctionDefinition::get_function_definition(id);
                     if predef >= 0 {
                         let def = &FUNCTION_DEFINITIONS[predef as usize];
                         if (def.args as usize) < arguments.len() {

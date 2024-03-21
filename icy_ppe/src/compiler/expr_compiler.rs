@@ -1,6 +1,6 @@
 use crate::{
     ast::AstVisitor,
-    executable::{get_function_definition, PPEExpr, VariableType, FUNCTION_DEFINITIONS},
+    executable::{FunctionDefinition, PPEExpr, VariableType, FUNCTION_DEFINITIONS},
 };
 
 use super::{CompilationErrorType, PPECompiler};
@@ -44,7 +44,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         &mut self,
         call: &crate::ast::PredefinedFunctionCallExpression,
     ) -> PPEExpr {
-        let predef = get_function_definition(call.get_identifier());
+        let predef = FunctionDefinition::get_function_definition(call.get_identifier());
         if predef < 0 {
             self.compiler.errors.lock().unwrap().report_error(
                 call.get_identifier_token().span.clone(),

@@ -11,7 +11,7 @@ use crate::{
         FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
         ProcedureImplementation, Program, Statement, VariableSpecifier,
     },
-    executable::VariableType,
+    executable::{FunctionDefinition, StatementDefinition, VariableType},
     tables::CP437_TO_UNICODE,
 };
 
@@ -128,6 +128,12 @@ pub enum ParserErrorType {
 
     #[error("Block start (IF/WHILE/FOR/SELECT) must come before block end statement")]
     BlockEndBeforeBlockStart,
+
+    #[error("Can't declare a procudure for an existing statement ({0})")]
+    StatementAlreadyDefined(Token),
+
+    #[error("Can't declare a function for an existing function ({0})")]
+    FunctionAlreadyDefined(Token),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -491,7 +497,7 @@ impl Parser {
         let func_or_proc_token = self.save_spannedtoken();
         self.next_token();
 
-        let Some(Token::Identifier(_name)) = self.get_cur_token() else {
+        let Some(Token::Identifier(identifier)) = self.get_cur_token() else {
             self.report_error(
                 self.lex.span(),
                 ParserErrorType::IdentifierExpected(self.save_token()),
@@ -565,6 +571,13 @@ impl Parser {
         self.next_token();
         if !is_function {
             self.check_eol();
+            if StatementDefinition::get_statement_definition(&identifier).is_some() {
+                self.report_error(
+                    identifier_token.span,
+                    ParserErrorType::StatementAlreadyDefined(self.save_token()),
+                );
+                return None;
+            }
 
             return Some(AstNode::ProcedureDeclaration(
                 ProcedureDeclarationAstNode::new(
@@ -577,7 +590,13 @@ impl Parser {
                 ),
             ));
         }
-
+        if FunctionDefinition::get_function_definition(&identifier) >= 0 {
+            self.report_error(
+                identifier_token.span,
+                ParserErrorType::FunctionAlreadyDefined(self.save_token()),
+            );
+            return None;
+        }
         let Some(return_type) = self.get_variable_type() else {
             self.report_error(
                 self.lex.span(),

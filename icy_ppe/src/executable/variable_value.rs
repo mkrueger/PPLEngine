@@ -130,7 +130,7 @@ pub struct StdStruct {
 #[derive(Clone, Copy)]
 pub union VariableData {
     pub bool_value: bool,
-    pub unsigned_value: u32,
+    pub unsigned_value: u64,
     pub date_value: u32,
     pub ddate_value: i32,
     pub edate_value: u32,

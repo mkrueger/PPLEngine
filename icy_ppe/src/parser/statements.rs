@@ -6,7 +6,7 @@ use crate::{
         PredefinedCallStatement, ProcedureCallStatement, ReturnStatement, SelectStatement,
         Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
-    executable::{OpCode, STATEMENT_DEFINITIONS},
+    executable::{OpCode, StatementDefinition},
     parser::ParserErrorType,
 };
 
@@ -812,63 +812,60 @@ impl Parser {
                 eq_token,
                 value_expression,
             )));
-        } else if self.get_cur_token() != Some(Token::LPar) {
-            // check 'pseudo keywords'
-            if *identifier == *QUIT_TOKEN {
-                println!("parse qit !!!");
-                return Some(Statement::Break(BreakStatement::new(id_token)));
-            }
-            if *identifier == *LOOP_TOKEN {
-                return Some(Statement::Continue(ContinueStatement::new(id_token)));
-            }
+        }
+        // check 'pseudo keywords'
+        if *identifier == *QUIT_TOKEN {
+            println!("parse qit !!!");
+            return Some(Statement::Break(BreakStatement::new(id_token)));
+        }
+        if *identifier == *LOOP_TOKEN {
+            return Some(Statement::Continue(ContinueStatement::new(id_token)));
+        }
 
-            if *identifier == *BEGIN_TOKEN {
-                return Some(Statement::Label(LabelStatement::new(SpannedToken {
-                    token: Token::Label(BEGIN_LABEL.clone()),
-                    span: id_token.span,
-                })));
-            }
-            for def in &STATEMENT_DEFINITIONS {
-                if *identifier == unicase::Ascii::new(def.name.to_string()) {
-                    let mut params = Vec::new();
-                    while self.get_cur_token() != Some(Token::Eol)
-                        && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
-                        && self.cur_token.is_some()
-                    {
-                        let Some(value) = self.parse_expression() else {
-                            self.report_error(
-                                self.lex.span(),
-                                ParserErrorType::ExpressionExpected(self.save_token()),
-                            );
-                            return None;
-                        };
-                        params.push(value);
+        if *identifier == *BEGIN_TOKEN {
+            return Some(Statement::Label(LabelStatement::new(SpannedToken {
+                token: Token::Label(BEGIN_LABEL.clone()),
+                span: id_token.span,
+            })));
+        }
+        if let Some(def) = StatementDefinition::get_statement_definition(identifier) {
+            let mut params = Vec::new();
+            while self.get_cur_token() != Some(Token::Eol)
+                && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
+                && self.cur_token.is_some()
+            {
+                let Some(value) = self.parse_expression() else {
+                    self.report_error(
+                        self.lex.span(),
+                        ParserErrorType::ExpressionExpected(self.save_token()),
+                    );
+                    return None;
+                };
+                params.push(value);
 
-                        if self.cur_token.is_none() {
-                            break;
-                        }
-                        if self.get_cur_token() == Some(Token::Comma) {
-                            self.next_token();
-                        } else {
-                            break;
-                        }
-                    }
-
-                    if def.opcode == OpCode::GETUSER
-                        || def.opcode == OpCode::PUTUSER
-                        || def.opcode == OpCode::GETALTUSER
-                        || def.opcode == OpCode::FREALTUSER
-                        || def.opcode == OpCode::DELUSER
-                        || def.opcode == OpCode::ADDUSER
-                    {
-                        self.require_user_variables = true;
-                    }
-
-                    return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
-                        id_token, def, params,
-                    )));
+                if self.cur_token.is_none() {
+                    break;
+                }
+                if self.get_cur_token() == Some(Token::Comma) {
+                    self.next_token();
+                } else {
+                    break;
                 }
             }
+
+            if def.opcode == OpCode::GETUSER
+                || def.opcode == OpCode::PUTUSER
+                || def.opcode == OpCode::GETALTUSER
+                || def.opcode == OpCode::FREALTUSER
+                || def.opcode == OpCode::DELUSER
+                || def.opcode == OpCode::ADDUSER
+            {
+                self.require_user_variables = true;
+            }
+
+            return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
+                id_token, def, params,
+            )));
         }
 
         if self.get_cur_token() == Some(Token::LPar) {

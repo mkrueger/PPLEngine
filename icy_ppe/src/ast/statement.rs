@@ -1064,6 +1064,27 @@ impl ForStatement {
         &self.next_token
     }
 
+    pub fn get_next_identifier_token(&self) -> Option<&SpannedToken> {
+        if let Some(ni) = &self.next_identifier_token {
+            return Some(ni);
+        }
+        None
+    }
+
+    /// Returns a reference to the get identifier of this [`ForStatement`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn get_next_identifier(&self) -> Option<&unicase::Ascii<String>> {
+        let Some(ni) = &self.next_identifier_token else {
+            return None;
+        };
+        if let Token::Identifier(id) = &ni.token {
+            return Some(id);
+        }
+        None
+    }
     pub fn create_empty_statement(
         variable_name: unicase::Ascii<String>,
         start_expr: Expression,
@@ -1691,6 +1712,10 @@ impl LetStatement {
 
     pub fn get_rpar_token_token(&self) -> &Option<SpannedToken> {
         &self.rightpar_token
+    }
+
+    pub fn get_eq_token(&self) -> &SpannedToken {
+        &self.eq_token
     }
 
     pub fn get_value_expression(&self) -> &Expression {

@@ -350,12 +350,17 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> Expression {
-        Expression::FunctionCall(FunctionCallExpression::empty(
-            self.visit_identifier(call.get_identifier()),
+        Expression::FunctionCall(FunctionCallExpression::new(
+            SpannedToken {
+                span: call.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(call.get_identifier())),
+            },
+            call.get_lpar_token_token().clone(),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
+            call.get_rpar_token_token().clone(),
         ))
     }
 
@@ -492,10 +497,17 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_for_statement(&mut self, for_stmt: &ForStatement) -> Statement {
-        Statement::For(ForStatement::empty(
-            self.visit_identifier(for_stmt.get_identifier()),
+        Statement::For(ForStatement::new(
+            for_stmt.get_for_token().clone(),
+            SpannedToken {
+                span: for_stmt.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(for_stmt.get_identifier())),
+            },
+            for_stmt.get_eq_token().clone(),
             for_stmt.get_start_expr().visit_mut(self),
+            for_stmt.get_to_token().clone(),
             for_stmt.get_end_expr().visit_mut(self),
+            for_stmt.get_step_token().clone(),
             for_stmt
                 .get_step_expr()
                 .as_ref()
@@ -505,6 +517,13 @@ pub trait AstVisitorMut: Sized {
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
+            for_stmt.get_next_token().clone(),
+            for_stmt.get_next_identifier_token().map(|ni| SpannedToken {
+                span: ni.span.clone(),
+                token: Token::Identifier(
+                    self.visit_identifier(for_stmt.get_next_identifier().unwrap()),
+                ),
+            }),
         ))
     }
 
@@ -522,13 +541,20 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_let_statement(&mut self, let_stmt: &LetStatement) -> Statement {
-        Statement::Let(LetStatement::empty(
-            self.visit_identifier(let_stmt.get_identifier()),
+        Statement::Let(LetStatement::new(
+            let_stmt.get_let_token().clone(),
+            SpannedToken {
+                span: let_stmt.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(let_stmt.get_identifier())),
+            },
+            let_stmt.get_lpar_token().clone(),
             let_stmt
                 .get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
+            let_stmt.get_rpar_token_token().clone(),
+            let_stmt.get_eq_token().clone(),
             let_stmt.get_value_expression().visit_mut(self),
         ))
     }
@@ -540,12 +566,17 @@ pub trait AstVisitorMut: Sized {
         Statement::Label(label.clone())
     }
     fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) -> Statement {
-        Statement::Call(ProcedureCallStatement::empty(
-            self.visit_identifier(call.get_identifier()),
+        Statement::Call(ProcedureCallStatement::new(
+            SpannedToken {
+                span: call.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(call.get_identifier())),
+            },
+            call.get_leftpar_token().clone(),
             call.get_arguments()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
+            call.get_rightpar_token().clone(),
         ))
     }
     fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) -> Statement {
@@ -563,14 +594,15 @@ pub trait AstVisitorMut: Sized {
         &mut self,
         var_decl: &VariableDeclarationStatement,
     ) -> Statement {
-        VariableDeclarationStatement::create_empty_statement(
+        Statement::VariableDeclaration(VariableDeclarationStatement::new(
+            var_decl.get_type_token().clone(),
             var_decl.get_variable_type(),
             var_decl
                 .get_variables()
                 .iter()
                 .map(|var| var.visit_mut(self))
                 .collect(),
-        )
+        ))
     }
 
     fn visit_variable_specifier(&mut self, var: &VariableSpecifier) -> VariableSpecifier {
@@ -586,23 +618,38 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) -> AstNode {
-        AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::empty(
-            self.visit_identifier(proc_decl.get_identifier()),
+        AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::new(
+            proc_decl.get_declare_token().clone(),
+            proc_decl.get_procedure_token().clone(),
+            SpannedToken {
+                span: proc_decl.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(proc_decl.get_identifier())),
+            },
+            proc_decl.get_leftpar_token().clone(),
             proc_decl
                 .get_parameters()
                 .iter()
                 .map(|param| param.visit_mut(self))
                 .collect(),
+            proc_decl.get_rightpar_token().clone(),
         ))
     }
     fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) -> AstNode {
-        AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
-            self.visit_identifier(func_decl.get_identifier()),
+        AstNode::FunctionDeclaration(FunctionDeclarationAstNode::new(
+            func_decl.get_declare_token().clone(),
+            func_decl.get_function_token().clone(),
+            SpannedToken {
+                span: func_decl.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(func_decl.get_identifier())),
+            },
+            func_decl.get_leftpar_token().clone(),
             func_decl
                 .get_parameters()
                 .iter()
                 .map(|param| param.visit_mut(self))
                 .collect(),
+            func_decl.get_rightpar_token().clone(),
+            func_decl.get_return_type_token().clone(),
             func_decl.get_return_type(),
         ))
     }
@@ -614,20 +661,28 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_function_implementation(&mut self, function: &FunctionImplementation) -> AstNode {
-        AstNode::Function(FunctionImplementation::empty(
+        AstNode::Function(FunctionImplementation::new(
             function.id,
-            self.visit_identifier(function.get_identifier()),
+            function.get_function_token().clone(),
+            SpannedToken {
+                span: function.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(function.get_identifier())),
+            },
+            function.get_leftpar_token().clone(),
             function
                 .get_parameters()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
+            function.rightpar_token.clone(),
+            function.get_return_type_token().clone(),
             *function.get_return_type(),
             function
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
+            function.get_endfunc_token().clone(),
         ))
     }
 
@@ -636,19 +691,26 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) -> AstNode {
-        AstNode::Procedure(ProcedureImplementation::empty(
+        AstNode::Procedure(ProcedureImplementation::new(
             procedure.id,
-            self.visit_identifier(procedure.get_identifier()),
+            procedure.get_procedure_token().clone(),
+            SpannedToken {
+                span: procedure.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(procedure.get_identifier())),
+            },
+            procedure.get_leftpar_token().clone(),
             procedure
                 .get_parameters()
                 .iter()
                 .map(|arg| arg.visit_mut(self))
                 .collect(),
+            procedure.get_rightpar_token().clone(),
             procedure
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
+            procedure.get_endproc_token().clone(),
         ))
     }
 

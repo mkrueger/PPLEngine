@@ -410,7 +410,7 @@ impl VariableTable {
                         i += 2; // what's stored here ?
                         let mut data = VariableData::default();
                         data.unsigned_value =
-                            u32::from_le_bytes((buf[i..i + 4]).try_into().unwrap());
+                            u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
                         variable = VariableValue {
                             vtype,
                             data,

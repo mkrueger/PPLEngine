@@ -7,7 +7,7 @@ use crate::executable::{VariableData, VariableType, VariableValue};
 pub enum Constant {
     Money(i32),
     Integer(i32),
-    Unsigned(u32),
+    Unsigned(u64),
     String(String),
     Double(f64),
     Boolean(bool),

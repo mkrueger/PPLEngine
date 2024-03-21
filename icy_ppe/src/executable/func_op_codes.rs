@@ -322,13 +322,15 @@ pub struct FunctionDefinition {
     pub function: PredefFunc,
 }
 
-pub fn get_function_definition(str: &str) -> i32 {
-    for (i, item) in FUNCTION_DEFINITIONS.iter().enumerate() {
-        if item.name.eq_ignore_ascii_case(str) {
-            return i as i32;
+impl FunctionDefinition {
+    pub fn get_function_definition(str: &str) -> i32 {
+        for (i, item) in FUNCTION_DEFINITIONS.iter().enumerate() {
+            if item.name.eq_ignore_ascii_case(str) {
+                return i as i32;
+            }
         }
+        -1
     }
-    -1
 }
 
 pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 293] = [

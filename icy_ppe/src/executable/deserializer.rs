@@ -287,8 +287,8 @@ impl PPEDeserializer {
                     _ => {}
                 }
 
-                let var = self.read_variable_expression(executable)?;
-                self.push_expr(var);
+                let var_expr = self.read_variable_expression(executable)?;
+                self.push_expr(var_expr);
             } else {
                 if id == FuncOpCode::CPAR as i16 {
                     self.offset += 1;

@@ -463,10 +463,13 @@ pub fn beep(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
 pub fn push(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    for p in params {
+        vm.push_pop_stack.push(p.clone());
+    }
+    Ok(())
 }
 pub fn pop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("pop should not be handled here (it's writing back values on the table).")
 }
 pub fn kbdstuff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();

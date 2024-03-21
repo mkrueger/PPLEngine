@@ -38,6 +38,9 @@ pub enum VMError {
 
     #[error("Label not found ({0})")]
     LabelNotFound(usize),
+
+    #[error("Tried to pop from empty value stack.")]
+    PushPopStackEmpty,
 }
 
 #[derive(Clone, Copy)]
@@ -179,6 +182,8 @@ pub struct VirtualMachine<'a> {
     write_back_stack: Vec<PPEExpr>,
 
     pub label_table: HashMap<usize, usize>,
+
+    pub push_pop_stack: Vec<VariableValue>,
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -622,6 +627,16 @@ impl<'a> VirtualMachine<'a> {
                     let _ = sort_impl(&mut self.variable_table, array_idx, indices_idx);
                     return Ok(());
                 }
+                if proc.opcode == OpCode::POP {
+                    for arg in arguments {
+                        if let Some(val) = self.push_pop_stack.pop() {
+                            self.set_variable(arg, val);
+                        } else {
+                            return Err(VMError::PushPopStackEmpty);
+                        }
+                    }
+                    return Ok(());
+                }
 
                 let mut args = Vec::new();
                 for arg in arguments {
@@ -693,6 +708,7 @@ pub fn run(
         label_table,
         parameter_stack: Vec::new(),
         write_back_stack: Vec::new(),
+        push_pop_stack: Vec::new(),
     };
 
     vm.run()?;

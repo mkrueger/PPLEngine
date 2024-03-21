@@ -7,9 +7,7 @@ use std::{
 
 use crate::{
     ast::{
-        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
-        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Program, VariableSpecifier,
+        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode, ProcedureImplementation, Program, Statement, VariableSpecifier
     },
     executable::VariableType,
     tables::CP437_TO_UNICODE,
@@ -958,7 +956,9 @@ pub fn parse_program(
                         );
                         break;
                     }
-                    got_statement = true;
+                    if !got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
+                        got_statement = true;
+                    }
                     nodes.push(AstNode::Statement(stmt));
                 }
             }

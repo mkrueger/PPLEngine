@@ -1015,7 +1015,8 @@ pub fn dfcopy(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
 }
 
 pub fn eval(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    // nothing, that just avaluates the parameters (for using function calls as statement)
+    Ok(())
 }
 pub fn account(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")

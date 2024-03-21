@@ -1,15 +1,15 @@
-use crate::parser::lexer::SpannedToken;
+use crate::parser::lexer::{SpannedToken, Token};
 
 use super::{
     AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
-    CommentAstNode, ConstantExpression, ContinueStatement, DimensionSpecifier, ElseBlock,
-    ElseIfBlock, EndStatement, Expression, ForStatement, FunctionCallExpression,
-    FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement,
-    IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
-    ParameterSpecifier, ParensExpression, PredefinedCallStatement,
-    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-    ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression,
-    VariableDeclarationStatement, VariableSpecifier, WhileDoStatement, WhileStatement,
+    CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement,
+    Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode,
+    FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
+    IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
+    PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
+    ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement,
+    SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, VariableSpecifier,
+    WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -319,9 +319,10 @@ pub trait AstVisitorMut: Sized {
 
     // visit expressions
     fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) -> Expression {
-        Expression::Identifier(IdentifierExpression::empty(
-            self.visit_identifier(identifier.get_identifier()),
-        ))
+        Expression::Identifier(IdentifierExpression::new(SpannedToken {
+            span: identifier.get_identifier_token().span.clone(),
+            token: Token::Identifier(self.visit_identifier(identifier.get_identifier())),
+        }))
     }
 
     fn visit_constant_expression(&mut self, constant: &ConstantExpression) -> Expression {
@@ -580,12 +581,14 @@ pub trait AstVisitorMut: Sized {
     }
 
     fn visit_variable_specifier(&mut self, var: &VariableSpecifier) -> VariableSpecifier {
-        VariableSpecifier::empty(
-            self.visit_identifier(var.get_identifier()),
-            var.get_dimensions()
-                .iter()
-                .map(DimensionSpecifier::get_dimension)
-                .collect(),
+        VariableSpecifier::new(
+            SpannedToken {
+                span: var.get_identifier_token().span.clone(),
+                token: Token::Identifier(self.visit_identifier(var.get_identifier())),
+            },
+            var.get_leftpar_token().clone(),
+            var.get_dimensions().clone(),
+            var.get_rightpar_token().clone(),
         )
     }
 

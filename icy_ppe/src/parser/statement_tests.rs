@@ -5,8 +5,8 @@ use crate::{
         BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
         ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-        PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression,
-        UnaryOp, WhileDoStatement, WhileStatement,
+        LetStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement,
+        UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement,
     },
     executable::OpCode,
 };
@@ -626,6 +626,89 @@ NEXT I",
                 ConstantExpression::create_empty_expression(Constant::Integer(4)),
             ))),
             vec![],
+        ),
+    );
+}
+
+#[test]
+fn test_check_begin() {
+    check_statement(
+        r"BEGIN",
+        &LabelStatement::create_empty_statement(unicase::Ascii::new("~BEGIN~".to_string())),
+    );
+}
+
+#[test]
+fn check_let_statement() {
+    check_statement(
+        "LET A = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("A".to_string()),
+            vec![],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+
+    check_statement(
+        "LET A(1, 2, 3) = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("A".to_string()),
+            vec![
+                ConstantExpression::create_empty_expression(Constant::Integer(1)),
+                ConstantExpression::create_empty_expression(Constant::Integer(2)),
+                ConstantExpression::create_empty_expression(Constant::Integer(3)),
+            ],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+}
+
+#[test]
+fn check_let_without_let_statement() {
+    check_statement(
+        "A = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("A".to_string()),
+            vec![],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+
+    check_statement(
+        "A(1, 2, 3) = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("A".to_string()),
+            vec![
+                ConstantExpression::create_empty_expression(Constant::Integer(1)),
+                ConstantExpression::create_empty_expression(Constant::Integer(2)),
+                ConstantExpression::create_empty_expression(Constant::Integer(3)),
+            ],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+}
+
+#[test]
+fn check_let_with_keywords() {
+    check_statement(
+        "LOOP = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("LOOP".to_string()),
+            vec![],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+
+    check_statement(
+        "QUIT(1, 2, 3) = 5",
+        &LetStatement::create_empty_statement(
+            unicase::Ascii::new("QUIT".to_string()),
+            vec![
+                ConstantExpression::create_empty_expression(Constant::Integer(1)),
+                ConstantExpression::create_empty_expression(Constant::Integer(2)),
+                ConstantExpression::create_empty_expression(Constant::Integer(3)),
+            ],
+            ConstantExpression::create_empty_expression(Constant::Integer(5)),
         ),
     );
 }

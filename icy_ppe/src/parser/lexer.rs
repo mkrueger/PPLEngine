@@ -109,7 +109,6 @@ pub enum Token {
 
     If,
     Let,
-    Begin,
     While,
     EndWhile,
     Else,
@@ -166,7 +165,6 @@ impl Token {
             Token::Identifier(_)
                 | Token::If
                 | Token::Let
-                | Token::Begin
                 | Token::While
                 | Token::EndWhile
                 | Token::Else
@@ -226,7 +224,6 @@ impl fmt::Display for Token {
 
             Token::Let => write!(f, "LET"),
             Token::End => write!(f, "END"),
-            Token::Begin => write!(f, "BEGIN"),
             Token::While => write!(f, "WHILE"),
             Token::EndWhile => write!(f, "ENDWHILE"),
             Token::If => write!(f, "IF"),
@@ -285,7 +282,6 @@ lazy_static::lazy_static! {
         let mut m = HashMap::new();
         m.insert(unicase::Ascii::new("if".to_string()), Token::If);
         m.insert(unicase::Ascii::new("let".to_string()), Token::Let);
-        m.insert(unicase::Ascii::new("begin".to_string()), Token::Begin);
         m.insert(unicase::Ascii::new("while".to_string()), Token::While);
         m.insert(unicase::Ascii::new("endwhile".to_string()), Token::EndWhile);
         m.insert(unicase::Ascii::new("else".to_string()), Token::Else);
@@ -294,12 +290,12 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("for".to_string()), Token::For);
         m.insert(unicase::Ascii::new("next".to_string()), Token::Next);
         m.insert(unicase::Ascii::new("endfor".to_string()), Token::Next);
-        m.insert(unicase::Ascii::new("break".to_string()), Token::Break);
-        m.insert(unicase::Ascii::new("quit".to_string()), Token::Break);
 
+        m.insert(unicase::Ascii::new("break".to_string()), Token::Break);
         m.insert(unicase::Ascii::new("continue".to_string()), Token::Continue);
-        m.insert(unicase::Ascii::new("loop".to_string()), Token::Continue);
         m.insert(unicase::Ascii::new("return".to_string()), Token::Return);
+        m.insert(unicase::Ascii::new("end".to_string()), Token::End);
+
         m.insert(unicase::Ascii::new("gosub".to_string()), Token::Gosub);
         m.insert(unicase::Ascii::new("goto".to_string()), Token::Goto);
         m.insert(unicase::Ascii::new("select".to_string()), Token::Select);
@@ -311,7 +307,6 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("procedure".to_string()), Token::Procedure);
         m.insert(unicase::Ascii::new("endproc".to_string()), Token::EndProc);
         m.insert(unicase::Ascii::new("endfunc".to_string()), Token::EndFunc);
-        m.insert(unicase::Ascii::new("end".to_string()), Token::End);
         for c in &BUILTIN_CONSTS {
             m.insert(unicase::Ascii::new(c.name.to_string()), Token::Const(Constant::Builtin(c)));
         }

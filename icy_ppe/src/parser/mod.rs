@@ -7,7 +7,9 @@ use std::{
 
 use crate::{
     ast::{
-        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode, ProcedureImplementation, Program, Statement, VariableSpecifier
+        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
+        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
+        ProcedureImplementation, Program, Statement, VariableSpecifier,
     },
     executable::VariableType,
     tables::CP437_TO_UNICODE,
@@ -99,9 +101,6 @@ pub enum ParserErrorType {
 
     #[error("VAR parameters are not allowed in functions")]
     VarNotAllowedInFunctions,
-
-    #[error("Only one BEGIN block is allowed with $USEFUNCS")]
-    OnlyOneBeginBlockAllowed,
 
     #[error("No statements allowed outside of BEGIN...END block")]
     NoStatementsAllowedOutsideBlock,
@@ -461,7 +460,6 @@ impl Parser {
             rightpar_token = Some(self.save_spannedtoken());
             self.next_token();
         }
-
         Some(VariableSpecifier::new(
             identifier_token,
             leftpar_token,
@@ -920,28 +918,15 @@ pub fn parse_program(
                 nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
             }
             Token::Eol => {}
-            Token::Begin => {
-                if parsed_begin {
-                    parser
-                        .errors
-                        .lock()
-                        .unwrap()
-                        .report_error(parser.lex.span(), ParserErrorType::OnlyOneBeginBlockAllowed);
-
-                    break;
-                }
-                if got_funcs && !use_funcs {
-                    parser.report_error(
-                        parser.lex.span(),
-                        ParserErrorType::NoStatementsAfterFunctions,
-                    );
-                    break;
-                }
-                parsed_begin = true;
-            }
             _ => {
                 let stmt = parser.parse_statement();
                 if let Some(stmt) = stmt {
+                    if let Statement::Label(label) = &stmt {
+                        if *label.get_label() == *statements::BEGIN_LABEL {
+                            parsed_begin = true;
+                        }
+                    }
+
                     if use_funcs && !parsed_begin {
                         parser.report_error(
                             parser.lex.span(),

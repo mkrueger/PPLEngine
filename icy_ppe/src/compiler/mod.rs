@@ -33,20 +33,17 @@ pub enum CompilationErrorType {
     #[error("Variable not found ({0})")]
     VariableNotFound(String),
 
-    #[error("Procedure not found: {0}")]
+    #[error("Procedure not found ({0})")]
     ProcedureNotFound(String),
 
-    #[error("Label already defined: {0}")]
+    #[error("Label already used ({0})")]
     LabelAlreadyDefined(String),
 
-    #[error("Undefined label: {0}")]
+    #[error("Label not found ({0})")]
     UndefinedLabel(String),
 
-    #[error("Function {0} already defined.")]
-    FunctionAlreadyDefined(String),
-
-    #[error("Procedure {0} already defined.")]
-    ProcedureAlreadyDefined(String),
+    #[error("Variable name already used ({0})")]
+    VariableAlreadyDefined(String),
 
     #[error("Function {0} not found.")]
     FunctionNotFound(String),
@@ -66,7 +63,8 @@ pub struct PPECompiler {
     variable_id: usize,
     variable_table: VariableTable,
     variable_lookup: HashMap<unicase::Ascii<String>, usize>,
-
+    local_variable_lookup: HashMap<unicase::Ascii<String>, usize>,
+    local_lookup: bool,
     cur_offset: usize,
 
     label_table: Vec<i32>,
@@ -88,6 +86,7 @@ impl PPECompiler {
             version,
             variable_table: VariableTable::default(),
             variable_lookup: HashMap::new(),
+            local_variable_lookup: HashMap::new(),
             label_table: Vec::new(),
             label_lookup_table: HashMap::new(),
             errors,
@@ -98,6 +97,7 @@ impl PPECompiler {
             variable_id: 0,
             const_lookup_table: HashMap::new(),
             string_lookup_table: HashMap::new(),
+            local_lookup: false,
         }
     }
 
@@ -185,7 +185,7 @@ impl PPECompiler {
                     if self.has_variable(func.get_identifier()) {
                         self.errors.lock().unwrap().report_error(
                             func.get_identifier_token().span.clone(),
-                            CompilationErrorType::FunctionAlreadyDefined(
+                            CompilationErrorType::VariableAlreadyDefined(
                                 func.get_identifier().to_string(),
                             ),
                         );
@@ -220,7 +220,7 @@ impl PPECompiler {
                     if self.has_variable(proc.get_identifier()) {
                         self.errors.lock().unwrap().report_error(
                             proc.get_identifier_token().span.clone(),
-                            CompilationErrorType::ProcedureAlreadyDefined(
+                            CompilationErrorType::VariableAlreadyDefined(
                                 proc.get_identifier().to_string(),
                             ),
                         );
@@ -296,10 +296,11 @@ impl PPECompiler {
                         decl.value.data.procedure_value.start_offset = start_offset;
                         decl.value.data.procedure_value.first_var_id = first as i16;
                     }
-
+                    self.start_parse_function_body();
                     proc.get_statements().iter().for_each(|s| {
                         self.compile_add_statement(s);
                     });
+                    self.end_parse_function_body();
 
                     self.commands
                         .add_statement(&mut self.cur_offset, PPECommand::EndProc);
@@ -366,9 +367,12 @@ impl PPECompiler {
                     entry.set_type(EntryType::FunctionResult);
                     self.push_variable(Ascii::new(entry.get_name().clone()), entry);
 
+                    self.start_parse_function_body();
                     func.get_statements().iter().for_each(|s| {
                         self.compile_add_statement(s);
                     });
+                    self.end_parse_function_body();
+
                     self.cur_function_id = -1;
                     self.commands
                         .add_statement(&mut self.cur_offset, PPECommand::EndFunc);
@@ -580,6 +584,16 @@ impl PPECompiler {
             }
             Statement::VariableDeclaration(var_decl) => {
                 for v in var_decl.get_variables() {
+                    if self.has_variable_defined(v.get_identifier()) {
+                        self.errors.lock().unwrap().report_error(
+                            v.get_identifier_token().span.clone(),
+                            CompilationErrorType::VariableAlreadyDefined(
+                                v.get_identifier().to_string(),
+                            ),
+                        );
+                        continue;
+                    }
+
                     self.add_variable(
                         var_decl.get_variable_type(),
                         v.get_identifier(),
@@ -702,11 +716,35 @@ impl PPECompiler {
         }
     }
 
-    fn has_variable(&self, get_identifier: &unicase::Ascii<String>) -> bool {
+    fn start_parse_function_body(&mut self) {
+        self.local_variable_lookup.clear();
+        self.local_lookup = true;
+    }
+
+    fn end_parse_function_body(&mut self) {
+        self.local_variable_lookup.clear();
+        self.local_lookup = false;
+    }
+
+    fn has_variable_defined(&self, get_identifier: &unicase::Ascii<String>) -> bool {
+        if self.local_lookup {
+            return self.local_variable_lookup.contains_key(get_identifier);
+        }
         self.variable_lookup.contains_key(get_identifier)
     }
 
+    fn has_variable(&self, get_identifier: &unicase::Ascii<String>) -> bool {
+        self.variable_lookup.contains_key(get_identifier)
+            || self.local_variable_lookup.contains_key(get_identifier)
+    }
+
     fn lookup_variable(&self, get_identifier: &unicase::Ascii<String>) -> Option<&TableEntry> {
+        if self.local_lookup {
+            if let Some(idx) = self.local_variable_lookup.get(get_identifier) {
+                return Some(self.variable_table.get_var_entry(*idx));
+            }
+        }
+
         if let Some(idx) = self.variable_lookup.get(get_identifier) {
             Some(self.variable_table.get_var_entry(*idx))
         } else {

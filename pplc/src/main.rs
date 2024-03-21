@@ -79,8 +79,8 @@ fn main() {
     let mut compiler = PPECompiler::new(LAST_PPLC, errors.clone());
     compiler.compile(&prg);
 
-    if !errors.lock().unwrap().has_errors()
-        || (!errors.lock().unwrap().has_warnings() && !arguments.nowarnings)
+    if errors.lock().unwrap().has_errors()
+        || (errors.lock().unwrap().has_warnings() && !arguments.nowarnings)
     {
         let mut error_count = 0;
         let mut warning_count = 0;
@@ -112,17 +112,14 @@ fn main() {
                     .print((&file_name, Source::from(&src)))
                     .unwrap();
             }
-            if error_count > 0 || warning_count > 0 {
-                println!("{} errors, {} warnings", error_count, warning_count);
-            }
-        } else if error_count > 0 {
+            println!("{} errors, {} warnings", error_count, warning_count);
+        } else {
             println!("{} errors", error_count);
         }
         return;
     }
 
     println!();
-
     match compiler.create_executable(LAST_PPLC) {
         Ok(executable) => {
             if arguments.disassemble {

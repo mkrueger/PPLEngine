@@ -450,7 +450,9 @@ impl BlockStatement {
 
     pub fn empty(statements: Vec<Statement>) -> Self {
         Self {
-            begin_token: SpannedToken::create_empty(Token::Begin),
+            begin_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                "BEGIN".to_string(),
+            ))),
             statements,
             end_token: SpannedToken::create_empty(Token::End),
         }

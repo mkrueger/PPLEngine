@@ -565,7 +565,7 @@ impl Parser {
     /// Panics if .
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.get_cur_token() {
-            Some(Token::Begin | Token::Eol) => {
+            Some(Token::Eol) => {
                 self.next_token();
                 None
             }
@@ -600,7 +600,7 @@ impl Parser {
                 let let_token = self.save_spannedtoken();
                 self.next_token();
                 let identifier_token = self.save_spannedtoken();
-                let _id = if let Token::Identifier(id) = &identifier_token.token {
+                let _identifier = if let Token::Identifier(id) = &identifier_token.token {
                     self.next_token();
                     id
                 } else {
@@ -731,7 +731,7 @@ impl Parser {
                 None
             }
             Some(Token::Const(Constant::Builtin(c))) => {
-                if let Some(value) = self.parse_call(c.name) {
+                if let Some(value) = self.parse_call(&unicase::Ascii::new(c.name.to_string())) {
                     return Some(value);
                 }
                 self.next_token();
@@ -793,13 +793,48 @@ impl Parser {
         }
     }
 
-    fn parse_call(&mut self, id: &str) -> Option<Statement> {
+    fn parse_call(&mut self, identifier: &unicase::Ascii<String>) -> Option<Statement> {
         let id_token = self.save_spannedtoken();
         self.next_token();
-        if self.get_cur_token() != Some(Token::Eq) {
+
+        if self.get_cur_token() == Some(Token::Eq) {
+            let eq_token = self.save_spannedtoken();
+            self.next_token();
+            let Some(value_expression) = self.parse_expression() else {
+                self.report_error(
+                    self.lex.span(),
+                    ParserErrorType::ExpressionExpected(self.save_token()),
+                );
+
+                return None;
+            };
+            return Some(Statement::Let(LetStatement::new(
+                None,
+                id_token,
+                None,
+                Vec::new(),
+                None,
+                eq_token,
+                value_expression,
+            )));
+        } else if self.get_cur_token() != Some(Token::LPar) {
+            // check 'pseudo keywords'
+            if *identifier == *QUIT_TOKEN {
+                println!("parse qit !!!");
+                return Some(Statement::Break(BreakStatement::new(id_token)));
+            }
+            if *identifier == *LOOP_TOKEN {
+                return Some(Statement::Continue(ContinueStatement::new(id_token)));
+            }
+
+            if *identifier == *BEGIN_TOKEN {
+                return Some(Statement::Label(LabelStatement::new(SpannedToken {
+                    token: Token::Label(BEGIN_LABEL.clone()),
+                    span: id_token.span,
+                })));
+            }
             for def in &STATEMENT_DEFINITIONS {
-                if unicase::Ascii::new(id.to_string()) == unicase::Ascii::new(def.name.to_string())
-                {
+                if *identifier == unicase::Ascii::new(def.name.to_string()) {
                     let mut params = Vec::new();
                     while self.get_cur_token() != Some(Token::Eol)
                         && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
@@ -839,28 +874,6 @@ impl Parser {
                     )));
                 }
             }
-        }
-
-        if self.get_cur_token() == Some(Token::Eq) {
-            let eq_token = self.save_spannedtoken();
-            self.next_token();
-            let Some(value_expression) = self.parse_expression() else {
-                self.report_error(
-                    self.lex.span(),
-                    ParserErrorType::ExpressionExpected(self.save_token()),
-                );
-
-                return None;
-            };
-            return Some(Statement::Let(LetStatement::new(
-                None,
-                id_token,
-                None,
-                Vec::new(),
-                None,
-                eq_token,
-                value_expression,
-            )));
         }
 
         if self.get_cur_token() == Some(Token::LPar) {
@@ -930,6 +943,7 @@ impl Parser {
                 rightpar_token,
             )));
         }
+
         self.report_error(
             id_token.span,
             ParserErrorType::UnknownIdentifier(id_token.token.to_string()),
@@ -941,6 +955,15 @@ impl Parser {
 lazy_static::lazy_static! {
     static ref DO_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("DO".to_string());
     static ref THEN_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("THEN".to_string());
+
+
+    // potential keywords
+    static ref QUIT_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("QUIT".to_string());
+    static ref LOOP_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("LOOP".to_string());
+
+    static ref BEGIN_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("BEGIN".to_string());
+    pub static ref BEGIN_LABEL: unicase::Ascii<String> = unicase::Ascii::new("~BEGIN~".to_string());
+
 }
 
 fn is_do_then(token: &Option<SpannedToken>) -> bool {

@@ -266,13 +266,11 @@ fn test_while() {
 #[test]
 fn test_break() {
     assert_eq!(Token::Break, get_token("break"));
-    assert_eq!(Token::Break, get_token("quit"));
 }
 
 #[test]
 fn test_continue() {
     assert_eq!(Token::Continue, get_token("continue"));
-    assert_eq!(Token::Continue, get_token("loop"));
 }
 
 #[test]

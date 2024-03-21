@@ -100,10 +100,6 @@ impl AstVisitor<()> for SemanticTokenVisitor {
         self.highlight_token(comment.get_comment_token(), SemanticTokenType::COMMENT);
     }
 
-    fn visit_end_statement(&mut self, end: &icy_ppe::ast::EndStatement) {
-        self.highlight_token(end.get_end_token(), SemanticTokenType::KEYWORD);
-    }
-
     fn visit_block_statement(&mut self, block: &icy_ppe::ast::BlockStatement) {
         self.highlight_token(block.get_begin_token(), SemanticTokenType::KEYWORD);
         self.highlight_token(block.get_end_token(), SemanticTokenType::KEYWORD);

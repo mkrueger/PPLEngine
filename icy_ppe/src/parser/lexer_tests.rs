@@ -25,7 +25,6 @@ fn test_comments() {
         get_token("* COMMENT"),
         Token::Comment(CommentType::SingleLineStar, " COMMENT".to_string())
     );
-    assert_eq!(get_token("End ; COMMENT"), Token::End);
 }
 
 fn get_token(src: &str) -> Token {

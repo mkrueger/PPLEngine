@@ -1,7 +1,7 @@
 use crate::ast::{
-    AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, EndStatement,
-    Expression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
-    GosubStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
+    AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, Expression,
+    FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement,
+    GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
     ParameterSpecifier, ParensExpression, PredefinedCallStatement,
     PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
     ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp,
@@ -1243,7 +1243,10 @@ impl Decompiler {
                     self.outputpass2(
                         prg,
                         &mut if_while_stack,
-                        EndStatement::create_empty_statement(),
+                        PredefinedCallStatement::create_empty_statement(
+                            OpCode::END.get_definition(),
+                            vec![],
+                        ),
                     );
                     self.src_ptr += 1;
                 }

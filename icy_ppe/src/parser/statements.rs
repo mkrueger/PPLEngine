@@ -1,10 +1,10 @@
 use crate::{
     ast::{
         BlockStatement, BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant,
-        ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement,
-        GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-        LetStatement, PredefinedCallStatement, ProcedureCallStatement, ReturnStatement,
-        SelectStatement, Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
+        ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, GosubStatement, GotoStatement,
+        IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+        PredefinedCallStatement, ProcedureCallStatement, ReturnStatement, SelectStatement,
+        Statement, VariableDeclarationStatement, WhileDoStatement, WhileStatement,
     },
     executable::{OpCode, STATEMENT_DEFINITIONS},
     parser::ParserErrorType,
@@ -114,7 +114,7 @@ impl Parser {
                 self.report_error(self.lex.span(), ParserErrorType::EndExpected);
                 return None;
             };
-            if token == Token::End {
+            if token == Token::Identifier(unicase::Ascii::new("END".to_string())) {
                 break;
             }
             statements.push(self.parse_statement());
@@ -581,11 +581,6 @@ impl Parser {
                     .report_warning(self.lex.span(), ParserWarningType::UsefuncsIgnored);
                 self.next_token();
                 None
-            }
-            Some(Token::End) => {
-                let ct = self.save_spannedtoken();
-                self.next_token();
-                Some(Statement::End(EndStatement::new(ct)))
             }
             /*
             Some(Token::Begin) => {

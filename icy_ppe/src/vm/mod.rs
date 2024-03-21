@@ -630,7 +630,7 @@ impl<'a> VirtualMachine<'a> {
                 if proc.opcode == OpCode::POP {
                     for arg in arguments {
                         if let Some(val) = self.push_pop_stack.pop() {
-                            self.set_variable(arg, val);
+                            self.set_variable(arg, val)?;
                         } else {
                             return Err(VMError::PushPopStackEmpty);
                         }

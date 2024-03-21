@@ -19,6 +19,11 @@ pub fn invalid(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()>
     panic!("Invalid statement");
 }
 
+pub fn end(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
+    vm.is_running = false;
+    Ok(())
+}
+
 pub fn cls(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     vm.ctx.print(TerminalTarget::Both, "\x1B[2J")
 }

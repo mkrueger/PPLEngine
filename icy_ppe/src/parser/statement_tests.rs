@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use crate::{
     ast::{
         BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
-        ContinueStatement, ElseBlock, ElseIfBlock, EndStatement, ForStatement, GosubStatement,
-        GotoStatement, IdentifierExpression, IfStatement, IfThenStatement, LabelStatement,
-        LetStatement, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement,
-        UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement,
+        ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, GosubStatement, GotoStatement,
+        IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
+        PredefinedCallStatement, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+        UnaryOp, WhileDoStatement, WhileStatement,
     },
     executable::OpCode,
 };
@@ -49,11 +49,6 @@ fn check_statement_without_eol(input: &str, check: &Statement) {
 #[test]
 fn test_parse_comment_statement() {
     check_statement(";FOO", &CommentAstNode::create_empty_statement("FOO"));
-}
-
-#[test]
-fn test_parse_end_statement() {
-    check_statement("END", &EndStatement::create_empty_statement());
 }
 
 #[test]

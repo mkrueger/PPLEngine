@@ -13,7 +13,6 @@ use super::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Comment(CommentAstNode),
-    End(EndStatement),
     Block(BlockStatement),
 
     If(IfStatement),
@@ -40,7 +39,6 @@ impl Statement {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
             Statement::Comment(s) => visitor.visit_comment(s),
-            Statement::End(s) => visitor.visit_end_statement(s),
             Statement::Block(s) => visitor.visit_block_statement(s),
             Statement::If(s) => visitor.visit_if_statement(s),
             Statement::IfThen(s) => visitor.visit_if_then_statement(s),
@@ -65,7 +63,6 @@ impl Statement {
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         match self {
             Statement::Comment(s) => visitor.visit_comment_statement(s),
-            Statement::End(s) => visitor.visit_end_statement(s),
             Statement::Block(s) => visitor.visit_block_statement(s),
             Statement::If(s) => visitor.visit_if_statement(s),
             Statement::IfThen(s) => visitor.visit_if_then_statement(s),
@@ -94,7 +91,6 @@ impl Statement {
     pub fn is_similar(&self, check: &Statement) -> bool {
         match (self, check) {
             (Statement::Comment(c1), Statement::Comment(c2)) => c1.get_comment() == c2.get_comment(),
-            (Statement::End(_), Statement::End(_)) |
             (Statement::Return(_), Statement::Return(_)) |
             (Statement::Break(_), Statement::Break(_)) |
             (Statement::Continue(_), Statement::Continue(_)) => true,
@@ -305,37 +301,6 @@ impl fmt::Display for CommentAstNode {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct EndStatement {
-    end_token: SpannedToken,
-}
-
-impl EndStatement {
-    pub fn new(end_token: SpannedToken) -> Self {
-        Self { end_token }
-    }
-
-    pub fn empty() -> Self {
-        Self {
-            end_token: SpannedToken::create_empty(Token::End),
-        }
-    }
-
-    pub fn get_end_token(&self) -> &SpannedToken {
-        &self.end_token
-    }
-
-    pub fn create_empty_statement() -> Statement {
-        Statement::End(EndStatement::empty())
-    }
-}
-
-impl fmt::Display for EndStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "End")
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct BreakStatement {
     break_token: SpannedToken,
 }
@@ -454,7 +419,9 @@ impl BlockStatement {
                 "BEGIN".to_string(),
             ))),
             statements,
-            end_token: SpannedToken::create_empty(Token::End),
+            end_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+                "END".to_string(),
+            ))),
         }
     }
 

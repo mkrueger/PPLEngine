@@ -153,7 +153,6 @@ pub enum Token {
     Procedure,
     EndProc,
     EndFunc,
-    End,
 
     Const(Constant),
 }
@@ -186,7 +185,6 @@ impl Token {
                 | Token::Procedure
                 | Token::EndProc
                 | Token::EndFunc
-                | Token::End
         )
     }
 
@@ -223,7 +221,6 @@ impl fmt::Display for Token {
             Token::Label(s) => write!(f, ":{s}"),
 
             Token::Let => write!(f, "LET"),
-            Token::End => write!(f, "END"),
             Token::While => write!(f, "WHILE"),
             Token::EndWhile => write!(f, "ENDWHILE"),
             Token::If => write!(f, "IF"),
@@ -294,7 +291,6 @@ lazy_static::lazy_static! {
         m.insert(unicase::Ascii::new("break".to_string()), Token::Break);
         m.insert(unicase::Ascii::new("continue".to_string()), Token::Continue);
         m.insert(unicase::Ascii::new("return".to_string()), Token::Return);
-        m.insert(unicase::Ascii::new("end".to_string()), Token::End);
 
         m.insert(unicase::Ascii::new("gosub".to_string()), Token::Gosub);
         m.insert(unicase::Ascii::new("goto".to_string()), Token::Goto);

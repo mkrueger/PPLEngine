@@ -304,7 +304,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         name: "END",
         opcode: OpCode::END,
         sig: StatementSignature::ArgumentsWithVariable(0, 0),
-        function: predefined_procedures::invalid,
+        function: predefined_procedures::end,
     },
     StatementDefinition {
         name: "Cls",

@@ -195,7 +195,7 @@ impl Parser {
 
         if let Some(token) = self.lex.next_token() {
             let is_else = token == Token::Else;
-            let is_end = token == Token::End;
+            let is_end = token == Token::Identifier(Ascii::new("END".to_string()));
             let is_case = token == Token::Case;
             self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
 

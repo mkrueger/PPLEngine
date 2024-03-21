@@ -2,14 +2,13 @@ use crate::parser::lexer::{SpannedToken, Token};
 
 use super::{
     AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
-    CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, EndStatement,
-    Expression, ForStatement, FunctionCallExpression, FunctionDeclarationAstNode,
-    FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
-    IfThenStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
-    PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
-    ProcedureDeclarationAstNode, ProcedureImplementation, Program, ReturnStatement,
-    SelectStatement, Statement, UnaryExpression, VariableDeclarationStatement, VariableSpecifier,
-    WhileDoStatement, WhileStatement,
+    CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, Expression,
+    ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
+    GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement,
+    LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement,
+    PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
+    ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+    VariableDeclarationStatement, VariableSpecifier, WhileDoStatement, WhileStatement,
 };
 
 #[allow(unused_variables)]
@@ -45,9 +44,6 @@ pub trait AstVisitor<T: Default>: Sized {
 
     // visit statements
     fn visit_comment(&mut self, comment: &CommentAstNode) -> T {
-        T::default()
-    }
-    fn visit_end_statement(&mut self, end: &EndStatement) -> T {
         T::default()
     }
     fn visit_block_statement(&mut self, block: &BlockStatement) -> T {
@@ -378,9 +374,6 @@ pub trait AstVisitorMut: Sized {
         Statement::Comment(comment.clone())
     }
 
-    fn visit_end_statement(&mut self, end: &EndStatement) -> Statement {
-        Statement::End(EndStatement::empty())
-    }
     fn visit_block_statement(&mut self, block: &BlockStatement) -> Statement {
         Statement::Block(BlockStatement::empty(
             block

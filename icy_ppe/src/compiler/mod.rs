@@ -437,7 +437,6 @@ impl PPECompiler {
 
     fn compile_statement(&mut self, s: &Statement) -> Option<PPECommand> {
         match s {
-            Statement::End(_) => Some(PPECommand::End),
             Statement::Return(_) => Some(PPECommand::Return),
             Statement::Comment(_) => None,
 

@@ -130,10 +130,6 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push_str(comment.get_comment());
     }
 
-    fn visit_end_statement(&mut self, _end: &super::EndStatement) {
-        self.output_keyword("End");
-    }
-
     fn visit_block_statement(&mut self, block: &super::BlockStatement) {
         self.output_keyword("Begin");
         self.eol();

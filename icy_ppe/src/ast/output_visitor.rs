@@ -544,7 +544,7 @@ impl AstVisitor<()> for OutputVisitor {
         self.eol();
     }
 
-    fn visit_program(&mut self, program: &super::Program) {
+    fn visit_program(&mut self, program: &super::Ast) {
         for stmt in &program.nodes {
             stmt.visit(self);
             self.eol();

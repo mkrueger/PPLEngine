@@ -55,7 +55,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         let def = &FUNCTION_DEFINITIONS[predef as usize];
 
         PPEExpr::PredefinedFunctionCall(
-            def,
+            def.opcode.get_definition(), // to de-alias aliases
             call.get_arguments().iter().map(|e| e.visit(self)).collect(),
         )
     }

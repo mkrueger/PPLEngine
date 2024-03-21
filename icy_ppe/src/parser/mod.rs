@@ -7,9 +7,9 @@ use std::{
 
 use crate::{
     ast::{
-        AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
+        Ast, AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
         FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Program, Statement, VariableSpecifier,
+        ProcedureImplementation, Statement, VariableSpecifier,
     },
     executable::{FunctionDefinition, StatementDefinition, VariableType},
     tables::CP437_TO_UNICODE,
@@ -24,6 +24,8 @@ pub mod lexer;
 mod statements;
 
 #[cfg(test)]
+mod declaration_tests;
+#[cfg(test)]
 mod expr_tests;
 #[cfg(test)]
 mod lexer_tests;
@@ -36,9 +38,6 @@ mod statement_tests;
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum ParserErrorType {
     #[default]
-    #[error("Parser Error")]
-    GenericError,
-
     #[error("Unexpected error (should never happen)")]
     UnexpectedError,
 
@@ -120,8 +119,8 @@ pub enum ParserErrorType {
     #[error("Expected 'THEN', got '{0}'")]
     ThenExpected(Token),
 
-    #[error("Expected 'CASE' keyword after 'SELECT', got '{0}'")]
-    CaseExpectedAfterSelect(Token),
+    #[error("Missing CASE keyword in SELECT CASE statement")]
+    CaseExpectedAfterSelect,
 
     #[error("IF/WHILE requires a conditional expression to evaluate")]
     IfWhileConditionNotFound,
@@ -164,6 +163,12 @@ pub struct Parser {
     lookahead_token: Option<SpannedToken>,
 
     lex: Lexer,
+
+    // parser state
+    use_funcs: bool,
+    parsed_begin: bool,
+    got_statement: bool,
+    got_funcs: bool,
 }
 lazy_static::lazy_static! {
     static ref PROC_TOKEN: unicase::Ascii<String> = unicase::Ascii::new("PROC".to_string());
@@ -181,6 +186,11 @@ impl Parser {
             lookahead_token: None,
             lex,
             require_user_variables: false,
+
+            use_funcs: false,
+            parsed_begin: false,
+            got_statement: false,
+            got_funcs: false,
         }
     }
 
@@ -322,6 +332,86 @@ impl Parser {
             self.next_token();
         }
     }
+
+    fn parse_ast_node(&mut self) -> Option<AstNode> {
+        let Some(cur_token) = &self.cur_token else {
+            return None;
+        };
+        match cur_token.token {
+            Token::Eol => {
+                self.next_token();
+            }
+            Token::Function => {
+                if let Some(func) = self.parse_function() {
+                    self.got_funcs = true;
+                    return Some(AstNode::Function(func));
+                }
+            }
+            Token::Procedure => {
+                if let Some(func) = self.parse_procedure() {
+                    self.got_funcs = true;
+                    return Some(AstNode::Procedure(func));
+                }
+            }
+            Token::Declare => {
+                if let Some(decl) = self.parse_declaration() {
+                    return Some(decl);
+                }
+            }
+            Token::UseFuncs(_, _) => {
+                if self.use_funcs {
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_warning(self.lex.span(), ParserWarningType::UsefuncsAlreadySet);
+                }
+                if self.got_statement {
+                    self.errors
+                        .lock()
+                        .unwrap()
+                        .report_error(self.lex.span(), ParserErrorType::UsefuncAfterStatement);
+                    self.next_token();
+                    return None;
+                }
+                self.use_funcs = true;
+                let cmt = self.save_spannedtoken();
+                self.next_token();
+                return Some(AstNode::Statement(Statement::Comment(CommentAstNode::new(
+                    cmt,
+                ))));
+            }
+            _ => {
+                let stmt = self.parse_statement();
+                if let Some(stmt) = stmt {
+                    if let Statement::Label(label) = &stmt {
+                        if *label.get_label() == *statements::BEGIN_LABEL {
+                            self.parsed_begin = true;
+                        }
+                    }
+
+                    if self.use_funcs && !self.parsed_begin {
+                        self.report_error(
+                            self.lex.span(),
+                            ParserErrorType::NoStatementsAllowedOutsideBlock,
+                        );
+                        return None;
+                    }
+                    if self.got_funcs && !self.use_funcs {
+                        self.report_error(
+                            self.lex.span(),
+                            ParserErrorType::NoStatementsAfterFunctions,
+                        );
+                        return None;
+                    }
+                    if !self.got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
+                        self.got_statement = true;
+                    }
+                    return Some(AstNode::Statement(stmt));
+                }
+            }
+        }
+        None
+    }
 }
 
 lazy_static::lazy_static! {
@@ -421,7 +511,7 @@ impl Parser {
             dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
             self.next_token();
 
-            if let Some(Token::Comma) = &self.get_cur_token() {
+            while let Some(Token::Comma) = &self.get_cur_token() {
                 self.next_token();
                 let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
                     self.report_error(
@@ -433,20 +523,8 @@ impl Parser {
                 };
                 dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
                 self.next_token();
+            }
 
-                if let Some(Token::Comma) = &self.get_cur_token() {
-                    let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
-                        self.report_error(
-                            self.lex.span(),
-                            ParserErrorType::NumberExpected(self.save_token()),
-                        );
-
-                        return None;
-                    };
-                    dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
-                    self.next_token();
-                }
-            };
             if dimensions.len() > 3 {
                 self.report_error(
                     self.lex.span(),
@@ -878,101 +956,24 @@ impl Parser {
 /// # Panics
 ///
 /// Panics if .
-pub fn parse_program(
+pub fn parse_ast(
     file_name: PathBuf,
     input: &str,
     encoding: Encoding,
-) -> (Program, Arc<Mutex<ErrorRepoter>>) {
+) -> (Ast, Arc<Mutex<ErrorRepoter>>) {
     let mut nodes = Vec::new();
     let mut parser = Parser::new(file_name.clone(), input, encoding);
     parser.next_token();
     parser.skip_eol();
-    let mut use_funcs = false;
-    let mut parsed_begin = false;
-    let mut got_statement = false;
-    let mut got_funcs = false;
 
-    while let Some(cur_token) = &parser.cur_token {
-        match cur_token.token {
-            Token::Function => {
-                if let Some(func) = parser.parse_function() {
-                    got_funcs = true;
-                    nodes.push(AstNode::Function(func));
-                }
-            }
-            Token::Procedure => {
-                if let Some(func) = parser.parse_procedure() {
-                    got_funcs = true;
-                    nodes.push(AstNode::Procedure(func));
-                }
-            }
-            Token::Declare => {
-                if let Some(decl) = parser.parse_declaration() {
-                    nodes.push(decl);
-                }
-            }
-            Token::Comment(_, _) => {
-                let cmt = parser.save_spannedtoken();
-                nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
-            }
-            Token::UseFuncs(_, _) => {
-                if use_funcs {
-                    parser
-                        .errors
-                        .lock()
-                        .unwrap()
-                        .report_warning(parser.lex.span(), ParserWarningType::UsefuncsAlreadySet);
-                }
-                if got_statement {
-                    parser
-                        .errors
-                        .lock()
-                        .unwrap()
-                        .report_error(parser.lex.span(), ParserErrorType::UsefuncAfterStatement);
-                    parser.next_token();
-                    continue;
-                }
-                use_funcs = true;
-                let cmt = parser.save_spannedtoken();
-                nodes.push(AstNode::Comment(CommentAstNode::new(cmt)));
-            }
-            Token::Eol => {}
-            _ => {
-                let stmt = parser.parse_statement();
-                if let Some(stmt) = stmt {
-                    if let Statement::Label(label) = &stmt {
-                        if *label.get_label() == *statements::BEGIN_LABEL {
-                            parsed_begin = true;
-                        }
-                    }
-
-                    if use_funcs && !parsed_begin {
-                        parser.report_error(
-                            parser.lex.span(),
-                            ParserErrorType::NoStatementsAllowedOutsideBlock,
-                        );
-                        break;
-                    }
-                    if got_funcs && !use_funcs {
-                        parser.report_error(
-                            parser.lex.span(),
-                            ParserErrorType::NoStatementsAfterFunctions,
-                        );
-                        break;
-                    }
-                    if !got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
-                        got_statement = true;
-                    }
-                    nodes.push(AstNode::Statement(stmt));
-                }
-            }
+    while parser.cur_token.is_some() {
+        if let Some(node) = parser.parse_ast_node() {
+            nodes.push(node);
         }
-
-        parser.next_token();
     }
 
     (
-        Program {
+        Ast {
             nodes,
             file_name,
             require_user_variables: parser.require_user_variables,

@@ -296,7 +296,6 @@ impl PPEDeserializer {
                 }
                 let func = -id as usize;
                 let func_def = &FUNCTION_DEFINITIONS[func];
-
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;

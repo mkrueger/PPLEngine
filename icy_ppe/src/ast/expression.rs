@@ -75,6 +75,26 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn get_span(&self) -> core::ops::Range<usize> {
+        match self {
+            Expression::Identifier(i) => i.get_identifier_token().span.clone(),
+            Expression::Const(c) => c.get_constant_token().span.clone(),
+            Expression::Parens(p) => {
+                p.get_lpar_token_token().span.start..p.get_rpar_token_token().span.end
+            }
+            Expression::PredefinedFunctionCall(pc) => {
+                pc.get_identifier_token().span.start..pc.get_rpar_token_token().span.end
+            }
+            Expression::FunctionCall(fc) => {
+                fc.get_identifier_token().span.start..fc.get_rpar_token_token().span.end
+            }
+            Expression::Unary(u) => u.get_op_token().span.start..u.get_expression().get_span().end,
+            Expression::Binary(b) => {
+                b.get_left_expression().get_span().start..b.get_right_expression().get_span().end
+            }
+        }
+    }
+
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
             Expression::Identifier(expr) => visitor.visit_identifier_expression(expr),

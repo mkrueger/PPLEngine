@@ -1,10 +1,10 @@
 use crate::ast::{
-    AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, Expression,
+    Ast, AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, Expression,
     FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement,
     GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
     ParameterSpecifier, ParensExpression, PredefinedCallStatement,
     PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-    ProcedureImplementation, Program, ReturnStatement, Statement, UnaryExpression, UnaryOp,
+    ProcedureImplementation, ReturnStatement, Statement, UnaryExpression, UnaryOp,
     VariableDeclarationStatement, VariableSpecifier, WhileStatement,
 };
 use crate::executable::{
@@ -29,8 +29,8 @@ struct FuncL {
 
 /// # Errors
 ///
-pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Program> {
-    let mut prg = Program::new();
+pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Ast> {
+    let mut prg = Ast::new();
     prg.file_name = PathBuf::from(file_name);
     let mut d = Decompiler::new(read_file(file_name, print_header_information)?);
     d.do_pass1();
@@ -97,7 +97,7 @@ impl Decompiler {
         }
     }
 
-    pub fn output_stmt(&mut self, prg: &mut Program, stmt: Statement) {
+    pub fn output_stmt(&mut self, prg: &mut Ast, stmt: Statement) {
         match prg.nodes.last_mut() {
             Some(crate::ast::AstNode::Function(decl)) => {
                 if self.func_flag > 0 && decl.id == self.func_flag {
@@ -289,7 +289,7 @@ impl Decompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn generate_variable_declarations(&mut self, prg: &mut Program) {
+    pub fn generate_variable_declarations(&mut self, prg: &mut Ast) {
         self.name_variables();
 
         if self.symbol == 0 {
@@ -355,7 +355,7 @@ impl Decompiler {
         }
     }
 
-    fn output_func(&mut self, prg: &mut Program, func: usize) {
+    fn output_func(&mut self, prg: &mut Ast, func: usize) {
         let func_name = self.get_var(func).get_name().clone();
         let mut func_parameters = vec![];
         unsafe {
@@ -387,7 +387,7 @@ impl Decompiler {
         }
     }
 
-    fn output_proc(&mut self, prg: &mut Program, proc: usize) {
+    fn output_proc(&mut self, prg: &mut Ast, proc: usize) {
         let proc_name = self.get_var(proc).get_name().clone();
         unsafe {
             let param_flags = self.get_var(proc).value.data.procedure_value.pass_flags;
@@ -423,7 +423,7 @@ impl Decompiler {
         self.func_used.insert(label, FuncL { func });
     }
 
-    fn funcout(&mut self, prg: &mut Program, label: usize) {
+    fn funcout(&mut self, prg: &mut Ast, label: usize) {
         if let Some(funcl) = self.func_used.get(&label) {
             let func = funcl.func;
             self.func_flag = 0;
@@ -439,7 +439,7 @@ impl Decompiler {
         }
     }
 
-    fn get_function_mut(prg: &mut Program, func: usize) -> Option<&mut FunctionImplementation> {
+    fn get_function_mut(prg: &mut Ast, func: usize) -> Option<&mut FunctionImplementation> {
         for f in &mut prg.nodes {
             if let crate::ast::AstNode::Function(decl) = f {
                 if decl.id == func {
@@ -450,7 +450,7 @@ impl Decompiler {
         None
     }
 
-    fn get_procedure_mut(prg: &mut Program, func: usize) -> Option<&mut ProcedureImplementation> {
+    fn get_procedure_mut(prg: &mut Ast, func: usize) -> Option<&mut ProcedureImplementation> {
         for f in &mut prg.nodes {
             if let crate::ast::AstNode::Procedure(decl) = f {
                 if decl.id == func {
@@ -461,7 +461,7 @@ impl Decompiler {
         None
     }
 
-    fn dump_locs(&mut self, prg: &mut Program, func: usize) {
+    fn dump_locs(&mut self, prg: &mut Ast, func: usize) {
         let mut i;
         let mx_var;
         let mut j = 0;
@@ -559,7 +559,7 @@ impl Decompiler {
         }
     }
 
-    fn labelout(&mut self, prg: &mut Program, label: usize) {
+    fn labelout(&mut self, prg: &mut Ast, label: usize) {
         if let Some(x) = self.label_used.get(&label) {
             let label_stmt = LabelStatement::create_empty_statement(unicase::Ascii::new(format!(
                 "LABEL{x:>03}"
@@ -1107,12 +1107,7 @@ impl Decompiler {
         }
     }
 
-    fn outputpass2(
-        &mut self,
-        prg: &mut Program,
-        if_while_stack: &mut Vec<OpCode>,
-        stmt: Statement,
-    ) {
+    fn outputpass2(&mut self, prg: &mut Ast, if_while_stack: &mut Vec<OpCode>, stmt: Statement) {
         if if_while_stack.is_empty() {
             self.output_stmt(prg, stmt);
         } else {
@@ -1142,7 +1137,7 @@ impl Decompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn do_pass2(&mut self, prg: &mut Program) {
+    pub fn do_pass2(&mut self, prg: &mut Ast) {
         self.cur_stmt = -1;
         self.next_label = 0;
         self.next_func = 0;
@@ -1451,19 +1446,22 @@ impl Decompiler {
 }
 
 #[must_use]
-pub fn decompile(executable: Executable, raw: bool) -> Program {
-    let mut prg = Program::new();
+pub fn decompile(executable: Executable, raw: bool) -> Ast {
+    let mut prg = Ast::new();
     let mut d = Decompiler::new(executable);
 
-    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
-        "-----------------------------------------",
-    )));
-    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
-        " PCBoard programming language decompiler ",
-    )));
-    prg.nodes.push(AstNode::Comment(CommentAstNode::empty(
-        "-----------------------------------------",
-    )));
+    prg.nodes
+        .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+            "-----------------------------------------",
+        )));
+    prg.nodes
+        .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+            " PCBoard programming language decompiler ",
+        )));
+    prg.nodes
+        .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+            "-----------------------------------------",
+        )));
 
     d.do_pass1();
     d.generate_variable_declarations(&mut prg);

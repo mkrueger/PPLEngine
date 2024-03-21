@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
-use icy_ppe::ast::{AstVisitor, Program};
+use icy_ppe::ast::{Ast, AstVisitor};
 use icy_ppe::executable::OpCode;
-use icy_ppe::parser::{parse_program, Encoding};
+use icy_ppe::parser::{parse_ast, Encoding};
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ppl_language_server::{ImCompleteSemanticToken, LANGUAGE_LOADER};
 use ropey::Rope;
@@ -18,7 +18,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 #[derive(Debug)]
 struct Backend {
     client: Client,
-    ast_map: DashMap<String, Program>,
+    ast_map: DashMap<String, Ast>,
     document_map: DashMap<String, Rope>,
     semantic_token_map: DashMap<String, Vec<ImCompleteSemanticToken>>,
 }
@@ -504,7 +504,7 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         let uri = params.uri.to_string();
         self.document_map.insert(uri.clone(), rope.clone());
-        let (prg, errors) = parse_program(PathBuf::from(uri), &params.text, Encoding::Utf8);
+        let (prg, errors) = parse_ast(PathBuf::from(uri), &params.text, Encoding::Utf8);
         let semantic_tokens = semantic_token_from_ast(&prg);
 
         let mut diagnostics = Vec::new();
@@ -586,7 +586,7 @@ fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     Some(Position::new(line as u32, column as u32))
 }
 
-fn get_tooltip(ast: &Program, offset: usize) -> Option<Hover> {
+fn get_tooltip(ast: &Ast, offset: usize) -> Option<Hover> {
     let mut visitor = TooltipVisitor {
         tooltip: None,
         offset,

@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use crate::{
     ast::{
         BreakStatement, CaseBlock, CaseSpecifier, CommentAstNode, Constant, ConstantExpression,
-        ContinueStatement, ElseBlock, ElseIfBlock, ForStatement, GosubStatement, GotoStatement,
-        IdentifierExpression, IfStatement, IfThenStatement, LabelStatement, LetStatement,
-        ParensExpression, PredefinedCallStatement, ReturnStatement, SelectStatement, Statement,
-        UnaryExpression, UnaryOp, WhileDoStatement, WhileStatement,
+        ContinueStatement, ElseBlock, ElseIfBlock, ForStatement,
+        GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement,
+        LabelStatement, LetStatement, ParensExpression, PredefinedCallStatement, ReturnStatement,
+        SelectStatement, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
+        VariableSpecifier, WhileDoStatement, WhileStatement,
     },
-    executable::OpCode,
+    executable::{OpCode, VariableType},
 };
 
 use super::{Encoding, Parser};
@@ -16,7 +17,9 @@ use super::{Encoding, Parser};
 fn parse_statement(input: &str, assert_eof: bool) -> Statement {
     let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
     parser.next_token();
-    let res = parser.parse_statement().unwrap();
+    let res = parser
+        .parse_statement()
+        .expect("Failed to parse statement: {}");
     if assert_eof {
         assert!(parser.get_cur_token().is_none());
     }
@@ -34,6 +37,7 @@ fn check_statement(input: &str, check: &Statement) {
         panic!();
     }
 }
+
 fn check_statement_without_eol(input: &str, check: &Statement) {
     let stmt = parse_statement(input, false);
 
@@ -714,6 +718,241 @@ fn check_let_with_keywords() {
                 ConstantExpression::create_empty_expression(Constant::Integer(3)),
             ],
             ConstantExpression::create_empty_expression(Constant::Integer(5)),
+        ),
+    );
+}
+
+#[test]
+fn test_variable_declaration_statement() {
+    check_statement(
+        "BOOLEAN VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Boolean,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "INTEGER VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Integer,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Money VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Money,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Money VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Money,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "String VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::String,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Time VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Time,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Date VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Date,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "DDate VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::DDate,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Byte VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Byte,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "UByte VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Byte,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Word VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Word,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "SByte VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::SByte,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "SWord VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::SWord,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "BigStr VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::BigStr,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Real VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Float,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Float VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Float,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "DReal VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Double,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+
+    check_statement(
+        "Double VAR001",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Double,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("VAR001".to_string()),
+                vec![],
+            )],
+        ),
+    );
+}
+
+#[test]
+fn test_dim_variable_declaration_statement() {
+    check_statement(
+        "INTEGER A(4)",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Integer,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("A".to_string()),
+                vec![4],
+            )],
+        ),
+    );
+    check_statement(
+        "INTEGER A(4, 5)",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Integer,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("A".to_string()),
+                vec![4, 5],
+            )],
+        ),
+    );
+    check_statement(
+        "INTEGER A(4, 5, 6)",
+        &VariableDeclarationStatement::create_empty_statement(
+            VariableType::Integer,
+            vec![VariableSpecifier::empty(
+                unicase::Ascii::new("A".to_string()),
+                vec![4, 5, 6],
+            )],
         ),
     );
 }

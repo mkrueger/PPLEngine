@@ -217,9 +217,13 @@ impl Statement {
                     return false;
                 }
                 for i in 0..v1.get_variables().len() {
-                    if v1.get_variables()[i].get_identifier() != v2.get_variables()[i].get_identifier() ||
-                    v1.get_variables()[i].get_dimensions() != v2.get_variables()[i].get_dimensions(){
+                    if v1.get_variables()[i].get_identifier() != v2.get_variables()[i].get_identifier() {
                         return false;
+                    }
+                    for (a, b) in v1.get_variables()[i].get_dimensions().iter().zip(v2.get_variables()[i].get_dimensions().iter()) {
+                        if a.get_dimension() != b.get_dimension() {
+                            return false;
+                        }
                     }
                 }
 

@@ -269,6 +269,16 @@ impl Parser {
                                 ),
                             );
                         }
+                        if (def.args as usize) > arguments.len() {
+                            self.errors.lock().unwrap().report_error(
+                                identifier_token.span.clone(),
+                                ParserErrorType::TooManyArguments(
+                                    identifier_token.token.to_string(),
+                                    arguments.len(),
+                                    def.args,
+                                ),
+                            );
+                        }
                         return Some(Expression::PredefinedFunctionCall(
                             PredefinedFunctionCallExpression::new(
                                 identifier_token,

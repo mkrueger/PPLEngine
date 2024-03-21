@@ -333,7 +333,7 @@ impl FunctionDefinition {
     }
 }
 
-pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 293] = [
+pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 294] = [
     FunctionDefinition {
         name: "END",
         opcode: FuncOpCode::END,
@@ -2093,8 +2093,15 @@ pub static FUNCTION_DEFINITIONS: [FunctionDefinition; 293] = [
         args: 0x01,
         function: predefined_functions::tosword,
     },
+    FunctionDefinition {
+        name: "ToDWord",
+        opcode: FuncOpCode::TOUNSIGNED,
+        args: 0x01,
+        function: predefined_functions::tounsigned,
+    },
 ];
 
+/*
 #[test]
 fn convert_definitions() {
     for def in &FUNCTION_DEFINITIONS {
@@ -2117,4 +2124,4 @@ fn convert_definitions() {
         }
         println!(" }},");
     }
-}
+}*/

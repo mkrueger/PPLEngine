@@ -3,7 +3,7 @@ use clap::Parser;
 use icy_ppe::{
     compiler::PPECompiler,
     executable::LAST_PPLC,
-    parser::{load_with_encoding, parse_program, Encoding},
+    parser::{load_with_encoding, parse_ast, Encoding},
 };
 use semver::Version;
 use std::{
@@ -68,7 +68,7 @@ fn main() {
 
     println!();
     println!("Parsing...");
-    let (mut prg, errors) = parse_program(PathBuf::from(&file_name), &src, encoding);
+    let (mut prg, errors) = parse_ast(PathBuf::from(&file_name), &src, encoding);
     if arguments.nouvar {
         prg.require_user_variables = false;
     }

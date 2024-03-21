@@ -1,13 +1,13 @@
 use crate::parser::lexer::{SpannedToken, Token};
 
 use super::{
-    AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
+    Ast, AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
     CommentAstNode, ConstantExpression, ContinueStatement, ElseBlock, ElseIfBlock, Expression,
     ForStatement, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation,
     GosubStatement, GotoStatement, IdentifierExpression, IfStatement, IfThenStatement,
     LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement,
     PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-    ProcedureImplementation, Program, ReturnStatement, SelectStatement, Statement, UnaryExpression,
+    ProcedureImplementation, ReturnStatement, SelectStatement, Statement, UnaryExpression,
     VariableDeclarationStatement, VariableSpecifier, WhileDoStatement, WhileStatement,
 };
 
@@ -144,13 +144,13 @@ pub trait AstVisitor<T: Default>: Sized {
         T::default()
     }
 
-    fn visit_program(&mut self, program: &Program) -> T {
+    fn visit_program(&mut self, program: &Ast) -> T {
         walk_program(self, program);
         T::default()
     }
 }
 
-pub fn walk_program<T: Default, V: AstVisitor<T>>(visitor: &mut V, program: &Program) {
+pub fn walk_program<T: Default, V: AstVisitor<T>>(visitor: &mut V, program: &Ast) {
     for node in &program.nodes {
         node.visit(visitor);
     }
@@ -371,9 +371,6 @@ pub trait AstVisitorMut: Sized {
     }
 
     // visit statements
-    fn visit_comment(&mut self, comment: &CommentAstNode) -> AstNode {
-        AstNode::Comment(comment.clone())
-    }
 
     fn visit_comment_statement(&mut self, comment: &CommentAstNode) -> Statement {
         Statement::Comment(comment.clone())
@@ -714,8 +711,8 @@ pub trait AstVisitorMut: Sized {
         ))
     }
 
-    fn visit_program(&mut self, program: &Program) -> Program {
-        let mut new_program = Program::new();
+    fn visit_program(&mut self, program: &Ast) -> Ast {
+        let mut new_program = Ast::new();
         new_program.file_name = program.file_name.clone();
         for node in &program.nodes {
             new_program.nodes.push(node.visit_mut(self));

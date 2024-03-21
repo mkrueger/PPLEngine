@@ -5,11 +5,11 @@ use crate::ast::{
 };
 
 use super::{
-    constant_scan_visitor::ConstantScanVisitor, rename_visitor::RenameScanVistitor, Expression,
-    HashSet, Program, Statement,
+    constant_scan_visitor::ConstantScanVisitor, rename_visitor::RenameScanVistitor, Ast,
+    Expression, HashSet, Statement,
 };
 
-pub fn do_pass3(prg: &mut Program, statements: &mut Vec<Statement>) {
+pub fn do_pass3(prg: &mut Ast, statements: &mut Vec<Statement>) {
     optimize_block(statements);
     let mut p = usize::MAX;
 
@@ -862,7 +862,7 @@ fn strip_unused_labels2(
 }
 
 #[must_use]
-pub fn do_pass4(prg: &mut Program) -> Program {
+pub fn do_pass4(prg: &mut Ast) -> Ast {
     let mut scanner = RenameScanVistitor::default();
     prg.visit(&mut scanner);
     let prg = prg.visit_mut(&mut ConstantScanVisitor::default());

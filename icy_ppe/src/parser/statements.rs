@@ -432,8 +432,8 @@ impl Parser {
 
         if self.get_cur_token() != Some(Token::Case) {
             self.report_error(
-                self.lex.span(),
-                ParserErrorType::CaseExpectedAfterSelect(self.save_token()),
+                select_token.span.start..self.lex.span().end,
+                ParserErrorType::CaseExpectedAfterSelect,
             );
             return None;
         }
@@ -813,20 +813,21 @@ impl Parser {
                 value_expression,
             )));
         }
-        // check 'pseudo keywords'
-        if *identifier == *QUIT_TOKEN {
-            println!("parse qit !!!");
-            return Some(Statement::Break(BreakStatement::new(id_token)));
-        }
-        if *identifier == *LOOP_TOKEN {
-            return Some(Statement::Continue(ContinueStatement::new(id_token)));
-        }
+        if self.get_cur_token() != Some(Token::LPar) {
+            // check 'pseudo keywords'
+            if *identifier == *QUIT_TOKEN {
+                return Some(Statement::Break(BreakStatement::new(id_token)));
+            }
+            if *identifier == *LOOP_TOKEN {
+                return Some(Statement::Continue(ContinueStatement::new(id_token)));
+            }
 
-        if *identifier == *BEGIN_TOKEN {
-            return Some(Statement::Label(LabelStatement::new(SpannedToken {
-                token: Token::Label(BEGIN_LABEL.clone()),
-                span: id_token.span,
-            })));
+            if *identifier == *BEGIN_TOKEN {
+                return Some(Statement::Label(LabelStatement::new(SpannedToken {
+                    token: Token::Label(BEGIN_LABEL.clone()),
+                    span: id_token.span,
+                })));
+            }
         }
         if let Some(def) = StatementDefinition::get_statement_definition(identifier) {
             let mut params = Vec::new();

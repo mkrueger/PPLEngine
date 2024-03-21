@@ -177,6 +177,26 @@ impl VariableSpecifier {
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         visitor.visit_variable_specifier(self)
     }
+
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn is_similar(&self, check: &VariableSpecifier) -> bool {
+        if self.get_identifier() != check.get_identifier() {
+            return false;
+        }
+        if self.get_dimensions().len() != check.get_dimensions().len() {
+            return false;
+        }
+        for (i, dim) in self.get_dimensions().iter().enumerate() {
+            if dim.get_dimension() != check.get_dimensions()[i].get_dimension() {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -410,6 +430,15 @@ impl ProcedureDeclarationAstNode {
     pub fn get_rightpar_token(&self) -> &SpannedToken {
         &self.rightpar_token
     }
+
+    pub fn empty_node(
+        identifier: unicase::Ascii<String>,
+        parameters: Vec<ParameterSpecifier>,
+    ) -> super::AstNode {
+        super::AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::empty(
+            identifier, parameters,
+        ))
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -518,5 +547,17 @@ impl FunctionDeclarationAstNode {
 
     pub fn get_return_type(&self) -> VariableType {
         self.return_type
+    }
+
+    pub fn empty_node(
+        identifier: unicase::Ascii<String>,
+        parameters: Vec<ParameterSpecifier>,
+        return_type: VariableType,
+    ) -> super::AstNode {
+        super::AstNode::FunctionDeclaration(FunctionDeclarationAstNode::empty(
+            identifier,
+            parameters,
+            return_type,
+        ))
     }
 }

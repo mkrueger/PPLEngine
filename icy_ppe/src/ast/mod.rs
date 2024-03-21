@@ -1,4 +1,6 @@
 pub mod constant;
+use std::fmt;
+
 pub use self::constant::Constant;
 
 pub mod expression;
@@ -10,8 +12,8 @@ pub use self::statement::*;
 pub mod declaration;
 pub use self::declaration::*;
 
-pub mod program;
-pub use self::program::*;
+pub mod syntax_tree;
+pub use self::syntax_tree::*;
 
 pub mod visitor;
 pub use self::visitor::*;
@@ -27,7 +29,6 @@ use crate::parser::lexer::{SpannedToken, Token};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
-    Comment(CommentAstNode),
     Function(FunctionImplementation),
     Procedure(ProcedureImplementation),
     Statement(Statement),
@@ -38,7 +39,6 @@ pub enum AstNode {
 impl AstNode {
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) -> T {
         match self {
-            AstNode::Comment(c) => visitor.visit_comment(c),
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => s.visit(visitor),
@@ -50,13 +50,121 @@ impl AstNode {
     #[must_use]
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         match self {
-            AstNode::Comment(c) => visitor.visit_comment(c),
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
             AstNode::Statement(s) => AstNode::Statement(s.visit_mut(visitor)),
             AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
             AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
         }
+    }
+
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn is_similar(&self, check: &AstNode) -> bool {
+        match (self, check) {
+            (AstNode::Statement(s1), AstNode::Statement(s2)) => s1.is_similar(s2),
+
+            (AstNode::FunctionDeclaration(f1), AstNode::FunctionDeclaration(f2)) => {
+                if f1.get_identifier() != f2.get_identifier() {
+                    return false;
+                }
+
+                if f1.get_parameters().len() != f2.get_parameters().len() {
+                    return false;
+                }
+
+                for (p1, p2) in f1.get_parameters().iter().zip(f2.get_parameters()) {
+                    if p1.get_variable_type() != p2.get_variable_type() {
+                        return false;
+                    }
+                    if !p1.get_variable().is_similar(p2.get_variable()) {
+                        return false;
+                    }
+                }
+                f1.get_return_type() == f2.get_return_type()
+            }
+            (AstNode::ProcedureDeclaration(p1), AstNode::ProcedureDeclaration(p2)) => {
+                if p1.get_identifier() != p2.get_identifier() {
+                    return false;
+                }
+
+                if p1.get_parameters().len() != p2.get_parameters().len() {
+                    return false;
+                }
+
+                for (p1, p2) in p1.get_parameters().iter().zip(p2.get_parameters()) {
+                    if p1.get_variable_type() != p2.get_variable_type() {
+                        return false;
+                    }
+                    if !p1.get_variable().is_similar(p2.get_variable()) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (AstNode::Function(f1), AstNode::Function(f2)) => {
+                if f1.get_identifier() != f2.get_identifier() {
+                    return false;
+                }
+
+                if f1.get_parameters().len() != f2.get_parameters().len() {
+                    return false;
+                }
+
+                for (p1, p2) in f1.get_parameters().iter().zip(f2.get_parameters()) {
+                    if p1.get_variable_type() != p2.get_variable_type() {
+                        return false;
+                    }
+                    if !p1.get_variable().is_similar(p2.get_variable()) {
+                        return false;
+                    }
+                }
+                for (s1, s2) in f1.get_statements().iter().zip(f2.get_statements()) {
+                    if !s1.is_similar(s2) {
+                        return false;
+                    }
+                }
+                f1.get_return_type() == f2.get_return_type()
+            }
+
+            (AstNode::Procedure(p1), AstNode::Procedure(p2)) => {
+                if p1.get_identifier() != p2.get_identifier() {
+                    return false;
+                }
+
+                if p1.get_parameters().len() != p2.get_parameters().len() {
+                    return false;
+                }
+
+                for (p1, p2) in p1.get_parameters().iter().zip(p2.get_parameters()) {
+                    if p1.get_variable_type() != p2.get_variable_type() {
+                        return false;
+                    }
+                    if !p1.get_variable().is_similar(p2.get_variable()) {
+                        return false;
+                    }
+                }
+                for (s1, s2) in p1.get_statements().iter().zip(p2.get_statements()) {
+                    if !s1.is_similar(s2) {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            _ => false,
+        }
+    }
+}
+
+impl fmt::Display for AstNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut output_visitor = crate::ast::output_visitor::OutputVisitor::default();
+        self.visit(&mut output_visitor);
+        write!(f, "{}", output_visitor.output)
     }
 }
 

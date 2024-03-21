@@ -9,7 +9,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    ast::{AstNode, Constant, Expression, ParameterSpecifier, Program, Statement},
+    ast::{Ast, AstNode, Constant, Expression, ParameterSpecifier, Statement},
     executable::{
         EntryType, Executable, ExpressionNegator, FunctionValue, GenericVariableData, OpCode,
         PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
@@ -17,7 +17,7 @@ use crate::{
     },
     parser::{
         lexer::{SpannedToken, Token},
-        ErrorRepoter,
+        ErrorRepoter, ParserErrorType,
     },
 };
 
@@ -50,6 +50,12 @@ pub enum CompilationErrorType {
 
     #[error("Invalid number of dimension parameters for '{0}' should be {1}. was {2}")]
     InvalidDimensions(String, u8, usize),
+
+    #[error("SORT arguments should be one (1) dimensional arrays ({0})")]
+    SortArgumentDimensionError(u8),
+
+    #[error("Argument {0} should be a variable.")]
+    VariableExpected(usize),
 }
 
 #[derive(Error, Debug)]
@@ -169,7 +175,7 @@ impl PPECompiler {
     /// # Panics
     ///
     /// Panics if .
-    pub fn compile(&mut self, prg: &Program) {
+    pub fn compile(&mut self, prg: &Ast) {
         if prg.require_user_variables {
             self.initialize_user_variables();
         }
@@ -178,7 +184,6 @@ impl PPECompiler {
 
         for d in &prg.nodes {
             match d {
-                AstNode::Comment(_) => {}
                 AstNode::Function(_func) => {}
                 AstNode::Procedure(_proc) => {}
                 AstNode::FunctionDeclaration(func) => {
@@ -274,7 +279,7 @@ impl PPECompiler {
         self.fill_labels();
     }
 
-    fn compile_functions(&mut self, prg: &Program) {
+    fn compile_functions(&mut self, prg: &Ast) {
         for imp in &prg.nodes {
             match imp {
                 AstNode::Procedure(proc) => {
@@ -528,6 +533,114 @@ impl PPECompiler {
             }
             Statement::PredifinedCall(call_stmt) => {
                 let def = call_stmt.get_func();
+                let mut arguments = Vec::new();
+                for arg in call_stmt.get_arguments() {
+                    let expr_buffer = self.comp_expr(arg);
+                    arguments.push(expr_buffer);
+                }
+
+                match def.sig {
+                    crate::executable::StatementSignature::Invalid => panic!("Invalid signature"),
+                    crate::executable::StatementSignature::ArgumentsWithVariable(v, arg_count) => {
+                        if !self.check_arg_count(
+                            arg_count,
+                            call_stmt.get_arguments().len(),
+                            call_stmt.get_identifier_token(),
+                        ) {
+                            return None;
+                        }
+                        if v > 0
+                            && !self.check_argument_is_variable(
+                                v - 1,
+                                &call_stmt.get_arguments()[v - 1],
+                            )
+                        {
+                            return None;
+                        }
+                    }
+                    crate::executable::StatementSignature::VariableArguments(_) => {}
+                    crate::executable::StatementSignature::SpecialCaseDlockg => {
+                        if !self.check_arg_count(
+                            3,
+                            call_stmt.get_arguments().len(),
+                            call_stmt.get_identifier_token(),
+                        ) {
+                            return None;
+                        }
+                        if !self.check_argument_is_variable(2, &call_stmt.get_arguments()[2]) {
+                            return None;
+                        }
+                    }
+                    crate::executable::StatementSignature::SpecialCaseDcreate => {
+                        if !self.check_arg_count(
+                            4,
+                            call_stmt.get_arguments().len(),
+                            call_stmt.get_identifier_token(),
+                        ) {
+                            return None;
+                        }
+                        if !self.check_argument_is_variable(3, &call_stmt.get_arguments()[3]) {
+                            return None;
+                        }
+                    }
+                    crate::executable::StatementSignature::SpecialCaseSort => {
+                        if !self.check_arg_count(
+                            2,
+                            call_stmt.get_arguments().len(),
+                            call_stmt.get_identifier_token(),
+                        ) {
+                            return None;
+                        }
+
+                        for i in 0..=1 {
+                            if let Expression::Identifier(a) = &call_stmt.get_arguments()[i] {
+                                if let Some(var) = self.lookup_variable(a.get_identifier()) {
+                                    if var.header.dim != 1 {
+                                        self.errors.lock().unwrap().report_error(
+                                            a.get_identifier_token().span.clone(),
+                                            CompilationErrorType::SortArgumentDimensionError(
+                                                var.header.dim,
+                                            ),
+                                        );
+                                        return None;
+                                    }
+                                } else {
+                                    self.errors.lock().unwrap().report_error(
+                                        call_stmt.get_arguments()[i].get_span().clone(),
+                                        CompilationErrorType::VariableExpected(i + 1),
+                                    );
+                                }
+                            } else {
+                                self.errors.lock().unwrap().report_error(
+                                    call_stmt.get_arguments()[i].get_span().clone(),
+                                    CompilationErrorType::VariableExpected(i + 1),
+                                );
+                            }
+                        }
+                    }
+                    crate::executable::StatementSignature::SpecialCaseVarSeg => {
+                        if !self.check_arg_count(
+                            2,
+                            call_stmt.get_arguments().len(),
+                            call_stmt.get_identifier_token(),
+                        ) {
+                            return None;
+                        }
+                        for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
+                            if !self.check_argument_is_variable(v, arg) {
+                                return None;
+                            }
+                        }
+                    }
+                    crate::executable::StatementSignature::SpecialCasePop => {
+                        for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
+                            if !self.check_argument_is_variable(v, arg) {
+                                return None;
+                            }
+                        }
+                    }
+                }
+
                 /*
                 if (call_stmt.get_arguments().len() as i8) < def.min_args
                     || (call_stmt.get_arguments().len() as i8) > def.max_args
@@ -539,13 +652,11 @@ impl PPECompiler {
                         .push(call_stmt.get_arguments().len() as i16);
                     }
                 */
-                let mut arguments = Vec::new();
-                for arg in call_stmt.get_arguments() {
-                    let expr_buffer = self.comp_expr(arg);
-                    arguments.push(expr_buffer);
-                }
 
-                Some(PPECommand::PredefinedCall(def, arguments))
+                Some(PPECommand::PredefinedCall(
+                    def.opcode.get_definition(), // to de-alias aliases
+                    arguments,
+                ))
             }
             Statement::Call(call_stmt) => {
                 let Some(decl_idx) = self.lookup_variable_index(call_stmt.get_identifier()) else {
@@ -563,10 +674,32 @@ impl PPECompiler {
                     arguments.push(expr_buffer);
                 }
 
-                let decl = self.variable_table.get_var_entry(decl_idx);
+                let decl = self.variable_table.get_var_entry(decl_idx).clone();
                 if decl.header.variable_type == VariableType::Procedure {
+                    let len = unsafe { decl.value.data.procedure_value.parameters as usize };
+                    if !self.check_arg_count(len, arguments.len(), call_stmt.get_identifier_token())
+                    {
+                        return None;
+                    }
+                    for i in 0..arguments.len() {
+                        unsafe {
+                            if decl.value.data.procedure_value.pass_flags & (1 << i) != 0
+                                && !self
+                                    .check_argument_is_variable(i, &call_stmt.get_arguments()[i])
+                            {
+                                return None;
+                            }
+                        }
+                    }
+
                     Some(PPECommand::ProcedureCall(decl.header.id, arguments))
                 } else if decl.header.variable_type == VariableType::Function {
+                    let len = unsafe { decl.value.data.function_value.parameters as usize };
+                    if !self.check_arg_count(len, arguments.len(), call_stmt.get_identifier_token())
+                    {
+                        return None;
+                    }
+
                     Some(PPECommand::PredefinedCall(
                         OpCode::EVAL.get_definition(),
                         vec![PPEExpr::FunctionCall(decl.header.id, arguments)],
@@ -613,6 +746,37 @@ impl PPECompiler {
             Statement::For(_) => panic!("for not allowed in output AST."),
             Statement::Select(_) => panic!("select not allowed in output AST."),
         }
+    }
+
+    fn check_arg_count(
+        &mut self,
+        arg_count_expected: usize,
+        arg_count: usize,
+        identifier_token: &SpannedToken,
+    ) -> bool {
+        if arg_count_expected < arg_count {
+            self.errors.lock().unwrap().report_error(
+                identifier_token.span.clone(),
+                ParserErrorType::TooFewArguments(
+                    identifier_token.token.to_string(),
+                    arg_count,
+                    arg_count_expected as i8,
+                ),
+            );
+            return false;
+        }
+        if arg_count_expected > arg_count {
+            self.errors.lock().unwrap().report_error(
+                identifier_token.span.clone(),
+                ParserErrorType::TooManyArguments(
+                    identifier_token.token.to_string(),
+                    arg_count,
+                    arg_count_expected as i8,
+                ),
+            );
+            return false;
+        }
+        true
     }
 
     /// .
@@ -770,5 +934,22 @@ impl PPECompiler {
                 _ => {}
             }
         }
+    }
+
+    fn check_argument_is_variable(&self, arg: usize, v: &Expression) -> bool {
+        // that the identifier/dim is in the vtable is checked in argument evaluation
+        if let Expression::Identifier(_) = v {
+            return true;
+        }
+        if let Expression::FunctionCall(a) = v {
+            if let Some(var) = self.lookup_variable(a.get_identifier()) {
+                return var.header.dim > 0;
+            }
+        }
+        self.errors.lock().unwrap().report_error(
+            v.get_span().clone(),
+            CompilationErrorType::VariableExpected(arg + 1),
+        );
+        false
     }
 }

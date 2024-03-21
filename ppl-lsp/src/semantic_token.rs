@@ -3,8 +3,8 @@ use icy_ppe::{
         walk_binary_expression, walk_block_stmt, walk_for_stmt, walk_function_call_expression,
         walk_function_implementation, walk_if_stmt, walk_if_then_stmt, walk_let_stmt,
         walk_predefined_call_statement, walk_procedure_call_statement,
-        walk_procedure_implementation, walk_select_stmt, walk_while_do_stmt, walk_while_stmt,
-        AstVisitor, Constant, ParameterSpecifier, Program,
+        walk_procedure_implementation, walk_select_stmt, walk_while_do_stmt, walk_while_stmt, Ast,
+        AstVisitor, Constant, ParameterSpecifier,
     },
     parser::lexer::SpannedToken,
 };
@@ -25,7 +25,7 @@ pub const LEGEND_TYPE: &[SemanticTokenType] = &[
     SemanticTokenType::ENUM_MEMBER,
 ];
 
-pub fn semantic_token_from_ast(ast: &Program) -> Vec<ImCompleteSemanticToken> {
+pub fn semantic_token_from_ast(ast: &Ast) -> Vec<ImCompleteSemanticToken> {
     let mut visitor = SemanticTokenVisitor {
         semantic_tokens: vec![],
     };

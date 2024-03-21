@@ -265,6 +265,7 @@ pub enum OpCode {
     MoveMsg = 228,
     SetBankBal = 229,
 }
+pub const LAST_STMT: i16 = OpCode::SetBankBal as i16;
 
 impl OpCode {
     pub fn get_definition(self) -> &'static StatementDefinition {

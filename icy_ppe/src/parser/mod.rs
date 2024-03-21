@@ -50,7 +50,7 @@ pub enum ParserErrorType {
     #[error("Too many arguments passed ({0}:{1}:{2})")]
     TooManyArguments(String, usize, i8),
 
-    #[error("Invalid token {0}")]
+    #[error("Invalid token encountered ({0})")]
     InvalidToken(Token),
 
     #[error("Missing open '(' found: {0}")]
@@ -59,22 +59,22 @@ pub enum ParserErrorType {
     #[error("Missing close ')' found: {0}")]
     MissingCloseParens(Token),
 
-    #[error("Invalid token - label expected '{0}'")]
+    #[error("Invalid token - label expected ({0})")]
     LabelExpected(Token),
 
     #[error("Invalid token - 'END' expected")]
     EndExpected,
 
-    #[error("Expected identifier, got '{0}'")]
+    #[error("Expected identifier ({0})")]
     IdentifierExpected(Token),
 
-    #[error("Expected '=', got '{0}'")]
+    #[error("Expected '=' ({0})")]
     EqTokenExpected(Token),
 
-    #[error("Expected 'TO', got '{0}'")]
+    #[error("Expected 'TO' ({0})")]
     ToExpected(Token),
 
-    #[error("Expected expression, got '{0}'")]
+    #[error("Expected expression ({0})")]
     ExpressionExpected(Token),
 
     #[error("Expected statement")]
@@ -86,13 +86,13 @@ pub enum ParserErrorType {
     #[error("Invalid token '{0}' - 'CASE' expected")]
     CaseExpected(Token),
 
-    #[error("Unexpected identifier '{0}'")]
+    #[error("Unexpected identifier ({0})")]
     UnknownIdentifier(String),
 
-    #[error("Expected number, got '{0}'")]
+    #[error("Expected number ({0})")]
     NumberExpected(Token),
 
-    #[error("Expected type, got '{0}'")]
+    #[error("Expected type ({0})")]
     TypeExpected(Token),
 
     #[error("Invalid declaration '{0}' expected either 'PROCEDURE' or 'FUNCTION'")]
@@ -110,13 +110,13 @@ pub enum ParserErrorType {
     #[error("No statements allowed after functions (use $USEFUNCS)")]
     NoStatementsAfterFunctions,
 
-    #[error("EOL expected, got '{0}'")]
+    #[error("EOL expected ({0})")]
     EolExpected(Token),
 
-    #[error("Expected comma, got '{0}'")]
+    #[error("Expected comma ({0})")]
     CommaExpected(Token),
 
-    #[error("Expected 'THEN', got '{0}'")]
+    #[error("Expected 'THEN' ({0})")]
     ThenExpected(Token),
 
     #[error("Missing CASE keyword in SELECT CASE statement")]

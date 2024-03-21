@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, io::stdout};
+use std::{fmt, io::stdout};
 
 use crossterm::{
     execute,
@@ -739,21 +739,15 @@ impl VariableTable {
         Ok(())
     }
 
-    pub(crate) fn create_variable_lookup_table(
-        &self,
-    ) -> std::collections::HashMap<unicase::Ascii<String>, usize> {
-        let mut variable_lookup = HashMap::new();
-        for (i, var_decl) in self.entries.iter().enumerate() {
-            variable_lookup.insert(unicase::Ascii::new(var_decl.get_name().clone()), i);
-        }
-        variable_lookup
-    }
-
     pub fn get_version(&self) -> u16 {
         self.version
     }
     pub fn set_version(&mut self, version: u16) {
         self.version = version;
+    }
+
+    pub fn get_entries(&self) -> &[TableEntry] {
+        &self.entries
     }
 }
 

@@ -370,7 +370,7 @@ impl FunctionCallExpression {
         &mut self.arguments
     }
 
-    pub(crate) fn set_arguments(&mut self, arguments: Vec<Expression>) {
+    pub fn set_arguments(&mut self, arguments: Vec<Expression>) {
         self.arguments = arguments;
     }
 

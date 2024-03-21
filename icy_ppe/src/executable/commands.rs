@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt::Display, ops::Range};
 
 use thiserror::Error;
 
@@ -9,9 +9,16 @@ use super::{
     StatementDefinition, VariableValue,
 };
 
+#[derive(Debug)]
 pub struct DeserializationError {
     pub error_type: DeserializationErrorType,
     pub span: Range<usize>,
+}
+
+impl Display for DeserializationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error_type)
+    }
 }
 
 pub struct PPEStatement {
@@ -38,7 +45,7 @@ impl PPEScript {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn from_ppe_file(exe: &Executable) -> Result<Self, (Self, DeserializationError)> {
+    pub fn from_ppe_file(exe: &Executable) -> Result<Self, DeserializationError> {
         let mut deserializer = super::PPEDeserializer::default();
         let mut result = PPEScript::default();
         loop {
@@ -49,13 +56,10 @@ impl PPEScript {
                 }),
                 Ok(None) => break,
                 Err(err) => {
-                    return Err((
-                        result,
-                        DeserializationError {
-                            error_type: err,
-                            span: deserializer.stmt_span(),
-                        },
-                    ))
+                    return Err(DeserializationError {
+                        error_type: err,
+                        span: deserializer.stmt_span(),
+                    })
                 }
             }
         }

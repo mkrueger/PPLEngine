@@ -76,8 +76,7 @@ impl<'a> DisassembleVisitor<'a> {
             Ok(script) => {
                 script.visit(self);
             }
-            Err((script, e)) => {
-                script.visit(self);
+            Err(e) => {
                 println!();
                 execute!(
                     stdout(),
@@ -90,10 +89,6 @@ impl<'a> DisassembleVisitor<'a> {
                     SetAttribute(Attribute::Reset),
                 )
                 .unwrap();
-                if let Some(last) = script.statements.last() {
-                    println!();
-                    Self::dump_script_data(self.ppe_file, last.span.clone());
-                }
                 println!();
                 Self::dump_script_data(self.ppe_file, e.span);
                 println!();

@@ -1,3 +1,4 @@
+/*
 use crate::ast::{
     AstNode, BinOp, BreakStatement, CaseBlock, CaseSpecifier, ContinueStatement, ElseBlock,
     ElseIfBlock, ForStatement, IfStatement, IfThenStatement, RenameVisitor, SelectStatement,
@@ -869,3 +870,5 @@ pub fn do_pass4(prg: &mut Ast) -> Ast {
     let mut renamer = RenameVisitor::new(scanner.rename_map);
     prg.visit_mut(&mut renamer)
 }
+
+*/

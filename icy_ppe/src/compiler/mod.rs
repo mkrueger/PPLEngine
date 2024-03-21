@@ -880,6 +880,7 @@ impl PPECompiler {
     }
 
     fn start_parse_function_body(&mut self) {
+        self.label_lookup_table.clear();
         self.local_variable_lookup.clear();
         self.local_lookup = true;
     }

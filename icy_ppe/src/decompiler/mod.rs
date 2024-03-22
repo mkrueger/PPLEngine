@@ -2,17 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
-        Ast, AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, Expression,
-        FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement,
-        GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
-        ParameterSpecifier, ParensExpression, PredefinedCallStatement,
-        PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
-        VariableSpecifier,
+        Ast, AstNode, BinaryExpression, BlockStatement, CommentAstNode, Constant, ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier
     },
     executable::{
-        read_file, DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode,
-        PPECommand, PPEExpr, PPEScript, TableEntry, VariableType,
+        DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode, PPECommand,
+        PPEExpr, PPEScript, TableEntry, VariableType,
     },
     Res,
 };
@@ -20,26 +14,6 @@ use crate::{
 pub mod constant_scan_visitor;
 pub mod reconstruct;
 pub mod rename_visitor;
-
-/// # Errors
-/// # Panics
-pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Ast> {
-    let executable = read_file(file_name, print_header_information)?;
-    let mut d = Decompiler::new(executable).unwrap();
-
-    let ast = d.decompile();
-
-    /*
-    d.do_pass1();
-    d.generate_variable_declarations(&mut ast);
-    d.do_pass2(&mut ast);
-
-    ast.nodes
-        .extend(d.statements.iter().map(|s| AstNode::Statement(s.clone())));
-
-        */
-    ast
-}
 
 pub struct DecompilerIssue {
     pub byte_offset: usize,
@@ -123,6 +97,7 @@ impl Decompiler {
         self.generate_function_declarations(&mut ast);
         self.generate_variable_declarations(&mut ast);
 
+        let mut statements = Vec::new();
         while self.cur_ptr < self.script.statements.len() {
             let statement = &self.script.statements[self.cur_ptr];
             let byte_offset = statement.span.start * 2;
@@ -134,10 +109,7 @@ impl Decompiler {
 
             if self.label_lookup.contains_key(&(byte_offset)) {
                 let label = self.get_label_name(byte_offset);
-                ast.nodes
-                    .push(AstNode::Statement(LabelStatement::create_empty_statement(
-                        label,
-                    )));
+                statements.push(LabelStatement::create_empty_statement(label));
             }
             if let Some(bugs) = self.script.bugged_offsets.get_mut(&statement.span.start) {
                 for bug in bugs.drain(..) {
@@ -145,52 +117,48 @@ impl Decompiler {
                         byte_offset,
                         bug: bug.clone(),
                     });
-                    ast.nodes
-                        .push(AstNode::Statement(CommentAstNode::create_empty_statement(
-                            format!(" PPLC bug use detected in next statement: {bug}"),
-                        )));
+                    statements.push(
+                        CommentAstNode::create_empty_statement(format!(
+                            " PPLC bug use detected in next statement: {bug}"
+                        ))
+                    );
                 }
             }
-            let stmt = self.decompile_statement(&statement.command);
-            ast.nodes.push(AstNode::Statement(stmt));
+            statements.push(self.decompile_statement(&statement.command));
             self.cur_ptr += 1;
         }
-        ast.nodes
-            .push(AstNode::Statement(LabelStatement::create_empty_statement(
-                unicase::Ascii::new("EXIT_LABEL".to_string()),
-            )));
+        statements.push(LabelStatement::create_empty_statement(unicase::Ascii::new("EXIT_LABEL".to_string())));
+        ast.nodes.push(AstNode::Main(BlockStatement::empty(statements)));
         ast.nodes.append(&mut self.functions);
 
         for (k, bugs) in &self.script.bugged_offsets {
             for bug in bugs {
-                ast.nodes
-                    .push(AstNode::Statement(CommentAstNode::create_empty_statement(
-                        format!("{k:04X}: statement: {bug}"),
-                    )));
+                ast.nodes.push(AstNode::VariableDeclaration(
+                    CommentAstNode::create_empty_statement(format!("{k:04X}: statement: {bug}")),
+                ));
             }
         }
 
         if !self.script.bugged_offsets.is_empty() {
-            ast.nodes
-                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
-                    format!(
-                        " {} error(s) detected while decompiling",
-                        self.script.bugged_offsets.len(),
-                    ),
-                )));
+            ast.nodes.push(AstNode::VariableDeclaration(
+                CommentAstNode::create_empty_statement(format!(
+                    " {} error(s) detected while decompiling",
+                    self.script.bugged_offsets.len(),
+                )),
+            ));
 
-            ast.nodes
-                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
-                    String::new(),
-                )));
-            ast.nodes.push(AstNode::Statement(CommentAstNode::create_empty_statement(
+            ast.nodes.push(AstNode::VariableDeclaration(
+                CommentAstNode::create_empty_statement(String::new()),
+            ));
+            ast.nodes.push(AstNode::VariableDeclaration(CommentAstNode::create_empty_statement(
                 "Some PPEs got altered to avoid decompilation. PCBoard doesn't handle unary expressions correcty.".to_string(),
             )));
-            ast.nodes
-                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+            ast.nodes.push(AstNode::VariableDeclaration(
+                CommentAstNode::create_empty_statement(
                     "Search for 'PPLC bug' and look out for !!!<expr> or !<expr>*!<expr> cases."
                         .to_string(),
-                )));
+                ),
+            ));
         }
         Ok(ast)
     }
@@ -202,7 +170,7 @@ impl Decompiler {
                     continue;
                 }
                 let var_decl = generate_variable_declaration(var);
-                ast.nodes.push(AstNode::Statement(var_decl));
+                ast.nodes.push(AstNode::VariableDeclaration(var_decl));
             }
         }
     }
@@ -215,9 +183,6 @@ impl Decompiler {
                     if unsafe { entry.value.data.procedure_value.start_offset } == 0 {
                         continue;
                     }
-                    println!("add func {:0X} for {:0X} ", entry.header.id, unsafe {
-                        entry.value.data.procedure_value.start_offset
-                    });
                     self.function_lookup.insert(
                         unsafe { entry.value.data.procedure_value.start_offset as usize },
                         entry.header.id,
@@ -543,11 +508,10 @@ fn generate_variable_declaration(var: &TableEntry) -> Statement {
 }
 
 /// .
-///
+/// # Errors
 /// # Panics
 ///
 /// Panics if .
-#[must_use]
 pub fn decompile(executable: Executable, raw: bool) -> Res<(Ast, Vec<DecompilerIssue>)> {
     match Decompiler::new(executable) {
         Ok(mut d) => Ok((d.decompile()?, d.issues)),

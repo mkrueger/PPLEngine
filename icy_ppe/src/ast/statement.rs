@@ -63,7 +63,7 @@ impl Statement {
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         match self {
             Statement::Comment(s) => visitor.visit_comment_statement(s),
-            Statement::Block(s) => visitor.visit_block_statement(s),
+            Statement::Block(s) => Statement::Block(visitor.visit_block(s)),
             Statement::If(s) => visitor.visit_if_statement(s),
             Statement::IfThen(s) => visitor.visit_if_then_statement(s),
             Statement::Select(s) => visitor.visit_select_statement(s),

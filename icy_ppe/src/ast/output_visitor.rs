@@ -1,4 +1,4 @@
-use super::{AstVisitor, Statement};
+use super::{AstVisitor, BlockStatement, Statement};
 
 #[derive(PartialEq, Debug, Default)]
 pub enum OutputFunc {
@@ -43,7 +43,9 @@ impl OutputVisitor {
 
     fn output_statements(&mut self, get_statements: &[Statement]) {
         for stmt in get_statements {
-            self.indent();
+            if !matches!(stmt, Statement::Label(_)) {
+                self.indent();
+            }
             stmt.visit(self);
             self.eol();
         }
@@ -130,6 +132,19 @@ impl AstVisitor<()> for OutputVisitor {
         self.output.push_str(comment.get_comment());
     }
 
+    fn visit_main(&mut self, block: &BlockStatement) {
+        self.output_keyword("Begin");
+        self.eol();
+
+        self.indent += 1;
+        self.output_statements(block.get_statements());
+        self.indent -= 1;
+
+        self.indent();
+        self.output_keyword("End");
+        self.eol();
+    }
+
     fn visit_block_statement(&mut self, block: &super::BlockStatement) {
         self.output_keyword("Begin");
         self.eol();
@@ -152,9 +167,9 @@ impl AstVisitor<()> for OutputVisitor {
 
         /*
         self.eol();
-        self.indent += 1;
         self.indent();
         */
+        self.indent += 1;
         if_stmt.get_statement().visit(self);
         self.eol();
         self.indent -= 1;

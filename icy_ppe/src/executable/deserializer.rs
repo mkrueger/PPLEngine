@@ -1,14 +1,9 @@
-use std::{
-    backtrace::Backtrace,
-    collections::{HashMap, HashSet},
-    mem::transmute,
-    ops::Range,
-};
+use std::{collections::HashMap, mem::transmute, ops::Range};
 
 use thiserror::Error;
 
 use crate::{
-    ast::{BinOp, CommentAstNode, UnaryOp},
+    ast::{BinOp, UnaryOp},
     executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
     tables::STATEMENT_SIGNATURE_TABLE,
 };
@@ -25,9 +20,6 @@ pub enum DeserializationErrorType {
 
     #[error("Invalid expression stack state")]
     InvalidExpressionStackState,
-
-    #[error("Unknown unary function {0:?}")]
-    UnknownUnaryFunction(FuncOpCode),
 
     #[error("Too few arguments for binary expression")]
     TooFewArgumentsForBinaryExpression(BinOp),
@@ -269,6 +261,7 @@ impl PPEDeserializer {
 
     /// .
     ///
+    /// # Panics
     /// # Errors
     ///
     /// This function will return an error if .
@@ -336,16 +329,7 @@ impl PPEDeserializer {
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;
-                        let op = match func_def.opcode {
-                            FuncOpCode::NOT => UnaryOp::Not,
-                            FuncOpCode::UMINUS => UnaryOp::Minus,
-                            FuncOpCode::UPLUS => UnaryOp::Plus,
-                            _ => {
-                                return Err(DeserializationErrorType::UnknownUnaryFunction(
-                                    func_def.opcode,
-                                ));
-                            }
-                        };
+                        let op = UnaryOp::from_opcode(func_def.opcode);
 
                         if let Some(unary_expr) = self.pop_expr() {
                             self.push_expr(PPEExpr::UnaryExpression(op, Box::new(unary_expr)));

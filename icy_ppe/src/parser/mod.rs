@@ -7,9 +7,7 @@ use std::{
 
 use crate::{
     ast::{
-        Ast, AstNode, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode,
-        FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Statement, VariableSpecifier,
+        Ast, AstNode, BlockStatement, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode, ProcedureImplementation, Statement, VariableSpecifier
     },
     executable::{FunctionDefinition, StatementDefinition, VariableType},
     tables::CP437_TO_UNICODE,
@@ -376,9 +374,9 @@ impl Parser {
                 self.use_funcs = true;
                 let cmt = self.save_spannedtoken();
                 self.next_token();
-                return Some(AstNode::Statement(Statement::Comment(CommentAstNode::new(
-                    cmt,
-                ))));
+                return Some(AstNode::VariableDeclaration(Statement::Comment(
+                    CommentAstNode::new(cmt),
+                )));
             }
             _ => {
                 let stmt = self.parse_statement();
@@ -404,9 +402,14 @@ impl Parser {
                         return None;
                     }
                     if !self.got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
+                        let mut main_block = vec![stmt];    
+                        while let Some(stmt) = self.parse_statement() {
+                            main_block.push(stmt);
+                        }
                         self.got_statement = true;
+                        return Some(AstNode::Main(BlockStatement::empty(main_block)));
                     }
-                    return Some(AstNode::Statement(stmt));
+                    return Some(AstNode::VariableDeclaration(stmt));
                 }
             }
         }

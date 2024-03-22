@@ -9,22 +9,27 @@ use crate::{
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinOp {
-    PoW = -4,
-    Mul = -5,
-    Div = -6,
-    Mod = -7,
-    Add = -8,
-    Sub = -9,
-    Eq = -10,
-    NotEq = -11,
-    Lower = -12,
-    LowerEq = -13,
-    Greater = -14,
-    GreaterEq = -15,
-    And = -17,
-    Or = -18,
+    PoW = FuncOpCode::EXP as i16,
+    Mul = FuncOpCode::TIMES as i16,
+    Div = FuncOpCode::DIVIDE as i16,
+    Mod = FuncOpCode::MOD as i16,
+    Add = FuncOpCode::PLUS as i16,
+    Sub = FuncOpCode::MINUS as i16,
+    Eq = FuncOpCode::EQ as i16,
+    NotEq = FuncOpCode::NE as i16,
+    Lower = FuncOpCode::LT as i16,
+    LowerEq = FuncOpCode::LE as i16,
+    Greater = FuncOpCode::GT as i16,
+    GreaterEq = FuncOpCode::GE as i16,
+    And = FuncOpCode::AND as i16,
+    Or = FuncOpCode::OR as i16,
 }
 impl BinOp {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if op code is no valid binary operator.
     pub fn from_opcode(opcode: FuncOpCode) -> BinOp {
         match opcode {
             FuncOpCode::EXP => BinOp::PoW,
@@ -70,10 +75,27 @@ impl fmt::Display for BinOp {
 #[repr(i16)]
 #[derive(Debug, PartialEq, Copy, Clone, Eq)]
 pub enum UnaryOp {
-    Plus = -2,
-    Minus = -3,
-    Not = -16,
+    Plus = FuncOpCode::UPLUS as i16,
+    Minus = FuncOpCode::UMINUS as i16,
+    Not = FuncOpCode::NOT as i16,
 }
+
+impl UnaryOp {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if op code is no valid unary operator.
+    pub fn from_opcode(opcode: FuncOpCode) -> UnaryOp {
+        match opcode {
+            FuncOpCode::UPLUS => UnaryOp::Plus,
+            FuncOpCode::UMINUS => UnaryOp::Minus,
+            FuncOpCode::NOT => UnaryOp::Not,
+            _ => panic!("Invalid opcode for unary operator {opcode:?}"),
+        }
+    }
+}
+
 impl fmt::Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

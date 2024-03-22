@@ -262,8 +262,13 @@ impl PPECompiler {
 
                     self.push_variable(proc.get_identifier().clone(), entry);
                 }
-                AstNode::Statement(stmt) => {
+                AstNode::VariableDeclaration(stmt) => {
                     self.compile_add_statement(stmt);
+                }
+                AstNode::Main(block) => {
+                    for s in block.get_statements() {
+                        self.compile_add_statement(s);
+                    }
                 }
             }
         }

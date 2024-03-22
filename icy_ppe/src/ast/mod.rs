@@ -31,9 +31,10 @@ use crate::parser::lexer::{SpannedToken, Token};
 pub enum AstNode {
     Function(FunctionImplementation),
     Procedure(ProcedureImplementation),
-    Statement(Statement),
+    VariableDeclaration(Statement),
     ProcedureDeclaration(ProcedureDeclarationAstNode),
     FunctionDeclaration(FunctionDeclarationAstNode),
+    Main(BlockStatement),
 }
 
 impl AstNode {
@@ -41,9 +42,10 @@ impl AstNode {
         match self {
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
-            AstNode::Statement(s) => s.visit(visitor),
+            AstNode::VariableDeclaration(s) => s.visit(visitor),
             AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
             AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
+            AstNode::Main(m) => visitor.visit_main(m),
         }
     }
 
@@ -52,9 +54,10 @@ impl AstNode {
         match self {
             AstNode::Function(f) => visitor.visit_function_implementation(f),
             AstNode::Procedure(p) => visitor.visit_procedure_implementation(p),
-            AstNode::Statement(s) => AstNode::Statement(s.visit_mut(visitor)),
+            AstNode::VariableDeclaration(s) => AstNode::VariableDeclaration(s.visit_mut(visitor)),
             AstNode::ProcedureDeclaration(p) => visitor.visit_procedure_declaration(p),
             AstNode::FunctionDeclaration(f) => visitor.visit_function_declaration(f),
+            AstNode::Main(m) => AstNode::Main(visitor.visit_block(m)),
         }
     }
 
@@ -65,7 +68,9 @@ impl AstNode {
     /// Panics if .
     pub fn is_similar(&self, check: &AstNode) -> bool {
         match (self, check) {
-            (AstNode::Statement(s1), AstNode::Statement(s2)) => s1.is_similar(s2),
+            (AstNode::VariableDeclaration(s1), AstNode::VariableDeclaration(s2)) => {
+                s1.is_similar(s2)
+            }
 
             (AstNode::FunctionDeclaration(f1), AstNode::FunctionDeclaration(f2)) => {
                 if f1.get_identifier() != f2.get_identifier() {

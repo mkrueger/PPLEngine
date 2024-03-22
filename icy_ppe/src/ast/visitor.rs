@@ -148,6 +148,11 @@ pub trait AstVisitor<T: Default>: Sized {
         walk_program(self, program);
         T::default()
     }
+
+    fn visit_main(&mut self, main: &BlockStatement) -> T {
+        walk_block_stmt(self, main);
+        T::default()
+    }
 }
 
 pub fn walk_program<T: Default, V: AstVisitor<T>>(visitor: &mut V, program: &Ast) {
@@ -376,14 +381,14 @@ pub trait AstVisitorMut: Sized {
         Statement::Comment(comment.clone())
     }
 
-    fn visit_block_statement(&mut self, block: &BlockStatement) -> Statement {
-        Statement::Block(BlockStatement::empty(
+    fn visit_block(&mut self, block: &BlockStatement) -> BlockStatement {
+        BlockStatement::empty(
             block
                 .get_statements()
                 .iter()
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
-        ))
+        )
     }
     fn visit_if_statement(&mut self, if_stmt: &IfStatement) -> Statement {
         Statement::If(IfStatement::empty(

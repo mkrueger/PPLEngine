@@ -6,19 +6,20 @@ use crossterm::{
 };
 
 use super::{
-    Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript, PPEVisitor,
-    StatementDefinition,
+    CommandOrError, Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript,
+    PPEVisitor, StatementDefinition,
 };
 
 pub struct DisassembleVisitor<'a> {
-    pub show_statement_data: bool,
+    /// If true, the visitor will print the deserialized data from the statement itself, if false the data will be taken from the PPE File directly.
+    pub generate_statement_data: bool,
     pub ppe_file: &'a Executable,
 }
 
 impl<'a> DisassembleVisitor<'a> {
     pub fn new(ppe_file: &'a Executable) -> Self {
         Self {
-            show_statement_data: false,
+            generate_statement_data: false,
             ppe_file,
         }
     }
@@ -72,26 +73,29 @@ impl<'a> DisassembleVisitor<'a> {
     }
 
     pub fn print_disassembler(&mut self) {
-        match PPEScript::from_ppe_file(self.ppe_file) {
-            Ok(script) => {
-                script.visit(self);
-            }
-            Err(e) => {
-                println!();
-                execute!(
-                    stdout(),
-                    SetAttribute(Attribute::Bold),
-                    SetForegroundColor(Color::Red),
-                    Print("ERROR: ".to_string()),
-                    SetAttribute(Attribute::Reset),
-                    SetAttribute(Attribute::Bold),
-                    Print(format!("{}", e.error_type)),
-                    SetAttribute(Attribute::Reset),
-                )
-                .unwrap();
-                println!();
-                Self::dump_script_data(self.ppe_file, e.span);
-                println!();
+        print_disassemble_header();
+        for cmt in PPEScript::step_through(self.ppe_file) {
+            match cmt {
+                CommandOrError::Command(stmt) => {
+                    self.print_statement(&stmt);
+                }
+                CommandOrError::Error(e) => {
+                    println!();
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        SetForegroundColor(Color::Red),
+                        Print("ERROR: ".to_string()),
+                        SetAttribute(Attribute::Reset),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{}", e.error_type)),
+                        SetAttribute(Attribute::Reset),
+                    )
+                    .unwrap();
+                    println!();
+                    Self::dump_script_data(self.ppe_file, e.span);
+                    println!();
+                }
             }
         }
     }
@@ -106,6 +110,34 @@ impl<'a> DisassembleVisitor<'a> {
         )
         .unwrap();
         Self::dump_script_data(ppe_file, 0..ppe_file.script_buffer.len());
+    }
+
+    fn print_statement(&mut self, stmt: &super::PPEStatement) {
+        let mut vec = Vec::new();
+        let data: &[i16] = if self.generate_statement_data {
+            stmt.command.serialize(&mut vec);
+            &vec
+        } else {
+            &self.ppe_file.script_buffer[stmt.span.clone()]
+        };
+        print!("       [");
+        for (i, x) in data.iter().enumerate() {
+            if i > 0 && (i % 16) == 0 {
+                println!();
+            }
+            print!("{:04X} ", *x);
+        }
+        println!("]");
+
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Cyan),
+            Print(format!("{:05X}: ", stmt.span.start * 2)),
+            SetForegroundColor(Color::Reset),
+        )
+        .unwrap();
+        stmt.command.visit(self);
+        println!();
     }
 }
 
@@ -300,43 +332,18 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
     }
 
     fn visit_script(&mut self, script: &PPEScript) {
-        println!();
-        println!("Offset  # OpCode      Parameters");
-        println!("---------------------------------------------------------------------------------------");
-
+        print_disassemble_header();
         for stmt in &script.statements {
-            execute!(
-                stdout(),
-                SetForegroundColor(Color::Cyan),
-                Print(format!("{:05X}: ", stmt.span.start * 2)),
-                SetForegroundColor(Color::Reset),
-            )
-            .unwrap();
-            stmt.command.visit(self);
-            println!();
-            if self.show_statement_data {
-                let mut vec = Vec::new();
-                stmt.command.serialize(&mut vec);
-                for (i, x) in vec.iter().enumerate() {
-                    if i > 0 && (i % 16) == 0 {
-                        println!();
-                    }
-                    print!("{:04X} ", *x);
-                }
-                println!();
-            } else {
-                for (i, x) in self.ppe_file.script_buffer[stmt.span.clone()]
-                    .iter()
-                    .enumerate()
-                {
-                    if i > 0 && (i % 16) == 0 {
-                        println!();
-                    }
-                    print!("{:04X} ", *x);
-                }
-                println!();
-            }
+            self.print_statement(stmt);
         }
         println!();
     }
+}
+
+fn print_disassemble_header() {
+    println!();
+    println!("Offset  # OpCode      Parameters");
+    println!(
+        "---------------------------------------------------------------------------------------"
+    );
 }

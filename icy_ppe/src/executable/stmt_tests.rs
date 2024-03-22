@@ -112,6 +112,15 @@ fn test_pop() {
 }
 
 #[test]
+fn test_redim() {
+    let val = PPECommand::PredefinedCall(
+        OpCode::REDIM.get_definition(),
+        vec![PPEExpr::Value(1), PPEExpr::Value(3)],
+    );
+    test_serialize(&val, &[OpCode::REDIM as i16, 2, 1, 3, 0, 0]);
+}
+
+#[test]
 fn test_print_midserialization() {
     let left = PPEExpr::FunctionCall(7, vec![PPEExpr::Value(2)]);
     let right = PPEExpr::PredefinedFunctionCall(

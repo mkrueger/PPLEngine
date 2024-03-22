@@ -1,4 +1,4 @@
-use crate::{ast::BinOp, executable::VariableType};
+use crate::executable::VariableType;
 
 // Statement Variable-Types, 0 = none / aa = not defined
 //				 1- f= number of exp
@@ -63,28 +63,6 @@ pub const TYPE_NAMES: [VariableType; 18] = [
     VariableType::Unknown,
     VariableType::Unknown,
     VariableType::DDate,
-];
-
-pub const BIN_EXPR: [BinOp; 19] = [
-    BinOp::Add, // END
-    BinOp::Add, // CPAR
-    BinOp::Add, // UPLUS
-    BinOp::Sub, // UMINUS
-    BinOp::PoW,
-    BinOp::Mul,
-    BinOp::Div,
-    BinOp::Mod,
-    BinOp::Add,
-    BinOp::Sub,
-    BinOp::Eq,
-    BinOp::NotEq,
-    BinOp::Lower,
-    BinOp::LowerEq,
-    BinOp::Greater,
-    BinOp::GreaterEq,
-    BinOp::Add, // NOT
-    BinOp::And,
-    BinOp::Or,
 ];
 
 lazy_static::lazy_static! {

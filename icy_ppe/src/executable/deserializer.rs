@@ -1,11 +1,15 @@
-use std::{mem::transmute, ops::Range};
+use std::{
+    collections::{HashMap, HashSet},
+    mem::transmute,
+    ops::Range,
+};
 
 use thiserror::Error;
 
 use crate::{
-    ast::UnaryOp,
+    ast::{BinOp, CommentAstNode, UnaryOp},
     executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
-    tables::{BIN_EXPR, STATEMENT_SIGNATURE_TABLE},
+    tables::STATEMENT_SIGNATURE_TABLE,
 };
 
 use super::{Executable, FuncOpCode, PPECommand, PPEExpr, VariableType, VariableValue, LAST_STMT};
@@ -25,10 +29,10 @@ pub enum DeserializationErrorType {
     UnknownUnaryFunction(FuncOpCode),
 
     #[error("Too few arguments for binary expression")]
-    TooFewArgumentsForBinaryExpression,
+    TooFewArgumentsForBinaryExpression(BinOp),
 
     #[error("Too few arguments for unary expression")]
-    TooFewArgumentsForUnaryExpression,
+    TooFewArgumentsForUnaryExpression(UnaryOp),
 
     #[error("Too few function arguments for {0:?}, expected {1}, got {2}")]
     TooFewFunctionArguments(FuncOpCode, i8, usize),
@@ -45,11 +49,17 @@ pub enum DeserializationErrorType {
     #[error("No variable table entry for {0}")]
     NoVTableEntry(usize),
 
-    #[error("Invalid statement {0}")]
-    InvalidStatement(i16),
-
     #[error("Got procedure call in expression {0}")]
     GotProcedureCallInExpression(i16),
+
+    #[error("Binary expression stack empty for binary operation ({0})")]
+    BinaryExpressionStackEmpty(BinOp),
+
+    #[error("Only one argument for binary operation ({0})")]
+    OnlyOneArgumentForBinop(BinOp),
+
+    #[error("Invalid statement ({0:04X})")]
+    InvalidStatement(i16),
 }
 
 #[derive(Default)]
@@ -59,6 +69,7 @@ pub struct PPEDeserializer {
 
     stmt_offset: usize,
     expr_offset: usize,
+    pub bugged_offsets: HashMap<usize, Vec<DeserializationErrorType>>,
 }
 
 impl PPEDeserializer {
@@ -89,7 +100,8 @@ impl PPEDeserializer {
         if !(0..LAST_STMT).contains(&cur_stmt)
             || STATEMENT_SIGNATURE_TABLE[cur_stmt as usize] == 0xAA
         {
-            return Err(DeserializationErrorType::InvalidStatement(cur_stmt));
+            self.report_bug(DeserializationErrorType::InvalidStatement(cur_stmt));
+            return Ok(None);
         }
 
         let op: OpCode = unsafe { transmute(cur_stmt) };
@@ -102,18 +114,24 @@ impl PPEDeserializer {
             OpCode::STOP => Ok(Some(PPECommand::Stop)),
             OpCode::LET => {
                 let target = self.read_variable_expression(executable)?;
-                let value = self.deserialize_expression(executable)?;
+                let Some(value) = self.deserialize_expression(executable)? else {
+                    return Ok(None);
+                };
 
                 Ok(Some(PPECommand::Let(Box::new(target), Box::new(value))))
             }
             OpCode::IFNOT => {
-                let expr = self.deserialize_expression(executable)?;
+                let Some(expr) = self.deserialize_expression(executable)? else {
+                    return Ok(None);
+                };
                 let label = executable.script_buffer[self.offset] as usize;
                 self.offset += 1;
                 Ok(Some(PPECommand::IfNot(Box::new(expr), label)))
             }
             OpCode::WHILE => {
-                let expr = self.deserialize_expression(executable)?;
+                let Some(expr) = self.deserialize_expression(executable)? else {
+                    return Ok(None);
+                };
                 let label = executable.script_buffer[self.offset] as usize;
                 self.offset += 1;
                 Ok(Some(PPECommand::IfNot(Box::new(expr), label)))
@@ -147,8 +165,9 @@ impl PPEDeserializer {
                 let argument_count = unsafe { var.value.data.procedure_value.parameters };
                 let mut arguments = Vec::new();
                 for _ in 0..argument_count {
-                    let expr = self.deserialize_expression(executable)?;
-                    arguments.push(expr);
+                    if let Some(expr) = self.deserialize_expression(executable)? {
+                        arguments.push(expr);
+                    }
                 }
                 Ok(Some(PPECommand::ProcedureCall(proc_id, arguments)))
             }
@@ -167,7 +186,20 @@ impl PPEDeserializer {
                         let argument_count = executable.script_buffer[self.offset];
                         assert!(argument_count >= 0, "negative argument count");
                         self.offset += 1;
-                        (var_idx, argument_count as usize)
+
+                        let mut arguments = Vec::new();
+                        for i in 0..argument_count {
+                            let expr = if i + 1 == var_idx as i16 {
+                                let expr =
+                                    PPEExpr::Value(executable.script_buffer[self.offset] as usize);
+                                self.offset += 1;
+                                expr
+                            } else {
+                                self.deserialize_expression(executable)?.unwrap()
+                            };
+                            arguments.push(expr);
+                        }
+                        return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
                     crate::executable::StatementSignature::SpecialCaseSort => {
                         let arguments = vec![
@@ -187,9 +219,9 @@ impl PPEDeserializer {
                     }
                     crate::executable::StatementSignature::SpecialCaseDcreate => {
                         let arguments = vec![
-                            self.deserialize_expression(executable)?,
-                            self.deserialize_expression(executable)?,
-                            self.deserialize_expression(executable)?,
+                            self.deserialize_expression(executable)?.unwrap(),
+                            self.deserialize_expression(executable)?.unwrap(),
+                            self.deserialize_expression(executable)?.unwrap(),
                             PPEExpr::Value(executable.script_buffer[self.offset] as usize),
                         ];
                         self.offset += 1;
@@ -197,11 +229,11 @@ impl PPEDeserializer {
                     }
                     super::StatementSignature::SpecialCaseDlockg => {
                         let mut arguments = vec![
-                            self.deserialize_expression(executable)?,
+                            self.deserialize_expression(executable)?.unwrap(),
                             PPEExpr::Value(executable.script_buffer[self.offset] as usize),
                         ];
                         self.offset += 1;
-                        arguments.push(self.deserialize_expression(executable)?);
+                        arguments.push(self.deserialize_expression(executable)?.unwrap());
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
                     crate::executable::StatementSignature::SpecialCasePop => {
@@ -223,7 +255,7 @@ impl PPEDeserializer {
                     let expr = if i + 1 == var_idx {
                         self.read_variable_expression(executable)?
                     } else {
-                        self.deserialize_expression(executable)?
+                        self.deserialize_expression(executable)?.unwrap()
                     };
                     arguments.push(expr);
                 }
@@ -241,7 +273,7 @@ impl PPEDeserializer {
     pub fn deserialize_expression(
         &mut self,
         executable: &Executable,
-    ) -> Result<PPEExpr, DeserializationErrorType> {
+    ) -> Result<Option<PPEExpr>, DeserializationErrorType> {
         self.expr_offset = self.offset;
 
         loop {
@@ -271,8 +303,9 @@ impl PPEDeserializer {
                             .parameters;
                         let mut arguments = Vec::new();
                         for _ in 0..parameters {
-                            let expr = self.deserialize_expression(executable)?;
-                            arguments.push(expr);
+                            if let Some(expr) = self.deserialize_expression(executable)? {
+                                arguments.push(expr);
+                            }
                         }
                         self.push_expr(PPEExpr::FunctionCall(id, arguments));
                         continue;
@@ -298,48 +331,52 @@ impl PPEDeserializer {
                 match func_def.args {
                     0x10 => {
                         self.offset += 1;
-                        match self.pop_expr() {
-                            Some(unary_expr) => {
-                                let op = match func_def.opcode {
-                                    FuncOpCode::NOT => UnaryOp::Not,
-                                    FuncOpCode::UMINUS => UnaryOp::Minus,
-                                    FuncOpCode::UPLUS => UnaryOp::Plus,
-                                    _ => {
-                                        return Err(
-                                            DeserializationErrorType::UnknownUnaryFunction(
-                                                func_def.opcode,
-                                            ),
-                                        );
-                                    }
-                                };
-                                self.push_expr(PPEExpr::UnaryExpression(op, Box::new(unary_expr)));
+                        let op = match func_def.opcode {
+                            FuncOpCode::NOT => UnaryOp::Not,
+                            FuncOpCode::UMINUS => UnaryOp::Minus,
+                            FuncOpCode::UPLUS => UnaryOp::Plus,
+                            _ => {
+                                return Err(DeserializationErrorType::UnknownUnaryFunction(
+                                    func_def.opcode,
+                                ));
                             }
-                            None => {
-                                return Err(
-                                    DeserializationErrorType::TooFewArgumentsForUnaryExpression,
-                                );
-                            }
+                        };
+
+                        if let Some(unary_expr) = self.pop_expr() {
+                            self.push_expr(PPEExpr::UnaryExpression(op, Box::new(unary_expr)));
+                        } else {
+                            // Some obfuscators try to trick the decompiler by using invalid unary expressions with 0 arguments
+                            // PCBoard will just skip these
+                            self.report_bug(
+                                DeserializationErrorType::TooFewArgumentsForUnaryExpression(op),
+                            );
+                            return self.deserialize_expression(executable);
                         }
                     }
                     0x11 => {
                         self.offset += 1;
-                        let Some(r_value) = self.pop_expr() else {
-                            return Err(
-                                DeserializationErrorType::TooFewArgumentsForBinaryExpression,
-                            );
-                        };
-                        let Some(l_value) = self.pop_expr() else {
-                            return Err(
-                                DeserializationErrorType::TooFewArgumentsForBinaryExpression,
-                            );
-                        };
+                        let binop = BinOp::from_opcode(func_def.opcode);
+                        if self.expr_stack.is_empty() {
+                            self.report_bug(DeserializationErrorType::BinaryExpressionStackEmpty(
+                                binop,
+                            ));
+                            return Ok(None);
+                        }
+                        let r_value = self.pop_expr().unwrap();
+                        if self.expr_stack.is_empty() {
+                            self.report_bug(DeserializationErrorType::OnlyOneArgumentForBinop(
+                                binop,
+                            ));
+                            self.push_expr(r_value);
+                        } else {
+                            let l_value = self.pop_expr().unwrap();
 
-                        let binop = BIN_EXPR[-(func_def.opcode as i32) as usize];
-                        self.push_expr(PPEExpr::BinaryExpression(
-                            binop,
-                            Box::new(l_value),
-                            Box::new(r_value),
-                        ));
+                            self.push_expr(PPEExpr::BinaryExpression(
+                                binop,
+                                Box::new(l_value),
+                                Box::new(r_value),
+                            ));
+                        }
                     }
                     _ => {
                         self.offset += 1;
@@ -365,8 +402,16 @@ impl PPEDeserializer {
         }
 
         match self.pop_expr() {
-            Some(expr) => Ok(expr),
+            Some(expr) => Ok(Some(expr)),
             None => Err(DeserializationErrorType::ExpressionStackEmpty),
+        }
+    }
+
+    fn report_bug(&mut self, error: DeserializationErrorType) {
+        if let Some(vec) = self.bugged_offsets.get_mut(&self.stmt_offset) {
+            vec.push(error);
+        } else {
+            self.bugged_offsets.insert(self.stmt_offset, vec![error]);
         }
     }
 
@@ -394,7 +439,7 @@ impl PPEDeserializer {
             return Ok(PPEExpr::Value(id as usize));
         }
         for _ in 0..dim {
-            let e = self.deserialize_expression(executable)?;
+            let e = self.deserialize_expression(executable)?.unwrap();
             self.push_expr(e);
         }
         if self.expr_stack.len() < dim as usize {

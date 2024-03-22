@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
-        Ast, AstNode, BinaryExpression, Constant, ConstantExpression, Expression,
+        Ast, AstNode, BinaryExpression, CommentAstNode, Constant, ConstantExpression, Expression,
         FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement,
         GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement,
         ParameterSpecifier, ParensExpression, PredefinedCallStatement,
@@ -121,7 +121,7 @@ impl Decompiler {
             let statement = &self.script.statements[self.cur_ptr];
             let byte_offset = statement.span.start * 2;
 
-            if let Some(func) = self.function_lookup.get(&(byte_offset)) {
+            if let Some(func) = self.function_lookup.get(&byte_offset) {
                 self.parse_function(*func);
                 continue;
             }
@@ -133,9 +133,16 @@ impl Decompiler {
                         label,
                     )));
             }
-            ast.nodes.push(AstNode::Statement(
-                self.decompile_statement(&statement.command),
-            ));
+            if let Some(bugs) = self.script.bugged_offsets.get_mut(&statement.span.start) {
+                for bug in bugs.drain(..) {
+                    ast.nodes
+                        .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                            format!(" PPLC bug use detected in next statement: {bug}"),
+                        )));
+                }
+            }
+            let stmt = self.decompile_statement(&statement.command);
+            ast.nodes.push(AstNode::Statement(stmt));
             self.cur_ptr += 1;
         }
         ast.nodes
@@ -143,6 +150,38 @@ impl Decompiler {
                 unicase::Ascii::new("EXIT_LABEL".to_string()),
             )));
         ast.nodes.append(&mut self.functions);
+
+        for (k, bugs) in &self.script.bugged_offsets {
+            for bug in bugs {
+                ast.nodes
+                    .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                        format!("{:04X}: statement: {}", k, bug),
+                    )));
+            }
+        }
+
+        if !self.script.bugged_offsets.is_empty() {
+            ast.nodes
+                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                    format!(
+                        " {} error(s) detected while decompiling",
+                        self.script.bugged_offsets.len(),
+                    ),
+                )));
+
+            ast.nodes
+                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                    String::new(),
+                )));
+            ast.nodes.push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                "Some PPEs got altered to avoid decompilation. PCBoard doesn't handle unary expressions correcty.".to_string(),
+            )));
+            ast.nodes
+                .push(AstNode::Statement(CommentAstNode::create_empty_statement(
+                    "Search for 'PPLC bug' and look out for !!!<expr> or !<expr>*!<expr> cases."
+                        .to_string(),
+                )));
+        }
         Ok(ast)
     }
 
@@ -162,6 +201,13 @@ impl Decompiler {
         for entry in self.executable.variable_table.get_entries() {
             match entry.entry_type {
                 EntryType::Function | EntryType::Procedure => {
+                    // offset == 0 seems to be a bug used for preventing decompilation
+                    if unsafe { entry.value.data.procedure_value.start_offset } == 0 {
+                        continue;
+                    }
+                    println!("add func {:0X} for {:0X} ", entry.header.id, unsafe {
+                        entry.value.data.procedure_value.start_offset
+                    });
                     self.function_lookup.insert(
                         unsafe { entry.value.data.procedure_value.start_offset as usize },
                         entry.header.id,
@@ -251,10 +297,12 @@ impl Decompiler {
 
     fn decompile_statement(&self, statement: &PPECommand) -> Statement {
         match statement {
-            PPECommand::End => PredefinedCallStatement::create_empty_statement(
-                OpCode::END.get_definition(),
-                Vec::new(),
-            ),
+            PPECommand::EndFunc | PPECommand::EndProc | PPECommand::End => {
+                PredefinedCallStatement::create_empty_statement(
+                    OpCode::END.get_definition(),
+                    Vec::new(),
+                )
+            }
             PPECommand::Return => PredefinedCallStatement::create_empty_statement(
                 OpCode::RETURN.get_definition(),
                 Vec::new(),
@@ -289,8 +337,6 @@ impl Decompiler {
                 p,
                 args.iter().map(|e| self.decompile_expression(e)).collect(),
             ),
-            PPECommand::EndFunc => todo!(),
-            PPECommand::EndProc => todo!(),
             PPECommand::Let(id, expr) => {
                 let (identifier, arguments) = match self.decompile_expression(id) {
                     Expression::FunctionCall(f) => {

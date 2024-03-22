@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::{AstVisitor, AstVisitorMut, Constant};
 use crate::{
-    executable::FunctionDefinition,
+    executable::{FuncOpCode, FunctionDefinition},
     parser::lexer::{SpannedToken, Token},
 };
 
@@ -23,6 +23,27 @@ pub enum BinOp {
     GreaterEq = -15,
     And = -17,
     Or = -18,
+}
+impl BinOp {
+    pub fn from_opcode(opcode: FuncOpCode) -> BinOp {
+        match opcode {
+            FuncOpCode::EXP => BinOp::PoW,
+            FuncOpCode::TIMES => BinOp::Mul,
+            FuncOpCode::DIVIDE => BinOp::Div,
+            FuncOpCode::MOD => BinOp::Mod,
+            FuncOpCode::PLUS => BinOp::Add,
+            FuncOpCode::MINUS => BinOp::Sub,
+            FuncOpCode::EQ => BinOp::Eq,
+            FuncOpCode::NE => BinOp::NotEq,
+            FuncOpCode::LT => BinOp::Lower,
+            FuncOpCode::LE => BinOp::LowerEq,
+            FuncOpCode::GT => BinOp::Greater,
+            FuncOpCode::GE => BinOp::GreaterEq,
+            FuncOpCode::AND => BinOp::And,
+            FuncOpCode::OR => BinOp::Or,
+            _ => panic!("Invalid opcode for binary operator {opcode:?}"),
+        }
+    }
 }
 
 impl fmt::Display for BinOp {

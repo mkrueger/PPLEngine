@@ -128,8 +128,7 @@ fn main() {
                 println!();
                 let mut visitor =
                     icy_ppe::executable::disassembler::DisassembleVisitor::new(&executable);
-                visitor.show_statement_data = true;
-
+                visitor.generate_statement_data = true;
                 compiler.get_script().visit(&mut visitor);
                 println!();
                 println!("Generated:");

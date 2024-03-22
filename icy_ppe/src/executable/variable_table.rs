@@ -532,13 +532,31 @@ impl VariableTable {
                     }
                 }
             },
-            super::PPECommand::PredefinedCall(id, args) => {
-                if let super::StatementSignature::ArgumentsWithVariable(var_arg, _) = id.sig {
+            super::PPECommand::PredefinedCall(id, args) => match id.sig {
+                super::StatementSignature::Invalid => {}
+                super::StatementSignature::ArgumentsWithVariable(var_arg, _)
+                | super::StatementSignature::VariableArguments(var_arg) => {
                     if var_arg > 0 {
                         self.report_usage(&args[var_arg - 1]);
                     }
                 }
-            }
+                super::StatementSignature::SpecialCaseDcreate => {
+                    self.report_usage(&args[3]);
+                }
+                super::StatementSignature::SpecialCaseDlockg
+                | super::StatementSignature::SpecialCaseSort => {
+                    self.report_usage(&args[1]);
+                }
+                super::StatementSignature::SpecialCaseVarSeg => {
+                    self.report_usage(&args[0]);
+                    self.report_usage(&args[1]);
+                }
+                super::StatementSignature::SpecialCasePop => {
+                    for arg in args {
+                        self.report_usage(arg);
+                    }
+                }
+            },
             super::PPECommand::Let(variable, _) => {
                 self.report_usage(variable);
             }

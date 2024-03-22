@@ -125,7 +125,7 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
 
     exe.script_buffer = script.to_vec();
     let mut deserializer = super::PPEDeserializer::default();
-    let expr = deserializer.deserialize_expression(&exe).unwrap();
+    let expr = deserializer.deserialize_expression(&exe).unwrap().unwrap();
 
     assert_eq!(expr, *expected);
     assert_eq!(expr.get_size(), exe.script_buffer.len());

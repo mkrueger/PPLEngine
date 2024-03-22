@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Range};
+use std::{collections::HashMap, fmt::Display, ops::Range};
 
 use thiserror::Error;
 
@@ -28,7 +28,13 @@ pub struct PPEStatement {
 
 #[derive(Default)]
 pub struct PPEScript {
+    pub bugged_offsets: HashMap<usize, Vec<DeserializationErrorType>>,
     pub statements: Vec<PPEStatement>,
+}
+
+pub enum CommandOrError {
+    Command(PPEStatement),
+    Error(DeserializationError),
 }
 
 impl PPEScript {
@@ -63,7 +69,30 @@ impl PPEScript {
                 }
             }
         }
+        result.bugged_offsets = deserializer.bugged_offsets;
         Ok(result)
+    }
+
+    pub fn step_through(exe: &Executable) -> Vec<CommandOrError> {
+        let mut deserializer = super::PPEDeserializer::default();
+        let mut result = Vec::new();
+        loop {
+            match deserializer.deserialize_statement(exe) {
+                Ok(Some(stmt)) => result.push(CommandOrError::Command(PPEStatement {
+                    span: deserializer.stmt_span(),
+                    command: stmt,
+                })),
+                Ok(None) => break,
+                Err(err) => {
+                    result.push(CommandOrError::Error(DeserializationError {
+                        error_type: err,
+                        span: deserializer.stmt_span(),
+                    }));
+                    break;
+                }
+            }
+        }
+        result
     }
 
     pub fn visit<T: Sized, V: PPEVisitor<T>>(&self, visitor: &mut V) {
@@ -180,8 +209,10 @@ impl PPECommand {
                     super::StatementSignature::VariableArguments(var_index) => {
                         vec.push(args.len() as i16);
                         for (i, arg) in args.iter().enumerate() {
-                            arg.serialize(vec);
-                            if i + 1 != var_index {
+                            if i + 1 == var_index {
+                                vec.push(arg.get_id().unwrap() as i16);
+                            } else {
+                                arg.serialize(vec);
                                 vec.push(0);
                             }
                         }
@@ -192,6 +223,7 @@ impl PPECommand {
                             arg.serialize(vec);
                         }
                     }
+
                     super::StatementSignature::Invalid => {
                         panic!("Invalid signature (special case should be handled before)")
                     }
@@ -242,9 +274,10 @@ impl PPECommand {
                         }
                 }
                 super::StatementSignature::VariableArguments(var_index) => {
-                    2 + PPEExpr::count_size(args)
+                    1 + 1
+                        + PPEExpr::count_size(args)
                         + if var_index > 0 {
-                            args.len() - 1
+                            args.len() - 2
                         } else {
                             args.len()
                         }

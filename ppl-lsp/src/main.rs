@@ -597,7 +597,6 @@ fn get_tooltip(ast: &Ast, offset: usize) -> Option<Hover> {
 
 fn get_statement_hover(opcode: OpCode) -> Option<Hover> {
     match opcode {
-        OpCode::WHILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-while")),
         OpCode::END => get_hint(fl!(LANGUAGE_LOADER, "hint-func-end")),
         OpCode::CLS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-cls")),
         OpCode::CLREOL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-clreol")),

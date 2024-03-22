@@ -1,4 +1,3 @@
-hint-func-while=todo
 hint-func-end=todo
 hint-func-cls=todo
 hint-func-clreol=todo

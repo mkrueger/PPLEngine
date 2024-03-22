@@ -114,7 +114,6 @@ pub enum PPECommand {
     End,
     Return,
     IfNot(Box<PPEExpr>, usize),
-    While(Box<PPEExpr>, Box<PPECommand>, usize),
     ProcedureCall(usize, Vec<PPEExpr>),
     PredefinedCall(&'static StatementDefinition, Vec<PPEExpr>),
     Goto(usize),
@@ -152,13 +151,6 @@ impl PPECommand {
                 expr.serialize(vec);
                 vec.push(0);
                 vec.push(*label as i16);
-            }
-            PPECommand::While(expr, stmt, label) => {
-                vec.push(OpCode::WHILE as i16);
-                expr.serialize(vec);
-                vec.push(0);
-                vec.push(*label as i16);
-                stmt.serialize(vec);
             }
             PPECommand::PredefinedCall(def, args) => {
                 vec.push(def.opcode as i16);
@@ -262,7 +254,6 @@ impl PPECommand {
 
             PPECommand::Goto(_) | PPECommand::Gosub(_) => 2,
             PPECommand::IfNot(expr, _) => 1 + expr.get_size() + 2,
-            PPECommand::While(expr, stmt, _) => 1 + expr.get_size() + 2 + stmt.get_size(),
             PPECommand::ProcedureCall(_, args) => 3 + PPEExpr::count_size(args) + args.len(),
             PPECommand::PredefinedCall(def, args) => match def.sig {
                 super::StatementSignature::ArgumentsWithVariable(var_index, _) => {
@@ -303,7 +294,6 @@ impl PPECommand {
             PPECommand::End => visitor.visit_end(),
             PPECommand::Return => visitor.visit_return(),
             PPECommand::IfNot(cond, label) => visitor.visit_if(cond, label),
-            PPECommand::While(cond, stmt, label) => visitor.visit_while(cond, stmt, label),
             PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(id, args),
             PPECommand::PredefinedCall(def, args) => visitor.visit_predefined_call(def, args),
             PPECommand::Goto(label) => visitor.visit_goto(label),
@@ -480,7 +470,6 @@ pub trait PPEVisitor<T>: Sized {
     fn visit_end(&mut self) -> T;
     fn visit_return(&mut self) -> T;
     fn visit_if(&mut self, cond: &PPEExpr, label: &usize) -> T;
-    fn visit_while(&mut self, cond: &PPEExpr, stmt: &PPECommand, label: &usize) -> T;
     fn visit_proc_call(&mut self, id: &usize, args: &[PPEExpr]) -> T;
     fn visit_predefined_call(&mut self, def: &StatementDefinition, args: &[PPEExpr]) -> T;
     fn visit_goto(&mut self, label: &usize) -> T;
@@ -666,15 +655,6 @@ impl<'a> PPEVisitor<Result<VariableValue, PPEError>> for PPEConstantValueVisitor
     }
 
     fn visit_if(&mut self, _cond: &PPEExpr, _label: &usize) -> Result<VariableValue, PPEError> {
-        todo!()
-    }
-
-    fn visit_while(
-        &mut self,
-        _cond: &PPEExpr,
-        _stmt: &PPECommand,
-        _label: &usize,
-    ) -> Result<VariableValue, PPEError> {
         todo!()
     }
 

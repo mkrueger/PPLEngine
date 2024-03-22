@@ -6,8 +6,8 @@ use crossterm::{
 };
 
 use super::{
-    CommandOrError, Executable, FunctionDefinition, OpCode, PPECommand, PPEExpr, PPEScript,
-    PPEVisitor, StatementDefinition,
+    CommandOrError, Executable, FunctionDefinition, OpCode, PPEExpr, PPEScript, PPEVisitor,
+    StatementDefinition,
 };
 
 pub struct DisassembleVisitor<'a> {
@@ -249,16 +249,6 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
             SetAttribute(Attribute::Reset),
         )
         .unwrap();
-    }
-
-    fn visit_while(&mut self, cond: &PPEExpr, stmt: &PPECommand, label: &usize) {
-        Self::output_op_code(OpCode::WHILE);
-        print!("(");
-        cond.visit(self);
-        print!(")");
-        print!(" {{{label:04X}}}");
-        println!("\t\t");
-        stmt.visit(self);
     }
 
     fn visit_proc_call(&mut self, id: &usize, args: &[PPEExpr]) {

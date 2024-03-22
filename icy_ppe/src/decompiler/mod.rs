@@ -77,8 +77,7 @@ impl Decompiler {
             match statement.command {
                 PPECommand::Goto(label)
                 | PPECommand::Gosub(label)
-                | PPECommand::IfNot(_, label)
-                | PPECommand::While(_, _, label) => {
+                | PPECommand::IfNot(_, label) => {
                     labels.insert(label);
                 }
                 _ => {}
@@ -242,7 +241,12 @@ impl Decompiler {
         match expression {
             PPEExpr::Invalid => todo!(),
             PPEExpr::Value(id) => unsafe {
-                let entry = self.executable.variable_table.get_var_entry(*id);
+                let Some(entry) = self.executable.variable_table.try_get_entry(*id) else {
+                    return ConstantExpression::create_empty_expression(Constant::String(format!(
+                        "ERROR IN EXPRESSION can't read table index : {:04X}",
+                        *id
+                    )));
+                };
                 if entry.entry_type == EntryType::Constant {
                     let constant = match entry.value.get_type() {
                         VariableType::BigStr | VariableType::String => {
@@ -328,7 +332,6 @@ impl Decompiler {
                     GotoStatement::create_empty_statement(self.get_label_name(*label)),
                 )
             }
-            PPECommand::While(_, _, _) => todo!(),
             PPECommand::ProcedureCall(p, args) => ProcedureCallStatement::create_empty_statement(
                 self.get_variable_name(*p),
                 args.iter().map(|e| self.decompile_expression(e)).collect(),
@@ -411,7 +414,9 @@ impl Decompiler {
             self.cur_ptr += 1;
         }
 
-        if self.script.statements[self.cur_ptr].command == PPECommand::End {
+        if self.cur_ptr < self.script.statements.len()
+            && self.script.statements[self.cur_ptr].command == PPECommand::End
+        {
             self.cur_ptr += 1;
         }
     }

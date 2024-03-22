@@ -523,7 +523,6 @@ impl VariableTable {
     }
     fn analyze_statement(&mut self, stmt: &super::PPECommand) {
         match stmt {
-            super::PPECommand::While(_, stmt, _) => self.analyze_statement(stmt),
             super::PPECommand::ProcedureCall(id, args) => unsafe {
                 let flags = self.get_value(*id).data.procedure_value.pass_flags;
                 for (i, arg) in args.iter().enumerate() {
@@ -566,7 +565,9 @@ impl VariableTable {
 
     fn report_usage(&mut self, variable: &PPEExpr) {
         if let Some(id) = variable.get_id() {
-            self.get_var_entry_mut(id).report_variable_usage();
+            if id < self.entries.len() + 1 && id > 0 {
+                self.get_var_entry_mut(id).report_variable_usage();
+            }
         }
     }
 
@@ -598,7 +599,7 @@ impl VariableTable {
     }
 
     pub fn try_get_entry(&self, id: usize) -> Option<&TableEntry> {
-        if id > self.entries.len() {
+        if id == 0 || id > self.entries.len() {
             return None;
         }
         Some(&self.entries[id - 1])

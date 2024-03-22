@@ -575,12 +575,7 @@ impl<'a> VirtualMachine<'a> {
                     self.goto(*label)?;
                 }
             }
-            PPECommand::While(exp, stmt, label) => {
-                while self.eval_expr(exp)?.as_bool() {
-                    self.execute_statement(stmt)?;
-                }
-                self.goto(*label)?;
-            }
+
             PPECommand::ProcedureCall(proc_id, arguments) => {
                 let proc_offset;
                 let locals;

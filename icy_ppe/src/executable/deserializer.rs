@@ -1,4 +1,5 @@
 use std::{
+    backtrace::Backtrace,
     collections::{HashMap, HashSet},
     mem::transmute,
     ops::Range,
@@ -60,6 +61,9 @@ pub enum DeserializationErrorType {
 
     #[error("Invalid statement ({0:04X})")]
     InvalidStatement(i16),
+
+    #[error("Invalid dimensonized expression ({0:04X}:{1:02X})")]
+    InvalidDimensonizedExpression(i16, i16),
 }
 
 #[derive(Default)]
@@ -95,6 +99,10 @@ impl PPEDeserializer {
             return Ok(None);
         }
         let cur_stmt = executable.script_buffer[self.offset];
+        if cur_stmt == 0 {
+            self.offset += 1;
+            return Ok(None);
+        }
         self.offset += 1;
 
         if !(0..LAST_STMT).contains(&cur_stmt)
@@ -113,7 +121,9 @@ impl PPEDeserializer {
             OpCode::FPCLR => Ok(Some(PPECommand::EndProc)),
             OpCode::STOP => Ok(Some(PPECommand::Stop)),
             OpCode::LET => {
-                let target = self.read_variable_expression(executable)?;
+                let Some(target) = self.read_variable_expression(executable) else {
+                    return Ok(None);
+                };
                 let Some(value) = self.deserialize_expression(executable)? else {
                     return Ok(None);
                 };
@@ -121,14 +131,6 @@ impl PPEDeserializer {
                 Ok(Some(PPECommand::Let(Box::new(target), Box::new(value))))
             }
             OpCode::IFNOT => {
-                let Some(expr) = self.deserialize_expression(executable)? else {
-                    return Ok(None);
-                };
-                let label = executable.script_buffer[self.offset] as usize;
-                self.offset += 1;
-                Ok(Some(PPECommand::IfNot(Box::new(expr), label)))
-            }
-            OpCode::WHILE => {
                 let Some(expr) = self.deserialize_expression(executable)? else {
                     return Ok(None);
                 };
@@ -212,8 +214,8 @@ impl PPEDeserializer {
                     }
                     crate::executable::StatementSignature::SpecialCaseVarSeg => {
                         let arguments = vec![
-                            self.read_variable_expression(executable)?,
-                            self.read_variable_expression(executable)?,
+                            self.read_variable_expression(executable).unwrap(),
+                            self.read_variable_expression(executable).unwrap(),
                         ];
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
@@ -241,7 +243,7 @@ impl PPEDeserializer {
                         self.offset += 1;
                         let mut arguments = Vec::new();
                         for _ in 0..count {
-                            arguments.push(self.read_variable_expression(executable)?);
+                            arguments.push(self.read_variable_expression(executable).unwrap());
                         }
                         return Ok(Some(PPECommand::PredefinedCall(def, arguments)));
                     }
@@ -253,7 +255,7 @@ impl PPEDeserializer {
                 let mut arguments = Vec::new();
                 for i in 0..argument_count {
                     let expr = if i + 1 == var_idx {
-                        self.read_variable_expression(executable)?
+                        self.read_variable_expression(executable).unwrap()
                     } else {
                         self.deserialize_expression(executable)?.unwrap()
                     };
@@ -319,8 +321,11 @@ impl PPEDeserializer {
                     _ => {}
                 }
 
-                let var_expr = self.read_variable_expression(executable)?;
-                self.push_expr(var_expr);
+                if let Some(var_expr) = self.read_variable_expression(executable) {
+                    self.push_expr(var_expr);
+                } else {
+                    break;
+                }
             } else {
                 if id == FuncOpCode::CPAR as i16 {
                     self.offset += 1;
@@ -423,32 +428,37 @@ impl PPEDeserializer {
         self.expr_stack.pop()
     }
 
-    fn read_variable_expression(
-        &mut self,
-        executable: &Executable,
-    ) -> Result<PPEExpr, DeserializationErrorType> {
+    fn read_variable_expression(&mut self, executable: &Executable) -> Option<PPEExpr> {
         let id = executable.script_buffer[self.offset];
         self.offset += 1;
         if self.offset >= executable.script_buffer.len() {
-            return Err(DeserializationErrorType::IndexOutOfBounds);
+            self.report_bug(DeserializationErrorType::IndexOutOfBounds);
+            return None;
         }
         let dim = executable.script_buffer[self.offset];
+        if !(0..=3).contains(&dim) {
+            self.report_bug(DeserializationErrorType::InvalidDimensonizedExpression(
+                id, dim,
+            ));
+            return None;
+        }
         self.offset += 1;
-
         if dim == 0 {
-            return Ok(PPEExpr::Value(id as usize));
+            return Some(PPEExpr::Value(id as usize));
         }
         for _ in 0..dim {
-            let e = self.deserialize_expression(executable)?.unwrap();
-            self.push_expr(e);
+            if let Some(e) = self.deserialize_expression(executable).unwrap() {
+                self.push_expr(e);
+            }
         }
         if self.expr_stack.len() < dim as usize {
-            return Err(DeserializationErrorType::InvalidExpressionStackState);
+            self.report_bug(DeserializationErrorType::InvalidExpressionStackState);
+            return None;
         }
         let dims = self
             .expr_stack
             .drain(self.expr_stack.len() - dim as usize..)
             .collect();
-        Ok(PPEExpr::Dim(id as usize, dims))
+        Some(PPEExpr::Dim(id as usize, dims))
     }
 }

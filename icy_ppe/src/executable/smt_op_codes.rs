@@ -33,7 +33,6 @@ pub enum StatementSignature {
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OpCode {
-    WHILE = 0,
     END = 1,
     CLS = 2,
     CLREOL = 3,
@@ -305,10 +304,11 @@ impl StatementDefinition {
 // " GO TO"
 pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
     StatementDefinition {
-        name: "WHILE",
-        opcode: OpCode::WHILE,
-        sig: StatementSignature::Invalid,
-        function: predefined_procedures::invalid,
+        // helps to map opcode to array index.
+        name: "Placeholder",
+        opcode: OpCode::END,
+        sig: StatementSignature::ArgumentsWithVariable(0, 0),
+        function: predefined_procedures::end,
     },
     StatementDefinition {
         name: "END",

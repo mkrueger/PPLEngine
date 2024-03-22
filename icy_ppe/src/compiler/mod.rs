@@ -468,21 +468,7 @@ impl PPECompiler {
                     self.get_label_index(goto_stmt.get_label()),
                 ))
             }
-            Statement::While(while_stmt) => {
-                let cond = self.comp_expr(while_stmt.get_condition());
-                let Some(stmt) = self.compile_statement(while_stmt.get_statement()) else {
-                    return None;
-                };
-                let while_offset = 1 + 1; // While token + label token
-                let stmt_size = stmt.get_size();
-                let cond_size = cond.get_size();
 
-                Some(PPECommand::While(
-                    Box::new(cond),
-                    Box::new(stmt),
-                    (while_offset + self.cur_offset + stmt_size + cond_size) * 2,
-                ))
-            }
             Statement::Let(let_smt) => {
                 let var_name = let_smt.get_identifier();
 
@@ -737,7 +723,7 @@ impl PPECompiler {
                 }
                 None
             }
-
+            Statement::While(_) => panic!("While not allowed in output AST."),
             Statement::Block(_) => panic!("Block not handled by compile statement."),
             Statement::Continue(_) => panic!("Continue not allowed in output AST."),
             Statement::Break(_) => panic!("Break not allowed in output AST."),

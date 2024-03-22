@@ -7,7 +7,9 @@ use std::{
 
 use crate::{
     ast::{
-        Ast, AstNode, BlockStatement, CommentAstNode, Constant, DimensionSpecifier, FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier, ProcedureDeclarationAstNode, ProcedureImplementation, Statement, VariableSpecifier
+        Ast, AstNode, BlockStatement, CommentAstNode, Constant, DimensionSpecifier,
+        FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier,
+        ProcedureDeclarationAstNode, ProcedureImplementation, Statement, VariableSpecifier,
     },
     executable::{FunctionDefinition, StatementDefinition, VariableType},
     tables::CP437_TO_UNICODE,
@@ -402,7 +404,7 @@ impl Parser {
                         return None;
                     }
                     if !self.got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
-                        let mut main_block = vec![stmt];    
+                        let mut main_block = vec![stmt];
                         while let Some(stmt) = self.parse_statement() {
                             main_block.push(stmt);
                         }

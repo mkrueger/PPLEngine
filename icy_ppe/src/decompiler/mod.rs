@@ -2,7 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
-        Ast, AstNode, BinaryExpression, BlockStatement, CommentAstNode, Constant, ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement, LetStatement, ParameterSpecifier, ParensExpression, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier
+        Ast, AstNode, BinaryExpression, BlockStatement, CommentAstNode, Constant,
+        ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode,
+        FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
+        LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
+        PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
+        ProcedureDeclarationAstNode, ProcedureImplementation, Statement, UnaryExpression, UnaryOp,
+        VariableDeclarationStatement, VariableSpecifier,
     },
     executable::{
         DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode, PPECommand,
@@ -117,18 +123,32 @@ impl Decompiler {
                         byte_offset,
                         bug: bug.clone(),
                     });
-                    statements.push(
-                        CommentAstNode::create_empty_statement(format!(
-                            " PPLC bug use detected in next statement: {bug}"
-                        ))
-                    );
+                    statements.push(CommentAstNode::create_empty_statement(format!(
+                        " PPLC bug use detected in next statement: {bug}"
+                    )));
                 }
             }
             statements.push(self.decompile_statement(&statement.command));
             self.cur_ptr += 1;
         }
-        statements.push(LabelStatement::create_empty_statement(unicase::Ascii::new("EXIT_LABEL".to_string())));
-        ast.nodes.push(AstNode::Main(BlockStatement::empty(statements)));
+        while let Some(Statement::PredifinedCall(c)) = statements.last() {
+            if c.get_func().opcode != OpCode::END {
+                break;
+            }
+            statements.pop();
+        }
+        statements.push(LabelStatement::create_empty_statement(unicase::Ascii::new(
+            "EXIT_LABEL".to_string(),
+        )));
+        if !self.functions.is_empty() {
+            statements.push(PredefinedCallStatement::create_empty_statement(
+                OpCode::END.get_definition(),
+                Vec::new(),
+            ));
+        }
+        ast.nodes
+            .push(AstNode::Main(BlockStatement::empty(statements)));
+
         ast.nodes.append(&mut self.functions);
 
         for (k, bugs) in &self.script.bugged_offsets {
@@ -316,26 +336,36 @@ impl Decompiler {
                 p,
                 args.iter().map(|e| self.decompile_expression(e)).collect(),
             ),
-            PPECommand::Let(id, expr) => {
-                let (identifier, arguments) = match self.decompile_expression(id) {
+            PPECommand::Let(left, expr) => {
+                let (identifier, arguments) = match self.decompile_expression(left) {
                     Expression::FunctionCall(f) => {
                         (f.get_identifier().clone(), f.get_arguments().clone())
                     }
                     Expression::Identifier(id) => (id.get_identifier().clone(), Vec::new()),
                     x => panic!("Invalid expression {x:?}"),
                 };
-                LetStatement::create_empty_statement(
-                    identifier,
-                    arguments,
-                    self.decompile_expression(expr),
-                )
+                let id = left.get_id().unwrap();
+                let mut value_expr = self.decompile_expression(expr);
+
+                if self
+                    .executable
+                    .variable_table
+                    .get_var_entry(id)
+                    .header
+                    .variable_type
+                    == VariableType::Boolean
+                {
+                    value_expr = Statement::try_boolean_conversion(&value_expr);
+                }
+
+                LetStatement::create_empty_statement(identifier, arguments, value_expr)
             }
         }
     }
 
     fn get_label_name(&self, label: usize) -> unicase::Ascii<String> {
         if let Some(name) = self.label_lookup.get(&label) {
-            unicase::Ascii::new(format!("LABEL{:03}", *name))
+            unicase::Ascii::new(format!("LABEL{:03}", *name + 1))
         } else {
             unicase::Ascii::new("EXIT_LABEL".to_string())
         }
@@ -514,7 +544,29 @@ fn generate_variable_declaration(var: &TableEntry) -> Statement {
 /// Panics if .
 pub fn decompile(executable: Executable, raw: bool) -> Res<(Ast, Vec<DecompilerIssue>)> {
     match Decompiler::new(executable) {
-        Ok(mut d) => Ok((d.decompile()?, d.issues)),
+        Ok(mut d) => {
+            let mut ast = d.decompile()?;
+
+            if !raw {
+                for node in &mut ast.nodes {
+                    match node {
+                        AstNode::Function(f) => {
+                            reconstruct::do_pass3(f.get_statements_mut());
+                        }
+                        AstNode::Procedure(p) => {
+                            reconstruct::do_pass3(p.get_statements_mut());
+                        }
+                        AstNode::Main(block) => {
+                            reconstruct::do_pass3(block.get_statements_mut());
+                        }
+                        _ => {}
+                    }
+                }
+                ast = reconstruct::do_pass4(&mut ast);
+            }
+
+            Ok((ast, d.issues))
+        }
         Err(err) => Err(Box::new(err.error_type)),
     }
 }

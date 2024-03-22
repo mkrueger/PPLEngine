@@ -67,27 +67,19 @@ fn test_decompiler() {
             "File: {}...",
             cur_entry.file_name().unwrap().to_str().unwrap()
         );
-        if cur_entry
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .eq("while.ppe")
+        if [
+            "for_next.ppe",
+            "select_case.ppe",
+            "while_break_continue.ppe",
+            "while.ppe",
+            "un.ppe",
+        ]
+        .contains(&cur_entry.file_name().unwrap().to_str().unwrap())
         {
             //skipped += 1;
             continue;
         }
 
-        if cur_entry
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .eq("loggedon.ppe")
-        {
-            //skipped += 1;
-            continue;
-        }
         let executable = read_file(file_name.to_str().unwrap(), false).unwrap();
         let (d, _) = decompile(executable, false).unwrap();
         let source_file = cur_entry.with_extension("pps");

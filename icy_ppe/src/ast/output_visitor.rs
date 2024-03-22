@@ -133,16 +133,16 @@ impl AstVisitor<()> for OutputVisitor {
     }
 
     fn visit_main(&mut self, block: &BlockStatement) {
-        self.output_keyword("Begin");
-        self.eol();
+        /*        self.output_keyword("Begin");
+        self.eol();*/
 
         self.indent += 1;
         self.output_statements(block.get_statements());
         self.indent -= 1;
 
-        self.indent();
+        /*        self.indent();
         self.output_keyword("End");
-        self.eol();
+        self.eol();*/
     }
 
     fn visit_block_statement(&mut self, block: &super::BlockStatement) {

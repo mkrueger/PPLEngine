@@ -86,43 +86,81 @@ fn main() {
                 return;
             }
 
-            let decompilation = decompile(executable, arguments.raw);
-
-            let mut output_visitor = output_visitor::OutputVisitor::default();
-            output_visitor.output_func = output_func;
-            decompilation.visit(&mut output_visitor);
-
-            if arguments.output {
-                println!("{}", output_visitor.output);
-            } else {
-                let mut output = File::create(&out_file_name).unwrap();
-                if let Err(err) = write!(output, "{}", output_visitor.output) {
-                    stdout()
-                        .execute(SetForegroundColor(Color::Red))
-                        .unwrap()
-                        .execute(Print(format!(
-                            "Can't create {:?} on disk, reason: {}",
-                            &out_file_name, err
-                        )))
-                        .unwrap()
-                        .execute(ResetColor)
-                        .unwrap()
-                        .flush()
+            match decompile(executable, arguments.raw) {
+                Ok((decompilation, issues)) => {
+                    let mut output_visitor = output_visitor::OutputVisitor::default();
+                    output_visitor.output_func = output_func;
+                    decompilation.visit(&mut output_visitor);
+                    if arguments.output {
+                        println!("{}", output_visitor.output);
+                    } else {
+                        let mut output = File::create(&out_file_name).unwrap();
+                        if let Err(err) = write!(output, "{}", output_visitor.output) {
+                            stdout()
+                                .execute(SetForegroundColor(Color::Red))
+                                .unwrap()
+                                .execute(Print(format!(
+                                    "Can't create {:?} on disk, reason: {}",
+                                    &out_file_name, err
+                                )))
+                                .unwrap()
+                                .execute(ResetColor)
+                                .unwrap()
+                                .flush()
+                                .unwrap();
+                            return;
+                        }
+                        execute!(
+                            stdout(),
+                            Print("\nSource decompilation complete: ".to_string()),
+                            SetAttribute(Attribute::Bold),
+                            Print(format!("{file_name}\n")),
+                            SetAttribute(Attribute::Reset),
+                            Print("decompiled to: ".to_string()),
+                            SetAttribute(Attribute::Bold),
+                            Print(format!("{out_file_name:?}\n")),
+                            SetAttribute(Attribute::Reset),
+                        )
                         .unwrap();
-                    return;
+                    }
+
+                    if !issues.is_empty() {
+                        println!();
+                    }
+                    for issue in &issues {
+                        execute!(
+                            stdout(),
+                            SetAttribute(Attribute::Bold),
+                            SetForegroundColor(Color::Yellow),
+                            Print("WARNING: ".to_string()),
+                            SetAttribute(Attribute::Reset),
+                            SetAttribute(Attribute::Bold),
+                            Print(format!("[{:04X}]:", issue.byte_offset)),
+                            SetAttribute(Attribute::Reset),
+                            Print(format!("{}", issue.bug)),
+                            SetAttribute(Attribute::Reset),
+                        )
+                        .unwrap();
+                        println!();
+                    }
+                    if !issues.is_empty() {
+                        println!("{0} issues found during decompilation", issues.len());
+                    }
                 }
-                execute!(
-                    stdout(),
-                    Print("\nSource decompilation complete: ".to_string()),
-                    SetAttribute(Attribute::Bold),
-                    Print(format!("{file_name}\n")),
-                    SetAttribute(Attribute::Reset),
-                    Print("decompiled to: ".to_string()),
-                    SetAttribute(Attribute::Bold),
-                    Print(format!("{out_file_name:?}\n")),
-                    SetAttribute(Attribute::Reset),
-                )
-                .unwrap();
+                Err(err) => {
+                    execute!(
+                        stdout(),
+                        SetAttribute(Attribute::Bold),
+                        SetForegroundColor(Color::Red),
+                        Print("ERROR: ".to_string()),
+                        SetAttribute(Attribute::Reset),
+                        SetAttribute(Attribute::Bold),
+                        Print(format!("{}", err)),
+                        SetAttribute(Attribute::Reset),
+                    )
+                    .unwrap();
+                    println!();
+                }
             }
         }
         Err(err) => {

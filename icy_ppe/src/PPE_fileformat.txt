@@ -5,12 +5,10 @@ VARIABLE_TABLE
 CODE_SIZE
 CODE
 
-
 Header:
 PCBoard Programming Language Executable  <VER>\x0D\x0A\x1A
 
 <VER> is #.## for example "3.30" or "3.40"
-
 
 VARIABLE_TABLE
 

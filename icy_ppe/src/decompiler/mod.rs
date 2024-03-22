@@ -11,8 +11,8 @@ use crate::{
         VariableSpecifier,
     },
     executable::{
-        read_file, DeserializationError, EntryType, Executable, OpCode, PPECommand, PPEExpr,
-        PPEScript, TableEntry, VariableType,
+        read_file, DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode,
+        PPECommand, PPEExpr, PPEScript, TableEntry, VariableType,
     },
     Res,
 };
@@ -22,7 +22,7 @@ pub mod reconstruct;
 pub mod rename_visitor;
 
 /// # Errors
-///
+/// # Panics
 pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Ast> {
     let executable = read_file(file_name, print_header_information)?;
     let mut d = Decompiler::new(executable).unwrap();
@@ -41,6 +41,11 @@ pub fn load_file(file_name: &str, print_header_information: bool) -> Res<Ast> {
     ast
 }
 
+pub struct DecompilerIssue {
+    pub byte_offset: usize,
+    pub bug: DeserializationErrorType,
+}
+
 #[derive(Default)]
 pub struct Decompiler {
     executable: Executable,
@@ -50,6 +55,7 @@ pub struct Decompiler {
     label_lookup: HashMap<usize, usize>,
     function_lookup: HashMap<usize, usize>,
     cur_ptr: usize,
+    issues: Vec<DecompilerIssue>,
 }
 
 impl Decompiler {
@@ -67,6 +73,7 @@ impl Decompiler {
             function_lookup: HashMap::new(),
             functions: Vec::new(),
             cur_ptr: 0,
+            issues: Vec::new(),
         })
     }
 
@@ -134,6 +141,10 @@ impl Decompiler {
             }
             if let Some(bugs) = self.script.bugged_offsets.get_mut(&statement.span.start) {
                 for bug in bugs.drain(..) {
+                    self.issues.push(DecompilerIssue {
+                        byte_offset,
+                        bug: bug.clone(),
+                    });
                     ast.nodes
                         .push(AstNode::Statement(CommentAstNode::create_empty_statement(
                             format!(" PPLC bug use detected in next statement: {bug}"),
@@ -154,7 +165,7 @@ impl Decompiler {
             for bug in bugs {
                 ast.nodes
                     .push(AstNode::Statement(CommentAstNode::create_empty_statement(
-                        format!("{:04X}: statement: {}", k, bug),
+                        format!("{k:04X}: statement: {bug}"),
                     )));
             }
         }
@@ -537,7 +548,9 @@ fn generate_variable_declaration(var: &TableEntry) -> Statement {
 ///
 /// Panics if .
 #[must_use]
-pub fn decompile(executable: Executable, raw: bool) -> Ast {
-    let mut d = Decompiler::new(executable).unwrap();
-    d.decompile().unwrap()
+pub fn decompile(executable: Executable, raw: bool) -> Res<(Ast, Vec<DecompilerIssue>)> {
+    match Decompiler::new(executable) {
+        Ok(mut d) => Ok((d.decompile()?, d.issues)),
+        Err(err) => Err(Box::new(err.error_type)),
+    }
 }

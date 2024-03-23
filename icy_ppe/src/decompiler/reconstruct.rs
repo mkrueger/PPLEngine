@@ -324,12 +324,19 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_loops(&mut statements2);
                 optimize_ifs(&mut statements2);
 
-                statements[i] = IfThenStatement::create_empty_statement(
-                    if_stmt.get_condition().clone(),
-                    statements2,
-                    Vec::new(),
-                    None,
-                );
+                if statements2.len() == 1 {
+                    statements[i] = IfStatement::create_empty_statement(
+                        if_stmt.get_condition().clone(),
+                        statements2.pop().unwrap(),
+                    );
+                } else {
+                    statements[i] = IfThenStatement::create_empty_statement(
+                        if_stmt.get_condition().clone(),
+                        statements2,
+                        Vec::new(),
+                        None,
+                    );
+                }
                 // replace if with if…then
                 // do not remove labels they may be needed to analyze other constructs
             }

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
-        Ast, AstNode, BinaryExpression, BlockStatement, CommentAstNode, Constant,
+        Ast, AstNode, BinOp, BinaryExpression, BlockStatement, CommentAstNode, Constant,
         ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode,
         FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
         LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
@@ -132,7 +132,7 @@ impl Decompiler {
             self.cur_ptr += 1;
         }
         while let Some(Statement::PredifinedCall(c)) = statements.last() {
-            if c.get_func().opcode != OpCode::END {
+            if c.get_func().opcode != OpCode::END || statements.len() <= 1 {
                 break;
             }
             statements.pop();
@@ -267,16 +267,18 @@ impl Decompiler {
                 }
             },
             PPEExpr::UnaryExpression(op, expr) => {
-                UnaryExpression::create_empty_expression(*op, self.decompile_expression(expr))
+                let mut expr = self.decompile_expression(expr);
+                if matches!(expr, Expression::Binary(_)) {
+                    expr = ParensExpression::create_empty_expression(expr);
+                }
+
+                UnaryExpression::create_empty_expression(*op, expr)
             }
             PPEExpr::BinaryExpression(op, left, right) => {
-                ParensExpression::create_empty_expression(
-                    BinaryExpression::create_empty_expression(
-                        *op,
-                        self.decompile_expression(left),
-                        self.decompile_expression(right),
-                    ),
-                )
+                let left = add_parens_if_required(*op, self.decompile_expression(left));
+                let right = add_parens_if_required(*op, self.decompile_expression(right));
+
+                BinaryExpression::create_empty_expression(*op, left, right)
             }
             PPEExpr::Dim(id, dims) => FunctionCallExpression::create_empty_expression(
                 self.get_variable_name(*id),
@@ -508,6 +510,20 @@ impl Decompiler {
 
             parameters
         }
+    }
+}
+
+fn add_parens_if_required(op: BinOp, expr: Expression) -> Expression {
+    let add_parens = if let Expression::Binary(bin_op) = &expr {
+        bin_op.get_op().get_priority() < op.get_priority()
+    } else {
+        false
+    };
+
+    if add_parens {
+        ParensExpression::create_empty_expression(expr)
+    } else {
+        expr
     }
 }
 

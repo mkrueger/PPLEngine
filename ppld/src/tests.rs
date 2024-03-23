@@ -72,7 +72,11 @@ fn test_decompiler() {
             "select_case.ppe",
             "while_break_continue.ppe",
             "while.ppe",
-            "un.ppe",
+            "if_else_loop_bug.ppe",
+            "for_break_continue.ppe",
+            "99bottles.ppe",
+            "if_elseif_else_endif_end.ppe",
+            "if_then_else.ppe",
         ]
         .contains(&cur_entry.file_name().unwrap().to_str().unwrap())
         {

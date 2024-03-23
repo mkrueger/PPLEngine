@@ -1,1 +1,1 @@
-IF (ABORT ()) END
+IF (!ABORT ()) END

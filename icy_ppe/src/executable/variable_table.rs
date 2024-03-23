@@ -499,20 +499,44 @@ impl VariableTable {
     pub fn generate_names(&mut self) {
         let user_vars_version = self.scan_user_variables_version();
         let mut name_generator = VariableNameGenerator::new(self.version, user_vars_version);
-        let mut function_result = 1;
         for res in &mut self.entries {
-            if res.get_type() == EntryType::FunctionResult {
-                res.set_name(format!("RESULT{function_result:>03}"));
-                function_result += 1;
-                continue;
-            }
-
             let (name, is_user_variable) = name_generator.get_next_name(res);
             if is_user_variable {
                 res.set_type(EntryType::UserVariable);
             }
 
             res.set_name(name);
+        }
+
+        for i in 0..self.entries.len() {
+            let var_type = self.entries[i].header.variable_type;
+            if var_type == VariableType::Function {
+                let id = unsafe { self.entries[i].value.data.function_value.return_var as usize };
+                let name = self.entries[i].get_name().clone();
+                self.entries[id - 1].set_name(name);
+            }
+            if var_type == VariableType::Function || var_type == VariableType::Procedure {
+                let first_var =
+                    unsafe { self.entries[i].value.data.procedure_value.first_var_id as usize };
+                let last = unsafe {
+                    self.entries[i].value.data.procedure_value.local_variables as usize
+                        + self.entries[i].value.data.procedure_value.parameters as usize
+                        + first_var
+                };
+
+                let mut par = 1;
+                let mut loc = 1;
+
+                (first_var..last).for_each(|i| {
+                    if self.entries[i].get_type() == EntryType::Parameter {
+                        self.entries[i].set_name(format!("PAR{:03}", par));
+                        par += 1;
+                    } else if self.entries[i].get_type() == EntryType::Variable {
+                        self.entries[i].set_name(format!("LOC{:03}", loc));
+                        loc += 1;
+                    }
+                });
+            }
         }
     }
 

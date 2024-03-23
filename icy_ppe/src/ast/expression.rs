@@ -49,6 +49,25 @@ impl BinOp {
             _ => panic!("Invalid opcode for binary operator {opcode:?}"),
         }
     }
+
+    pub fn get_priority(&self) -> u8 {
+        match self {
+            BinOp::PoW => 3,
+
+            BinOp::Mul | BinOp::Div | BinOp::Mod => 2,
+
+            BinOp::Add | BinOp::Sub => 1,
+
+            BinOp::Eq
+            | BinOp::NotEq
+            | BinOp::Lower
+            | BinOp::LowerEq
+            | BinOp::Greater
+            | BinOp::GreaterEq
+            | BinOp::And
+            | BinOp::Or => 0,
+        }
+    }
 }
 
 impl fmt::Display for BinOp {

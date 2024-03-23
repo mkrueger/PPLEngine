@@ -309,7 +309,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         name: "Placeholder",
         version: 100,
         opcode: OpCode::END,
-        sig: StatementSignature::ArgumentsWithVariable(0, 0),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::end,
     },
     StatementDefinition {
@@ -1464,21 +1464,21 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         name: "Declare",
         version: 200,
         opcode: OpCode::DECLARE,
-        sig: StatementSignature::ArgumentsWithVariable(10, 10),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
         name: "Function",
         version: 200,
         opcode: OpCode::FUNCTION,
-        sig: StatementSignature::ArgumentsWithVariable(10, 10),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
         name: "Procedure",
         version: 200,
         opcode: OpCode::PROCEDURE,
-        sig: StatementSignature::ArgumentsWithVariable(10, 10),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -1499,7 +1499,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         name: "Begin",
         version: 200,
         opcode: OpCode::BEGIN,
-        sig: StatementSignature::ArgumentsWithVariable(10, 10),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -1513,7 +1513,7 @@ pub static STATEMENT_DEFINITIONS: [StatementDefinition; 234] = [
         name: "Static",
         version: 200,
         opcode: OpCode::STATIC,
-        sig: StatementSignature::ArgumentsWithVariable(10, 10),
+        sig: StatementSignature::Invalid,
         function: predefined_procedures::invalid,
     },
     StatementDefinition {
@@ -1961,39 +1961,3 @@ fn check_table_consistency() {
         );
     }
 }
-
-/*
-#[test]
-fn convert_definitions() {
-    for def in &STATEMENT_DEFINITIONS {
-        if def.opcode as usize >= STATEMENT_SIGNATURE_TABLE.len() {
-            break;
-        }
-        print!("StatementDefinition {{ name: \"{}\", version:100, opcode: OpCode::{}, sig:", def.name, def.opcode);
-        let sig = STATEMENT_SIGNATURE_TABLE[def.opcode as usize];
-        match sig {
-            0 => print!("StatementSignature::ArgumentsWithVariable(0, 0)"),
-            1..=0xF => print!("StatementSignature::ArgumentsWithVariable(0, {})", sig),
-            0x11..=0x1F => print!("StatementSignature::ArgumentsWithVariable(1, {})", sig - 0x10),
-            0x21..=0x2F => print!("StatementSignature::ArgumentsWithVariable(2, {})", sig - 0x20),
-            0xF6 => print!("StatementSignature::SpecialCaseProcedure"),
-            0xF7 => print!("StatementSignature::SpecialCaseDLockG"),
-            0xF8 => print!("StatementSignature::SpecialCaseDCreate"),
-            0xF9 => print!("StatementSignature::SpecialCaseSort"),
-            0xFA => print!("StatementSignature::VariableArguments(1)"),
-            0xFD => print!("StatementSignature::Label"),
-            0xFE => print!("StatementSignature::VariableArguments(0)"),
-            0xFF => print!("StatementSignature::SpecialCaseIfWhen"),
-            _ => {
-                let max = (STATEMENT_SIGNATURE_TABLE[def.opcode as usize] & 0xf0) * 16 + (STATEMENT_SIGNATURE_TABLE[def.opcode as usize] & 0x0f);
-                let argument = max & 0xFF;
-                let variable = max / 256;
-                print!("StatementSignature::ArgumentsWithVariable({}, {})", argument, variable);
-            }
-        }
-        print!(", function: predefined_procedures::{}", def.name.to_lowercase());
-
-
-        print!("}},\n");
-    }
-}*/

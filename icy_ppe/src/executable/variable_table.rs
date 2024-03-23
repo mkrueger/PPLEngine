@@ -529,10 +529,10 @@ impl VariableTable {
 
                 (first_var..last).for_each(|i| {
                     if self.entries[i].get_type() == EntryType::Parameter {
-                        self.entries[i].set_name(format!("PAR{:03}", par));
+                        self.entries[i].set_name(format!("PAR{par:03}"));
                         par += 1;
                     } else if self.entries[i].get_type() == EntryType::Variable {
-                        self.entries[i].set_name(format!("LOC{:03}", loc));
+                        self.entries[i].set_name(format!("LOC{loc:03}"));
                         loc += 1;
                     }
                 });

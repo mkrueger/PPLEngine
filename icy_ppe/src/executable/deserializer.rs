@@ -5,10 +5,12 @@ use thiserror::Error;
 use crate::{
     ast::{BinOp, UnaryOp},
     executable::{OpCode, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
-    tables::STATEMENT_SIGNATURE_TABLE,
 };
 
-use super::{Executable, FuncOpCode, PPECommand, PPEExpr, VariableType, VariableValue, LAST_STMT};
+use super::{
+    Executable, FuncOpCode, PPECommand, PPEExpr, StatementSignature, VariableType, VariableValue,
+    LAST_STMT,
+};
 
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum DeserializationErrorType {
@@ -91,14 +93,13 @@ impl PPEDeserializer {
             return Ok(None);
         }
         let cur_stmt = executable.script_buffer[self.offset];
-        if cur_stmt == 0 {
-            self.offset += 1;
-            return Ok(None);
-        }
         self.offset += 1;
 
+        if cur_stmt == 0 {
+            return Ok(None);
+        }
         if !(0..LAST_STMT).contains(&cur_stmt)
-            || STATEMENT_SIGNATURE_TABLE[cur_stmt as usize] == 0xAA
+            || STATEMENT_DEFINITIONS[cur_stmt as usize].sig == StatementSignature::Invalid
         {
             self.report_bug(DeserializationErrorType::InvalidStatement(cur_stmt));
             return Ok(None);

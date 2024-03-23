@@ -3,13 +3,12 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ast::{
         Ast, AstNode, BinOp, BinaryExpression, BlockStatement, CommentAstNode, Constant,
-        ConstantExpression, Expression, ExpressionDepthVisitor, FunctionCallExpression,
-        FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement,
-        IdentifierExpression, IfStatement, LabelStatement, LetStatement, NegateExpressionVisitor,
-        ParameterSpecifier, ParensExpression, PredefinedCallStatement,
-        PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
-        ProcedureImplementation, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
-        VariableSpecifier,
+        ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode,
+        FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
+        LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
+        PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
+        ProcedureDeclarationAstNode, ProcedureImplementation, Statement, UnaryExpression,
+        VariableDeclarationStatement, VariableSpecifier,
     },
     executable::{
         DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode, PPECommand,
@@ -24,6 +23,8 @@ pub mod constant_scan_visitor;
 pub mod evaluation_visitor;
 pub mod reconstruct;
 pub mod rename_visitor;
+
+#[cfg(test)]
 pub mod test_evaluation_visitor;
 
 pub struct DecompilerIssue {

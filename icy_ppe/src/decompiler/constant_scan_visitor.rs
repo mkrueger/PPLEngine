@@ -1,5 +1,3 @@
-use std::fmt::Binary;
-
 use crate::{
     ast::{
         constant::{ConstantType, BUILTIN_CONSTS},

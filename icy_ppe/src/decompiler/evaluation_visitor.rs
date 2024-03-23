@@ -116,7 +116,7 @@ impl AstVisitorMut for OptimizationVisitor {
         unary: &crate::ast::UnaryExpression,
     ) -> crate::ast::Expression {
         if let Some(value) = EvaluationVisitor::default().visit_unary_expression(unary) {
-            if let Some(value) = value_to_expression(value) {
+            if let Some(value) = value_to_expression(&value) {
                 return value;
             }
         }
@@ -180,7 +180,7 @@ impl AstVisitorMut for OptimizationVisitor {
                 _ => {}
             }
         } else if let Some(value) = value_to_expression(
-            EvaluationVisitor::default()
+            &EvaluationVisitor::default()
                 .visit_binary_expression(binary)
                 .unwrap(),
         ) {
@@ -192,7 +192,7 @@ impl AstVisitorMut for OptimizationVisitor {
     }
 }
 
-fn value_to_expression(value: VariableValue) -> Option<Expression> {
+fn value_to_expression(value: &VariableValue) -> Option<Expression> {
     match value.get_type() {
         VariableType::Boolean => {
             return Some(ConstantExpression::create_empty_expression(

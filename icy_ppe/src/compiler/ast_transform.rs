@@ -2,7 +2,7 @@ use crate::{
     ast::{
         AstVisitorMut, BinaryExpression, BlockStatement, CommentAstNode, Constant,
         ConstantExpression, Expression, ForStatement, GotoStatement, IdentifierExpression,
-        IfStatement, LabelStatement, LetStatement, SelectStatement, Statement, UnaryExpression,
+        IfStatement, LabelStatement, LetStatement, SelectStatement, Statement,
     },
     decompiler::evaluation_visitor::OptimizationVisitor,
 };

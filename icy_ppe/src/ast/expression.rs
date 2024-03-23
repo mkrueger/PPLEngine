@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{AstVisitor, AstVisitorMut, Constant};
+use super::{AstVisitor, AstVisitorMut, Constant, ExpressionDepthVisitor, NegateExpressionVisitor};
 use crate::{
     executable::{FuncOpCode, FunctionDefinition},
     parser::lexer::{SpannedToken, Token},
@@ -227,6 +227,35 @@ impl Expression {
                         .is_similar(expr2.get_right_expression())
             }
             _ => false,
+        }
+    }
+
+    pub(crate) fn strip_parens(&self) -> Expression {
+        let mut condition = self;
+        while let Expression::Parens(expr) = condition {
+            condition = expr.get_expression();
+        }
+        condition.clone()
+    }
+
+    pub(crate) fn negate_expression(&self) -> Expression {
+        let variant1 = self
+            .visit_mut(&mut NegateExpressionVisitor::default())
+            .strip_parens();
+        let variant2 = UnaryExpression::create_empty_expression(
+            UnaryOp::Not,
+            if matches!(self, Expression::Binary(_)) {
+                ParensExpression::create_empty_expression(self.clone())
+            } else {
+                self.clone()
+            },
+        );
+        let v1_len = variant1.visit(&mut ExpressionDepthVisitor::default());
+        let v2_len = variant2.visit(&mut ExpressionDepthVisitor::default());
+        if v1_len <= v2_len {
+            variant1
+        } else {
+            variant2
         }
     }
 }

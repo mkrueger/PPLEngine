@@ -3,12 +3,13 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ast::{
         Ast, AstNode, BinOp, BinaryExpression, BlockStatement, CommentAstNode, Constant,
-        ConstantExpression, Expression, FunctionCallExpression, FunctionDeclarationAstNode,
-        FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, IfStatement,
-        LabelStatement, LetStatement, ParameterSpecifier, ParensExpression,
-        PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement,
-        ProcedureDeclarationAstNode, ProcedureImplementation, Statement, UnaryExpression, UnaryOp,
-        VariableDeclarationStatement, VariableSpecifier,
+        ConstantExpression, Expression, ExpressionDepthVisitor, FunctionCallExpression,
+        FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement,
+        IdentifierExpression, IfStatement, LabelStatement, LetStatement, NegateExpressionVisitor,
+        ParameterSpecifier, ParensExpression, PredefinedCallStatement,
+        PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode,
+        ProcedureImplementation, Statement, UnaryExpression, UnaryOp, VariableDeclarationStatement,
+        VariableSpecifier,
     },
     executable::{
         DeserializationError, DeserializationErrorType, EntryType, Executable, OpCode, PPECommand,
@@ -17,9 +18,13 @@ use crate::{
     Res,
 };
 
+use self::evaluation_visitor::OptimizationVisitor;
+
 pub mod constant_scan_visitor;
+pub mod evaluation_visitor;
 pub mod reconstruct;
 pub mod rename_visitor;
+pub mod test_evaluation_visitor;
 
 pub struct DecompilerIssue {
     pub byte_offset: usize,
@@ -268,17 +273,20 @@ impl Decompiler {
             },
             PPEExpr::UnaryExpression(op, expr) => {
                 let mut expr = self.decompile_expression(expr);
+
                 if matches!(expr, Expression::Binary(_)) {
                     expr = ParensExpression::create_empty_expression(expr);
                 }
 
-                UnaryExpression::create_empty_expression(*op, expr)
+                let expr = UnaryExpression::create_empty_expression(*op, expr);
+                expr.visit_mut(&mut OptimizationVisitor::default())
             }
             PPEExpr::BinaryExpression(op, left, right) => {
                 let left = add_parens_if_required(*op, self.decompile_expression(left));
                 let right = add_parens_if_required(*op, self.decompile_expression(right));
 
-                BinaryExpression::create_empty_expression(*op, left, right)
+                let expr = BinaryExpression::create_empty_expression(*op, left, right);
+                expr.visit_mut(&mut OptimizationVisitor::default())
             }
             PPEExpr::Dim(id, dims) => FunctionCallExpression::create_empty_expression(
                 self.get_variable_name(*id),
@@ -321,12 +329,10 @@ impl Decompiler {
             }
 
             PPECommand::IfNot(expr, label) => {
+                let expr = self.decompile_expression(expr);
+
                 IfStatement::create_empty_statement(
-                    //self.decompile_expression(expr),
-                    UnaryExpression::create_empty_expression(
-                        UnaryOp::Not,
-                        self.decompile_expression(expr),
-                    ),
+                    expr.negate_expression(),
                     GotoStatement::create_empty_statement(self.get_label_name(*label)),
                 )
             }

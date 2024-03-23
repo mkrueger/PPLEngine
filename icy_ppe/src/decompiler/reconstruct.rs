@@ -224,10 +224,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                                 }
                                 label_idx
                             };
-                            let cond = UnaryExpression::create_empty_expression(
-                                crate::ast::UnaryOp::Not,
-                                if_stmt.get_condition().clone(),
-                            );
+                            let cond = if_stmt.get_condition().negate_expression();
                             let mut block: Vec<Statement> =
                                 else_block.drain(0..label_idx).collect();
 
@@ -268,10 +265,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 
                 if if_block.is_empty() {
                     statements[i] = IfThenStatement::create_empty_statement(
-                        UnaryExpression::create_empty_expression(
-                            crate::ast::UnaryOp::Not,
-                            if_stmt.get_condition().clone(),
-                        ),
+                        if_stmt.get_condition().negate_expression(),
                         else_block,
                         elseif_blocks,
                         if if_block.is_empty() {
@@ -326,12 +320,12 @@ fn scan_if(statements: &mut Vec<Statement>) {
 
                 if statements2.len() == 1 {
                     statements[i] = IfStatement::create_empty_statement(
-                        if_stmt.get_condition().clone(),
+                        if_stmt.get_condition().negate_expression(),
                         statements2.pop().unwrap(),
                     );
                 } else {
                     statements[i] = IfThenStatement::create_empty_statement(
-                        if_stmt.get_condition().clone(),
+                        if_stmt.get_condition().negate_expression(),
                         statements2,
                         Vec::new(),
                         None,
@@ -650,10 +644,7 @@ fn scan_do_while(statements: &mut Vec<Statement>) {
                     optimize_ifs(&mut statements2);
 
                     statements[i] = WhileDoStatement::create_empty_statement(
-                        UnaryExpression::create_empty_expression(
-                            crate::ast::UnaryOp::Not,
-                            if_stmt.get_condition().clone(),
-                        ),
+                        if_stmt.get_condition().negate_expression(),
                         statements2,
                     );
                     statements.remove(i + 1);

@@ -1,7 +1,10 @@
-use crate::ast::{
-    AstVisitorMut, BinaryExpression, BlockStatement, CommentAstNode, Constant, ConstantExpression,
-    Expression, ForStatement, GotoStatement, IdentifierExpression, IfStatement, LabelStatement,
-    LetStatement, SelectStatement, Statement, UnaryExpression,
+use crate::{
+    ast::{
+        AstVisitorMut, BinaryExpression, BlockStatement, CommentAstNode, Constant,
+        ConstantExpression, Expression, ForStatement, GotoStatement, IdentifierExpression,
+        IfStatement, LabelStatement, LetStatement, SelectStatement, Statement, UnaryExpression,
+    },
+    decompiler::evaluation_visitor::OptimizationVisitor,
 };
 
 #[derive(Default)]
@@ -47,10 +50,7 @@ impl AstVisitorMut for AstTransformationVisitor {
         let mut statements = Vec::new();
         let if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
-            UnaryExpression::create_empty_expression(
-                crate::ast::UnaryOp::Not,
-                if_stmt.get_condition().clone(),
-            ),
+            if_stmt.get_condition().negate_expression(),
             GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.push(if_stmt.get_statement().visit_mut(self));
@@ -67,12 +67,6 @@ impl AstVisitorMut for AstTransformationVisitor {
         let mut if_exit_label = self.next_label();
         statements.push(IfStatement::create_empty_statement(
             if_then.get_condition().clone(),
-            /*
-            Box::new(UnaryExpression::create_empty_expression(
-                crate::ast::UnaryOp::Not,
-                Box::new(if_then.get_condition().clone()),
-            )),
-            */
             GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.extend(if_then.get_statements().iter().map(|s| s.visit_mut(self)));
@@ -90,10 +84,7 @@ impl AstVisitorMut for AstTransformationVisitor {
 
             if_exit_label = self.next_label();
             statements.push(IfStatement::create_empty_statement(
-                UnaryExpression::create_empty_expression(
-                    crate::ast::UnaryOp::Not,
-                    else_if.get_condition().clone(),
-                ),
+                else_if.get_condition().negate_expression(),
                 GotoStatement::create_empty_statement(if_exit_label.clone()),
             ));
             statements.extend(else_if.get_statements().iter().map(|s| s.visit_mut(self)));
@@ -139,10 +130,7 @@ impl AstVisitorMut for AstTransformationVisitor {
             continue_label.clone(),
         ));
         statements.push(IfStatement::create_empty_statement(
-            UnaryExpression::create_empty_expression(
-                crate::ast::UnaryOp::Not,
-                while_do.get_condition().clone(),
-            ),
+            while_do.get_condition().negate_expression(),
             GotoStatement::create_empty_statement(break_label.clone()),
         ));
         statements.extend(while_do.get_statements().iter().map(|s| s.visit_mut(self)));
@@ -283,12 +271,14 @@ impl AstVisitorMut for AstTransformationVisitor {
             ),
         );
 
+        let condition = BinaryExpression::create_empty_expression(
+            crate::ast::BinOp::And,
+            lower_bound,
+            upper_bound,
+        );
+
         statements.push(IfStatement::create_empty_statement(
-            BinaryExpression::create_empty_expression(
-                crate::ast::BinOp::And,
-                lower_bound,
-                upper_bound,
-            ),
+            condition.visit_mut(&mut OptimizationVisitor::default()),
             GotoStatement::create_empty_statement(break_label.clone()),
         ));
 

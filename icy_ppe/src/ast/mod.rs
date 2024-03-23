@@ -24,6 +24,12 @@ pub use self::output_visitor::*;
 pub mod rename_visitor;
 pub use self::rename_visitor::*;
 
+pub mod expression_depth_visitor;
+pub use self::expression_depth_visitor::*;
+
+pub mod negate_expression_visitor;
+pub use self::negate_expression_visitor::*;
+
 use crate::executable::VariableType;
 use crate::parser::lexer::{SpannedToken, Token};
 

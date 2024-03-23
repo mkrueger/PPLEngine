@@ -802,6 +802,22 @@ impl VariableValue {
         }
     }
 
+    pub fn new_double(d: f64) -> Self {
+        Self {
+            vtype: VariableType::Double,
+            data: VariableData { double_value: d },
+            generic_data: GenericVariableData::None,
+        }
+    }
+
+    pub fn new_unsigned(d: u64) -> Self {
+        Self {
+            vtype: VariableType::Unsigned,
+            data: VariableData { unsigned_value: d },
+            generic_data: GenericVariableData::None,
+        }
+    }
+
     pub fn new_vector(variable_type: VariableType, vec: Vec<VariableValue>) -> Self {
         Self {
             vtype: variable_type,

@@ -268,7 +268,10 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
 
                 if if_block.is_empty() {
                     statements[i] = IfThenStatement::create_empty_statement(
-                        if_stmt.get_condition().clone(),
+                        UnaryExpression::create_empty_expression(
+                            crate::ast::UnaryOp::Not,
+                            if_stmt.get_condition().clone(),
+                        ),
                         else_block,
                         elseif_blocks,
                         if if_block.is_empty() {
@@ -279,10 +282,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                     ); // replace if with if…then
                 } else {
                     statements[i] = IfThenStatement::create_empty_statement(
-                        UnaryExpression::create_empty_expression(
-                            crate::ast::UnaryOp::Not,
-                            if_stmt.get_condition().clone(),
-                        ),
+                        if_stmt.get_condition().clone(),
                         if_block,
                         elseif_blocks,
                         if else_block.is_empty() {
@@ -325,10 +325,7 @@ fn scan_if(statements: &mut Vec<Statement>) {
                 optimize_ifs(&mut statements2);
 
                 statements[i] = IfThenStatement::create_empty_statement(
-                    UnaryExpression::create_empty_expression(
-                        crate::ast::UnaryOp::Not,
-                        if_stmt.get_condition().clone(),
-                    ),
+                    if_stmt.get_condition().clone(),
                     statements2,
                     Vec::new(),
                     None,

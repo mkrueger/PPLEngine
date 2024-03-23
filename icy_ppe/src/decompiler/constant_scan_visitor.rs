@@ -1,8 +1,11 @@
+use std::fmt::Binary;
+
 use crate::{
     ast::{
         constant::{ConstantType, BUILTIN_CONSTS},
-        AstVisitorMut, Constant, ConstantExpression, Expression, PredefinedCallStatement,
-        PredefinedFunctionCallExpression, Statement, UnaryExpression, UnaryOp,
+        AstVisitorMut, BinOp, BinaryExpression, Constant, ConstantExpression, Expression,
+        PredefinedCallStatement, PredefinedFunctionCallExpression, Statement, UnaryExpression,
+        UnaryOp,
     },
     executable::{FuncOpCode, OpCode},
 };
@@ -17,10 +20,41 @@ impl ConstantReplaceVisitor {
 impl AstVisitorMut for ConstantReplaceVisitor {
     fn visit_constant_expression(&mut self, constant: &ConstantExpression) -> Expression {
         if let Constant::Integer(i) = constant.get_constant_value() {
+            let mut expression = None;
+            //check non 0 value built-in constants combinations
             for c in &BUILTIN_CONSTS {
-                if c.value == *i && c.used_by.contains(&self.replace_category) {
-                    return ConstantExpression::create_empty_expression(Constant::Builtin(c));
+                if c.value != 0
+                    && (c.value & *i) == c.value
+                    && c.used_by.contains(&self.replace_category)
+                {
+                    if expression.is_some() {
+                        expression = Some(BinaryExpression::create_empty_expression(
+                            BinOp::Add,
+                            expression.unwrap(),
+                            ConstantExpression::create_empty_expression(Constant::Builtin(c)),
+                        ));
+                    } else {
+                        expression = Some(ConstantExpression::create_empty_expression(
+                            Constant::Builtin(c),
+                        ));
+                    }
                 }
+            }
+
+            // search for 0 value built-in constants
+            if expression.is_none() {
+                for c in &BUILTIN_CONSTS {
+                    if c.value == 0 && c.used_by.contains(&self.replace_category) {
+                        expression = Some(ConstantExpression::create_empty_expression(
+                            Constant::Builtin(c),
+                        ));
+                        break;
+                    }
+                }
+            }
+
+            if let Some(expr) = expression {
+                return expr;
             }
         }
         Expression::Const(constant.clone())

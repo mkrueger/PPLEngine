@@ -1,1 +1,1 @@
-IF (!LOGGEDON()) PRINT "Hello"
+IF (LOGGEDON()) PRINT "Hello"

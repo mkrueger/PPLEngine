@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
 use icy_ppe::ast::{Ast, AstVisitor};
-use icy_ppe::executable::OpCode;
+use icy_ppe::executable::{OpCode, LAST_PPLC};
 use icy_ppe::parser::{parse_ast, Encoding};
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ppl_language_server::{ImCompleteSemanticToken, LANGUAGE_LOADER};
@@ -504,7 +504,7 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         let uri = params.uri.to_string();
         self.document_map.insert(uri.clone(), rope.clone());
-        let (prg, errors) = parse_ast(PathBuf::from(uri), &params.text, Encoding::Utf8);
+        let (prg, errors) = parse_ast(PathBuf::from(uri), &params.text, Encoding::Utf8, LAST_PPLC);
         let semantic_tokens = semantic_token_from_ast(&prg);
 
         let mut diagnostics = Vec::new();

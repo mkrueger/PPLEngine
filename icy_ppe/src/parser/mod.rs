@@ -11,7 +11,7 @@ use crate::{
         FunctionDeclarationAstNode, FunctionImplementation, ParameterSpecifier,
         ProcedureDeclarationAstNode, ProcedureImplementation, Statement, VariableSpecifier,
     },
-    executable::{FunctionDefinition, StatementDefinition, VariableType},
+    executable::{FuncOpCode, FunctionDefinition, OpCode, StatementDefinition, VariableType},
     tables::CP437_TO_UNICODE,
 };
 
@@ -133,6 +133,12 @@ pub enum ParserErrorType {
 
     #[error("Can't declare a function for an existing function ({0})")]
     FunctionAlreadyDefined(Token),
+
+    #[error("Version ({2}) not supported for statement ({0}:{1})")]
+    StatementVersionNotSupported(OpCode, u16, u16),
+
+    #[error("Version ({2}) not supported for function ({0}:{1})")]
+    FunctionVersionNotSupported(FuncOpCode, u16, u16),
 }
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -156,7 +162,7 @@ pub enum ParserWarningType {
 
 pub struct Parser {
     pub errors: Arc<Mutex<ErrorRepoter>>,
-
+    version: u16,
     pub require_user_variables: bool,
 
     cur_token: Option<SpannedToken>,
@@ -176,12 +182,13 @@ lazy_static::lazy_static! {
 }
 
 impl Parser {
-    pub fn new(file: PathBuf, text: &str, encoding: Encoding) -> Self {
+    pub fn new(file: PathBuf, text: &str, encoding: Encoding, version: u16) -> Self {
         let errors = Arc::new(Mutex::new(ErrorRepoter::default()));
 
         let lex = Lexer::new(file, text, encoding, errors.clone());
         Parser {
             errors,
+            version,
             cur_token: None,
             lookahead_token: None,
             lex,
@@ -965,9 +972,10 @@ pub fn parse_ast(
     file_name: PathBuf,
     input: &str,
     encoding: Encoding,
+    version: u16,
 ) -> (Ast, Arc<Mutex<ErrorRepoter>>) {
     let mut nodes = Vec::new();
-    let mut parser = Parser::new(file_name.clone(), input, encoding);
+    let mut parser = Parser::new(file_name.clone(), input, encoding, version);
     parser.next_token();
     parser.skip_eol();
 

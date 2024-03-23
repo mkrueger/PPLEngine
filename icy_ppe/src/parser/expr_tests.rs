@@ -3,13 +3,13 @@ use crate::{
         BinOp, BinaryExpression, Constant, ConstantExpression, Expression, ParensExpression,
         PredefinedFunctionCallExpression, UnaryExpression, UnaryOp,
     },
-    executable::FuncOpCode,
+    executable::{FuncOpCode, LAST_PPLC},
     parser::{Encoding, Parser},
 };
 use std::path::PathBuf;
 
 fn parse_expression(input: &str) -> Expression {
-    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
+    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8, LAST_PPLC);
     parser.next_token();
     let res = parser.parse_expression().unwrap();
     assert_eq!(parser.get_cur_token(), None);
@@ -25,7 +25,7 @@ fn check_expression(input: &str, check: &Expression) {
 }
 
 fn _check_error(input: &str) {
-    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
+    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8, LAST_PPLC);
     parser.next_token();
     let expr = parser.parse_expression();
     assert!(

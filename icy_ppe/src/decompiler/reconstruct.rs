@@ -1,7 +1,7 @@
 use crate::ast::{
-    AstNode, BinOp, BreakStatement, CaseBlock, CaseSpecifier, ContinueStatement, ElseBlock,
-    ElseIfBlock, ForStatement, IfStatement, IfThenStatement, RenameVisitor, SelectStatement,
-    UnaryExpression, WhileDoStatement,
+    BinOp, BreakStatement, CaseBlock, CaseSpecifier, ContinueStatement, ElseBlock, ElseIfBlock,
+    ForStatement, IfStatement, IfThenStatement, RenameVisitor, SelectStatement, UnaryExpression,
+    WhileDoStatement,
 };
 
 use super::{
@@ -203,7 +203,7 @@ fn scan_if_else(statements: &mut Vec<Statement>) {
                         if let Statement::Goto(label) = if_stmt.get_statement() {
                             let label_idx = if *label.get_label() == endif_label {
                                 // last elseif case.
-                                else_block.len() as usize
+                                else_block.len()
                             } else {
                                 let label_idx = get_label_index(
                                     &else_block,

@@ -5,13 +5,13 @@ use crate::{
         AstNode, FunctionDeclarationAstNode, ParameterSpecifier, ProcedureDeclarationAstNode,
         VariableSpecifier,
     },
-    executable::VariableType,
+    executable::{VariableType, LAST_PPLC},
 };
 
 use super::{Encoding, Parser};
 
 fn parse_ast_node(input: &str, assert_eof: bool) -> AstNode {
-    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
+    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8, LAST_PPLC);
     parser.next_token();
     let res = parser.parse_ast_node().unwrap();
     if assert_eof {

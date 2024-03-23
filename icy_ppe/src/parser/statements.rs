@@ -863,7 +863,17 @@ impl Parser {
             {
                 self.require_user_variables = true;
             }
-
+            if self.version < def.version {
+                self.report_error(
+                    id_token.span,
+                    ParserErrorType::StatementVersionNotSupported(
+                        def.opcode,
+                        def.version,
+                        self.version,
+                    ),
+                );
+                return None;
+            }
             return Some(Statement::PredifinedCall(PredefinedCallStatement::new(
                 id_token, def, params,
             )));

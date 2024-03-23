@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{vm::expressions::predefined_functions, Res};
 
 use super::VariableValue;
@@ -308,6 +310,12 @@ impl FuncOpCode {
     pub fn get_definition(self) -> &'static FunctionDefinition {
         let i = -(self as i16);
         &FUNCTION_DEFINITIONS[i as usize]
+    }
+}
+
+impl Display for FuncOpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 

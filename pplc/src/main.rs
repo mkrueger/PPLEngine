@@ -31,6 +31,10 @@ struct Args {
     #[arg(long)]
     forceuvar: bool,
 
+    /// Version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
+    #[arg(long)]
+    ppl_version: Option<u16>,
+
     /// Input file is CP437
     #[arg(long)]
     dos: bool,
@@ -49,7 +53,16 @@ fn main() {
         *crate::VERSION
     );
     let arguments = Args::parse();
-
+    let version = if let Some(v) = arguments.ppl_version {
+        v
+    } else {
+        330
+    };
+    let valid_versions: Vec<u16> = vec![100, 200, 300, 310, 330, 340];
+    if !valid_versions.contains(&version) {
+        println!("Invalid version number valid values {valid_versions:?}");
+        return;
+    }
     if arguments.nouvar && arguments.forceuvar {
         println!("--nouvar can't be used in conjunction with --forceuvar");
         return;
@@ -68,7 +81,7 @@ fn main() {
 
     println!();
     println!("Parsing...");
-    let (mut prg, errors) = parse_ast(PathBuf::from(&file_name), &src, encoding);
+    let (mut prg, errors) = parse_ast(PathBuf::from(&file_name), &src, encoding, version);
     if arguments.nouvar {
         prg.require_user_variables = false;
     }
@@ -76,7 +89,7 @@ fn main() {
         prg.require_user_variables = true;
     }
     println!("Compiling...");
-    let mut compiler = PPECompiler::new(LAST_PPLC, errors.clone());
+    let mut compiler = PPECompiler::new(version, errors.clone());
     compiler.compile(&prg);
 
     if errors.lock().unwrap().has_errors()

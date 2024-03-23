@@ -9,13 +9,13 @@ use crate::{
         UnaryExpression, UnaryOp, VariableDeclarationStatement, VariableSpecifier,
         WhileDoStatement, WhileStatement,
     },
-    executable::{OpCode, VariableType},
+    executable::{OpCode, VariableType, LAST_PPLC},
 };
 
 use super::{Encoding, Parser};
 
 fn parse_statement(input: &str, assert_eof: bool) -> Statement {
-    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8);
+    let mut parser = Parser::new(PathBuf::from("."), input, Encoding::Utf8, LAST_PPLC);
     parser.next_token();
     let res = parser
         .parse_statement()

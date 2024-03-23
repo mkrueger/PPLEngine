@@ -279,6 +279,18 @@ impl Parser {
                                 ),
                             );
                         }
+
+                        if self.version < def.version {
+                            self.report_error(
+                                identifier_token.span,
+                                ParserErrorType::FunctionVersionNotSupported(
+                                    def.opcode,
+                                    def.version,
+                                    self.version,
+                                ),
+                            );
+                            return None;
+                        }
                         return Some(Expression::PredefinedFunctionCall(
                             PredefinedFunctionCallExpression::new(
                                 identifier_token,

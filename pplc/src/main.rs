@@ -15,7 +15,7 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
 struct Args {
-    /// Don't egnerate a binary just output the disassembly
+    /// Output the disassembly instead of compiling
     #[arg(short, long)]
     disassemble: bool,
 
@@ -23,13 +23,13 @@ struct Args {
     #[arg(long)]
     nouvar: bool,
 
-    /// Don't report any warnings
-    #[arg(long)]
-    nowarnings: bool,
-
     /// Force user variables
     #[arg(long)]
     forceuvar: bool,
+
+    /// Don't report any warnings
+    #[arg(long)]
+    nowarnings: bool,
 
     /// Version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
     #[arg(long)]

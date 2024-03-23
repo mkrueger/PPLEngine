@@ -4,8 +4,8 @@ An engine for PPL/PPE PCBoard handling - just for fun.
 
 Features:
 
-* A decompiler (ppld) based on PPLD <https://github.com/astuder/ppld>
-* A compiler (pplc) that compiles UTF-8 files to output CP437 PPEs
+* A new decompiler/disassembler engine (ppld)
+* A compiler (pplc) that compiles UTF-8/CP437 files to output CP437 PPEs
 * A runtime (pplx) that runs .PPE files on console
 * A language server that provides developer functionality in any editor that supports lsp
 
@@ -22,18 +22,68 @@ Just for fun. Started this project initially to learn rust.
 
 ### Decompiler
 
-Basically it's the PPLD from DOS in an enchanced version.
-It adds:
+Decompiler is completely rewritten and can disassemble now on top of recompilation.
 
 * PPE 3.30 Support
-* Reconstruction of control structures if then/elseif/else, while…endwhile, for…next, break & continue, select case support
+* Reconstruction of control structures beside if…then is currently broken.
 * It tries to do some name guessing based on variable usage.
-* It's possible to see the raw output with the -r option
-* A bit more control over the output keyword style with the -s option
+
+```text
+Usage: ppld [OPTIONS] INPUT
+
+Arguments:
+  INPUT  file[.ppe] to decompile
+
+Options:
+  -r, --raw            raw ppe without reconstruction control structures
+  -d, --disassemble    raw ppe without reconstruction control structures
+  -o, --output         output to console instead of writing to file
+  -s, --style STYLE  keyword casing style, valid values are u=upper (default), l=lower, c=camel
+  -h, --help           Print help
+  -V, --version        Print version
+```
+
+The dissamble output can be used to see what the compilers are generating and for debugging purposes.
 
 ### Compiler
 
-* Supports 15.4 PPL extensions but not the container format
+Supports 15.4 PPL extensions but not the container format yet.
+
+Should be compatible to the old PCB compiler with some slight differences - I added some keywords which are not available as identifier (but as label):
+```text
+LET,
+IF, ELSE, ELSEIF,ENDIF,
+WHILE, ENDWHILE,
+FOR, NEXT, BREAK, CONTINUE, RETURN,
+GOSUB, GOTO,
+SELECT, CASE, DEFAULT, ENDSELECT
+```
+
+I think it improves the language and it's open for discussion. Note that some aliases like "quit" for the break keyword is not a keyword but is recognized as 'break' statement. I can change the status of a keyword so it's not a hard limit - as said "open for discussion".
+
+The compiler automatically generates user variables, if needed but behavior can be changed with command line options. It does some optimizations so it should produce smaller & faster exectuables than the original one.
+
+pplc has following options:
+
+```text
+Usage: pplc [OPTIONS] INPUT
+Arguments:
+  INPUT  file[.pps] to compile (extension defaults to .pps if not specified)
+
+Options:
+  -d, --disassemble                Output the disassembly instead of compiling
+      --nouvar                     Force no user variables
+      --forceuvar                  Force user variables
+      --nowarnings                 Don't report any warnings
+      --ppl-version PPL_VERSION    Version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
+      --dos                        Input file is CP437
+  -h, --help                       Print help
+  -V, --version                    Print version
+
+As default the compiler takes UTF8 input - DOS special chars are translated to CP437 in the output.
+```
+
+Note:  All old DOS files are usually CP437 - so it's recommended to use --dos for compiling these.
 
 ### Runner
 
@@ -86,7 +136,6 @@ And run from inside vs code the project with F5. A new vs code opens with PPL su
 
 ## PPL differences
 
-The aim is to be 100% compatible.
+The aim is to be as compatible as possible.
 
-* Added € as valid identifier character.
-  
+* Added € as valid identifier character. (for UTF8 files)

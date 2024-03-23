@@ -28,7 +28,7 @@ struct Args {
     #[arg(short, long)]
     raw: bool,
 
-    /// raw ppe without reconstruction control structures
+    /// output the disassembly instead of ppl
     #[arg(short, long)]
     disassemble: bool,
 

@@ -3,7 +3,7 @@ use std::fmt;
 use super::{AstVisitor, AstVisitorMut, Constant, ExpressionDepthVisitor, NegateExpressionVisitor};
 use crate::{
     executable::{FuncOpCode, FunctionDefinition},
-    parser::lexer::{SpannedToken, Token},
+    parser::lexer::{Spanned, Token},
 };
 
 #[repr(i16)]
@@ -270,21 +270,21 @@ impl fmt::Display for Expression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct IdentifierExpression {
-    identifier_token: SpannedToken,
+    identifier_token: Spanned<Token>,
 }
 
 impl IdentifierExpression {
-    pub fn new(identifier_token: SpannedToken) -> Self {
+    pub fn new(identifier_token: Spanned<Token>) -> Self {
         Self { identifier_token }
     }
 
     pub fn empty(identifier: unicase::Ascii<String>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -319,12 +319,12 @@ impl fmt::Display for IdentifierExpression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstantExpression {
-    constant_token: SpannedToken,
+    constant_token: Spanned<Token>,
     constant_value: Constant,
 }
 
 impl ConstantExpression {
-    pub fn new(constant_token: SpannedToken, constant_value: Constant) -> Self {
+    pub fn new(constant_token: Spanned<Token>, constant_value: Constant) -> Self {
         Self {
             constant_token,
             constant_value,
@@ -333,14 +333,14 @@ impl ConstantExpression {
 
     pub fn empty(constant_value: Constant) -> Self {
         Self {
-            constant_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            constant_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 String::new(),
             ))),
             constant_value,
         }
     }
 
-    pub fn get_constant_token(&self) -> &SpannedToken {
+    pub fn get_constant_token(&self) -> &Spanned<Token> {
         &self.constant_token
     }
 
@@ -361,16 +361,16 @@ impl fmt::Display for ConstantExpression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParensExpression {
-    lpar_token: SpannedToken,
+    lpar_token: Spanned<Token>,
     expression: Box<Expression>,
-    rpar_token: SpannedToken,
+    rpar_token: Spanned<Token>,
 }
 
 impl ParensExpression {
     pub fn new(
-        leftpar_token: SpannedToken,
+        leftpar_token: Spanned<Token>,
         expression: Expression,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
     ) -> Self {
         Self {
             lpar_token: leftpar_token,
@@ -381,13 +381,13 @@ impl ParensExpression {
 
     pub fn empty(expression: Expression) -> Self {
         Self {
-            lpar_token: SpannedToken::create_empty(Token::LPar),
+            lpar_token: Spanned::create_empty(Token::LPar),
             expression: Box::new(expression),
-            rpar_token: SpannedToken::create_empty(Token::RPar),
+            rpar_token: Spanned::create_empty(Token::RPar),
         }
     }
 
-    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token_token(&self) -> &Spanned<Token> {
         &self.lpar_token
     }
 
@@ -399,7 +399,7 @@ impl ParensExpression {
         &mut self.expression
     }
 
-    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token_token(&self) -> &Spanned<Token> {
         &self.rpar_token
     }
 
@@ -416,18 +416,18 @@ impl fmt::Display for ParensExpression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionCallExpression {
-    identifier_token: SpannedToken,
-    lpar_token: SpannedToken,
+    identifier_token: Spanned<Token>,
+    lpar_token: Spanned<Token>,
     arguments: Vec<Expression>,
-    rpar_token: SpannedToken,
+    rpar_token: Spanned<Token>,
 }
 
 impl FunctionCallExpression {
     pub fn new(
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         arguments: Vec<Expression>,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
     ) -> Self {
         Self {
             identifier_token,
@@ -439,17 +439,17 @@ impl FunctionCallExpression {
 
     pub fn empty(identifier: unicase::Ascii<String>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            lpar_token: SpannedToken::create_empty(Token::LPar),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            lpar_token: Spanned::create_empty(Token::LPar),
             arguments,
-            rpar_token: SpannedToken::create_empty(Token::RPar),
+            rpar_token: Spanned::create_empty(Token::RPar),
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
-    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token_token(&self) -> &Spanned<Token> {
         &self.lpar_token
     }
 
@@ -465,7 +465,7 @@ impl FunctionCallExpression {
         self.arguments = arguments;
     }
 
-    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token_token(&self) -> &Spanned<Token> {
         &self.rpar_token
     }
 
@@ -508,21 +508,21 @@ impl fmt::Display for FunctionCallExpression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PredefinedFunctionCallExpression {
-    identifier_token: SpannedToken,
+    identifier_token: Spanned<Token>,
     func: &'static FunctionDefinition,
 
-    lpar_token: SpannedToken,
+    lpar_token: Spanned<Token>,
     arguments: Vec<Expression>,
-    rpar_token: SpannedToken,
+    rpar_token: Spanned<Token>,
 }
 
 impl PredefinedFunctionCallExpression {
     pub fn new(
-        identifier_token: SpannedToken,
+        identifier_token: Spanned<Token>,
         func: &'static FunctionDefinition,
-        leftpar_token: SpannedToken,
+        leftpar_token: Spanned<Token>,
         arguments: Vec<Expression>,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
     ) -> Self {
         Self {
             identifier_token,
@@ -535,20 +535,20 @@ impl PredefinedFunctionCallExpression {
 
     pub fn empty(func: &'static FunctionDefinition, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            identifier_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 func.name.to_string(),
             ))),
             func,
-            lpar_token: SpannedToken::create_empty(Token::LPar),
+            lpar_token: Spanned::create_empty(Token::LPar),
             arguments,
-            rpar_token: SpannedToken::create_empty(Token::RPar),
+            rpar_token: Spanned::create_empty(Token::RPar),
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
-    pub fn get_lpar_token_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token_token(&self) -> &Spanned<Token> {
         &self.lpar_token
     }
 
@@ -560,7 +560,7 @@ impl PredefinedFunctionCallExpression {
         &mut self.arguments
     }
 
-    pub fn get_rpar_token_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token_token(&self) -> &Spanned<Token> {
         &self.rpar_token
     }
 
@@ -603,12 +603,12 @@ impl fmt::Display for PredefinedFunctionCallExpression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpression {
-    op_token: SpannedToken,
+    op_token: Spanned<Token>,
     expression: Box<Expression>,
 }
 
 impl UnaryExpression {
-    pub fn new(op_token: SpannedToken, expression: Expression) -> Self {
+    pub fn new(op_token: Spanned<Token>, expression: Expression) -> Self {
         Self {
             op_token,
             expression: Box::new(expression),
@@ -617,7 +617,7 @@ impl UnaryExpression {
 
     pub fn empty(op: UnaryOp, expression: Expression) -> Self {
         Self {
-            op_token: SpannedToken::create_empty(match op {
+            op_token: Spanned::create_empty(match op {
                 UnaryOp::Plus => Token::Add,
                 UnaryOp::Minus => Token::Sub,
                 UnaryOp::Not => Token::Not,
@@ -640,7 +640,7 @@ impl UnaryExpression {
         }
     }
 
-    pub fn get_op_token(&self) -> &SpannedToken {
+    pub fn get_op_token(&self) -> &Spanned<Token> {
         &self.op_token
     }
 
@@ -666,14 +666,14 @@ impl fmt::Display for UnaryExpression {
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpression {
     left_expression: Box<Expression>,
-    op_token: SpannedToken,
+    op_token: Spanned<Token>,
     right_expression: Box<Expression>,
 }
 
 impl BinaryExpression {
     pub fn new(
         left_expression: Expression,
-        op_token: SpannedToken,
+        op_token: Spanned<Token>,
         right_expression: Expression,
     ) -> Self {
         Self {
@@ -686,7 +686,7 @@ impl BinaryExpression {
     pub fn empty(left_expression: Expression, op: BinOp, right_expression: Expression) -> Self {
         Self {
             left_expression: Box::new(left_expression),
-            op_token: SpannedToken::create_empty(match op {
+            op_token: Spanned::create_empty(match op {
                 BinOp::PoW => Token::PoW,
                 BinOp::Mul => Token::Mul,
                 BinOp::Div => Token::Div,
@@ -739,7 +739,7 @@ impl BinaryExpression {
         &mut self.left_expression
     }
 
-    pub fn get_op_token(&self) -> &SpannedToken {
+    pub fn get_op_token(&self) -> &Spanned<Token> {
         &self.op_token
     }
 

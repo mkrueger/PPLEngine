@@ -31,7 +31,7 @@ pub mod negate_expression_visitor;
 pub use self::negate_expression_visitor::*;
 
 use crate::executable::VariableType;
-use crate::parser::lexer::{SpannedToken, Token};
+use crate::parser::lexer::{Spanned, Token};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
@@ -182,32 +182,32 @@ impl fmt::Display for AstNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImplementation {
     pub id: usize,
-    function_token: SpannedToken,
-    identifier_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    function_token: Spanned<Token>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     parameters: Vec<ParameterSpecifier>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
 
-    return_type_token: SpannedToken,
+    return_type_token: Spanned<Token>,
     return_type: VariableType,
 
     statements: Vec<Statement>,
-    endfunc_token: SpannedToken,
+    endfunc_token: Spanned<Token>,
 }
 
 impl FunctionImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: usize,
-        function_token: SpannedToken,
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        function_token: Spanned<Token>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         parameters: Vec<ParameterSpecifier>,
-        rightpar_token: SpannedToken,
-        return_type_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
+        return_type_token: Spanned<Token>,
         return_type: VariableType,
         statements: Vec<Statement>,
-        endfunc_token: SpannedToken,
+        endfunc_token: Spanned<Token>,
     ) -> Self {
         Self {
             id,
@@ -232,25 +232,25 @@ impl FunctionImplementation {
     ) -> Self {
         Self {
             id,
-            function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            function_token: Spanned::create_empty(Token::Function),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             parameters,
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
-            return_type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            rightpar_token: Spanned::create_empty(Token::RPar),
+            return_type_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 return_type.to_string(),
             ))),
             return_type,
             statements,
-            endfunc_token: SpannedToken::create_empty(Token::EndFunc),
+            endfunc_token: Spanned::create_empty(Token::EndFunc),
         }
     }
 
-    pub fn get_function_token(&self) -> &SpannedToken {
+    pub fn get_function_token(&self) -> &Spanned<Token> {
         &self.function_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -272,7 +272,7 @@ impl FunctionImplementation {
         }
     }
 
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -284,11 +284,11 @@ impl FunctionImplementation {
         &mut self.parameters
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
-    pub fn get_return_type_token(&self) -> &SpannedToken {
+    pub fn get_return_type_token(&self) -> &Spanned<Token> {
         &self.return_type_token
     }
 
@@ -304,7 +304,7 @@ impl FunctionImplementation {
         &mut self.statements
     }
 
-    pub fn get_endfunc_token(&self) -> &SpannedToken {
+    pub fn get_endfunc_token(&self) -> &Spanned<Token> {
         &self.endfunc_token
     }
     /*
@@ -346,13 +346,13 @@ impl FunctionImplementation {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureImplementation {
     pub id: usize,
-    procedure_token: SpannedToken,
-    identifier_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    procedure_token: Spanned<Token>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     parameters: Vec<ParameterSpecifier>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
     statements: Vec<Statement>,
-    endproc_token: SpannedToken,
+    endproc_token: Spanned<Token>,
 }
 
 /*
@@ -366,13 +366,13 @@ impl ProcedureImplementation {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: usize,
-        procedure_token: SpannedToken,
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        procedure_token: Spanned<Token>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         parameters: Vec<ParameterSpecifier>,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
         statements: Vec<Statement>,
-        endproc_token: SpannedToken,
+        endproc_token: Spanned<Token>,
     ) -> Self {
         Self {
             id,
@@ -394,21 +394,21 @@ impl ProcedureImplementation {
     ) -> Self {
         Self {
             id,
-            procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            procedure_token: Spanned::create_empty(Token::Procedure),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             parameters,
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
             statements,
-            endproc_token: SpannedToken::create_empty(Token::EndProc),
+            endproc_token: Spanned::create_empty(Token::EndProc),
         }
     }
 
-    pub fn get_procedure_token(&self) -> &SpannedToken {
+    pub fn get_procedure_token(&self) -> &Spanned<Token> {
         &self.procedure_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -430,7 +430,7 @@ impl ProcedureImplementation {
         }
     }
 
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -442,7 +442,7 @@ impl ProcedureImplementation {
         &mut self.parameters
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
@@ -454,7 +454,7 @@ impl ProcedureImplementation {
         &mut self.statements
     }
 
-    pub fn get_endproc_token(&self) -> &SpannedToken {
+    pub fn get_endproc_token(&self) -> &Spanned<Token> {
         &self.endproc_token
     }
     /*

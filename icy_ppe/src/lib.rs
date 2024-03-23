@@ -20,6 +20,7 @@ pub mod decompiler;
 pub mod executable;
 pub mod icy_board;
 pub mod parser;
+pub mod semantic;
 pub mod tables;
 pub mod vm;
 

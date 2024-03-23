@@ -2,13 +2,13 @@ use std::fmt;
 
 use crate::{
     executable::{VariableType, VariableValue},
-    parser::lexer::{SpannedToken, Token},
+    parser::lexer::{Spanned, Token},
 };
 
 use super::{AstVisitorMut, Constant, Statement};
 #[derive(Debug, PartialEq, Clone)]
 pub struct DimensionSpecifier {
-    dimension_token: SpannedToken,
+    dimension_token: Spanned<Token>,
 }
 
 impl DimensionSpecifier {
@@ -17,7 +17,7 @@ impl DimensionSpecifier {
     /// # Panics
     ///
     /// Panics if .
-    pub fn new(dimension_token: SpannedToken) -> Self {
+    pub fn new(dimension_token: Spanned<Token>) -> Self {
         #[allow(clippy::manual_assert)]
         if !matches!(dimension_token.token, Token::Const(Constant::Integer(_))) {
             panic!("DimensionSpecifier::new: invalid token {dimension_token:?}");
@@ -27,13 +27,13 @@ impl DimensionSpecifier {
 
     pub fn empty(dimension: usize) -> Self {
         Self {
-            dimension_token: SpannedToken::create_empty(Token::Const(Constant::Integer(
+            dimension_token: Spanned::create_empty(Token::Const(Constant::Integer(
                 dimension as i32,
             ))),
         }
     }
 
-    pub fn get_dimension_token(&self) -> &SpannedToken {
+    pub fn get_dimension_token(&self) -> &Spanned<Token> {
         &self.dimension_token
     }
 
@@ -53,18 +53,18 @@ impl DimensionSpecifier {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableSpecifier {
-    identifier_token: SpannedToken,
-    leftpar_token: Option<SpannedToken>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Option<Spanned<Token>>,
     dimensions: Vec<DimensionSpecifier>,
-    rightpar_token: Option<SpannedToken>,
+    rightpar_token: Option<Spanned<Token>>,
 }
 
 impl VariableSpecifier {
     pub fn new(
-        identifier_token: SpannedToken,
-        leftpar_token: Option<SpannedToken>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Option<Spanned<Token>>,
         dimensions: Vec<DimensionSpecifier>,
-        rightpar_token: Option<SpannedToken>,
+        rightpar_token: Option<Spanned<Token>>,
     ) -> Self {
         Self {
             identifier_token,
@@ -76,7 +76,7 @@ impl VariableSpecifier {
 
     pub fn empty(identifier: unicase::Ascii<String>, dimensions: Vec<usize>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
             leftpar_token: None,
             dimensions: dimensions
                 .into_iter()
@@ -86,7 +86,7 @@ impl VariableSpecifier {
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -108,7 +108,7 @@ impl VariableSpecifier {
         }
     }
 
-    pub fn get_leftpar_token(&self) -> &Option<SpannedToken> {
+    pub fn get_leftpar_token(&self) -> &Option<Spanned<Token>> {
         &self.leftpar_token
     }
 
@@ -120,7 +120,7 @@ impl VariableSpecifier {
         &mut self.dimensions
     }
 
-    pub fn get_rightpar_token(&self) -> &Option<SpannedToken> {
+    pub fn get_rightpar_token(&self) -> &Option<Spanned<Token>> {
         &self.rightpar_token
     }
 
@@ -201,14 +201,14 @@ impl VariableSpecifier {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarationStatement {
-    type_token: SpannedToken,
+    type_token: Spanned<Token>,
     variable_type: VariableType,
     variables: Vec<VariableSpecifier>,
 }
 
 impl VariableDeclarationStatement {
     pub fn new(
-        type_token: SpannedToken,
+        type_token: Spanned<Token>,
         variable_type: VariableType,
         variables: Vec<VariableSpecifier>,
     ) -> Self {
@@ -221,7 +221,7 @@ impl VariableDeclarationStatement {
 
     pub fn empty(variable_type: VariableType, variables: Vec<VariableSpecifier>) -> Self {
         Self {
-            type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            type_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 variable_type.to_string(),
             ))),
             variable_type,
@@ -229,7 +229,7 @@ impl VariableDeclarationStatement {
         }
     }
 
-    pub fn get_type_token(&self) -> &SpannedToken {
+    pub fn get_type_token(&self) -> &Spanned<Token> {
         &self.type_token
     }
 
@@ -258,16 +258,16 @@ impl VariableDeclarationStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParameterSpecifier {
-    var_token: Option<SpannedToken>,
-    type_token: SpannedToken,
+    var_token: Option<Spanned<Token>>,
+    type_token: Spanned<Token>,
     variable_type: VariableType,
     variable: VariableSpecifier,
 }
 
 impl ParameterSpecifier {
     pub fn new(
-        var_token: Option<SpannedToken>,
-        type_token: SpannedToken,
+        var_token: Option<Spanned<Token>>,
+        type_token: Spanned<Token>,
         variable_type: VariableType,
         variable: VariableSpecifier,
     ) -> Self {
@@ -282,13 +282,13 @@ impl ParameterSpecifier {
     pub fn empty(is_var: bool, variable_type: VariableType, variable: VariableSpecifier) -> Self {
         Self {
             var_token: if is_var {
-                Some(SpannedToken::create_empty(Token::Identifier(
+                Some(Spanned::create_empty(Token::Identifier(
                     unicase::Ascii::new("VAR".to_string()),
                 )))
             } else {
                 None
             },
-            type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            type_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 variable_type.to_string(),
             ))),
             variable_type,
@@ -296,7 +296,7 @@ impl ParameterSpecifier {
         }
     }
 
-    pub fn get_var_token(&self) -> &Option<SpannedToken> {
+    pub fn get_var_token(&self) -> &Option<Spanned<Token>> {
         &self.var_token
     }
 
@@ -304,7 +304,7 @@ impl ParameterSpecifier {
         self.var_token.is_some()
     }
 
-    pub fn get_type_token(&self) -> &SpannedToken {
+    pub fn get_type_token(&self) -> &Spanned<Token> {
         &self.type_token
     }
 
@@ -348,22 +348,22 @@ impl fmt::Display for VariableDeclarationStatement {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct ProcedureDeclarationAstNode {
-    declare_token: SpannedToken,
-    procedure_token: SpannedToken,
-    identifier_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    declare_token: Spanned<Token>,
+    procedure_token: Spanned<Token>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     parameters: Vec<ParameterSpecifier>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
 }
 
 impl ProcedureDeclarationAstNode {
     pub fn new(
-        declare_token: SpannedToken,
-        procedure_token: SpannedToken,
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        declare_token: Spanned<Token>,
+        procedure_token: Spanned<Token>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         parameters: Vec<ParameterSpecifier>,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
     ) -> Self {
         Self {
             declare_token,
@@ -377,23 +377,23 @@ impl ProcedureDeclarationAstNode {
 
     pub fn empty(identifier: unicase::Ascii<String>, parameters: Vec<ParameterSpecifier>) -> Self {
         Self {
-            declare_token: SpannedToken::create_empty(Token::Declare),
-            procedure_token: SpannedToken::create_empty(Token::Procedure),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            declare_token: Spanned::create_empty(Token::Declare),
+            procedure_token: Spanned::create_empty(Token::Procedure),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             parameters,
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
         }
     }
-    pub fn get_declare_token(&self) -> &SpannedToken {
+    pub fn get_declare_token(&self) -> &Spanned<Token> {
         &self.declare_token
     }
 
-    pub fn get_procedure_token(&self) -> &SpannedToken {
+    pub fn get_procedure_token(&self) -> &Spanned<Token> {
         &self.procedure_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -415,7 +415,7 @@ impl ProcedureDeclarationAstNode {
         }
     }
 
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -427,7 +427,7 @@ impl ProcedureDeclarationAstNode {
         &mut self.parameters
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
@@ -443,26 +443,26 @@ impl ProcedureDeclarationAstNode {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDeclarationAstNode {
-    declare_token: SpannedToken,
-    function_token: SpannedToken,
-    identifier_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    declare_token: Spanned<Token>,
+    function_token: Spanned<Token>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     parameters: Vec<ParameterSpecifier>,
-    rightpar_token: SpannedToken,
-    return_type_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
+    return_type_token: Spanned<Token>,
     return_type: VariableType,
 }
 
 impl FunctionDeclarationAstNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        declare_token: SpannedToken,
-        function_token: SpannedToken,
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        declare_token: Spanned<Token>,
+        function_token: Spanned<Token>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         parameters: Vec<ParameterSpecifier>,
-        rightpar_token: SpannedToken,
-        return_type_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
+        return_type_token: Spanned<Token>,
         return_type: VariableType,
     ) -> Self {
         Self {
@@ -483,27 +483,27 @@ impl FunctionDeclarationAstNode {
         return_type: VariableType,
     ) -> Self {
         Self {
-            declare_token: SpannedToken::create_empty(Token::Declare),
-            function_token: SpannedToken::create_empty(Token::Function),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            declare_token: Spanned::create_empty(Token::Declare),
+            function_token: Spanned::create_empty(Token::Function),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             parameters,
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
-            return_type_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            rightpar_token: Spanned::create_empty(Token::RPar),
+            return_type_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 return_type.to_string(),
             ))),
             return_type,
         }
     }
-    pub fn get_declare_token(&self) -> &SpannedToken {
+    pub fn get_declare_token(&self) -> &Spanned<Token> {
         &self.declare_token
     }
 
-    pub fn get_function_token(&self) -> &SpannedToken {
+    pub fn get_function_token(&self) -> &Spanned<Token> {
         &self.function_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -525,7 +525,7 @@ impl FunctionDeclarationAstNode {
         }
     }
 
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -537,11 +537,11 @@ impl FunctionDeclarationAstNode {
         &mut self.parameters
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
-    pub fn get_return_type_token(&self) -> &SpannedToken {
+    pub fn get_return_type_token(&self) -> &Spanned<Token> {
         &self.return_type_token
     }
 

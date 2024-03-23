@@ -39,21 +39,25 @@ pub struct LexingError {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct SpannedToken {
-    pub token: Token,
+pub struct Spanned<T>
+where
+    T: PartialEq + Clone,
+{
+    pub token: T,
     pub span: core::ops::Range<usize>,
 }
 
-impl SpannedToken {
-    pub fn new(token: Token, span: core::ops::Range<usize>) -> Self {
+impl<T: PartialEq + Clone> Spanned<T> {
+    pub fn new(token: T, span: core::ops::Range<usize>) -> Self {
         Self { token, span }
     }
-    pub fn create_empty(token: Token) -> Self {
+
+    pub fn create_empty(token: T) -> Self {
         Self { token, span: 0..0 }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CommentType {
     SingleLineQuote,
     SingleLineSemicolon,

@@ -6,7 +6,7 @@ use icy_ppe::{
         walk_procedure_implementation, walk_select_stmt, walk_while_do_stmt, walk_while_stmt, Ast,
         AstVisitor, Constant, ParameterSpecifier,
     },
-    parser::lexer::SpannedToken,
+    parser::lexer::{Spanned, Token},
 };
 use tower_lsp::lsp_types::SemanticTokenType;
 
@@ -38,7 +38,7 @@ struct SemanticTokenVisitor {
     pub semantic_tokens: Vec<ImCompleteSemanticToken>,
 }
 impl SemanticTokenVisitor {
-    fn highlight_token(&mut self, token: &SpannedToken, keyword: SemanticTokenType) {
+    fn highlight_token(&mut self, token: &Spanned<Token>, keyword: SemanticTokenType) {
         self.semantic_tokens.push(ImCompleteSemanticToken {
             start: token.span.start,
             length: token.span.len(),

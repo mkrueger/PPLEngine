@@ -1,4 +1,4 @@
-use crate::parser::lexer::{SpannedToken, Token};
+use crate::parser::lexer::{Spanned, Token};
 
 use super::{
     Ast, AstNode, BinaryExpression, BlockStatement, BreakStatement, CaseBlock, CaseSpecifier,
@@ -320,7 +320,7 @@ pub trait AstVisitorMut: Sized {
 
     // visit expressions
     fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) -> Expression {
-        Expression::Identifier(IdentifierExpression::new(SpannedToken {
+        Expression::Identifier(IdentifierExpression::new(Spanned {
             span: identifier.get_identifier_token().span.clone(),
             token: Token::Identifier(self.visit_identifier(identifier.get_identifier())),
         }))
@@ -356,7 +356,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) -> Expression {
         Expression::FunctionCall(FunctionCallExpression::new(
-            SpannedToken {
+            Spanned {
                 span: call.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(call.get_identifier())),
             },
@@ -501,7 +501,7 @@ pub trait AstVisitorMut: Sized {
     fn visit_for_statement(&mut self, for_stmt: &ForStatement) -> Statement {
         Statement::For(ForStatement::new(
             for_stmt.get_for_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: for_stmt.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(for_stmt.get_identifier())),
             },
@@ -520,7 +520,7 @@ pub trait AstVisitorMut: Sized {
                 .map(|stmt| stmt.visit_mut(self))
                 .collect(),
             for_stmt.get_next_token().clone(),
-            for_stmt.get_next_identifier_token().map(|ni| SpannedToken {
+            for_stmt.get_next_identifier_token().map(|ni| Spanned {
                 span: ni.span.clone(),
                 token: Token::Identifier(
                     self.visit_identifier(for_stmt.get_next_identifier().unwrap()),
@@ -545,7 +545,7 @@ pub trait AstVisitorMut: Sized {
     fn visit_let_statement(&mut self, let_stmt: &LetStatement) -> Statement {
         Statement::Let(LetStatement::new(
             let_stmt.get_let_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: let_stmt.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(let_stmt.get_identifier())),
             },
@@ -569,7 +569,7 @@ pub trait AstVisitorMut: Sized {
     }
     fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) -> Statement {
         Statement::Call(ProcedureCallStatement::new(
-            SpannedToken {
+            Spanned {
                 span: call.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(call.get_identifier())),
             },
@@ -609,7 +609,7 @@ pub trait AstVisitorMut: Sized {
 
     fn visit_variable_specifier(&mut self, var: &VariableSpecifier) -> VariableSpecifier {
         VariableSpecifier::new(
-            SpannedToken {
+            Spanned {
                 span: var.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(var.get_identifier())),
             },
@@ -623,7 +623,7 @@ pub trait AstVisitorMut: Sized {
         AstNode::ProcedureDeclaration(ProcedureDeclarationAstNode::new(
             proc_decl.get_declare_token().clone(),
             proc_decl.get_procedure_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: proc_decl.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(proc_decl.get_identifier())),
             },
@@ -640,7 +640,7 @@ pub trait AstVisitorMut: Sized {
         AstNode::FunctionDeclaration(FunctionDeclarationAstNode::new(
             func_decl.get_declare_token().clone(),
             func_decl.get_function_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: func_decl.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(func_decl.get_identifier())),
             },
@@ -658,7 +658,7 @@ pub trait AstVisitorMut: Sized {
 
     // visit implementations
 
-    fn visit_comment_implementation(&mut self, comment: &SpannedToken) -> SpannedToken {
+    fn visit_comment_implementation(&mut self, comment: &Spanned<Token>) -> Spanned<Token> {
         comment.clone()
     }
 
@@ -666,7 +666,7 @@ pub trait AstVisitorMut: Sized {
         AstNode::Function(FunctionImplementation::new(
             function.id,
             function.get_function_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: function.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(function.get_identifier())),
             },
@@ -696,7 +696,7 @@ pub trait AstVisitorMut: Sized {
         AstNode::Procedure(ProcedureImplementation::new(
             procedure.id,
             procedure.get_procedure_token().clone(),
-            SpannedToken {
+            Spanned {
                 span: procedure.get_identifier_token().span.clone(),
                 token: Token::Identifier(self.visit_identifier(procedure.get_identifier())),
             },

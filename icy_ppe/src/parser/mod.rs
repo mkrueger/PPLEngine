@@ -15,7 +15,7 @@ use crate::{
     tables::CP437_TO_UNICODE,
 };
 
-use self::lexer::{Lexer, SpannedToken, Token};
+use self::lexer::{Lexer, Spanned, Token};
 use thiserror::Error;
 use unicase::Ascii;
 
@@ -165,8 +165,8 @@ pub struct Parser {
     version: u16,
     pub require_user_variables: bool,
 
-    cur_token: Option<SpannedToken>,
-    lookahead_token: Option<SpannedToken>,
+    cur_token: Option<Spanned<Token>>,
+    lookahead_token: Option<Spanned<Token>>,
 
     lex: Lexer,
 
@@ -210,7 +210,7 @@ impl Parser {
     /// # Panics
     ///
     /// Panics if .
-    pub fn next_token(&mut self) -> Option<SpannedToken> {
+    pub fn next_token(&mut self) -> Option<Spanned<Token>> {
         if let Some(token) = self.lookahead_token.take() {
             self.cur_token = Some(token);
             return self.cur_token.clone();
@@ -220,30 +220,28 @@ impl Parser {
             let is_else = token == Token::Else;
             let is_end = token == Token::Identifier(Ascii::new("END".to_string()));
             let is_case = token == Token::Case;
-            self.cur_token = Some(SpannedToken::new(token, self.lex.span()));
+            self.cur_token = Some(Spanned::new(token, self.lex.span()));
 
             if is_else {
                 let start = self.lex.span().start;
                 if let Some(lookahed) = self.lex.next_token() {
                     if lookahed == Token::If {
                         self.cur_token =
-                            Some(SpannedToken::new(Token::ElseIf, start..self.lex.span().end));
+                            Some(Spanned::new(Token::ElseIf, start..self.lex.span().end));
                     } else {
                         self.lookahead_token =
-                            Some(SpannedToken::new(lookahed, start..self.lex.span().end));
+                            Some(Spanned::new(lookahed, start..self.lex.span().end));
                     }
                 }
             } else if is_case {
                 let start = self.lex.span().start;
                 if let Some(lookahed) = self.lex.next_token() {
                     if lookahed == Token::Else {
-                        self.cur_token = Some(SpannedToken::new(
-                            Token::Default,
-                            start..self.lex.span().end,
-                        ));
+                        self.cur_token =
+                            Some(Spanned::new(Token::Default, start..self.lex.span().end));
                     } else {
                         self.lookahead_token =
-                            Some(SpannedToken::new(lookahed, start..self.lex.span().end));
+                            Some(Spanned::new(lookahed, start..self.lex.span().end));
                     }
                 }
             } else if is_end {
@@ -252,34 +250,30 @@ impl Parser {
                     match lookahed {
                         Token::If => {
                             self.cur_token =
-                                Some(SpannedToken::new(Token::EndIf, start..self.lex.span().end));
+                                Some(Spanned::new(Token::EndIf, start..self.lex.span().end));
                         }
                         Token::While => {
-                            self.cur_token = Some(SpannedToken::new(
-                                Token::EndWhile,
-                                start..self.lex.span().end,
-                            ));
+                            self.cur_token =
+                                Some(Spanned::new(Token::EndWhile, start..self.lex.span().end));
                         }
                         Token::Select => {
-                            self.cur_token = Some(SpannedToken::new(
-                                Token::EndSelect,
-                                start..self.lex.span().end,
-                            ));
+                            self.cur_token =
+                                Some(Spanned::new(Token::EndSelect, start..self.lex.span().end));
                         }
                         Token::For => {
                             self.cur_token =
-                                Some(SpannedToken::new(Token::Next, start..self.lex.span().end));
+                                Some(Spanned::new(Token::Next, start..self.lex.span().end));
                         }
                         _ => {
                             let set_lookahad = if let Token::Identifier(id) = &lookahed {
                                 if *id == *PROC_TOKEN {
-                                    self.cur_token = Some(SpannedToken::new(
+                                    self.cur_token = Some(Spanned::new(
                                         Token::EndProc,
                                         start..self.lex.span().end,
                                     ));
                                     false
                                 } else if *id == *FUNC_TOKEN {
-                                    self.cur_token = Some(SpannedToken::new(
+                                    self.cur_token = Some(Spanned::new(
                                         Token::EndFunc,
                                         start..self.lex.span().end,
                                     ));
@@ -293,7 +287,7 @@ impl Parser {
 
                             if set_lookahad {
                                 self.lookahead_token =
-                                    Some(SpannedToken::new(lookahed, start..self.lex.span().end));
+                                    Some(Spanned::new(lookahed, start..self.lex.span().end));
                             }
                         }
                     }
@@ -321,11 +315,11 @@ impl Parser {
         }
     }
 
-    fn save_spannedtoken(&self) -> SpannedToken {
+    fn save_spanned_token(&self) -> Spanned<Token> {
         if let Some(token) = &self.cur_token {
             token.clone()
         } else {
-            SpannedToken::new(Token::Eol, 0..0)
+            Spanned::new(Token::Eol, 0..0)
         }
     }
 
@@ -381,7 +375,7 @@ impl Parser {
                     return None;
                 }
                 self.use_funcs = true;
-                let cmt = self.save_spannedtoken();
+                let cmt = self.save_spanned_token();
                 self.next_token();
                 return Some(AstNode::VariableDeclaration(Statement::Comment(
                     CommentAstNode::new(cmt),
@@ -505,13 +499,13 @@ impl Parser {
             );
             return None;
         };
-        let identifier_token = self.save_spannedtoken();
+        let identifier_token = self.save_spanned_token();
         self.next_token();
         let mut dimensions = Vec::new();
         let mut leftpar_token = None;
         let mut rightpar_token = None;
         if let Some(Token::LPar) = &self.get_cur_token() {
-            leftpar_token = Some(self.save_spannedtoken());
+            leftpar_token = Some(self.save_spanned_token());
             self.next_token();
             let Some(Token::Const(Constant::Integer(_))) = self.get_cur_token() else {
                 self.report_error(
@@ -520,7 +514,7 @@ impl Parser {
                 );
                 return None;
             };
-            dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
+            dimensions.push(DimensionSpecifier::new(self.save_spanned_token()));
             self.next_token();
 
             while let Some(Token::Comma) = &self.get_cur_token() {
@@ -533,7 +527,7 @@ impl Parser {
 
                     return None;
                 };
-                dimensions.push(DimensionSpecifier::new(self.save_spannedtoken()));
+                dimensions.push(DimensionSpecifier::new(self.save_spanned_token()));
                 self.next_token();
             }
 
@@ -553,7 +547,7 @@ impl Parser {
                 );
                 return None;
             }
-            rightpar_token = Some(self.save_spannedtoken());
+            rightpar_token = Some(self.save_spanned_token());
             self.next_token();
         }
         Some(VariableSpecifier::new(
@@ -570,7 +564,7 @@ impl Parser {
     ///
     /// Panics if .
     pub fn parse_declaration(&mut self) -> Option<AstNode> {
-        let declare_token = self.save_spannedtoken();
+        let declare_token = self.save_spanned_token();
         self.next_token();
 
         let is_function = if Some(Token::Procedure) == self.get_cur_token() {
@@ -584,7 +578,7 @@ impl Parser {
             );
             return None;
         };
-        let func_or_proc_token = self.save_spannedtoken();
+        let func_or_proc_token = self.save_spanned_token();
         self.next_token();
 
         let Some(Token::Identifier(identifier)) = self.get_cur_token() else {
@@ -595,7 +589,7 @@ impl Parser {
 
             return None;
         };
-        let identifier_token = self.save_spannedtoken();
+        let identifier_token = self.save_spanned_token();
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
@@ -606,7 +600,7 @@ impl Parser {
             return None;
         }
 
-        let leftpar_token = self.save_spannedtoken();
+        let leftpar_token = self.save_spanned_token();
         self.next_token();
 
         let mut parameters = Vec::new();
@@ -630,14 +624,14 @@ impl Parser {
                             ParserErrorType::VarNotAllowedInFunctions,
                         );
                     } else {
-                        var_token = Some(self.save_spannedtoken());
+                        var_token = Some(self.save_spanned_token());
                     }
                     self.next_token();
                 }
             }
 
             if let Some(var_type) = self.get_variable_type() {
-                let type_token = self.save_spannedtoken();
+                let type_token = self.save_spanned_token();
                 self.next_token();
                 let Some(info) = self.parse_var_info() else {
                     return None;
@@ -657,7 +651,7 @@ impl Parser {
                 self.next_token();
             }
         }
-        let rightpar_token = self.save_spannedtoken();
+        let rightpar_token = self.save_spanned_token();
         self.next_token();
         if !is_function {
             self.check_eol();
@@ -694,7 +688,7 @@ impl Parser {
             );
             return None;
         };
-        let return_type_token = self.save_spannedtoken();
+        let return_type_token = self.save_spanned_token();
         self.next_token();
         self.check_eol();
         Some(AstNode::FunctionDeclaration(
@@ -715,7 +709,7 @@ impl Parser {
         if self.get_cur_token() != Some(Token::Eol)
             && !matches!(self.get_cur_token(), Some(Token::Comment(_, _)))
         {
-            let err_token = self.save_spannedtoken();
+            let err_token = self.save_spanned_token();
             self.next_token();
             self.report_error(
                 err_token.span,
@@ -734,7 +728,7 @@ impl Parser {
     /// Panics if .
     pub fn parse_procedure(&mut self) -> Option<ProcedureImplementation> {
         if Some(Token::Procedure) == self.get_cur_token() {
-            let procedure_token = self.save_spannedtoken();
+            let procedure_token = self.save_spanned_token();
             self.next_token();
 
             let Some(Token::Identifier(_)) = self.get_cur_token() else {
@@ -745,7 +739,7 @@ impl Parser {
 
                 return None;
             };
-            let identifier_token = self.save_spannedtoken();
+            let identifier_token = self.save_spanned_token();
             self.next_token();
             if self.get_cur_token() != Some(Token::LPar) {
                 self.report_error(
@@ -755,7 +749,7 @@ impl Parser {
                 return None;
             }
 
-            let leftpar_token = self.save_spannedtoken();
+            let leftpar_token = self.save_spanned_token();
             self.next_token();
 
             let mut parameters = Vec::new();
@@ -772,13 +766,13 @@ impl Parser {
                 let mut var_token = None;
                 if let Some(Token::Identifier(id)) = self.get_cur_token() {
                     if id.eq_ignore_ascii_case("VAR") {
-                        var_token = Some(self.save_spannedtoken());
+                        var_token = Some(self.save_spanned_token());
                         self.next_token();
                     }
                 }
 
                 if let Some(var_type) = self.get_variable_type() {
-                    let type_token = self.save_spannedtoken();
+                    let type_token = self.save_spanned_token();
                     self.next_token();
 
                     let Some(info) = self.parse_var_info() else {
@@ -799,7 +793,7 @@ impl Parser {
                     self.next_token();
                 }
             }
-            let rightpar_token = self.save_spannedtoken();
+            let rightpar_token = self.save_spanned_token();
             self.next_token();
 
             self.skip_eol();
@@ -816,7 +810,7 @@ impl Parser {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
-            let endproc_token = self.save_spannedtoken();
+            let endproc_token = self.save_spanned_token();
             if endproc_token.token == Token::EndFunc {
                 self.errors.lock().unwrap().report_warning(
                     endproc_token.span.clone(),
@@ -846,7 +840,7 @@ impl Parser {
     /// Panics if .
     pub fn parse_function(&mut self) -> Option<FunctionImplementation> {
         if Some(Token::Function) == self.get_cur_token() {
-            let function_token = self.save_spannedtoken();
+            let function_token = self.save_spanned_token();
             self.next_token();
 
             let Some(Token::Identifier(_)) = self.get_cur_token() else {
@@ -857,7 +851,7 @@ impl Parser {
 
                 return None;
             };
-            let identifier_token = self.save_spannedtoken();
+            let identifier_token = self.save_spanned_token();
             self.next_token();
             if self.get_cur_token() != Some(Token::LPar) {
                 self.report_error(
@@ -867,7 +861,7 @@ impl Parser {
                 return None;
             }
 
-            let leftpar_token = self.save_spannedtoken();
+            let leftpar_token = self.save_spanned_token();
             self.next_token();
 
             let mut parameters = Vec::new();
@@ -892,7 +886,7 @@ impl Parser {
                 }
 
                 if let Some(var_type) = self.get_variable_type() {
-                    let type_token = self.save_spannedtoken();
+                    let type_token = self.save_spanned_token();
                     self.next_token();
 
                     let Some(info) = self.parse_var_info() else {
@@ -911,7 +905,7 @@ impl Parser {
                     self.next_token();
                 }
             }
-            let rightpar_token = self.save_spannedtoken();
+            let rightpar_token = self.save_spanned_token();
             self.next_token();
 
             let Some(return_type) = self.get_variable_type() else {
@@ -921,7 +915,7 @@ impl Parser {
                 );
                 return None;
             };
-            let return_type_token = self.save_spannedtoken();
+            let return_type_token = self.save_spanned_token();
             self.next_token();
             self.skip_eol();
 
@@ -937,7 +931,7 @@ impl Parser {
                 statements.push(self.parse_statement());
                 self.skip_eol();
             }
-            let endfunc_token = self.save_spannedtoken();
+            let endfunc_token = self.save_spanned_token();
             if endfunc_token.token == Token::EndProc {
                 self.errors.lock().unwrap().report_warning(
                     endfunc_token.span.clone(),

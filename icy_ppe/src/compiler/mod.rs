@@ -16,7 +16,7 @@ use crate::{
         VariableType, VariableValue, USER_VARIABLES,
     },
     parser::{
-        lexer::{SpannedToken, Token},
+        lexer::{Spanned, Token},
         ErrorRepoter, ParserErrorType,
     },
 };
@@ -63,7 +63,6 @@ pub enum CompilationWarningType {
     #[error("Unused label {0}")]
     UnusedLabel(String),
 }
-
 pub struct PPECompiler {
     version: u16,
     variable_id: usize,
@@ -113,7 +112,12 @@ impl PPECompiler {
 
     fn push_variable(&mut self, name: unicase::Ascii<String>, entry: TableEntry) {
         self.variable_table.push(entry);
-        self.variable_lookup.insert(name, self.variable_table.len());
+        if self.local_lookup {
+            self.local_variable_lookup
+                .insert(name, self.variable_table.len());
+        } else {
+            self.variable_lookup.insert(name, self.variable_table.len());
+        }
     }
 
     fn variable_count(&self) -> usize {
@@ -743,7 +747,7 @@ impl PPECompiler {
         &mut self,
         arg_count_expected: usize,
         arg_count: usize,
-        identifier_token: &SpannedToken,
+        identifier_token: &Spanned<Token>,
     ) -> bool {
         if arg_count_expected < arg_count {
             self.errors.lock().unwrap().report_error(
@@ -848,7 +852,7 @@ impl PPECompiler {
         }
     }
 
-    fn set_label_offset(&mut self, label_token: &SpannedToken) {
+    fn set_label_offset(&mut self, label_token: &Spanned<Token>) {
         let Token::Label(identifier) = &label_token.token else {
             log::error!("Invalid label token {:?}", label_token);
             return;

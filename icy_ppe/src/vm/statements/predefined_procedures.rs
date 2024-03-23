@@ -831,7 +831,6 @@ pub fn lang(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 pub fn sort(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("Should not be called, sort requires special handling.")
 }
-
 pub fn sort_impl(table: &mut VariableTable, array_idx: usize, indices_idx: usize) -> Res<()> {
     let array = table.get_value(array_idx);
     {
@@ -862,6 +861,7 @@ pub fn sort_impl(table: &mut VariableTable, array_idx: usize, indices_idx: usize
     }
     Ok(())
 }
+
 pub fn mousereg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }

@@ -14,14 +14,14 @@ pub enum Constant {
     Builtin(&'static BuiltinConst),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BuiltinConst {
     pub name: &'static str,
     pub value: i32,
     pub used_by: &'static [ConstantType],
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 pub enum ConstantType {
     General,
     Account,

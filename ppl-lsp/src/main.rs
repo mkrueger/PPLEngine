@@ -5,6 +5,8 @@ use i18n_embed_fl::fl;
 use icy_ppe::ast::{Ast, AstVisitor};
 use icy_ppe::executable::{OpCode, LAST_PPLC};
 use icy_ppe::parser::{parse_ast, Encoding};
+use ppl_language_server::jump_definition::get_definition;
+use ppl_language_server::reference::get_reference;
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ppl_language_server::{ImCompleteSemanticToken, LANGUAGE_LOADER};
 use ropey::Rope;
@@ -80,9 +82,8 @@ impl LanguageServer for Backend {
                         },
                     ),
                 ),
-                // definition: Some(GotoCapability::default()),
-                // definition_provider: Some(OneOf::Left(true)),
-                // references_provider: Some(OneOf::Left(true)),
+                definition_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
                 // rename_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
@@ -149,10 +150,8 @@ impl LanguageServer for Backend {
 
     async fn goto_definition(
         &self,
-        _params: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        Ok(None)
-        /*
         let definition = async {
             let uri = params.text_document_position_params.text_document.uri;
             let ast = self.ast_map.get(uri.as_str())?;
@@ -161,14 +160,13 @@ impl LanguageServer for Backend {
             let position = params.text_document_position_params.position;
             let char = rope.try_line_to_char(position.line as usize).ok()?;
             let offset = char + position.character as usize;
-            // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
             let span = get_definition(&ast, offset);
             self.client
                 .log_message(MessageType::INFO, &format!("{:?}, ", span))
                 .await;
-            span.and_then(|(_, range)| {
-                let start_position = offset_to_position(range.start, &rope)?;
-                let end_position = offset_to_position(range.end, &rope)?;
+            span.and_then(|r| {
+                let start_position = offset_to_position(r.span.start, &rope)?;
+                let end_position = offset_to_position(r.span.end, &rope)?;
 
                 let range = Range::new(start_position, end_position);
 
@@ -176,12 +174,10 @@ impl LanguageServer for Backend {
             })
         }
         .await;
-        Ok(definition)*/
+        Ok(definition)
     }
 
-    async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        Ok(None)
-        /*
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
         let reference_list = || -> Option<Vec<Location>> {
             let uri = params.text_document_position.text_document.uri;
             let ast = self.ast_map.get(&uri.to_string())?;
@@ -190,12 +186,12 @@ impl LanguageServer for Backend {
             let position = params.text_document_position.position;
             let char = rope.try_line_to_char(position.line as usize).ok()?;
             let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset, false);
+            let reference_list = get_reference(&ast, offset, true);
             let ret = reference_list
                 .into_iter()
-                .filter_map(|(_, range)| {
-                    let start_position = offset_to_position(range.start, &rope)?;
-                    let end_position = offset_to_position(range.end, &rope)?;
+                .filter_map(|r| {
+                    let start_position = offset_to_position(r.span.start, &rope)?;
+                    let end_position = offset_to_position(r.span.end, &rope)?;
 
                     let range = Range::new(start_position, end_position);
 
@@ -204,7 +200,7 @@ impl LanguageServer for Backend {
                 .collect::<Vec<_>>();
             Some(ret)
         }();
-        Ok(reference_list)*/
+        Ok(reference_list)
     }
 
     async fn semantic_tokens_full(
@@ -312,55 +308,6 @@ impl LanguageServer for Backend {
         let uri = &params.text_document.uri;
         if let Some(_program) = self.ast_map.get(uri.as_str()) {}
         let inlay_hint_list = Vec::new();
-        /*
-                let document = match self.document_map.get(uri.as_str()) {
-                    Some(rope) => rope,
-                    None => return Ok(None),
-                };
-                let inlay_hint_list = hashmap
-                    .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            k.start,
-                            k.end,
-                            match v {
-                                ppl_language_server::chumsky::Value::Null => "null".to_string(),
-                                ppl_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
-                                ppl_language_server::chumsky::Value::Num(_) => "number".to_string(),
-                                ppl_language_server::chumsky::Value::Str(_) => "string".to_string(),
-                                ppl_language_server::chumsky::Value::List(_) => "[]".to_string(),
-                                ppl_language_server::chumsky::Value::Func(_) => v.to_string(),
-                            },
-                        )
-                    })
-                    .filter_map(|item| {
-                        // let start_position = offset_to_position(item.0, document)?;
-                        let end_position = offset_to_position(item.1, &document)?;
-                        let inlay_hint = InlayHint {
-                            text_edits: None,
-                            tooltip: None,
-                            kind: Some(InlayHintKind::TYPE),
-                            padding_left: None,
-                            padding_right: None,
-                            data: None,
-                            position: end_position,
-                            label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-                                value: item.2,
-                                tooltip: None,
-                                location: Some(Location {
-                                    uri: params.text_document.uri.clone(),
-                                    range: Range {
-                                        start: Position::new(0, 4),
-                                        end: Position::new(0, 5),
-                                    },
-                                }),
-                                command: None,
-                            }]),
-                        };
-                        Some(inlay_hint)
-                    })
-                    .collect::<Vec<_>>();
-        */
         Ok(Some(inlay_hint_list))
     }
 

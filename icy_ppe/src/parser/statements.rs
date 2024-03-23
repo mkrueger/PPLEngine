@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    lexer::{SpannedToken, Token},
+    lexer::{Spanned, Token},
     Parser, ParserWarningType,
 };
 
@@ -30,14 +30,14 @@ impl Parser {
     }
 
     fn parse_while(&mut self) -> Option<Statement> {
-        let while_token = self.save_spannedtoken();
+        let while_token = self.save_spanned_token();
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
             self.report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
             return None;
         }
-        let lpar_token = self.save_spannedtoken();
+        let lpar_token = self.save_spanned_token();
 
         self.next_token();
         let Some(cond) = self.parse_expression() else {
@@ -52,11 +52,11 @@ impl Parser {
             );
             return None;
         }
-        let rightpar_token = self.save_spannedtoken();
+        let rightpar_token = self.save_spanned_token();
         self.next_token();
 
         if self.get_cur_token() == Some(Token::Identifier(unicase::Ascii::new("DO".to_string()))) {
-            let do_token = self.save_spannedtoken();
+            let do_token = self.save_spanned_token();
             self.next_token();
 
             let mut statements = Vec::new();
@@ -71,7 +71,7 @@ impl Parser {
                 self.skip_eol();
             }
             if end_while_token.is_none() {
-                end_while_token = Some(self.save_spannedtoken());
+                end_while_token = Some(self.save_spanned_token());
             }
             self.next_token(); // skip ENDWHILE
 
@@ -105,7 +105,7 @@ impl Parser {
         }
     }
 
-    fn _parse_block(&mut self, begin_token: SpannedToken) -> Option<Statement> {
+    fn _parse_block(&mut self, begin_token: Spanned<Token>) -> Option<Statement> {
         self.next_token();
         self.skip_eol();
         let mut statements = Vec::new();
@@ -120,7 +120,7 @@ impl Parser {
             statements.push(self.parse_statement());
             self.skip_eol();
         }
-        let end_token = self.save_spannedtoken();
+        let end_token = self.save_spanned_token();
         Some(Statement::Block(BlockStatement::new(
             begin_token,
             statements.into_iter().flatten().collect(),
@@ -129,9 +129,9 @@ impl Parser {
     }
 
     fn parse_for(&mut self) -> Option<Statement> {
-        let for_token = self.save_spannedtoken();
+        let for_token = self.save_spanned_token();
         self.next_token();
-        let identifier_token = self.save_spannedtoken();
+        let identifier_token = self.save_spanned_token();
 
         let _var = if let Some(Token::Identifier(id)) = self.get_cur_token() {
             self.next_token();
@@ -152,7 +152,7 @@ impl Parser {
             return None;
         }
 
-        let eq_token = self.save_spannedtoken();
+        let eq_token = self.save_spanned_token();
         self.next_token();
         let Some(start_expr) = self.parse_expression() else {
             self.report_error(
@@ -172,7 +172,7 @@ impl Parser {
             }
         }
 
-        let to_token = self.save_spannedtoken();
+        let to_token = self.save_spanned_token();
         self.next_token();
         let Some(end_expr) = self.parse_expression() else {
             self.report_error(
@@ -186,7 +186,7 @@ impl Parser {
         let (step_expr, step_token) = if self.get_cur_token()
             == Some(Token::Identifier(unicase::Ascii::new("STEP".to_string())))
         {
-            let to_token = self.save_spannedtoken();
+            let to_token = self.save_spanned_token();
             self.next_token();
             (self.parse_expression().map(Box::new), Some(to_token))
         } else {
@@ -203,7 +203,7 @@ impl Parser {
             statements.push(self.parse_statement());
             self.skip_eol();
         }
-        let next_token = self.save_spannedtoken();
+        let next_token = self.save_spanned_token();
         // skip next
         self.next_token();
 
@@ -218,7 +218,7 @@ impl Parser {
                 return None;
             }
 
-            let t = self.save_spannedtoken();
+            let t = self.save_spanned_token();
             self.next_token();
             Some(t)
         } else {
@@ -241,14 +241,14 @@ impl Parser {
     }
 
     fn parse_if(&mut self) -> Option<Statement> {
-        let if_token = self.save_spannedtoken();
+        let if_token = self.save_spanned_token();
         self.next_token();
 
         if self.get_cur_token() != Some(Token::LPar) {
             self.report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
             return None;
         }
-        let lpar_token = self.save_spannedtoken();
+        let lpar_token = self.save_spanned_token();
         self.next_token();
         let Some(cond) = self.parse_expression() else {
             self.report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
@@ -264,7 +264,7 @@ impl Parser {
 
             return None;
         }
-        let rightpar_token = self.save_spannedtoken();
+        let rightpar_token = self.save_spanned_token();
         self.next_token();
 
         if !is_do_then(&self.cur_token) {
@@ -286,7 +286,7 @@ impl Parser {
             );
             return None;
         }
-        let then_token = self.save_spannedtoken();
+        let then_token = self.save_spanned_token();
 
         self.next_token();
         let mut statements = Vec::new();
@@ -308,7 +308,7 @@ impl Parser {
 
         let mut else_if_blocks = Vec::new();
         while self.get_cur_token() == Some(Token::ElseIf) {
-            let else_if_token = self.save_spannedtoken();
+            let else_if_token = self.save_spanned_token();
 
             self.next_token();
 
@@ -316,7 +316,7 @@ impl Parser {
                 self.report_error(self.lex.span(), ParserErrorType::IfWhileConditionNotFound);
                 return None;
             }
-            let else_if_lpar_token = self.save_spannedtoken();
+            let else_if_lpar_token = self.save_spanned_token();
 
             self.next_token();
             let Some(cond) = self.parse_expression() else {
@@ -333,7 +333,7 @@ impl Parser {
 
                 return None;
             }
-            let else_if_rightpar_token = self.save_spannedtoken();
+            let else_if_rightpar_token = self.save_spanned_token();
             self.next_token();
             if !is_do_then(&self.cur_token)
                 && self.get_cur_token() != Some(Token::Eol)
@@ -346,7 +346,7 @@ impl Parser {
                 return None;
             }
             let then_token = if is_do_then(&self.cur_token) {
-                Some(self.save_spannedtoken())
+                Some(self.save_spanned_token())
             } else {
                 None
             };
@@ -377,7 +377,7 @@ impl Parser {
         }
 
         let else_block = if self.get_cur_token() == Some(Token::Else) {
-            let else_token = self.save_spannedtoken();
+            let else_token = self.save_spanned_token();
 
             self.next_token();
             let mut statements = Vec::new();
@@ -409,7 +409,7 @@ impl Parser {
         self.next_token();
 
         if end_if_token.is_none() {
-            end_if_token = Some(self.save_spannedtoken());
+            end_if_token = Some(self.save_spanned_token());
         }
 
         Some(Statement::IfThen(IfThenStatement::new(
@@ -426,7 +426,7 @@ impl Parser {
     }
 
     fn parse_select(&mut self) -> Option<Statement> {
-        let select_token = self.save_spannedtoken();
+        let select_token = self.save_spanned_token();
 
         self.next_token();
 
@@ -438,7 +438,7 @@ impl Parser {
             return None;
         }
 
-        let case_token = self.save_spannedtoken();
+        let case_token = self.save_spanned_token();
         self.next_token();
         let Some(case_expr) = self.parse_expression() else {
             self.report_error(
@@ -457,7 +457,7 @@ impl Parser {
         let mut default_statements = Vec::new();
 
         while self.get_cur_token() == Some(Token::Case) {
-            let inner_case_token = self.save_spannedtoken();
+            let inner_case_token = self.save_spanned_token();
             self.next_token();
 
             let mut case_specifiers = Vec::new();
@@ -497,7 +497,7 @@ impl Parser {
         }
 
         if self.get_cur_token() == Some(Token::Default) {
-            default_token = Some(self.save_spannedtoken());
+            default_token = Some(self.save_spanned_token());
             self.next_token();
             self.parse_default_block(&mut default_statements);
         }
@@ -505,7 +505,7 @@ impl Parser {
         self.next_token();
 
         if end_select_token.is_none() {
-            end_select_token = Some(self.save_spannedtoken());
+            end_select_token = Some(self.save_spanned_token());
         }
 
         Some(Statement::Select(SelectStatement::new(
@@ -570,7 +570,7 @@ impl Parser {
                 None
             }
             Some(Token::Comment(_, _)) => {
-                let cmt = self.save_spannedtoken();
+                let cmt = self.save_spanned_token();
                 self.next_token();
                 Some(Statement::Comment(CommentAstNode::new(cmt)))
             }
@@ -584,7 +584,7 @@ impl Parser {
             }
             /*
             Some(Token::Begin) => {
-                let begin_token = self.save_spannedtoken();
+                let begin_token = self.save_spanned_token();
                 self.parse_block(begin_token)
             }*/
             Some(Token::While) => self.parse_while(),
@@ -592,9 +592,9 @@ impl Parser {
             Some(Token::If) => self.parse_if(),
             Some(Token::For) => self.parse_for(),
             Some(Token::Let) => {
-                let let_token = self.save_spannedtoken();
+                let let_token = self.save_spanned_token();
                 self.next_token();
-                let identifier_token = self.save_spannedtoken();
+                let identifier_token = self.save_spanned_token();
                 let _identifier = if let Token::Identifier(id) = &identifier_token.token {
                     self.next_token();
                     id
@@ -610,7 +610,7 @@ impl Parser {
                 let mut params = Vec::new();
 
                 if self.get_cur_token() == Some(Token::LPar) {
-                    leftpar_token = Some(self.save_spannedtoken());
+                    leftpar_token = Some(self.save_spanned_token());
                     self.next_token();
 
                     loop {
@@ -642,12 +642,12 @@ impl Parser {
                             return None;
                         }
                     }
-                    rightpar_token = Some(self.save_spannedtoken());
+                    rightpar_token = Some(self.save_spanned_token());
                     self.next_token();
                 }
 
                 if self.get_cur_token() == Some(Token::Eq) {
-                    let eq_token = self.save_spannedtoken();
+                    let eq_token = self.save_spanned_token();
                     self.next_token();
                     let Some(value_expression) = self.parse_expression() else {
                         self.report_error(
@@ -675,26 +675,26 @@ impl Parser {
                 None
             }
             Some(Token::Break) => {
-                let tok = self.save_spannedtoken();
+                let tok = self.save_spanned_token();
                 self.next_token();
                 Some(Statement::Break(BreakStatement::new(tok)))
             }
             Some(Token::Continue) => {
-                let tok = self.save_spannedtoken();
+                let tok = self.save_spanned_token();
                 self.next_token();
                 Some(Statement::Continue(ContinueStatement::new(tok)))
             }
             Some(Token::EndProc | Token::EndFunc | Token::Return) => {
-                let tok = self.save_spannedtoken();
+                let tok = self.save_spanned_token();
                 self.next_token();
                 Some(Statement::Return(ReturnStatement::new(tok)))
             }
             Some(Token::Gosub) => {
-                let gosub_token = self.save_spannedtoken();
+                let gosub_token = self.save_spanned_token();
                 self.next_token();
                 if let Some(token) = self.get_cur_token() {
                     if token.token_can_be_identifier() {
-                        let id_token = self.save_spannedtoken();
+                        let id_token = self.save_spanned_token();
                         self.next_token();
                         return Some(Statement::Gosub(GosubStatement::new(gosub_token, id_token)));
                     }
@@ -708,11 +708,11 @@ impl Parser {
                 None
             }
             Some(Token::Goto) => {
-                let goto_token = self.save_spannedtoken();
+                let goto_token = self.save_spanned_token();
                 self.next_token();
                 if let Some(token) = self.get_cur_token() {
                     if token.token_can_be_identifier() {
-                        let id_token = self.save_spannedtoken();
+                        let id_token = self.save_spanned_token();
                         self.next_token();
                         return Some(Statement::Goto(GotoStatement::new(goto_token, id_token)));
                     }
@@ -735,7 +735,7 @@ impl Parser {
 
             Some(Token::Identifier(id)) => {
                 if let Some(var_type) = self.get_variable_type() {
-                    let type_token = self.save_spannedtoken();
+                    let type_token = self.save_spanned_token();
                     self.next_token();
                     let mut vars = Vec::new();
                     if let Some(v) = self.parse_var_info() {
@@ -764,7 +764,7 @@ impl Parser {
             }
 
             Some(Token::Label(_)) => {
-                let label_token = self.save_spannedtoken();
+                let label_token = self.save_spanned_token();
                 self.next_token();
                 Some(Statement::Label(LabelStatement::new(label_token)))
             }
@@ -789,11 +789,11 @@ impl Parser {
     }
 
     fn parse_call(&mut self, identifier: &unicase::Ascii<String>) -> Option<Statement> {
-        let id_token = self.save_spannedtoken();
+        let id_token = self.save_spanned_token();
         self.next_token();
 
         if self.get_cur_token() == Some(Token::Eq) {
-            let eq_token = self.save_spannedtoken();
+            let eq_token = self.save_spanned_token();
             self.next_token();
             let Some(value_expression) = self.parse_expression() else {
                 self.report_error(
@@ -823,7 +823,7 @@ impl Parser {
             }
 
             if *identifier == *BEGIN_TOKEN {
-                return Some(Statement::Label(LabelStatement::new(SpannedToken {
+                return Some(Statement::Label(LabelStatement::new(Spanned {
                     token: Token::Label(BEGIN_LABEL.clone()),
                     span: id_token.span,
                 })));
@@ -880,7 +880,7 @@ impl Parser {
         }
 
         if self.get_cur_token() == Some(Token::LPar) {
-            let lpar_token = self.save_spannedtoken();
+            let lpar_token = self.save_spanned_token();
 
             self.next_token();
             let mut params = Vec::new();
@@ -907,11 +907,11 @@ impl Parser {
 
                 return None;
             }
-            let rightpar_token = self.save_spannedtoken();
+            let rightpar_token = self.save_spanned_token();
 
             self.next_token();
             if self.get_cur_token() == Some(Token::Eq) {
-                let eq_token = self.save_spannedtoken();
+                let eq_token = self.save_spanned_token();
                 self.next_token();
                 let Some(value_expression) = self.parse_expression() else {
                     self.report_error(
@@ -969,7 +969,7 @@ lazy_static::lazy_static! {
 
 }
 
-fn is_do_then(token: &Option<SpannedToken>) -> bool {
+fn is_do_then(token: &Option<Spanned<Token>>) -> bool {
     if let Some(t) = token {
         if let Token::Identifier(id) = &t.token {
             *id == *THEN_TOKEN || *id == *DO_TOKEN

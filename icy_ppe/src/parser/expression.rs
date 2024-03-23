@@ -215,10 +215,10 @@ impl Parser {
                 )))
             }
             Token::Identifier(id) => {
-                let identifier_token = self.save_spannedtoken();
+                let identifier_token = self.save_spanned_token();
                 self.next_token();
                 if self.get_cur_token() == Some(Token::LPar) {
-                    let leftpar_token = self.save_spannedtoken();
+                    let leftpar_token = self.save_spanned_token();
 
                     self.next_token();
                     let mut arguments = Vec::new();
@@ -252,7 +252,7 @@ impl Parser {
                         );
                         return None;
                     }
-                    let rightpar_token = self.save_spannedtoken();
+                    let rightpar_token = self.save_spanned_token();
 
                     self.next_token();
 

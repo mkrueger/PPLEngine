@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     executable::StatementDefinition,
-    parser::lexer::{CommentType, SpannedToken, Token},
+    parser::lexer::{CommentType, Spanned, Token},
 };
 
 use super::{
@@ -244,24 +244,24 @@ impl fmt::Display for Statement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CommentAstNode {
-    comment_token: SpannedToken,
+    comment_token: Spanned<Token>,
 }
 
 impl CommentAstNode {
-    pub fn new(comment_token: SpannedToken) -> Self {
+    pub fn new(comment_token: Spanned<Token>) -> Self {
         Self { comment_token }
     }
 
     pub fn empty(comment: impl Into<String>) -> Self {
         Self {
-            comment_token: SpannedToken::create_empty(Token::Comment(
+            comment_token: Spanned::create_empty(Token::Comment(
                 CommentType::SingleLineSemicolon,
                 comment.into(),
             )),
         }
     }
 
-    pub fn get_comment_token(&self) -> &SpannedToken {
+    pub fn get_comment_token(&self) -> &Spanned<Token> {
         &self.comment_token
     }
 
@@ -306,21 +306,21 @@ impl fmt::Display for CommentAstNode {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BreakStatement {
-    break_token: SpannedToken,
+    break_token: Spanned<Token>,
 }
 
 impl BreakStatement {
-    pub fn new(break_token: SpannedToken) -> Self {
+    pub fn new(break_token: Spanned<Token>) -> Self {
         Self { break_token }
     }
 
     pub fn empty() -> Self {
         Self {
-            break_token: SpannedToken::create_empty(Token::Break),
+            break_token: Spanned::create_empty(Token::Break),
         }
     }
 
-    pub fn get_break_token(&self) -> &SpannedToken {
+    pub fn get_break_token(&self) -> &Spanned<Token> {
         &self.break_token
     }
 
@@ -337,21 +337,21 @@ impl fmt::Display for BreakStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ContinueStatement {
-    continue_token: SpannedToken,
+    continue_token: Spanned<Token>,
 }
 
 impl ContinueStatement {
-    pub fn new(continue_token: SpannedToken) -> Self {
+    pub fn new(continue_token: Spanned<Token>) -> Self {
         Self { continue_token }
     }
 
     pub fn empty() -> Self {
         Self {
-            continue_token: SpannedToken::create_empty(Token::Break),
+            continue_token: Spanned::create_empty(Token::Break),
         }
     }
 
-    pub fn get_continue_token(&self) -> &SpannedToken {
+    pub fn get_continue_token(&self) -> &Spanned<Token> {
         &self.continue_token
     }
 
@@ -368,21 +368,21 @@ impl fmt::Display for ContinueStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ReturnStatement {
-    return_token: SpannedToken,
+    return_token: Spanned<Token>,
 }
 
 impl ReturnStatement {
-    pub fn new(return_token: SpannedToken) -> Self {
+    pub fn new(return_token: Spanned<Token>) -> Self {
         Self { return_token }
     }
 
     pub fn empty() -> Self {
         Self {
-            return_token: SpannedToken::create_empty(Token::Return),
+            return_token: Spanned::create_empty(Token::Return),
         }
     }
 
-    pub fn get_return_token(&self) -> &SpannedToken {
+    pub fn get_return_token(&self) -> &Spanned<Token> {
         &self.return_token
     }
 
@@ -399,16 +399,16 @@ impl fmt::Display for ReturnStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlockStatement {
-    begin_token: SpannedToken,
+    begin_token: Spanned<Token>,
     statements: Vec<Statement>,
-    end_token: SpannedToken,
+    end_token: Spanned<Token>,
 }
 
 impl BlockStatement {
     pub fn new(
-        begin_token: SpannedToken,
+        begin_token: Spanned<Token>,
         statements: Vec<Statement>,
-        end_token: SpannedToken,
+        end_token: Spanned<Token>,
     ) -> Self {
         Self {
             begin_token,
@@ -419,17 +419,17 @@ impl BlockStatement {
 
     pub fn empty(statements: Vec<Statement>) -> Self {
         Self {
-            begin_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            begin_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 "BEGIN".to_string(),
             ))),
             statements,
-            end_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            end_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 "END".to_string(),
             ))),
         }
     }
 
-    pub fn get_begin_token(&self) -> &SpannedToken {
+    pub fn get_begin_token(&self) -> &Spanned<Token> {
         &self.begin_token
     }
 
@@ -441,7 +441,7 @@ impl BlockStatement {
         &mut self.statements
     }
 
-    pub fn get_end_token(&self) -> &SpannedToken {
+    pub fn get_end_token(&self) -> &Spanned<Token> {
         &self.begin_token
     }
 
@@ -452,19 +452,19 @@ impl BlockStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {
-    if_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    if_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     condition: Box<Expression>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
     statement: Box<Statement>,
 }
 
 impl IfStatement {
     pub fn new(
-        if_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        if_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         condition: Expression,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
         statement: Statement,
     ) -> Self {
         Self {
@@ -478,18 +478,18 @@ impl IfStatement {
 
     pub fn empty(condition: Expression, statement: Statement) -> Self {
         Self {
-            if_token: SpannedToken::create_empty(Token::While),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            if_token: Spanned::create_empty(Token::While),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             condition: Box::new(condition),
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
             statement: Box::new(statement),
         }
     }
 
-    pub fn get_if_token(&self) -> &SpannedToken {
+    pub fn get_if_token(&self) -> &Spanned<Token> {
         &self.if_token
     }
-    pub fn get_lpar_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -501,7 +501,7 @@ impl IfStatement {
         &mut self.condition
     }
 
-    pub fn get_rpar_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
@@ -524,21 +524,21 @@ impl IfStatement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElseIfBlock {
-    elseif_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    elseif_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     cond: Box<Expression>,
-    rightpar_token: SpannedToken,
-    then_token: Option<SpannedToken>,
+    rightpar_token: Spanned<Token>,
+    then_token: Option<Spanned<Token>>,
     statements: Vec<Statement>,
 }
 
 impl ElseIfBlock {
     pub fn new(
-        elseif_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        elseif_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         cond: Expression,
-        rightpar_token: SpannedToken,
-        then_token: Option<SpannedToken>,
+        rightpar_token: Spanned<Token>,
+        then_token: Option<Spanned<Token>>,
         statements: Vec<Statement>,
     ) -> Self {
         Self {
@@ -553,20 +553,20 @@ impl ElseIfBlock {
 
     pub fn empty(cond: Expression, statements: Vec<Statement>) -> Self {
         Self {
-            elseif_token: SpannedToken::create_empty(Token::ElseIf),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            elseif_token: Spanned::create_empty(Token::ElseIf),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             cond: Box::new(cond),
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
             then_token: None,
             statements,
         }
     }
 
-    pub fn get_elseif_token(&self) -> &SpannedToken {
+    pub fn get_elseif_token(&self) -> &Spanned<Token> {
         &self.elseif_token
     }
 
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -578,11 +578,11 @@ impl ElseIfBlock {
         &mut self.cond
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
-    pub fn get_then_token(&self) -> &Option<SpannedToken> {
+    pub fn get_then_token(&self) -> &Option<Spanned<Token>> {
         &self.then_token
     }
 
@@ -602,12 +602,12 @@ impl ElseIfBlock {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElseBlock {
-    else_token: SpannedToken,
+    else_token: Spanned<Token>,
     statements: Vec<Statement>,
 }
 
 impl ElseBlock {
-    pub fn new(else_token: SpannedToken, statements: Vec<Statement>) -> Self {
+    pub fn new(else_token: Spanned<Token>, statements: Vec<Statement>) -> Self {
         Self {
             else_token,
             statements,
@@ -616,12 +616,12 @@ impl ElseBlock {
 
     pub fn empty(statements: Vec<Statement>) -> Self {
         Self {
-            else_token: SpannedToken::create_empty(Token::Else),
+            else_token: Spanned::create_empty(Token::Else),
             statements,
         }
     }
 
-    pub fn get_else_token(&self) -> &SpannedToken {
+    pub fn get_else_token(&self) -> &Spanned<Token> {
         &self.else_token
     }
 
@@ -641,30 +641,30 @@ impl ElseBlock {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfThenStatement {
-    if_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    if_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     condition: Box<Expression>,
-    rightpar_token: SpannedToken,
-    then_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
+    then_token: Spanned<Token>,
     statements: Vec<Statement>,
 
     else_if_blocks: Vec<ElseIfBlock>,
     else_block: Option<ElseBlock>,
-    endif_token: SpannedToken,
+    endif_token: Spanned<Token>,
 }
 
 impl IfThenStatement {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        if_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        if_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         condition: Expression,
-        rightpar_token: SpannedToken,
-        then_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
+        then_token: Spanned<Token>,
         statements: Vec<Statement>,
         else_if_blocks: Vec<ElseIfBlock>,
         else_block: Option<ElseBlock>,
-        endif_token: SpannedToken,
+        endif_token: Spanned<Token>,
     ) -> Self {
         Self {
             if_token,
@@ -679,10 +679,10 @@ impl IfThenStatement {
         }
     }
 
-    pub fn get_if_token(&self) -> &SpannedToken {
+    pub fn get_if_token(&self) -> &Spanned<Token> {
         &self.if_token
     }
-    pub fn get_lpar_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -694,11 +694,11 @@ impl IfThenStatement {
         &mut self.condition
     }
 
-    pub fn get_rpar_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
-    pub fn get_then_token(&self) -> &SpannedToken {
+    pub fn get_then_token(&self) -> &Spanned<Token> {
         &self.then_token
     }
 
@@ -726,7 +726,7 @@ impl IfThenStatement {
         &mut self.else_block
     }
 
-    pub fn get_endif_token(&self) -> &SpannedToken {
+    pub fn get_endif_token(&self) -> &Spanned<Token> {
         &self.endif_token
     }
 
@@ -737,17 +737,17 @@ impl IfThenStatement {
         else_block: Option<ElseBlock>,
     ) -> Self {
         Self {
-            if_token: SpannedToken::create_empty(Token::If),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            if_token: Spanned::create_empty(Token::If),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             condition: Box::new(condition),
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
-            then_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            rightpar_token: Spanned::create_empty(Token::RPar),
+            then_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 "THEN".to_string(),
             ))),
             statements,
             else_if_blocks,
             else_block,
-            endif_token: SpannedToken::create_empty(Token::EndIf),
+            endif_token: Spanned::create_empty(Token::EndIf),
         }
     }
 
@@ -768,19 +768,19 @@ impl IfThenStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct WhileStatement {
-    while_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    while_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     condition: Box<Expression>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
     statement: Box<Statement>,
 }
 
 impl WhileStatement {
     pub fn new(
-        while_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        while_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         condition: Expression,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
         statement: Statement,
     ) -> Self {
         Self {
@@ -794,18 +794,18 @@ impl WhileStatement {
 
     pub fn empty(condition: Expression, statement: Statement) -> Self {
         Self {
-            while_token: SpannedToken::create_empty(Token::While),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            while_token: Spanned::create_empty(Token::While),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             condition: Box::new(condition),
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
             statement: Box::new(statement),
         }
     }
 
-    pub fn get_while_token(&self) -> &SpannedToken {
+    pub fn get_while_token(&self) -> &Spanned<Token> {
         &self.while_token
     }
-    pub fn get_lpar_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -817,7 +817,7 @@ impl WhileStatement {
         &mut self.condition
     }
 
-    pub fn get_rpar_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
@@ -836,24 +836,24 @@ impl WhileStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct WhileDoStatement {
-    while_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    while_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     condition: Box<Expression>,
-    rightpar_token: SpannedToken,
-    do_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
+    do_token: Spanned<Token>,
     statements: Vec<Statement>,
-    endwhile_token: SpannedToken,
+    endwhile_token: Spanned<Token>,
 }
 
 impl WhileDoStatement {
     pub fn new(
-        while_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        while_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         condition: Expression,
-        rightpar_token: SpannedToken,
-        do_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
+        do_token: Spanned<Token>,
         statements: Vec<Statement>,
-        endwhile_token: SpannedToken,
+        endwhile_token: Spanned<Token>,
     ) -> Self {
         Self {
             while_token,
@@ -868,23 +868,23 @@ impl WhileDoStatement {
 
     pub fn empty(condition: Expression, statements: Vec<Statement>) -> Self {
         Self {
-            while_token: SpannedToken::create_empty(Token::While),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            while_token: Spanned::create_empty(Token::While),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             condition: Box::new(condition),
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
-            do_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            rightpar_token: Spanned::create_empty(Token::RPar),
+            do_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 "Do".to_string(),
             ))),
             statements,
-            endwhile_token: SpannedToken::create_empty(Token::EndWhile),
+            endwhile_token: Spanned::create_empty(Token::EndWhile),
         }
     }
 
-    pub fn get_while_token(&self) -> &SpannedToken {
+    pub fn get_while_token(&self) -> &Spanned<Token> {
         &self.while_token
     }
 
-    pub fn get_lpar_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -896,11 +896,11 @@ impl WhileDoStatement {
         &mut self.condition
     }
 
-    pub fn get_rpar_token(&self) -> &SpannedToken {
+    pub fn get_rpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
-    pub fn get_do_token(&self) -> &SpannedToken {
+    pub fn get_do_token(&self) -> &Spanned<Token> {
         &self.do_token
     }
 
@@ -912,7 +912,7 @@ impl WhileDoStatement {
         &mut self.statements
     }
 
-    pub fn get_endwhile_token(&self) -> &SpannedToken {
+    pub fn get_endwhile_token(&self) -> &Spanned<Token> {
         &self.endwhile_token
     }
 
@@ -923,33 +923,33 @@ impl WhileDoStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ForStatement {
-    for_token: SpannedToken,
-    identifier_token: SpannedToken,
-    eq_token: SpannedToken,
+    for_token: Spanned<Token>,
+    identifier_token: Spanned<Token>,
+    eq_token: Spanned<Token>,
     start_expr: Box<Expression>,
-    to_token: SpannedToken,
+    to_token: Spanned<Token>,
     end_expr: Box<Expression>,
-    step_token: Option<SpannedToken>,
+    step_token: Option<Spanned<Token>>,
     step_expr: Option<Box<Expression>>,
     statements: Vec<Statement>,
-    next_token: SpannedToken,
-    next_identifier_token: Option<SpannedToken>,
+    next_token: Spanned<Token>,
+    next_identifier_token: Option<Spanned<Token>>,
 }
 
 impl ForStatement {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        for_token: SpannedToken,
-        identifier_token: SpannedToken,
-        eq_token: SpannedToken,
+        for_token: Spanned<Token>,
+        identifier_token: Spanned<Token>,
+        eq_token: Spanned<Token>,
         start_expr: Expression,
-        to_token: SpannedToken,
+        to_token: Spanned<Token>,
         end_expr: Expression,
-        step_token: Option<SpannedToken>,
+        step_token: Option<Spanned<Token>>,
         step_expr: Option<Box<Expression>>,
         statements: Vec<Statement>,
-        next_token: SpannedToken,
-        next_identifier_token: Option<SpannedToken>,
+        next_token: Spanned<Token>,
+        next_identifier_token: Option<Spanned<Token>>,
     ) -> Self {
         Self {
             for_token,
@@ -974,31 +974,29 @@ impl ForStatement {
         statements: Vec<Statement>,
     ) -> Self {
         Self {
-            for_token: SpannedToken::create_empty(Token::For),
-            identifier_token: SpannedToken::create_empty(Token::Identifier(variable_name)),
-            eq_token: SpannedToken::create_empty(Token::Eq),
+            for_token: Spanned::create_empty(Token::For),
+            identifier_token: Spanned::create_empty(Token::Identifier(variable_name)),
+            eq_token: Spanned::create_empty(Token::Eq),
             start_expr: Box::new(start_expr),
-            to_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            to_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 "TO".to_string(),
             ))),
             end_expr: Box::new(end_expr),
             step_token: step_expr.as_ref().map(|_| {
-                SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
-                    "Step".to_string(),
-                )))
+                Spanned::create_empty(Token::Identifier(unicase::Ascii::new("Step".to_string())))
             }),
             step_expr,
             statements,
-            next_token: SpannedToken::create_empty(Token::Next),
+            next_token: Spanned::create_empty(Token::Next),
             next_identifier_token: None,
         }
     }
 
-    pub fn get_for_token(&self) -> &SpannedToken {
+    pub fn get_for_token(&self) -> &Spanned<Token> {
         &self.for_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -1020,7 +1018,7 @@ impl ForStatement {
         }
     }
 
-    pub fn get_eq_token(&self) -> &SpannedToken {
+    pub fn get_eq_token(&self) -> &Spanned<Token> {
         &self.eq_token
     }
 
@@ -1032,7 +1030,7 @@ impl ForStatement {
         &mut self.start_expr
     }
 
-    pub fn get_to_token(&self) -> &SpannedToken {
+    pub fn get_to_token(&self) -> &Spanned<Token> {
         &self.to_token
     }
 
@@ -1044,7 +1042,7 @@ impl ForStatement {
         &mut self.end_expr
     }
 
-    pub fn get_step_token(&self) -> &Option<SpannedToken> {
+    pub fn get_step_token(&self) -> &Option<Spanned<Token>> {
         &self.step_token
     }
 
@@ -1064,11 +1062,11 @@ impl ForStatement {
         &mut self.statements
     }
 
-    pub fn get_next_token(&self) -> &SpannedToken {
+    pub fn get_next_token(&self) -> &Spanned<Token> {
         &self.next_token
     }
 
-    pub fn get_next_identifier_token(&self) -> Option<&SpannedToken> {
+    pub fn get_next_identifier_token(&self) -> Option<&Spanned<Token>> {
         if let Some(ni) = &self.next_identifier_token {
             return Some(ni);
         }
@@ -1134,14 +1132,14 @@ impl CaseSpecifier {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaseBlock {
-    case_token: SpannedToken,
+    case_token: Spanned<Token>,
     case_specifiers: Vec<CaseSpecifier>,
     statements: Vec<Statement>,
 }
 
 impl CaseBlock {
     pub fn new(
-        case_token: SpannedToken,
+        case_token: Spanned<Token>,
         case_specifiers: Vec<CaseSpecifier>,
         statements: Vec<Statement>,
     ) -> Self {
@@ -1154,13 +1152,13 @@ impl CaseBlock {
 
     pub fn empty(case_specifiers: Vec<CaseSpecifier>, statements: Vec<Statement>) -> Self {
         Self {
-            case_token: SpannedToken::create_empty(Token::Case),
+            case_token: Spanned::create_empty(Token::Case),
             case_specifiers,
             statements,
         }
     }
 
-    pub fn get_case_token(&self) -> &SpannedToken {
+    pub fn get_case_token(&self) -> &Spanned<Token> {
         &self.case_token
     }
 
@@ -1208,24 +1206,24 @@ impl CaseBlock {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SelectStatement {
-    select_token: SpannedToken,
-    case_token: SpannedToken,
+    select_token: Spanned<Token>,
+    case_token: Spanned<Token>,
     expression: Box<Expression>,
     case_blocks: Vec<CaseBlock>,
-    default_token: Option<SpannedToken>,
+    default_token: Option<Spanned<Token>>,
     default_statements: Vec<Statement>,
-    endselect_token: SpannedToken,
+    endselect_token: Spanned<Token>,
 }
 
 impl SelectStatement {
     pub fn new(
-        select_token: SpannedToken,
-        case_token: SpannedToken,
+        select_token: Spanned<Token>,
+        case_token: Spanned<Token>,
         expr: Expression,
         case_blocks: Vec<CaseBlock>,
-        default_token: Option<SpannedToken>,
+        default_token: Option<Spanned<Token>>,
         default_statements: Vec<Statement>,
-        endselect_token: SpannedToken,
+        endselect_token: Spanned<Token>,
     ) -> Self {
         Self {
             select_token,
@@ -1244,30 +1242,30 @@ impl SelectStatement {
         default_statements: Vec<Statement>,
     ) -> Self {
         Self {
-            select_token: SpannedToken::create_empty(Token::Select),
-            case_token: SpannedToken::create_empty(Token::Case),
+            select_token: Spanned::create_empty(Token::Select),
+            case_token: Spanned::create_empty(Token::Case),
             expression: Box::new(expr),
             case_blocks,
             default_token: if default_statements.is_empty() {
                 None
             } else {
-                Some(SpannedToken::create_empty(Token::Identifier(
+                Some(Spanned::create_empty(Token::Identifier(
                     unicase::Ascii::new("DEFAULT".to_string()),
                 )))
             },
             default_statements,
-            endselect_token: SpannedToken::create_empty(Token::EndSelect),
+            endselect_token: Spanned::create_empty(Token::EndSelect),
         }
     }
 
-    pub fn get_select_token(&self) -> &SpannedToken {
+    pub fn get_select_token(&self) -> &Spanned<Token> {
         &self.select_token
     }
-    pub fn get_case_token(&self) -> &SpannedToken {
+    pub fn get_case_token(&self) -> &Spanned<Token> {
         &self.case_token
     }
 
-    pub fn get_lpar_token(&self) -> &SpannedToken {
+    pub fn get_lpar_token(&self) -> &Spanned<Token> {
         &self.case_token
     }
 
@@ -1287,7 +1285,7 @@ impl SelectStatement {
         &mut self.case_blocks
     }
 
-    pub fn get_default_token(&self) -> &Option<SpannedToken> {
+    pub fn get_default_token(&self) -> &Option<Spanned<Token>> {
         &self.default_token
     }
 
@@ -1299,7 +1297,7 @@ impl SelectStatement {
         &mut self.default_statements
     }
 
-    pub fn get_endselect_token(&self) -> &SpannedToken {
+    pub fn get_endselect_token(&self) -> &Spanned<Token> {
         &self.endselect_token
     }
 
@@ -1318,14 +1316,14 @@ impl SelectStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct GosubStatement {
-    gosub_token: SpannedToken,
-    label_token: SpannedToken,
+    gosub_token: Spanned<Token>,
+    label_token: Spanned<Token>,
 }
 
 impl GosubStatement {
-    pub fn new(gosub_token: SpannedToken, mut label_token: SpannedToken) -> Self {
+    pub fn new(gosub_token: Spanned<Token>, mut label_token: Spanned<Token>) -> Self {
         if !matches!(label_token.token, Token::Identifier(_)) {
-            label_token = SpannedToken {
+            label_token = Spanned {
                 token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
                 span: label_token.span,
             };
@@ -1338,16 +1336,16 @@ impl GosubStatement {
 
     pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
-            gosub_token: SpannedToken::create_empty(Token::Gosub),
-            label_token: SpannedToken::create_empty(Token::Identifier(label)),
+            gosub_token: Spanned::create_empty(Token::Gosub),
+            label_token: Spanned::create_empty(Token::Identifier(label)),
         }
     }
 
-    pub fn get_gosub_token(&self) -> &SpannedToken {
+    pub fn get_gosub_token(&self) -> &Spanned<Token> {
         &self.gosub_token
     }
 
-    pub fn get_label_token(&self) -> &SpannedToken {
+    pub fn get_label_token(&self) -> &Spanned<Token> {
         &self.label_token
     }
 
@@ -1376,14 +1374,14 @@ impl GosubStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct GotoStatement {
-    goto_token: SpannedToken,
-    label_token: SpannedToken,
+    goto_token: Spanned<Token>,
+    label_token: Spanned<Token>,
 }
 
 impl GotoStatement {
-    pub fn new(goto_token: SpannedToken, mut label_token: SpannedToken) -> Self {
+    pub fn new(goto_token: Spanned<Token>, mut label_token: Spanned<Token>) -> Self {
         if !matches!(label_token.token, Token::Identifier(_)) {
-            label_token = SpannedToken {
+            label_token = Spanned {
                 token: Token::Identifier(unicase::Ascii::new(label_token.token.to_string())),
                 span: label_token.span,
             };
@@ -1396,16 +1394,16 @@ impl GotoStatement {
 
     pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
-            goto_token: SpannedToken::create_empty(Token::Goto),
-            label_token: SpannedToken::create_empty(Token::Identifier(label)),
+            goto_token: Spanned::create_empty(Token::Goto),
+            label_token: Spanned::create_empty(Token::Identifier(label)),
         }
     }
 
-    pub fn get_goto_token(&self) -> &SpannedToken {
+    pub fn get_goto_token(&self) -> &Spanned<Token> {
         &self.goto_token
     }
 
-    pub fn get_label_token(&self) -> &SpannedToken {
+    pub fn get_label_token(&self) -> &Spanned<Token> {
         &self.label_token
     }
 
@@ -1434,21 +1432,21 @@ impl GotoStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelStatement {
-    label_token: SpannedToken,
+    label_token: Spanned<Token>,
 }
 
 impl LabelStatement {
-    pub fn new(label_token: SpannedToken) -> Self {
+    pub fn new(label_token: Spanned<Token>) -> Self {
         Self { label_token }
     }
 
     pub fn empty(label: unicase::Ascii<String>) -> Self {
         Self {
-            label_token: SpannedToken::create_empty(Token::Label(label)),
+            label_token: Spanned::create_empty(Token::Label(label)),
         }
     }
 
-    pub fn get_label_token(&self) -> &SpannedToken {
+    pub fn get_label_token(&self) -> &Spanned<Token> {
         &self.label_token
     }
 
@@ -1487,18 +1485,18 @@ impl LabelStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ProcedureCallStatement {
-    identifier_token: SpannedToken,
-    leftpar_token: SpannedToken,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Spanned<Token>,
     arguments: Vec<Expression>,
-    rightpar_token: SpannedToken,
+    rightpar_token: Spanned<Token>,
 }
 
 impl ProcedureCallStatement {
     pub fn new(
-        identifier_token: SpannedToken,
-        leftpar_token: SpannedToken,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Spanned<Token>,
         arguments: Vec<Expression>,
-        rightpar_token: SpannedToken,
+        rightpar_token: Spanned<Token>,
     ) -> Self {
         Self {
             identifier_token,
@@ -1510,17 +1508,17 @@ impl ProcedureCallStatement {
 
     pub fn empty(identifier: unicase::Ascii<String>, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
-            leftpar_token: SpannedToken::create_empty(Token::LPar),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
+            leftpar_token: Spanned::create_empty(Token::LPar),
             arguments,
-            rightpar_token: SpannedToken::create_empty(Token::RPar),
+            rightpar_token: Spanned::create_empty(Token::RPar),
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
-    pub fn get_leftpar_token(&self) -> &SpannedToken {
+    pub fn get_leftpar_token(&self) -> &Spanned<Token> {
         &self.leftpar_token
     }
 
@@ -1532,7 +1530,7 @@ impl ProcedureCallStatement {
         &mut self.arguments
     }
 
-    pub fn get_rightpar_token(&self) -> &SpannedToken {
+    pub fn get_rightpar_token(&self) -> &Spanned<Token> {
         &self.rightpar_token
     }
 
@@ -1564,14 +1562,14 @@ impl ProcedureCallStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PredefinedCallStatement {
-    identifier_token: SpannedToken,
+    identifier_token: Spanned<Token>,
     func: &'static StatementDefinition,
     arguments: Vec<Expression>,
 }
 
 impl PredefinedCallStatement {
     pub fn new(
-        identifier_token: SpannedToken,
+        identifier_token: Spanned<Token>,
         func: &'static StatementDefinition,
         arguments: Vec<Expression>,
     ) -> Self {
@@ -1584,7 +1582,7 @@ impl PredefinedCallStatement {
 
     pub fn empty(func: &'static StatementDefinition, arguments: Vec<Expression>) -> Self {
         Self {
-            identifier_token: SpannedToken::create_empty(Token::Identifier(unicase::Ascii::new(
+            identifier_token: Spanned::create_empty(Token::Identifier(unicase::Ascii::new(
                 func.name.to_string(),
             ))),
             func,
@@ -1592,7 +1590,7 @@ impl PredefinedCallStatement {
         }
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -1630,23 +1628,23 @@ impl PredefinedCallStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LetStatement {
-    let_token: Option<SpannedToken>,
-    identifier_token: SpannedToken,
-    leftpar_token: Option<SpannedToken>,
+    let_token: Option<Spanned<Token>>,
+    identifier_token: Spanned<Token>,
+    leftpar_token: Option<Spanned<Token>>,
     arguments: Vec<Expression>,
-    rightpar_token: Option<SpannedToken>,
-    eq_token: SpannedToken,
+    rightpar_token: Option<Spanned<Token>>,
+    eq_token: Spanned<Token>,
     value_expression: Box<Expression>,
 }
 
 impl LetStatement {
     pub fn new(
-        let_token: Option<SpannedToken>,
-        identifier_token: SpannedToken,
-        leftpar_token: Option<SpannedToken>,
+        let_token: Option<Spanned<Token>>,
+        identifier_token: Spanned<Token>,
+        leftpar_token: Option<Spanned<Token>>,
         arguments: Vec<Expression>,
-        rightpar_token: Option<SpannedToken>,
-        eq_token: SpannedToken,
+        rightpar_token: Option<Spanned<Token>>,
+        eq_token: Spanned<Token>,
         value_expression: Expression,
     ) -> Self {
         Self {
@@ -1667,20 +1665,20 @@ impl LetStatement {
     ) -> Self {
         Self {
             let_token: None,
-            identifier_token: SpannedToken::create_empty(Token::Identifier(identifier)),
+            identifier_token: Spanned::create_empty(Token::Identifier(identifier)),
             leftpar_token: None,
             arguments,
             rightpar_token: None,
-            eq_token: SpannedToken::create_empty(Token::Eq),
+            eq_token: Spanned::create_empty(Token::Eq),
             value_expression: Box::new(value_expression),
         }
     }
 
-    pub fn get_let_token(&self) -> &Option<SpannedToken> {
+    pub fn get_let_token(&self) -> &Option<Spanned<Token>> {
         &self.let_token
     }
 
-    pub fn get_identifier_token(&self) -> &SpannedToken {
+    pub fn get_identifier_token(&self) -> &Spanned<Token> {
         &self.identifier_token
     }
 
@@ -1702,7 +1700,7 @@ impl LetStatement {
         }
     }
 
-    pub fn get_lpar_token(&self) -> &Option<SpannedToken> {
+    pub fn get_lpar_token(&self) -> &Option<Spanned<Token>> {
         &self.leftpar_token
     }
 
@@ -1714,11 +1712,11 @@ impl LetStatement {
         &mut self.arguments
     }
 
-    pub fn get_rpar_token_token(&self) -> &Option<SpannedToken> {
+    pub fn get_rpar_token_token(&self) -> &Option<Spanned<Token>> {
         &self.rightpar_token
     }
 
-    pub fn get_eq_token(&self) -> &SpannedToken {
+    pub fn get_eq_token(&self) -> &Spanned<Token> {
         &self.eq_token
     }
 

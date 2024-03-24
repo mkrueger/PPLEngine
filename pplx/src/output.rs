@@ -440,4 +440,9 @@ impl ExecutionContext for Output {
     fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
         Ok(())
     }
+
+    fn bell(&mut self) {
+
+    }
+
 }

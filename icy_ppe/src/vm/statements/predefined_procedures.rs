@@ -9,6 +9,14 @@ use crate::{
 
 use super::super::errors::IcyError;
 
+const BELL: i32 = 0x00800;
+const LFAFTER: i32= 0x00100;
+const LFBEFORE: i32= 0x00080;
+const LOGIT: i32= 0x08000;
+const LOGITLEFT: i32= 0x10000;
+const NEWLINE: i32 = 0x00040;
+
+
 /// Should never be called. But some op codes are invalid as statement call (like if or return)
 /// and are handled by it's own `PPECommands` and will point to this function.
 ///
@@ -25,22 +33,22 @@ pub fn end(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 }
 
 pub fn cls(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.print(TerminalTarget::Both, "\x1B[2J")
+    vm.print(TerminalTarget::Both, "\x1B[2J")
 }
 
 pub fn clreol(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.print(TerminalTarget::Both, "\x1B[K")
+    vm.print(TerminalTarget::Both, "\x1B[K")
 }
 
 pub fn more(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.print(
+    vm.print(
         TerminalTarget::Both,
         &vm.icy_board_data
-            .display_text
+            .icy_display_text
             .get_display_text(text_messages::MOREPROMPT)?,
     )?;
     loop {
-        if let Some(ch) = vm.ctx.get_char()? {
+        if let Some(ch) = vm.get_char()? {
             let ch = ch.to_uppercase().to_string();
 
             if ch == vm.icy_board_data.yes_char.to_string()
@@ -54,14 +62,14 @@ pub fn more(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
 }
 
 pub fn wait(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.print(
+    vm.print(
         TerminalTarget::Both,
         &vm.icy_board_data
-            .display_text
+            .icy_display_text
             .get_display_text(text_messages::PRESSENTER)?,
     )?;
     loop {
-        if let Some(ch) = vm.ctx.get_char()? {
+        if let Some(ch) = vm.get_char()? {
             if ch == '\n' || ch == '\r' {
                 break;
             }
@@ -72,7 +80,7 @@ pub fn wait(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
 
 pub fn color(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let color = params[0].as_int();
-    vm.ctx.set_color(color as u8);
+    vm.set_color(color as u8);
     Ok(())
 }
 
@@ -90,9 +98,8 @@ pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
 
     let content = fs::read(&file);
     match content {
-        Ok(content) => vm.ctx.write_raw(TerminalTarget::Both, &content),
+        Ok(content) => vm.write_raw(TerminalTarget::Both, &content),
         Err(err) => vm
-            .ctx
             .print(TerminalTarget::Both, format!("{file} error {err}").as_str()),
     }
 }
@@ -100,6 +107,7 @@ pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
 pub fn input(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn fcreate(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let channel = params[0].as_int() as usize;
     let file = params[1].as_string();
@@ -188,7 +196,7 @@ pub fn fputpad(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()>
 /// # Errors
 /// Errors if the variable is not found.
 pub fn hangup(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.hangup(crate::vm::HangupType::Hangup)?;
+    vm.hangup(crate::vm::HangupType::Hangup)?;
     vm.is_running = false;
     Ok(())
 }
@@ -273,11 +281,11 @@ fn internal_input_string(
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
-    vm.ctx.set_color(color as u8);
-    vm.ctx.print(TerminalTarget::Both, &prompt)?;
+    vm.set_color(color as u8);
+    vm.print(TerminalTarget::Both, &prompt)?;
     let mut output = String::new();
     loop {
-        let Some(ch) = vm.ctx.get_char()? else {
+        let Some(ch) = vm.get_char()? else {
             continue;
         };
         if ch == '\n' || ch == '\r' {
@@ -285,13 +293,13 @@ fn internal_input_string(
         }
         if ch == '\x08' && !output.is_empty() {
             output.pop();
-            vm.ctx.print(TerminalTarget::Both, "\x08 \x08")?;
+            vm.print(TerminalTarget::Both, "\x08 \x08")?;
             continue;
         }
 
         if (output.len() as i32) < len && valid.contains(ch) {
             output.push(ch);
-            vm.ctx.print(TerminalTarget::Both, &ch.to_string())?;
+            vm.print(TerminalTarget::Both, &ch.to_string())?;
         }
     }
     Ok(output)
@@ -390,7 +398,7 @@ pub fn dtron(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 }
 
 pub fn dtroff(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.hangup(crate::vm::HangupType::Hangup)?;
+    vm.hangup(crate::vm::HangupType::Hangup)?;
     Ok(())
 }
 
@@ -427,7 +435,7 @@ pub fn dec(_vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 }
 
 pub fn newline(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.write_raw(TerminalTarget::Both, &[b'\n'])
+    vm.write_raw(TerminalTarget::Both, &[b'\n'])
 }
 
 pub fn newlines(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
@@ -452,33 +460,65 @@ pub fn tokenize(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
 pub fn gettoken(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn shell(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn disptext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    let rec = params[0].as_int();
+    let flags = params[1].as_int();
+
+    
+    if (flags & LFBEFORE) == LFBEFORE {
+        vm.print(TerminalTarget::Both, "\n")?;
+    }
+
+    let color =  vm.icy_board_data.icy_display_text.get_display_color(rec as usize)?;
+    vm.set_color(color);
+
+    let text = vm.icy_board_data.icy_display_text.get_display_text(rec as usize)?;
+    vm.print(TerminalTarget::Both, &text)?;
+    
+    if (flags & LFAFTER) == LFAFTER {
+        vm.print(TerminalTarget::Both, "\n")?;
+    }
+
+    if (flags & BELL) == BELL {
+        vm.bell();
+    }
+
+    Ok(())
 }
+
 pub fn stop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.is_running = false;
+    Ok(())
 }
+
 pub fn inputtext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn beep(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.bell();
+    Ok(())
 }
+
 pub fn push(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for p in params {
         vm.push_pop_stack.push(p.clone());
     }
     Ok(())
 }
+
 pub fn pop(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("pop should not be handled here (it's writing back values on the table).")
 }
+
 pub fn kbdstuff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();
-    vm.ctx.print(TerminalTarget::Both, &value)
+    vm.print(TerminalTarget::Both, &value)
 }
 pub fn call(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
@@ -499,13 +539,13 @@ pub fn kbdfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()>
     panic!("TODO")
 }
 pub fn bye(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.hangup(crate::vm::HangupType::Bye)?;
+    vm.hangup(crate::vm::HangupType::Bye)?;
     vm.is_running = false;
     Ok(())
 }
 
 pub fn goodbye(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.ctx.hangup(crate::vm::HangupType::Goodbye)?;
+    vm.hangup(crate::vm::HangupType::Goodbye)?;
     vm.is_running = false;
     Ok(())
 }
@@ -531,19 +571,25 @@ pub fn broadcast(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<(
 pub fn waitfor(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn kbdchkon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.reset_keyboard_check_timer();
+    Ok(())
 }
+
 pub fn kbdchkoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.keyboard_check = false;
+    Ok(())
 }
+
 pub fn optext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.op_text = params[0].as_string();
+    Ok(())
 }
 pub fn dispstr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();
     crossterm::terminal::disable_raw_mode().unwrap();
-    vm.ctx.print(TerminalTarget::Both, &value)
+    vm.print(TerminalTarget::Both, &value)
 }
 
 pub fn rdunet(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
@@ -576,45 +622,58 @@ pub fn wrunet(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
 }
 
 pub fn dointr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("System interrupts are not (yet) supported")
 }
 pub fn varseg(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("System interrupts are not (yet) supported")
 }
 pub fn varoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("System interrupts are not (yet) supported")
 }
 pub fn pokeb(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("DOS memory access is not (yet) supported")
 }
 pub fn pokew(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("DOS memory access is not (yet) supported")
 }
 pub fn varaddr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("System interrupts are not (yet) supported")
 }
 
 pub fn ansipos(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let x = params[0].as_int();
     let y = params[1].as_int();
 
-    vm.ctx.gotoxy(TerminalTarget::Both, x, y)
+    vm.gotoxy(TerminalTarget::Both, x, y)
 }
 
 pub fn backup(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    let numcols = params[0].as_int();
+    if vm.use_ansi() {
+        vm.print(TerminalTarget::Both, &format!("\x1B[{numcols}D"))
+    } else {
+        vm.print(TerminalTarget::Both,  &"\x08".repeat(numcols as usize))
+    }
 }
+
 pub fn forward(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    let numcols = params[0].as_int();
+    if vm.use_ansi() {
+        vm.print(TerminalTarget::Both, &format!("\x1B[{numcols}C"))?;
+    } else {
+        vm.print(TerminalTarget::Both,  &" ".repeat(numcols as usize))?;
+    }
+    Ok(())
 }
 pub fn freshline(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.print(TerminalTarget::Both, "\r\n")?;
+    Ok(())
 }
 pub fn wrusys(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("USER.SYS is not supported")
 }
 pub fn rdusys(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    panic!("USER.SYS is not supported")
 }
 pub fn newpwd(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
@@ -643,46 +702,46 @@ pub fn chat(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 
 pub fn sprint(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::Sysop, &value.as_string())?;
+        vm.print(TerminalTarget::Sysop, &value.as_string())?;
     }
     Ok(())
 }
 
 pub fn sprintln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::Sysop, &value.as_string())?;
+        vm.print(TerminalTarget::Sysop, &value.as_string())?;
     }
-    vm.ctx.print(TerminalTarget::Sysop, "\n")?;
+    vm.print(TerminalTarget::Sysop, "\n")?;
     Ok(())
 }
 
 pub fn print(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::Both, &value.as_string())?;
+        vm.print(TerminalTarget::Both, &value.as_string())?;
     }
     Ok(())
 }
 
 pub fn println(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::Both, &value.as_string())?;
+        vm.print(TerminalTarget::Both, &value.as_string())?;
     }
-    vm.ctx.print(TerminalTarget::User, "\n")?;
+    vm.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 
 pub fn mprint(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::User, &value.as_string())?;
+        vm.print(TerminalTarget::User, &value.as_string())?;
     }
     Ok(())
 }
 
 pub fn mprintln(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     for value in params {
-        vm.ctx.print(TerminalTarget::User, &value.as_string())?;
+        vm.print(TerminalTarget::User, &value.as_string())?;
     }
-    vm.ctx.print(TerminalTarget::User, "\n")?;
+    vm.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 
@@ -701,20 +760,26 @@ pub fn pokedw(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.debug_level = params[0].as_int();
+    Ok(())
 }
 pub fn showon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.display_text = true;
+    Ok(())
 }
 pub fn showoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.display_text = false;
+    Ok(())
 }
+
 pub fn pageon(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn pageoff(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn fseek(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
@@ -758,7 +823,8 @@ pub fn kbdstring(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<(
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    vm.icy_board_data.use_alias = params[0].as_bool();
+    Ok(())
 }
 pub fn redim(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
@@ -922,9 +988,18 @@ pub fn frealtuser(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<
 pub fn setlmr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }
+
 pub fn setenv(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    panic!("TODO")
+    let env = params[0].as_string();
+    let v:Vec<&str> = env.split('=').collect();
+    if v.len() == 2 {
+        vm.icy_board_data.set_env(v[0], v[1]);
+    } else {
+        vm.icy_board_data.remove_env(&env);
+    }
+    Ok(())
 }
+
 pub fn fcloseall(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     panic!("TODO")
 }

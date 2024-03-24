@@ -14,6 +14,7 @@ log = "0.4.21"
 rand = "0.8"
 unicase = "2.7.0"
 crossterm = "0.27.0"
+icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 
 # interpreter deps
 radix_fmt = "1"

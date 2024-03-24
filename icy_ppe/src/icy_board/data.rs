@@ -1,7 +1,5 @@
 use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader, Cursor, Read},
-    path::Path,
+    collections::HashMap, fs::{self, File}, io::{BufRead, BufReader, Cursor, Read}, path::Path
 };
 
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -462,10 +460,25 @@ pub struct IcyBoardData {
     pub nodes: Vec<Node>,
     pub pcb_data: PcbDataType,
 
-    pub display_text: DisplayText,
+    pub icy_display_text: DisplayText,
 
     pub yes_char: char,
     pub no_char: char,
+
+    /// If true, the keyboard timer is checked.
+    /// After it's elapsed logoff the user for inactivity.
+    pub keyboard_check:bool,
+
+    /// The text displayed by the @OPTEXT@ macro
+    pub op_text: String,
+
+    /// 0 = no debug, 1 - errors, 2 - errors and warnings, 3 - all
+    pub debug_level: i32,
+
+    pub use_alias: bool,
+    pub display_text: bool,
+
+    pub env_vars: HashMap<String, String>
 }
 
 impl IcyBoardData {
@@ -475,8 +488,25 @@ impl IcyBoardData {
         let pcb_text = Path::new(&self.pcb_data.path.text_loc).join("PCBTEXT");
 
         let text_data = fs::read(pcb_text)?;
-        self.display_text = DisplayText::parse_file(&text_data)?;
+        self.icy_display_text = DisplayText::parse_file(&text_data)?;
 
         Ok(())
+    }
+
+    /// Turns on keyboard check & resets the keyboard check timer.
+    pub fn reset_keyboard_check_timer(&mut self) {
+        self.keyboard_check = true;
+    }
+    
+    pub fn get_env(&self, key: &str) -> Option<&String> {
+        self.env_vars.get(key)
+    }
+
+    pub fn set_env(&mut self, key: &str, value: &str) {
+        self.env_vars.insert(key.to_string(), value.to_string());
+    }
+    
+    pub fn remove_env(&mut self, env: &str) {
+        self.env_vars.remove(env);
     }
 }

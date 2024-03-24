@@ -1,6 +1,6 @@
 #![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -9,6 +9,7 @@ use crate::executable::{VariableData, VariableType, VariableValue};
 use crate::vm::VirtualMachine;
 use crate::Res;
 use easy_reader::EasyReader;
+use icy_engine::update_crc32;
 use radix_fmt::radix;
 use rand::Rng; // 0.8.5
 use substring::Substring;
@@ -464,14 +465,14 @@ pub fn yeschar(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
 }
 
 pub fn inkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    if let Some(ch) = vm.ctx.get_char()? {
+    if let Some(ch) = vm.get_char()? {
         if ch as u8 == 127 {
             return Ok(VariableValue::new_string("DEL".to_string()));
         }
         if ch == '\x1B' {
-            if let Some(ch) = vm.ctx.get_char()? {
+            if let Some(ch) = vm.get_char()? {
                 if ch == '[' {
-                    if let Some(ch) = vm.ctx.get_char()? {
+                    if let Some(ch) = vm.get_char()? {
                         match ch {
                             'A' => return Ok(VariableValue::new_string("UP".to_string())),
                             'B' => return Ok(VariableValue::new_string("DOWN".to_string())),
@@ -639,7 +640,11 @@ pub fn minon(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
     panic!("TODO")
 }
 pub fn getenv(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    if let Some(var) = vm.icy_board_data.get_env(&params[0].as_string()) {
+        Ok(VariableValue::new_string(var.to_string()))
+    } else {
+        Ok(VariableValue::new_string(String::new()))
+    }
 }
 pub fn callid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -741,7 +746,7 @@ pub fn s2i(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
     Ok(VariableValue::new_int(i))
 }
 pub fn carrier(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.ctx.get_bps()))
+    Ok(VariableValue::new_int(vm.get_bps()))
 }
 pub fn tokenstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -766,26 +771,37 @@ pub fn cctype(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variable
 }
 
 pub fn getx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.ctx.get_caret_position().0 + 1))
+    Ok(VariableValue::new_int(vm.get_caret_position().0 + 1))
 }
 
 pub fn gety(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let y = vm.ctx.get_caret_position().1;
+    let y = vm.get_caret_position().1;
     Ok(VariableValue::new_int(y + 1))
 }
 
 pub fn band(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let left = params[0].as_int();
+    let right = params[1].as_int();
+    Ok(VariableValue::new_int(left & right))
 }
+
 pub fn bor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let left = params[0].as_int();
+    let right = params[1].as_int();
+    Ok(VariableValue::new_int(left | right))
 }
+
 pub fn bxor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let left = params[0].as_int();
+    let right = params[1].as_int();
+    Ok(VariableValue::new_int(left ^ right))
 }
+
 pub fn bnot(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let val = params[0].as_int();
+    Ok(VariableValue::new_int(!val))
 }
+
 pub fn u_pwdhist(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
 }
@@ -802,7 +818,8 @@ pub fn defcolor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     panic!("TODO")
 }
 pub fn abs(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let val = params[0].as_int();
+    Ok(VariableValue::new_int(val.abs()))
 }
 
 pub fn grafmode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
@@ -927,7 +944,7 @@ pub fn peekdw(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variable
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_int(vm.icy_board_data.debug_level))
 }
 pub fn scrtext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -984,7 +1001,7 @@ pub fn mixed(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_bool(vm.icy_board_data.use_alias))
 }
 pub fn confreg(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1070,12 +1087,32 @@ pub fn hiconfnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Varia
 }
 
 pub fn inbytes(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.ctx.inbytes()))
+    Ok(VariableValue::new_int(vm.inbytes()))
 }
 
 pub fn crc32(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let use_file = params[0].as_bool();
+    let param = params[1].as_string();
+
+    if use_file {
+        let file = vm.io.resolve_file(&param);
+        let buffer = fs::read(file)?;
+        let crc = calc_crc32(&buffer);
+        Ok(VariableValue::new_unsigned(crc as u64))
+    } else {
+        let crc = calc_crc32(&param.bytes().collect::<Vec<u8>>());
+        Ok(VariableValue::new_unsigned(crc as u64))
+    }
 }
+
+fn calc_crc32(buffer: &[u8]) -> u32 {
+    let mut crc = 0xFFFF_FFFFu32;
+    for c in buffer {
+        crc = update_crc32(crc, *c);
+    }
+    !crc
+}
+
 pub fn pcbmac(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
 }

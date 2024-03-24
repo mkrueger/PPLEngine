@@ -64,6 +64,10 @@ pub trait ExecutionContext {
         115_200
     }
 
+    fn use_ansi(&self) -> bool {
+        true
+    }
+
     /// .
     ///
     /// # Errors
@@ -109,6 +113,9 @@ pub trait ExecutionContext {
     /// # Errors
     /// Errors if the variable is not found.
     fn hangup(&mut self, hangup_type: HangupType) -> Res<()>;
+
+
+    fn bell(&mut self);
 }
 
 pub struct StackFrame {
@@ -160,7 +167,7 @@ impl ReturnAddress {
 }
 
 pub struct VirtualMachine<'a> {
-    ctx: &'a mut dyn ExecutionContext,
+    ctx2: &'a mut dyn ExecutionContext,
     io: &'a mut dyn PCBoardIO,
     pub file_name: PathBuf,
     pub variable_table: VariableTable,
@@ -182,12 +189,87 @@ pub struct VirtualMachine<'a> {
     write_back_stack: Vec<PPEExpr>,
 
     pub label_table: HashMap<usize, usize>,
-
     pub push_pop_stack: Vec<VariableValue>,
+
 }
 
 impl<'a> VirtualMachine<'a> {
-    fn set_user_variables(&mut self, cur_user: &UserRecord) {
+    fn use_ansi(&self) -> bool {
+        true
+    }
+
+    fn has_sysop(&self) -> bool { 
+        self.ctx2.has_sysop()
+    }
+
+    fn get_bps(&self) -> i32 {
+        115_200
+    }
+
+    pub fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()> {
+        if self.icy_board_data.display_text {
+            self.ctx2.gotoxy(target, x, y)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn print(&mut self, target: TerminalTarget, str: &str) -> Res<()> {
+        if self.icy_board_data.display_text {
+            self.ctx2.print(target, str)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn write_raw(&mut self, target: TerminalTarget, data: &[u8]) -> Res<()> {
+        if self.icy_board_data.display_text {
+            self.ctx2.write_raw(target, data)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn read(&mut self) -> Res<String> {
+        self.ctx2.read()
+    }
+
+    pub fn get_char(&mut self) -> Res<Option<char>> {
+        self.ctx2.get_char()
+    }
+
+    pub fn inbytes(&mut self) -> i32 {
+        self.ctx2.inbytes()
+    }
+
+    pub fn set_color(&mut self, color: u8) {
+        self.ctx2.set_color(color)
+    }
+
+    pub fn get_caret_position(&mut self) -> (i32, i32) {
+        self.ctx2.get_caret_position()
+    }
+
+    pub fn send_to_com(&mut self, data: &str) -> Res<()> {
+        if self.icy_board_data.display_text {
+            self.ctx2.send_to_com(data)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn hangup(&mut self, hangup_type: HangupType) -> Res<()> {
+        self.ctx2.hangup(hangup_type)
+    }
+
+    pub fn bell(&mut self) {
+        self.ctx2.bell()
+    }
+
+}
+
+    impl<'a> VirtualMachine<'a> {
+        fn set_user_variables(&mut self, cur_user: &UserRecord) {
         self.variable_table
             .set_value(U_EXPERT, VariableValue::new_bool(cur_user.expert_mode));
         self.variable_table
@@ -687,7 +769,7 @@ pub fn run(
 
     let mut vm = VirtualMachine {
         file_name,
-        ctx,
+        ctx2: ctx,
         return_addresses: Vec::new(),
         script,
         io,

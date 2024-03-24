@@ -8,7 +8,6 @@ use icy_ppe::icy_board::data::PcbDataType;
 use icy_ppe::icy_board::data::UserRecord;
 use icy_ppe::vm::run;
 use icy_ppe::vm::DiskIO;
-use icy_ppe::*;
 use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
@@ -63,9 +62,10 @@ fn main() {
         users,
         nodes: vec![Node::default()],
         pcb_data,
-        display_text: icy_board::text_messages::DEFAULT_DISPLAY_TEXT.clone(),
         yes_char: 'Y',
         no_char: 'N',
+        display_text: true,
+        ..Default::default()
     };
 
     let exe = read_file(&file_name, false).unwrap();

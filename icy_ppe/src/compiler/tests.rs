@@ -135,4 +135,8 @@ impl ExecutionContext for TestContext {
     fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
         Ok(())
     }
+
+    fn bell(&mut self) {
+
+    }
 }

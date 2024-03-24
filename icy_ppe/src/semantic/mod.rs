@@ -50,7 +50,7 @@ impl References {
 
 #[derive(Default)]
 pub struct SemanticVisitor {
-    version: u16,
+    _version: u16,
 
     pub errors: Arc<Mutex<ErrorRepoter>>,
     pub references: Vec<(ReferenceType, References)>,
@@ -74,7 +74,7 @@ pub struct SemanticVisitor {
 impl SemanticVisitor {
     pub fn new(version: u16, errors: Arc<Mutex<ErrorRepoter>>) -> Self {
         Self {
-            version,
+            _version: version,
             errors,
             references: Vec::new(),
 

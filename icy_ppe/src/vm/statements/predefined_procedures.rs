@@ -12,9 +12,9 @@ use super::super::errors::IcyError;
 const BELL: i32 = 0x00800;
 const LFAFTER: i32 = 0x00100;
 const LFBEFORE: i32 = 0x00080;
-const LOGIT: i32 = 0x08000;
-const LOGITLEFT: i32 = 0x10000;
-const NEWLINE: i32 = 0x00040;
+const _LOGIT: i32 = 0x08000;
+const _LOGITLEFT: i32 = 0x10000;
+const _NEWLINE: i32 = 0x00040;
 
 /// Should never be called. But some op codes are invalid as statement call (like if or return)
 /// and are handled by it's own `PPECommands` and will point to this function.

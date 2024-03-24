@@ -192,18 +192,19 @@ pub struct VirtualMachine<'a> {
 }
 
 impl<'a> VirtualMachine<'a> {
-    fn use_ansi(&self) -> bool {
+    pub fn use_ansi(&self) -> bool {
         true
     }
 
-    fn has_sysop(&self) -> bool {
+    pub fn has_sysop(&self) -> bool {
         self.ctx2.has_sysop()
     }
 
-    fn get_bps(&self) -> i32 {
+    pub fn get_bps(&self) -> i32 {
         115_200
     }
 
+    /// # Errors
     pub fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()> {
         if self.icy_board_data.display_text {
             self.ctx2.gotoxy(target, x, y)
@@ -212,6 +213,7 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    /// # Errors
     pub fn print(&mut self, target: TerminalTarget, str: &str) -> Res<()> {
         if self.icy_board_data.display_text {
             self.ctx2.print(target, str)
@@ -220,6 +222,7 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    /// # Errors
     pub fn write_raw(&mut self, target: TerminalTarget, data: &[u8]) -> Res<()> {
         if self.icy_board_data.display_text {
             self.ctx2.write_raw(target, data)
@@ -228,10 +231,12 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    /// # Errors
     pub fn read(&mut self) -> Res<String> {
         self.ctx2.read()
     }
 
+    /// # Errors
     pub fn get_char(&mut self) -> Res<Option<char>> {
         self.ctx2.get_char()
     }
@@ -241,13 +246,14 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn set_color(&mut self, color: u8) {
-        self.ctx2.set_color(color)
+        self.ctx2.set_color(color);
     }
 
     pub fn get_caret_position(&mut self) -> (i32, i32) {
         self.ctx2.get_caret_position()
     }
 
+    /// # Errors
     pub fn send_to_com(&mut self, data: &str) -> Res<()> {
         if self.icy_board_data.display_text {
             self.ctx2.send_to_com(data)
@@ -256,12 +262,13 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    /// # Errors
     pub fn hangup(&mut self, hangup_type: HangupType) -> Res<()> {
         self.ctx2.hangup(hangup_type)
     }
 
     pub fn bell(&mut self) {
-        self.ctx2.bell()
+        self.ctx2.bell();
     }
 }
 

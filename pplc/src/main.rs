@@ -2,7 +2,6 @@ use ariadne::{Label, Report, ReportKind, Source};
 use clap::Parser;
 use icy_ppe::{
     compiler::PPECompiler,
-    executable::LAST_PPLC,
     parser::{load_with_encoding, parse_ast, Encoding},
 };
 use semver::Version;

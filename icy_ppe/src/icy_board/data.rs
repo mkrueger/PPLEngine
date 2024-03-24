@@ -339,7 +339,7 @@ pub struct UserRecord {
     // 3.40 vars
     pub short_descr: bool,
     pub gender: String,
-    pub birth_date: String,
+    pub birth_date: i32,
     pub email: String,
     pub web: String,
 }

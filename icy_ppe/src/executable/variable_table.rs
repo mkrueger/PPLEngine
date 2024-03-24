@@ -9,7 +9,7 @@ use crate::crypt::{decrypt, encrypt};
 
 use super::{
     ExecutableError, GenericVariableData, PPEExpr, PPEScript, VariableData, VariableNameGenerator,
-    VariableType, VariableValue, HEADER_SIZE, LAST_PPLC,
+    VariableType, VariableValue, HEADER_SIZE,
 };
 
 #[derive(Clone, Default, Debug)]
@@ -512,7 +512,7 @@ impl VariableTable {
     }
 
     pub fn generate_names(&mut self) {
-                let user_vars_version = self.scan_user_variables_version();
+        let user_vars_version = self.scan_user_variables_version();
         let mut name_generator = VariableNameGenerator::new(self.version, user_vars_version);
         for res in &mut self.entries {
             let (name, is_user_variable) = name_generator.get_next_name(res);
@@ -667,7 +667,7 @@ impl VariableTable {
                 return res;
             }
         }
-        LAST_PPLC
+        0
     }
 
     pub fn print_variable_table(&self) {
@@ -850,7 +850,7 @@ lazy_static::lazy_static! {
 
         UserVariable { name: "U_SHORTDESC", version:340, value:VariableValue::new_bool(false) },
         UserVariable { name: "U_GENDER", version:340, value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_string(String::new()) },
+        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_date(0) },
         UserVariable { name: "U_EMAIL", version:340, value:VariableValue::new_string(String::new()) },
         UserVariable { name: "U_WEB", version:340, value:VariableValue::new_string(String::new()) },
     ];

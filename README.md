@@ -24,7 +24,7 @@ Just for fun. Started this project initially to learn rust.
 
 Decompiler is completely rewritten and can disassemble now on top of recompilation.
 
-* PPE 3.30 Support
+* PPE 3.40 Support
 * Reconstruction of control structures beside if…then is currently broken.
 * It tries to do some name guessing based on variable usage.
 
@@ -47,7 +47,7 @@ The dissamble output can be used to see what the compilers are generating and fo
 
 ### Compiler
 
-Supports 15.4 PPL extensions but not the container format yet.
+Supports up to15.4 PPL (1.0 -> 3.40 PPE format)
 
 Should be compatible to the old PCB compiler with some slight differences - I added some keywords which are not available as identifier (but as label):
 

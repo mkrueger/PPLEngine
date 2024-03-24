@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap, fs::{self, File}, io::{BufRead, BufReader, Cursor, Read}, path::Path
+    collections::HashMap,
+    fs::{self, File},
+    io::{BufRead, BufReader, Cursor, Read},
+    path::Path,
 };
 
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -467,7 +470,7 @@ pub struct IcyBoardData {
 
     /// If true, the keyboard timer is checked.
     /// After it's elapsed logoff the user for inactivity.
-    pub keyboard_check:bool,
+    pub keyboard_check: bool,
 
     /// The text displayed by the @OPTEXT@ macro
     pub op_text: String,
@@ -478,7 +481,7 @@ pub struct IcyBoardData {
     pub use_alias: bool,
     pub display_text: bool,
 
-    pub env_vars: HashMap<String, String>
+    pub env_vars: HashMap<String, String>,
 }
 
 impl IcyBoardData {
@@ -497,7 +500,7 @@ impl IcyBoardData {
     pub fn reset_keyboard_check_timer(&mut self) {
         self.keyboard_check = true;
     }
-    
+
     pub fn get_env(&self, key: &str) -> Option<&String> {
         self.env_vars.get(key)
     }
@@ -505,7 +508,7 @@ impl IcyBoardData {
     pub fn set_env(&mut self, key: &str, value: &str) {
         self.env_vars.insert(key.to_string(), value.to_string());
     }
-    
+
     pub fn remove_env(&mut self, env: &str) {
         self.env_vars.remove(env);
     }

@@ -146,11 +146,11 @@ impl FunctionValue {
     /// Panics if .
     pub fn from_bytes(cur_buf: &[u8]) -> FunctionValue {
         Self {
-            parameters: cur_buf[4],
-            local_variables: cur_buf[5],
-            start_offset: u16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()),
-            first_var_id: i16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()),
-            return_var: i16::from_le_bytes((cur_buf[10..=11]).try_into().unwrap()),
+            parameters: cur_buf[2],
+            local_variables: cur_buf[3],
+            start_offset: u16::from_le_bytes((cur_buf[4..=5]).try_into().unwrap()),
+            first_var_id: i16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()),
+            return_var: i16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()),
         }
     }
 
@@ -243,8 +243,10 @@ impl TableEntry {
         if self.header.variable_type == VariableType::Procedure
             || self.header.variable_type == VariableType::Function
         {
-            buffer.push(0);
-            buffer.push(0);
+            if version < 340 {
+                buffer.push(0);
+                buffer.push(0);
+            }
             buffer.push(self.header.variable_type as u8);
             buffer.push(0);
             unsafe {
@@ -276,9 +278,11 @@ impl TableEntry {
                 buffer.extend_from_slice(&[0, 0]);
             };
         } else {
-            // VTABLE - get's ignored by PCBoard - pure garbage
-            buffer.push(0);
-            buffer.push(0);
+            if version < 340 {
+                // VTABLE - get's ignored by PCBoard - pure garbage
+                buffer.push(0);
+                buffer.push(0);
+            }
 
             // variable type
             buffer.push(self.header.variable_type as u8);
@@ -381,15 +385,21 @@ impl VariableTable {
                 }
 
                 VariableType::Function | VariableType::Procedure => {
-                    decrypt(&mut buf[i..(i + 12)], version);
-                    let cur_buf = &buf[i..(i + 12)];
-                    let vtype = VariableType::from_byte(cur_buf[2]);
+                    if version < 340 {
+                        decrypt(&mut buf[i..(i + 12)], version);
+                        i += 2; // SKIP VTABLE - seems to get stored by accident.
+                    } else {
+                        decrypt(&mut buf[i..(i + 10)], version);
+                    }
+
+                    let cur_buf = &buf[i..(i + 10)];
+                    let vtype = VariableType::from_byte(cur_buf[0]);
                     assert!(
                         !(vtype != header.variable_type),
                         "Invalid function type: {vtype}"
                     );
                     let function_value = FunctionValue::from_bytes(cur_buf);
-                    i += 4; // skip vtable + type
+                    i += 2; // type
 
                     variable = VariableValue {
                         vtype,
@@ -418,8 +428,13 @@ impl VariableTable {
                         };
                         i += 4;
                     } else {
-                        decrypt(&mut buf[i..(i + 12)], version);
-                        i += 2; // SKIP VTABLE - seems to get stored by accident.
+                        if version < 340 {
+                            decrypt(&mut buf[i..(i + 12)], version);
+                            i += 2; // SKIP VTABLE - seems to get stored by accident.
+                        } else {
+                            decrypt(&mut buf[i..(i + 10)], version);
+                        }
+
                         let vtype = VariableType::from_byte(buf[i]);
                         if vtype != header.variable_type {
                             log::error!("Encountered anomaly in variable table: {} variable type and variable value {} are not matching.", header.variable_type, vtype);

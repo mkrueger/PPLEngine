@@ -1,25 +1,29 @@
 use core::panic;
 use std::path::PathBuf;
 
-use crate::{executable::LAST_PPLC, parser::{parse_ast, Encoding}};
+use crate::{
+    executable::LAST_PPLC,
+    parser::{parse_ast, Encoding},
+};
 
 use super::SemanticVisitor;
 
 #[test]
-fn find_label_references()
-{
-    find_references(r#"
+fn find_label_references() {
+    find_references(
+        r#"
 @:mylabel@
 PRINT "Hello World"
 goto $mylabel$
 gosub $MyLabel$
-"#);
+"#,
+    );
 }
 
 #[test]
-fn find_local_references()
-{
-    find_references(r#"declare procedure foo()
+fn find_local_references() {
+    find_references(
+        r#"declare procedure foo()
     :mylabel
 PRINT "Hello World"
 procedure foo()
@@ -27,40 +31,44 @@ goto $mylabel$
 gosub $MyLabel$
 @:mylabel@
 endproc
-"#);
+"#,
+    );
 }
 
 #[test]
-fn find_procedure()
-{
-    find_references(r"
+fn find_procedure() {
+    find_references(
+        r"
 declare procedure @foo@()
 $foo$()
 procedure $foo$()
 endproc
-");
+",
+    );
 }
 
 #[test]
-fn find_function()
-{
-    find_references(r"
+fn find_function() {
+    find_references(
+        r"
 declare function @foo@() INT
 PRINTLN $foo$()
 function $foo$() INT
 $foo$ = 1
 endproc
-");
+",
+    );
 }
 
 #[test]
-fn find_variables()
-{
-    find_references(r"
+fn find_variables() {
+    find_references(
+        r"
     INTEGER @BAR@
 PRINTLN $BAR$
 $BAR$ = $BAR$ + 1
-");
+",
+    );
 }
 
 fn find_references(arg: &str) {

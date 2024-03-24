@@ -98,9 +98,7 @@ impl PPEDeserializer {
         if cur_stmt == 0 {
             return Ok(None);
         }
-        if !(0..LAST_STMT).contains(&cur_stmt)
-            || STATEMENT_DEFINITIONS[cur_stmt as usize].sig == StatementSignature::Invalid
-        {
+        if !(0..LAST_STMT).contains(&cur_stmt) {
             self.report_bug(DeserializationErrorType::InvalidStatement(cur_stmt));
             return Ok(None);
         }
@@ -171,6 +169,11 @@ impl PPEDeserializer {
                 let Some(def) = STATEMENT_DEFINITIONS.get(idx) else {
                     return Err(DeserializationErrorType::UnknownStatement(cur_stmt));
                 };
+
+                if def.sig == StatementSignature::Invalid {
+                    self.report_bug(DeserializationErrorType::InvalidStatement(cur_stmt));
+                    return Ok(None);
+                }
 
                 let (var_idx, argument_count) = match def.sig {
                     crate::executable::StatementSignature::ArgumentsWithVariable(

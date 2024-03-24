@@ -133,7 +133,7 @@ fn main() {
     }
 
     println!();
-    match compiler.create_executable(LAST_PPLC) {
+    match compiler.create_executable(version) {
         Ok(executable) => {
             if arguments.disassemble {
                 println!();

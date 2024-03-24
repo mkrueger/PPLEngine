@@ -311,56 +311,56 @@ impl LanguageServer for Backend {
         let inlay_hint_list = Vec::new();
         Ok(Some(inlay_hint_list))
     }
-/*
-    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        let uri = params.text_document_position.text_document.uri;
-        let position = params.text_document_position.position;
-        let completions = || -> Option<Vec<CompletionItem>> {
-            let rope = self.document_map.get(&uri.to_string())?;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let completions = completion(&ast, offset);
-            let mut ret = Vec::with_capacity(completions.len());
-            for (_, item) in completions {
-                match item {
-                    ppl_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
-                        ret.push(CompletionItem {
-                            label: var.clone(),
-                            insert_text: Some(var.clone()),
-                            kind: Some(CompletionItemKind::VARIABLE),
-                            detail: Some(var),
-                            ..Default::default()
-                        });
-                    }
-                    ppl_language_server::completion::ImCompleteCompletionItem::Function(
-                        name,
-                        args,
-                    ) => {
-                        ret.push(CompletionItem {
-                            label: name.clone(),
-                            kind: Some(CompletionItemKind::FUNCTION),
-                            detail: Some(name.clone()),
-                            insert_text: Some(format!(
-                                "{}({})",
-                                name,
-                                args.iter()
-                                    .enumerate()
-                                    .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
-                                    .collect::<Vec<_>>()
-                                    .join(",")
-                            )),
-                            insert_text_format: Some(InsertTextFormat::SNIPPET),
-                            ..Default::default()
-                        });
+    /*
+        async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+            let uri = params.text_document_position.text_document.uri;
+            let position = params.text_document_position.position;
+            let completions = || -> Option<Vec<CompletionItem>> {
+                let rope = self.document_map.get(&uri.to_string())?;
+                let ast = self.ast_map.get(&uri.to_string())?;
+                let char = rope.try_line_to_char(position.line as usize).ok()?;
+                let offset = char + position.character as usize;
+                let completions = completion(&ast, offset);
+                let mut ret = Vec::with_capacity(completions.len());
+                for (_, item) in completions {
+                    match item {
+                        ppl_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
+                            ret.push(CompletionItem {
+                                label: var.clone(),
+                                insert_text: Some(var.clone()),
+                                kind: Some(CompletionItemKind::VARIABLE),
+                                detail: Some(var),
+                                ..Default::default()
+                            });
+                        }
+                        ppl_language_server::completion::ImCompleteCompletionItem::Function(
+                            name,
+                            args,
+                        ) => {
+                            ret.push(CompletionItem {
+                                label: name.clone(),
+                                kind: Some(CompletionItemKind::FUNCTION),
+                                detail: Some(name.clone()),
+                                insert_text: Some(format!(
+                                    "{}({})",
+                                    name,
+                                    args.iter()
+                                        .enumerate()
+                                        .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
+                                        .collect::<Vec<_>>()
+                                        .join(",")
+                                )),
+                                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                                ..Default::default()
+                            });
+                        }
                     }
                 }
-            }
-            Some(ret)
-        }();
-        Ok(completions.map(CompletionResponse::Array))
-    }
-*/
+                Some(ret)
+            }();
+            Ok(completions.map(CompletionResponse::Array))
+        }
+    */
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
         let workspace_edit = || -> Option<WorkspaceEdit> {
             let uri = params.text_document_position.text_document.uri;
@@ -394,7 +394,7 @@ impl LanguageServer for Backend {
         }();
         Ok(workspace_edit)
     }
-  
+
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
         self.client
             .log_message(MessageType::INFO, "configuration changed!")

@@ -240,7 +240,10 @@ impl SemanticVisitor {
         }
     }
 
-    fn lookup_variable(&mut self, id: &unicase::Ascii<String>) -> Option<&mut (ReferenceType, References)> {
+    fn lookup_variable(
+        &mut self,
+        id: &unicase::Ascii<String>,
+    ) -> Option<&mut (ReferenceType, References)> {
         if self.local_lookup {
             if let Some(idx) = self.local_variable_lookup.get(id) {
                 return self.references.get_mut(*idx);
@@ -264,9 +267,7 @@ impl AstVisitor<()> for SemanticVisitor {
         } else {
             self.errors.lock().unwrap().report_error(
                 identifier.get_identifier_token().span.clone(),
-                CompilationErrorType::VariableNotFound(
-                    identifier.get_identifier().to_string(),
-                ),
+                CompilationErrorType::VariableNotFound(identifier.get_identifier().to_string()),
             );
         }
     }
@@ -299,7 +300,7 @@ impl AstVisitor<()> for SemanticVisitor {
 
     fn visit_function_call_expression(&mut self, call: &crate::ast::FunctionCallExpression) {
         let mut found = false;
-        if let Some((rt, r)) = self.lookup_variable(call.get_identifier())  {
+        if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
             if matches!(rt, ReferenceType::Function(_)) {
                 r.references.push(Spanned::new(
                     call.get_identifier().to_string(),
@@ -308,13 +309,11 @@ impl AstVisitor<()> for SemanticVisitor {
                 found = true;
             }
         }
-        
+
         if !found {
             self.errors.lock().unwrap().report_error(
                 call.get_identifier_token().span.clone(),
-                CompilationErrorType::ProcedureNotFound(
-                    call.get_identifier().to_string(),
-                ),
+                CompilationErrorType::ProcedureNotFound(call.get_identifier().to_string()),
             );
         }
         crate::ast::walk_function_call_expression(self, call);
@@ -333,7 +332,7 @@ impl AstVisitor<()> for SemanticVisitor {
     }
 
     fn visit_let_statement(&mut self, let_stmt: &crate::ast::LetStatement) {
-        if let Some((_rt, r)) = self.lookup_variable(let_stmt.get_identifier())  {
+        if let Some((_rt, r)) = self.lookup_variable(let_stmt.get_identifier()) {
             r.references.push(Spanned::new(
                 let_stmt.get_identifier().to_string(),
                 let_stmt.get_identifier_token().span.clone(),
@@ -341,9 +340,7 @@ impl AstVisitor<()> for SemanticVisitor {
         } else {
             self.errors.lock().unwrap().report_error(
                 let_stmt.get_identifier_token().span.clone(),
-                CompilationErrorType::VariableNotFound(
-                    let_stmt.get_identifier().to_string(),
-                ),
+                CompilationErrorType::VariableNotFound(let_stmt.get_identifier().to_string()),
             );
         }
         let_stmt.get_value_expression().visit(self);
@@ -373,9 +370,9 @@ impl AstVisitor<()> for SemanticVisitor {
         }
     }
 
-    fn visit_procedure_call_statement(&mut self, call: &crate::ast::ProcedureCallStatement)  {
+    fn visit_procedure_call_statement(&mut self, call: &crate::ast::ProcedureCallStatement) {
         let mut found = false;
-        if let Some((rt, r)) = self.lookup_variable(call.get_identifier())  {
+        if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
             if matches!(rt, ReferenceType::Procedure(_)) {
                 r.references.push(Spanned::new(
                     call.get_identifier().to_string(),
@@ -384,19 +381,17 @@ impl AstVisitor<()> for SemanticVisitor {
                 found = true;
             }
         }
-        
+
         if !found {
             self.errors.lock().unwrap().report_error(
                 call.get_identifier_token().span.clone(),
-                CompilationErrorType::ProcedureNotFound(
-                    call.get_identifier().to_string(),
-                ),
+                CompilationErrorType::ProcedureNotFound(call.get_identifier().to_string()),
             );
         }
 
         crate::ast::walk_procedure_call_statement(self, call);
     }
-    
+
     fn visit_procedure_declaration(&mut self, proc_decl: &crate::ast::ProcedureDeclarationAstNode) {
         if self.has_variable_defined(proc_decl.get_identifier()) {
             self.errors.lock().unwrap().report_error(
@@ -407,7 +402,8 @@ impl AstVisitor<()> for SemanticVisitor {
             );
             return;
         }
-        self.variable_lookup.insert(proc_decl.get_identifier().clone(), self.references.len());
+        self.variable_lookup
+            .insert(proc_decl.get_identifier().clone(), self.references.len());
         self.set_declaration(
             ReferenceType::Procedure(self.procedures),
             proc_decl.get_identifier_token(),
@@ -425,7 +421,8 @@ impl AstVisitor<()> for SemanticVisitor {
             );
             return;
         }
-        self.variable_lookup.insert(func_decl.get_identifier().clone(), self.references.len());
+        self.variable_lookup
+            .insert(func_decl.get_identifier().clone(), self.references.len());
         self.set_declaration(
             ReferenceType::Function(self.functions),
             func_decl.get_identifier_token(),
@@ -434,7 +431,7 @@ impl AstVisitor<()> for SemanticVisitor {
     }
 
     fn visit_function_implementation(&mut self, function: &crate::ast::FunctionImplementation) {
-        if let Some((_rt, r)) = self.lookup_variable(function.get_identifier())  {
+        if let Some((_rt, r)) = self.lookup_variable(function.get_identifier()) {
             r.references.push(Spanned::new(
                 function.get_identifier().to_string(),
                 function.get_identifier_token().span.clone(),
@@ -442,9 +439,7 @@ impl AstVisitor<()> for SemanticVisitor {
         } else {
             self.errors.lock().unwrap().report_error(
                 function.get_identifier_token().span.clone(),
-                CompilationErrorType::FunctionNotFound(
-                    function.get_identifier().to_string(),
-                ),
+                CompilationErrorType::FunctionNotFound(function.get_identifier().to_string()),
             );
         }
 
@@ -454,7 +449,7 @@ impl AstVisitor<()> for SemanticVisitor {
     }
 
     fn visit_procedure_implementation(&mut self, procedure: &crate::ast::ProcedureImplementation) {
-        if let Some((_rt, r)) = self.lookup_variable(procedure.get_identifier())  {
+        if let Some((_rt, r)) = self.lookup_variable(procedure.get_identifier()) {
             r.references.push(Spanned::new(
                 procedure.get_identifier().to_string(),
                 procedure.get_identifier_token().span.clone(),
@@ -462,9 +457,7 @@ impl AstVisitor<()> for SemanticVisitor {
         } else {
             self.errors.lock().unwrap().report_error(
                 procedure.get_identifier_token().span.clone(),
-                CompilationErrorType::ProcedureNotFound(
-                    procedure.get_identifier().to_string(),
-                ),
+                CompilationErrorType::ProcedureNotFound(procedure.get_identifier().to_string()),
             );
         }
 

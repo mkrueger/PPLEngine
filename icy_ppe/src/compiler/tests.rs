@@ -136,7 +136,5 @@ impl ExecutionContext for TestContext {
         Ok(())
     }
 
-    fn bell(&mut self) {
-
-    }
+    fn bell(&mut self) {}
 }

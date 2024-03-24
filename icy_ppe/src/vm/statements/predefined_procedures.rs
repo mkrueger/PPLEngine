@@ -10,12 +10,11 @@ use crate::{
 use super::super::errors::IcyError;
 
 const BELL: i32 = 0x00800;
-const LFAFTER: i32= 0x00100;
-const LFBEFORE: i32= 0x00080;
-const LOGIT: i32= 0x08000;
-const LOGITLEFT: i32= 0x10000;
+const LFAFTER: i32 = 0x00100;
+const LFBEFORE: i32 = 0x00080;
+const LOGIT: i32 = 0x08000;
+const LOGITLEFT: i32 = 0x10000;
 const NEWLINE: i32 = 0x00040;
-
 
 /// Should never be called. But some op codes are invalid as statement call (like if or return)
 /// and are handled by it's own `PPECommands` and will point to this function.
@@ -99,8 +98,7 @@ pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
     let content = fs::read(&file);
     match content {
         Ok(content) => vm.write_raw(TerminalTarget::Both, &content),
-        Err(err) => vm
-            .print(TerminalTarget::Both, format!("{file} error {err}").as_str()),
+        Err(err) => vm.print(TerminalTarget::Both, format!("{file} error {err}").as_str()),
     }
 }
 
@@ -469,17 +467,22 @@ pub fn disptext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
     let rec = params[0].as_int();
     let flags = params[1].as_int();
 
-    
     if (flags & LFBEFORE) == LFBEFORE {
         vm.print(TerminalTarget::Both, "\n")?;
     }
 
-    let color =  vm.icy_board_data.icy_display_text.get_display_color(rec as usize)?;
+    let color = vm
+        .icy_board_data
+        .icy_display_text
+        .get_display_color(rec as usize)?;
     vm.set_color(color);
 
-    let text = vm.icy_board_data.icy_display_text.get_display_text(rec as usize)?;
+    let text = vm
+        .icy_board_data
+        .icy_display_text
+        .get_display_text(rec as usize)?;
     vm.print(TerminalTarget::Both, &text)?;
-    
+
     if (flags & LFAFTER) == LFAFTER {
         vm.print(TerminalTarget::Both, "\n")?;
     }
@@ -652,7 +655,7 @@ pub fn backup(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
     if vm.use_ansi() {
         vm.print(TerminalTarget::Both, &format!("\x1B[{numcols}D"))
     } else {
-        vm.print(TerminalTarget::Both,  &"\x08".repeat(numcols as usize))
+        vm.print(TerminalTarget::Both, &"\x08".repeat(numcols as usize))
     }
 }
 
@@ -661,7 +664,7 @@ pub fn forward(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()>
     if vm.use_ansi() {
         vm.print(TerminalTarget::Both, &format!("\x1B[{numcols}C"))?;
     } else {
-        vm.print(TerminalTarget::Both,  &" ".repeat(numcols as usize))?;
+        vm.print(TerminalTarget::Both, &" ".repeat(numcols as usize))?;
     }
     Ok(())
 }
@@ -991,7 +994,7 @@ pub fn setlmr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
 
 pub fn setenv(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let env = params[0].as_string();
-    let v:Vec<&str> = env.split('=').collect();
+    let v: Vec<&str> = env.split('=').collect();
     if v.len() == 2 {
         vm.icy_board_data.set_env(v[0], v[1]);
     } else {

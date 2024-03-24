@@ -114,7 +114,6 @@ pub trait ExecutionContext {
     /// Errors if the variable is not found.
     fn hangup(&mut self, hangup_type: HangupType) -> Res<()>;
 
-
     fn bell(&mut self);
 }
 
@@ -190,7 +189,6 @@ pub struct VirtualMachine<'a> {
 
     pub label_table: HashMap<usize, usize>,
     pub push_pop_stack: Vec<VariableValue>,
-
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -198,7 +196,7 @@ impl<'a> VirtualMachine<'a> {
         true
     }
 
-    fn has_sysop(&self) -> bool { 
+    fn has_sysop(&self) -> bool {
         self.ctx2.has_sysop()
     }
 
@@ -265,11 +263,10 @@ impl<'a> VirtualMachine<'a> {
     pub fn bell(&mut self) {
         self.ctx2.bell()
     }
-
 }
 
-    impl<'a> VirtualMachine<'a> {
-        fn set_user_variables(&mut self, cur_user: &UserRecord) {
+impl<'a> VirtualMachine<'a> {
+    fn set_user_variables(&mut self, cur_user: &UserRecord) {
         self.variable_table
             .set_value(U_EXPERT, VariableValue::new_bool(cur_user.expert_mode));
         self.variable_table

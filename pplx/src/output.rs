@@ -441,8 +441,5 @@ impl ExecutionContext for Output {
         Ok(())
     }
 
-    fn bell(&mut self) {
-
-    }
-
+    fn bell(&mut self) {}
 }

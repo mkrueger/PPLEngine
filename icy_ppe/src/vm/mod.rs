@@ -380,7 +380,7 @@ impl<'a> VirtualMachine<'a> {
             self.variable_table
                 .set_value(U_GENDER, VariableValue::new_string(cur_user.gender.clone()));
             self.variable_table
-                .set_value(U_BIRTHDATE, VariableValue::new_date(cur_user.birth_date));
+                .set_value(U_BIRTHDATE, VariableValue::new_string(cur_user.birth_date.clone()));
             self.variable_table
                 .set_value(U_EMAIL, VariableValue::new_string(cur_user.email.clone()));
             self.variable_table
@@ -445,7 +445,7 @@ impl<'a> VirtualMachine<'a> {
         if self.variable_table.get_version() >= 340 {
             cur_user.short_descr = self.variable_table.get_value(U_SHORTDESC).as_bool();
             cur_user.gender = self.variable_table.get_value(U_GENDER).as_string();
-            cur_user.birth_date = self.variable_table.get_value(U_BIRTHDATE).as_int();
+            cur_user.birth_date = self.variable_table.get_value(U_BIRTHDATE).as_string();
             cur_user.email = self.variable_table.get_value(U_EMAIL).as_string();
             cur_user.web = self.variable_table.get_value(U_WEB).as_string();
         }

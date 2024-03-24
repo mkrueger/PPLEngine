@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use icy_ppe::{ast::Ast, parser::lexer::Spanned, semantic::SemanticVisitor};
 
 pub fn get_definition(ast: &Ast, offset: usize) -> Option<Spanned<String>> {

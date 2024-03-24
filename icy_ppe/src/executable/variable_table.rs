@@ -9,7 +9,7 @@ use crate::crypt::{decrypt, encrypt};
 
 use super::{
     ExecutableError, GenericVariableData, PPEExpr, PPEScript, VariableData, VariableNameGenerator,
-    VariableType, VariableValue, HEADER_SIZE,
+    VariableType, VariableValue, HEADER_SIZE, LAST_PPLC,
 };
 
 #[derive(Clone, Default, Debug)]
@@ -655,6 +655,10 @@ impl VariableTable {
                 || self.entries[i].header.dim != u_var.value.get_dimensions()
                 || self.entries[i].header.vector_size != u_var.value.get_vector_size()
             {
+                // workaround for a bug in 3.40 beta where U_BIRTHDATE was a string instead of a date.
+                if u_var.name == "U_BIRTHDATE" && self.entries[i].header.variable_type == VariableType::String {
+                    continue;
+                }
                 let res = if u_var.version > 340 {
                     340
                 } else if u_var.version > 300 {
@@ -667,7 +671,7 @@ impl VariableTable {
                 return res;
             }
         }
-        0
+        LAST_PPLC
     }
 
     pub fn print_variable_table(&self) {

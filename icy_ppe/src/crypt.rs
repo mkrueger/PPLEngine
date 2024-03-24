@@ -111,7 +111,7 @@ pub fn decrypt(block: &mut [u8], version: u16) {
 
     decrypt2(block);
 
-    if version >= 340 {
+    if version >= 340 && !block.is_empty() {
         block[0] ^= b'T';
     }
 }

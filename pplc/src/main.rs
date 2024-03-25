@@ -47,10 +47,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    println!(
-        "PCBoard Programming Language Compiler^RUST {}",
-        *crate::VERSION
-    );
+    println!("PCBoard Programming Language Compiler {}", *crate::VERSION);
     let arguments = Args::parse();
     let version = if let Some(v) = arguments.ppl_version {
         v

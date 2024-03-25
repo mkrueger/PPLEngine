@@ -656,7 +656,9 @@ impl VariableTable {
                 || self.entries[i].header.vector_size != u_var.value.get_vector_size()
             {
                 // workaround for a bug in 3.40 beta where U_BIRTHDATE was a string instead of a date.
-                if u_var.name == "U_BIRTHDATE" && self.entries[i].header.variable_type == VariableType::String {
+                if u_var.name == "U_BIRTHDATE"
+                    && self.entries[i].header.variable_type == VariableType::String
+                {
                     continue;
                 }
                 let res = if u_var.version > 340 {

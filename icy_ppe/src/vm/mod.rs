@@ -17,7 +17,7 @@ use crate::executable::VariableType;
 use crate::executable::VariableValue;
 use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
-use crate::icy_board::data::UserRecord;
+use crate::icy_board::users::UserRecord;
 use crate::Res;
 
 pub mod expressions;

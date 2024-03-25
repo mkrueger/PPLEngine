@@ -565,7 +565,7 @@ pub fn valtime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
 }
 pub fn pcbnode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data.pcb_data.node_number as i32,
+        vm.icy_board_data.pcb_data.node_num as i32,
     ))
 }
 

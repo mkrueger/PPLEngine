@@ -5,7 +5,7 @@ use icy_ppe::executable::read_file;
 use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
 use icy_ppe::icy_board::data::PcbDataType;
-use icy_ppe::icy_board::data::UserRecord;
+use icy_ppe::icy_board::users::UserRecord;
 use icy_ppe::vm::run;
 use icy_ppe::vm::DiskIO;
 use semver::Version;

@@ -79,7 +79,7 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
 
         for (rt, r) in semantic_visitor.references {
             if matches!(rt, icy_ppe::semantic::ReferenceType::Procedure(_)) {
-                if let Some(decl) = r.declaration {
+                if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),
                         insert_text: Some(decl.token.to_string()),
@@ -91,15 +91,42 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
                     });
                 }
             }
+            if matches!(rt, icy_ppe::semantic::ReferenceType::Variable(_)) {
+                if let Some(decl) = &r.declaration {
+                    map.items.push(CompletionItem {
+                        label: decl.token.to_string(),
+                        insert_text: Some(decl.token.to_string()),
+                        kind: Some(tower_lsp::lsp_types::CompletionItemKind::VARIABLE),
+                        insert_text_format: Some(
+                            tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
         }
     } else {
-        for (rt, r) in semantic_visitor.references {
+        for (rt, r) in &semantic_visitor.references {
             if matches!(rt, icy_ppe::semantic::ReferenceType::Function(_)) {
-                if let Some(decl) = r.declaration {
+                if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),
                         insert_text: Some(decl.token.to_string()),
                         kind: Some(tower_lsp::lsp_types::CompletionItemKind::FUNCTION),
+                        insert_text_format: Some(
+                            tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
+
+            if matches!(rt, icy_ppe::semantic::ReferenceType::Variable(_)) {
+                if let Some(decl) = &r.declaration {
+                    map.items.push(CompletionItem {
+                        label: decl.token.to_string(),
+                        insert_text: Some(decl.token.to_string()),
+                        kind: Some(tower_lsp::lsp_types::CompletionItemKind::VARIABLE),
                         insert_text_format: Some(
                             tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
                         ),

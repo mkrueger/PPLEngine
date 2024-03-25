@@ -912,6 +912,11 @@ impl PPECompiler {
     }
 
     fn lookup_variable_index(&self, get_identifier: &unicase::Ascii<String>) -> Option<usize> {
+        if self.local_lookup {
+            if let Some(c) = self.local_variable_lookup.get(get_identifier) {
+                return Some(*c);
+            }
+        }
         self.variable_lookup.get(get_identifier).copied()
     }
 

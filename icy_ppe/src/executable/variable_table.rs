@@ -5,11 +5,14 @@ use crossterm::{
     style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
 };
 
-use crate::crypt::{decrypt, encrypt};
+use crate::{
+    crypt::{decrypt, encrypt},
+    Res,
+};
 
 use super::{
     ExecutableError, GenericVariableData, PPEExpr, PPEScript, VariableData, VariableNameGenerator,
-    VariableType, VariableValue, HEADER_SIZE, LAST_PPLC,
+    VariableType, VariableValue, LAST_PPLC,
 };
 
 #[derive(Clone, Default, Debug)]
@@ -312,17 +315,12 @@ impl VariableTable {
     }
 
     /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
-    ///
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn deserialize(version: u16, buf: &mut [u8]) -> Result<(usize, Self), ExecutableError> {
-        let mut i = HEADER_SIZE;
-        let max_var = u16::from_le_bytes((buf[i..=(i + 1)]).try_into().unwrap()) as usize;
+    pub fn deserialize(version: u16, buf: &mut [u8]) -> Res<(usize, Self)> {
+        let mut i = 0;
+        let max_var = u16::from_le_bytes((buf[i..=(i + 1)]).try_into()?) as usize;
         i += 2;
 
         let mut result = vec![TableEntry::default(); max_var];
@@ -341,30 +339,27 @@ impl VariableTable {
             decrypt(&mut (buf[i..(i + 11)]), version);
             let cur_block = &buf[i..(i + 11)];
 
-            let header_id = u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize;
-            if header_id > max_var {
+            let header = VarHeader::from_bytes(cur_block);
+            if header.id > max_var {
                 log::warn!(
                     "Variable count exceeds maximum: {} ({})",
                     var_count,
                     max_var
                 );
             }
-            if header_id != var_count as usize + 1 {
+            if header.id != var_count as usize + 1 {
                 log::warn!(
                     "Variable id mismatch: {} != {}",
-                    header_id,
+                    header.id,
                     var_count as usize + 1
                 );
             }
-
-            let header = VarHeader::from_bytes(cur_block);
-
             i += 11;
+
             let variable;
             match header.variable_type {
                 VariableType::String => {
-                    let string_length =
-                        u16::from_le_bytes((buf[i..=i + 1]).try_into().unwrap()) as usize;
+                    let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into()?) as usize;
                     i += 2;
                     decrypt(&mut (buf[i..(i + string_length)]), version);
                     let generic_data = if header.dim > 0 {
@@ -394,10 +389,12 @@ impl VariableTable {
 
                     let cur_buf = &buf[i..(i + 10)];
                     let vtype = VariableType::from_byte(cur_buf[0]);
-                    assert!(
-                        !(vtype != header.variable_type),
-                        "Invalid function type: {vtype}"
-                    );
+                    if vtype != header.variable_type {
+                        return Err(Box::new(ExecutableError::FunctionHeaderTypeMismatch(
+                            vtype,
+                            header.variable_type,
+                        )));
+                    }
                     let function_value = FunctionValue::from_bytes(cur_buf);
                     i += 2; // type
 
@@ -413,14 +410,13 @@ impl VariableTable {
                     if version <= 100 {
                         i += 2; // SKIP VTABLE - seems to get stored by accident.
                         let vtype = VariableType::from_byte(buf[i]);
-                        assert!(
-                            !(vtype != header.variable_type),
-                            "Invalid variable type: {vtype}"
-                        );
+                        if vtype != header.variable_type {
+                            log::error!("Encountered anomaly in variable table: {} variable type and variable value {} are not matching.", header.variable_type, vtype);
+                            log::error!("File is potentially damaged.");
+                        }
                         i += 2; // what's stored here ?
                         let mut data = VariableData::default();
-                        data.unsigned_value =
-                            u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
+                        data.unsigned_value = u64::from_le_bytes((buf[i..i + 8]).try_into()?);
                         variable = VariableValue {
                             vtype,
                             data,
@@ -442,7 +438,7 @@ impl VariableTable {
                         }
                         i += 2; // what's stored here ?
                         let mut data = VariableData::default();
-                        data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into().unwrap());
+                        data.u64_value = u64::from_le_bytes((buf[i..i + 8]).try_into()?);
 
                         variable = VariableValue {
                             vtype,
@@ -656,7 +652,8 @@ impl VariableTable {
                 || self.entries[i].header.vector_size != u_var.value.get_vector_size()
             {
                 // workaround for a bug in 3.40 beta where U_BIRTHDATE was a string instead of a date.
-                if u_var.name == "U_BIRTHDATE"
+                if i < self.entries.len()
+                    && u_var.name == "U_BIRTHDATE"
                     && self.entries[i].header.variable_type == VariableType::String
                 {
                     continue;

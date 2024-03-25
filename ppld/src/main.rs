@@ -10,7 +10,7 @@ use crossterm::ExecutableCommand;
 use icy_ppe::ast::output_visitor;
 use icy_ppe::ast::OutputFunc;
 use icy_ppe::decompiler::decompile;
-use icy_ppe::executable::read_file;
+use icy_ppe::executable::Executable;
 use icy_ppe::executable::PPEScript;
 use semver::Version;
 use std::ffi::OsStr;
@@ -68,7 +68,7 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    match read_file(file_name, !arguments.output) {
+    match Executable::read_file(file_name, !arguments.output) {
         Ok(mut executable) => {
             if arguments.disassemble {
                 executable.print_script_buffer_dump();

@@ -8,7 +8,7 @@ use super::{
     users::UserRecord,
 };
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct IcyBoardState {
     pub users: Vec<UserRecord>,
     pub nodes: Vec<Node>,
@@ -30,6 +30,25 @@ pub struct IcyBoardState {
     pub use_alias: bool,
     pub display_text: bool,
     pub env_vars: HashMap<String, String>,
+}
+
+impl Default for IcyBoardState {
+    fn default() -> Self {
+        Self {
+            users: Vec::new(),
+            nodes: Vec::new(),
+            data: IcyBoardData::default(),
+            icy_display_text: DisplayText::default(),
+            yes_char: 'Y',
+            no_char: 'N',
+            keyboard_check: false,
+            op_text: String::new(),
+            debug_level: 0,
+            use_alias: false,
+            display_text: true,
+            env_vars: HashMap::new(),
+        }
+    }
 }
 
 impl IcyBoardState {

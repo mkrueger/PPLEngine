@@ -2,7 +2,7 @@ use std::env;
 
 use icy_ppe::{
     ast::{output_visitor, OutputFunc},
-    executable::read_file,
+    executable::Executable,
 };
 
 use crate::decompile;
@@ -84,7 +84,7 @@ fn test_decompiler() {
             continue;
         }
 
-        let executable = read_file(file_name.to_str().unwrap(), false).unwrap();
+        let executable = Executable::read_file(&file_name, false).unwrap();
         let (d, _) = decompile(executable, false).unwrap();
         let source_file = cur_entry.with_extension("pps");
         let orig_text = fs::read_to_string(source_file).unwrap();

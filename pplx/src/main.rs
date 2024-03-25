@@ -1,7 +1,7 @@
 use clap::Parser;
 use crossterm::cursor::MoveTo;
 use crossterm::ExecutableCommand;
-use icy_ppe::executable::read_file;
+use icy_ppe::executable::Executable;
 use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
 use icy_ppe::icy_board::state::IcyBoardState;
@@ -68,7 +68,7 @@ fn main() {
         ..Default::default()
     };
 
-    let exe = read_file(&file_name, false).unwrap();
+    let exe = Executable::read_file(&file_name, false).unwrap();
     let mut io = DiskIO::new(".");
     let mut output = Output::default();
 

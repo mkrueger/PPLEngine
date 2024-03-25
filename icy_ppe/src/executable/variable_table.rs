@@ -29,24 +29,28 @@ pub struct VarHeader {
 impl VarHeader {
     /// .
     ///
-    /// # Panics
+    /// # Errors
     ///
     /// Panics if .
-    pub fn from_bytes(cur_block: &[u8]) -> VarHeader {
+    pub fn from_bytes(cur_block: &[u8]) -> Res<VarHeader> {
+        if cur_block.len() < 11 {
+            return Err(Box::new(ExecutableError::BufferTooShort(cur_block.len())));
+        }
         let mut dim = cur_block[2];
         if dim > 3 {
             log::warn!("Invalid dimension: {}, setting to 3", dim);
             dim = 3;
         }
-        Self {
-            id: u16::from_le_bytes(cur_block[0..2].try_into().unwrap()) as usize,
+
+        Ok(Self {
+            id: u16::from_le_bytes(cur_block[0..2].try_into()?) as usize,
             dim,
-            vector_size: u16::from_le_bytes(cur_block[3..5].try_into().unwrap()) as usize,
-            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into().unwrap()) as usize,
-            cube_size: u16::from_le_bytes(cur_block[7..9].try_into().unwrap()) as usize,
+            vector_size: u16::from_le_bytes(cur_block[3..5].try_into()?) as usize,
+            matrix_size: u16::from_le_bytes(cur_block[5..7].try_into()?) as usize,
+            cube_size: u16::from_le_bytes(cur_block[7..9].try_into()?) as usize,
             variable_type: VariableType::from_byte(cur_block[9]),
             flags: cur_block[10],
-        }
+        })
     }
 
     /// .
@@ -144,17 +148,20 @@ impl fmt::Debug for ProcedureValue {
 impl FunctionValue {
     /// .
     ///
-    /// # Panics
+    /// # Errors
     ///
     /// Panics if .
-    pub fn from_bytes(cur_buf: &[u8]) -> FunctionValue {
-        Self {
-            parameters: cur_buf[2],
-            local_variables: cur_buf[3],
-            start_offset: u16::from_le_bytes((cur_buf[4..=5]).try_into().unwrap()),
-            first_var_id: i16::from_le_bytes((cur_buf[6..=7]).try_into().unwrap()),
-            return_var: i16::from_le_bytes((cur_buf[8..=9]).try_into().unwrap()),
+    pub fn from_bytes(cur_buf: &[u8]) -> Res<FunctionValue> {
+        if cur_buf.len() < 7 {
+            return Err(Box::new(ExecutableError::BufferTooShort(cur_buf.len())));
         }
+        Ok(Self {
+            parameters: cur_buf[0],
+            local_variables: cur_buf[1],
+            start_offset: u16::from_le_bytes((cur_buf[2..=3]).try_into()?),
+            first_var_id: i16::from_le_bytes((cur_buf[4..=5]).try_into()?),
+            return_var: i16::from_le_bytes((cur_buf[6..=7]).try_into()?),
+        })
     }
 
     pub fn append(&self, buffer: &mut Vec<u8>) {
@@ -338,8 +345,7 @@ impl VariableTable {
         while var_count >= 0 {
             decrypt(&mut (buf[i..(i + 11)]), version);
             let cur_block = &buf[i..(i + 11)];
-
-            let header = VarHeader::from_bytes(cur_block);
+            let header = VarHeader::from_bytes(cur_block)?;
             if header.id > max_var {
                 log::warn!(
                     "Variable count exceeds maximum: {} ({})",
@@ -395,7 +401,7 @@ impl VariableTable {
                             header.variable_type,
                         )));
                     }
-                    let function_value = FunctionValue::from_bytes(cur_buf);
+                    let function_value = FunctionValue::from_bytes(&cur_buf[2..])?;
                     i += 2; // type
 
                     variable = VariableValue {

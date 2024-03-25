@@ -32,6 +32,9 @@ pub enum ExecutableError {
 
     #[error("Function/Procedure header type mismatch: {0:?} != {1:?}")]
     FunctionHeaderTypeMismatch(VariableType, VariableType),
+
+    #[error("Buffer too short: {0}")]
+    BufferTooShort(usize),
 }
 
 pub struct Executable {

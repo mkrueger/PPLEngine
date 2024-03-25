@@ -4,12 +4,12 @@ use std::fs::{self, File};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::ast::constant::STACK_LIMIT;
-use crate::executable::{VariableData, VariableType, VariableValue};
 use crate::vm::VirtualMachine;
-use crate::Res;
 use easy_reader::EasyReader;
 use icy_engine::update_crc32;
+use icy_ppe::ast::constant::STACK_LIMIT;
+use icy_ppe::executable::{VariableData, VariableType, VariableValue};
+use icy_ppe::Res;
 use radix_fmt::radix;
 use rand::Rng; // 0.8.5
 use substring::Substring;

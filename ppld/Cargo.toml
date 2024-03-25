@@ -6,13 +6,8 @@ edition.workspace = true
 
 [dependencies]
 icy_ppe = { path = "../icy_ppe" }
-clap = { version="4.5.2", features = ["derive"] }
+argh = "0.1.12"
+lazy_static = "1.4.0"
 semver = "1.0.20"
 thiserror = "1.0.57"
-lazy_static = "1.4.0"
-log = "0.4.21"
-pretty_env_logger = "0.5.0"
 crossterm = "0.27.0"
-
-[profile.release]
-strip = "symbols"

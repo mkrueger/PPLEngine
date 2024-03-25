@@ -5,10 +5,9 @@ use std::{
     time::SystemTime,
 };
 
+use icy_ppe::Res;
 use qfile::{QFilePath, QTraitSync};
 use substring::Substring;
-
-use crate::Res;
 
 const O_RD: i32 = 0;
 const O_RW: i32 = 2;

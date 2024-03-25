@@ -7,19 +7,12 @@ edition = "2021"
 
 [dependencies]
 lazy_static = "1.4.0"
-substring = "1.4.5"
 thiserror = "1.0.57"
 byteorder = "1.5.0"
 log = "0.4.21"
-rand = "0.8"
 unicase = "2.7.0"
 crossterm = "0.27.0"
-icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 
 # interpreter deps
-radix_fmt = "1"
-qfile = "3.0.1"
-easy_reader = "0.5.2"
-
 [dev-dependencies]
 stopwatch = "0.0.7"

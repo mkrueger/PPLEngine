@@ -5,31 +5,31 @@ use icy_engine::BufferParser;
 use icy_engine::Caret;
 use icy_engine::Position;
 use icy_engine::TextAttribute;
+use icy_ppe::ast::BinOp;
+use icy_ppe::ast::Statement;
+use icy_ppe::ast::UnaryOp;
+use icy_ppe::executable::Executable;
+use icy_ppe::executable::OpCode;
+use icy_ppe::executable::PPECommand;
+use icy_ppe::executable::PPEExpr;
+use icy_ppe::executable::PPEScript;
+use icy_ppe::executable::PPEStatement;
+use icy_ppe::executable::VariableTable;
+use icy_ppe::executable::VariableType;
+use icy_ppe::executable::VariableValue;
+use icy_ppe::icy_board::data::Node;
+use icy_ppe::icy_board::state::IcyBoardState;
+use icy_ppe::icy_board::users::UserRecord;
+use icy_ppe::Res;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::string::String;
 use thiserror::Error;
 
-use crate::ast::BinOp;
-use crate::ast::Statement;
-use crate::ast::UnaryOp;
-use crate::executable::Executable;
-use crate::executable::OpCode;
-use crate::executable::PPECommand;
-use crate::executable::PPEExpr;
-use crate::executable::PPEScript;
-use crate::executable::PPEStatement;
-use crate::executable::VariableTable;
-use crate::executable::VariableType;
-use crate::executable::VariableValue;
-use crate::icy_board::data::Node;
-use crate::icy_board::state::IcyBoardState;
-use crate::icy_board::users::UserRecord;
-use crate::Res;
-
 pub mod expressions;
 
 pub mod statements;
+use self::expressions::FUNCTION_TABLE;
 pub use self::statements::*;
 
 pub mod io;
@@ -729,7 +729,7 @@ impl<'a> VirtualMachine<'a> {
                 for arg in arguments {
                     args.push(self.eval_expr(arg)?);
                 }
-                Ok((func.function)(self, &args).unwrap())
+                Ok((FUNCTION_TABLE[(func.opcode as i16).abs() as usize])(self, &args).unwrap())
             }
 
             PPEExpr::FunctionCall(func_id, arguments) => {
@@ -942,7 +942,7 @@ impl<'a> VirtualMachine<'a> {
                     let expr = self.eval_expr(arg)?;
                     args.push(expr);
                 }
-                (proc.function)(self, &mut args).unwrap();
+                (STATEMENT_TABLE[proc.opcode as usize])(self, &mut args).unwrap();
             }
             PPECommand::Goto(label) => {
                 self.goto(*label)?;

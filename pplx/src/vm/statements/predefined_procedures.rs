@@ -1,13 +1,13 @@
 use std::{fs, thread, time::Duration};
 
 use icy_engine::ascii::CP437_TO_UNICODE;
-
-use crate::{
+use icy_ppe::{
     executable::{VariableTable, VariableType, VariableValue},
     icy_board::text_messages,
-    vm::{TerminalTarget, VirtualMachine},
     Res,
 };
+
+use crate::vm::{TerminalTarget, VirtualMachine};
 
 use super::super::errors::IcyError;
 

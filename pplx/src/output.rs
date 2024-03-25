@@ -11,11 +11,9 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, Clear},
     ExecutableCommand,
 };
-use icy_ppe::{
-    tables::CP437_TO_UNICODE,
-    vm::{ExecutionContext, HangupType, TerminalTarget},
-    Res,
-};
+use icy_ppe::{tables::CP437_TO_UNICODE, Res};
+
+use crate::vm::{ExecutionContext, HangupType};
 
 #[derive(Default)]
 pub struct Output {

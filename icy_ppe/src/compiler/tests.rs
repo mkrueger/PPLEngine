@@ -1,12 +1,7 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
 use crate::{
-    compiler,
-    executable::{Executable, LAST_PPLC},
-    icy_board::state::IcyBoardState,
-    parser::{parse_ast, Encoding},
-    vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
-    Res,
+    compiler, executable::{Executable, LAST_PPLC}, icy_board::state::IcyBoardState, parser::{parse_ast, Encoding}, vm::{HangupType, MemoryIO}, Res
 };
 
 #[test]

@@ -1,5 +1,5 @@
+use argh::FromArgs;
 use ariadne::{Label, Report, ReportKind, Source};
-use clap::Parser;
 use icy_ppe::{
     compiler::PPECompiler,
     parser::{load_with_encoding, parse_ast, Encoding},
@@ -11,34 +11,35 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Parser, Debug)]
-#[command(version, about="https://github.com/mkrueger/PPLEngine", long_about = None)]
+#[derive(FromArgs)]
+#[argh(description = "PCBoard Programming Language Compiler")]
 struct Args {
-    /// Output the disassembly instead of compiling
-    #[arg(short, long)]
+    /// output the disassembly instead of compiling
+    #[argh(switch, short = 'd')]
     disassemble: bool,
 
-    /// Force no user variables
-    #[arg(long)]
+    /// force no user variables
+    #[argh(switch)]
     nouvar: bool,
 
-    /// Force user variables
-    #[arg(long)]
+    /// force user variables
+    #[argh(switch)]
     forceuvar: bool,
 
-    /// Don't report any warnings
-    #[arg(long)]
+    /// don't report any warnings
+    #[argh(switch)]
     nowarnings: bool,
 
-    /// Version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
-    #[arg(long)]
+    /// version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
+    #[argh(option)]
     ppl_version: Option<u16>,
 
-    /// Input file is CP437
-    #[arg(long)]
+    /// input file is CP437
+    #[argh(switch)]
     dos: bool,
 
     /// file[.pps] to compile (extension defaults to .pps if not specified)
+    #[argh(positional)]
     input: String,
 }
 
@@ -47,8 +48,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    println!("PCBoard Programming Language Compiler {}", *crate::VERSION);
-    let arguments = Args::parse();
+    let arguments: Args = argh::from_env();
     let version = if let Some(v) = arguments.ppl_version {
         v
     } else {

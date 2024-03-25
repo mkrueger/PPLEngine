@@ -1,6 +1,5 @@
+use icy_ppe::executable::VariableType;
 use thiserror::Error;
-
-use crate::executable::VariableType;
 
 #[derive(Error, Debug)]
 pub enum IcyError {

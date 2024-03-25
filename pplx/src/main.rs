@@ -1,4 +1,4 @@
-use clap::Parser;
+use argh::FromArgs;
 use crossterm::cursor::MoveTo;
 use crossterm::ExecutableCommand;
 use icy_ppe::executable::Executable;
@@ -6,27 +6,29 @@ use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
 use icy_ppe::icy_board::state::IcyBoardState;
 use icy_ppe::icy_board::users::UserRecord;
-use icy_ppe::vm::run;
-use icy_ppe::vm::DiskIO;
 use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
+use vm::run;
+use vm::DiskIO;
 
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::queue;
 mod output;
+pub mod vm;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[derive(FromArgs)]
+#[argh(description = "PCBoard Programming Language Execution Environment")]
 struct Args {
-    /// If set, the executable will run in sysop mode
-    #[arg(short, long, default_value_t = false)]
+    /// if set, the executable will run in sysop mode
+    #[argh(switch, short = 's')]
     sysop: bool,
 
     /// file[.ppe] to run
+    #[argh(positional)]
     input: String,
 }
 
@@ -35,8 +37,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    let arguments = Args::parse();
-
+    let arguments: Args = argh::from_env();
     let mut file_name = arguments.input;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {

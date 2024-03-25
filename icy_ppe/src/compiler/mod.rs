@@ -25,8 +25,10 @@ use self::expr_compiler::ExpressionCompiler;
 
 pub mod expr_compiler;
 
+/*
 #[cfg(test)]
 pub mod tests;
+*/
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {

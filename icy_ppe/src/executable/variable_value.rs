@@ -1090,7 +1090,7 @@ impl VariableValue {
         VariableValue::new_int(unsafe { self.data.time_value % 60 })
     }
 
-    pub(crate) fn new_function(value: FunctionValue) -> VariableValue {
+    pub fn new_function(value: FunctionValue) -> VariableValue {
         VariableValue {
             vtype: VariableType::Function,
             data: value.to_data(),
@@ -1098,7 +1098,7 @@ impl VariableValue {
         }
     }
 
-    pub(crate) fn new_procedure(value: ProcedureValue) -> VariableValue {
+    pub fn new_procedure(value: ProcedureValue) -> VariableValue {
         VariableValue {
             vtype: VariableType::Procedure,
             data: value.to_data(),
@@ -1106,7 +1106,7 @@ impl VariableValue {
         }
     }
 
-    pub(crate) fn new_date(reg_date: i32) -> VariableValue {
+    pub fn new_date(reg_date: i32) -> VariableValue {
         VariableValue {
             vtype: VariableType::Date,
             data: VariableData::from_int(reg_date),
@@ -1114,12 +1114,7 @@ impl VariableValue {
         }
     }
 
-    pub(crate) fn get_array_value(
-        &self,
-        dim_1: usize,
-        dim_2: usize,
-        dim_3: usize,
-    ) -> VariableValue {
+    pub fn get_array_value(&self, dim_1: usize, dim_2: usize, dim_3: usize) -> VariableValue {
         if let GenericVariableData::Dim1(data) = &self.generic_data {
             if dim_1 < data.len() {
                 data[dim_1].clone()
@@ -1143,17 +1138,11 @@ impl VariableValue {
         }
     }
 
-    pub(crate) fn redim(&mut self, dim: u8, vs: usize, ms: usize, cs: usize) {
+    pub fn redim(&mut self, dim: u8, vs: usize, ms: usize, cs: usize) {
         self.generic_data = GenericVariableData::create_array(dim, vs, ms, cs);
     }
 
-    pub(crate) fn set_array_value(
-        &mut self,
-        dim1: usize,
-        dim2: usize,
-        dim3: usize,
-        val: VariableValue,
-    ) {
+    pub fn set_array_value(&mut self, dim1: usize, dim2: usize, dim3: usize, val: VariableValue) {
         match &mut self.generic_data {
             GenericVariableData::Dim1(data) => {
                 if dim1 < data.len() {

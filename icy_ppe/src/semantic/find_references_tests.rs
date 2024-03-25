@@ -71,6 +71,27 @@ $BAR$ = $BAR$ + 1
     );
 }
 
+#[test]
+fn find_dims() {
+    find_references(
+        r"
+    INTEGER @BAR@(10)
+PRINTLN $BAR$(1)
+$BAR$(3) = $BAR$(2) + 1
+",
+    );
+}
+
+#[test]
+fn find_variables2() {
+    find_references(
+        r"
+    INTEGER @BAR@
+PRINTLN TOSTRING($BAR$)
+",
+    );
+}
+
 fn find_references(arg: &str) {
     let mut txt = String::new();
 

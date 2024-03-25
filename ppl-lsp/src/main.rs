@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
 use icy_ppe::ast::{Ast, AstVisitor};
-use icy_ppe::executable::{OpCode, LAST_PPLC};
+use icy_ppe::executable::{OpCode, VariableType, LAST_PPLC};
 use icy_ppe::parser::{parse_ast, Encoding};
 use ppl_language_server::jump_definition::get_definition;
 use ppl_language_server::reference::get_reference;
@@ -517,10 +517,41 @@ struct TooltipVisitor {
 }
 
 impl AstVisitor<()> for TooltipVisitor {
+    fn visit_variable_declaration_statement(
+        &mut self,
+        var_decl: &icy_ppe::ast::VariableDeclarationStatement,
+    ) {
+        if var_decl.get_type_token().span.contains(&self.offset) {
+            self.tooltip = get_type_hover(var_decl.get_variable_type());
+        }
+    }
+
     fn visit_predefined_call_statement(&mut self, call: &icy_ppe::ast::PredefinedCallStatement) {
         if call.get_identifier_token().span.contains(&self.offset) {
             self.tooltip = get_statement_hover(call.get_func().opcode);
         }
+    }
+}
+
+fn get_type_hover(var_type: VariableType) -> Option<Hover> {
+    match var_type {
+        VariableType::Boolean => get_hint(fl!(LANGUAGE_LOADER, "hint-type-boolean")),
+        VariableType::Unsigned => get_hint(fl!(LANGUAGE_LOADER, "hint-type-unsigned")),
+        VariableType::Date => get_hint(fl!(LANGUAGE_LOADER, "hint-type-date")),
+        VariableType::EDate => get_hint(fl!(LANGUAGE_LOADER, "hint-type-edate")),
+        VariableType::Integer => get_hint(fl!(LANGUAGE_LOADER, "hint-type-integer")),
+        VariableType::Money => get_hint(fl!(LANGUAGE_LOADER, "hint-type-money")),
+        VariableType::Float => get_hint(fl!(LANGUAGE_LOADER, "hint-type-float")),
+        VariableType::String => get_hint(fl!(LANGUAGE_LOADER, "hint-type-string")),
+        VariableType::Time => get_hint(fl!(LANGUAGE_LOADER, "hint-type-time")),
+        VariableType::Byte => get_hint(fl!(LANGUAGE_LOADER, "hint-type-byte")),
+        VariableType::Word => get_hint(fl!(LANGUAGE_LOADER, "hint-type-word")),
+        VariableType::SByte => get_hint(fl!(LANGUAGE_LOADER, "hint-type-sbyte")),
+        VariableType::SWord => get_hint(fl!(LANGUAGE_LOADER, "hint-type-sword")),
+        VariableType::BigStr => get_hint(fl!(LANGUAGE_LOADER, "hint-type-bigstr")),
+        VariableType::Double => get_hint(fl!(LANGUAGE_LOADER, "hint-type-double")),
+        VariableType::DDate => get_hint(fl!(LANGUAGE_LOADER, "hint-type-ddate")),
+        _ => None,
     }
 }
 

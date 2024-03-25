@@ -334,6 +334,10 @@ impl ParameterSpecifier {
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
         visitor.visit_parameter_specifier(self)
     }
+
+    pub fn visit<T: Default, V: super::AstVisitor<T>>(&self, visitor: &mut V) -> T {
+        visitor.visit_parameter_specifier(self)
+    }
 }
 
 impl fmt::Display for VariableDeclarationStatement {

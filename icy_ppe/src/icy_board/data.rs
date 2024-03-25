@@ -8,7 +8,6 @@ use std::{
 use crate::{
     parser::Encoding,
     tables::{CP437_TO_UNICODE, UNICODE_TO_CP437},
-    vm::chat,
     Res,
 };
 
@@ -659,6 +658,7 @@ pub struct PcbPaths {
     pub color_file: String,
 }
 
+/// # Errors
 pub fn read_line(reader: &mut BufReader<File>, encoding: Encoding) -> Res<String> {
     let mut buf = Vec::new();
     reader.read_until(b'\n', &mut buf)?;

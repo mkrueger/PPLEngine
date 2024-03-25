@@ -284,6 +284,7 @@ impl AstVisitor<()> for SemanticVisitor {
             ReferenceType::PredefinedFunc(call.get_func().opcode),
             call.get_identifier_token(),
         );
+        crate::ast::walk_predefined_function_call_expression(self, call);
     }
 
     fn visit_comment(&mut self, _comment: &crate::ast::CommentAstNode) {
@@ -308,12 +309,19 @@ impl AstVisitor<()> for SemanticVisitor {
                 ));
                 found = true;
             }
+            if matches!(rt, ReferenceType::Variable(_)) {
+                r.references.push(Spanned::new(
+                    call.get_identifier().to_string(),
+                    call.get_identifier_token().span.clone(),
+                ));
+                found = true;
+            }
         }
 
         if !found {
             self.errors.lock().unwrap().report_error(
                 call.get_identifier_token().span.clone(),
-                CompilationErrorType::ProcedureNotFound(call.get_identifier().to_string()),
+                CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
             );
         }
         crate::ast::walk_function_call_expression(self, call);

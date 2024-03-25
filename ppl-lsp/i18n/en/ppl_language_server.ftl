@@ -1,3 +1,69 @@
+hint-type-boolean=
+    BOOLEAN
+    
+    unsigned character (1 byte) 0 = FALSE, non-0 = TRUE
+hint-type-date=
+    DATE
+    
+    unsigned integer (2 bytes) PCBoard julian date (count of days since 1/1/1900) 
+hint-type-ddate=
+    DDATE
+
+    Signed long integer for julian date. DDATE is for use with DBase date fields.
+    It holds a long integer for julian dates. When coerced to string type it is in the format CCYYMMDD or 19940527
+hint-type-integer=
+    INTEGER / SDWORD / LONG
+
+    signed long integer (4 bytes) Range: -2,147,483,648 → +2,147,483,647
+hint-type-money=
+    MONEY
+    
+    signed long integer (4 bytes) Range: -$21,474,836.48 → +$21,474,836.47
+hint-type-string=
+    STRING
+    
+    far character pointer (4 bytes) NULL is an empty string non-NULL points to a string of some length less than or equal to 256
+hint-type-time=
+    TIME
+    
+    signed long integer (4 bytes) Count of seconds since midnight
+hint-type-bigstr=
+    BIGSTR
+    
+    Allows up to 2048 characters per big string (up from 256 for STRING variables) May include CHR(0) characters in the middle of the big string (unlike STRING variables which may not)
+hint-type-edate=
+    EDATE
+    
+    Julian date in earth date format Deals with dates formatted YYMM.DD Range: Same as DATE
+hint-type-float=
+    REAL / FLOAT
+
+    4-byte floating point number Range: +/-3.4E-38 - +/-3.4E+38 (7-digit precision)
+hint-type-double=
+    DREAL / DOUBLE
+
+    8-byte floating point number Range: +/-1.7E-308 - +/-1.7E+308 (15-digit precision)
+hint-type-unsigned=
+    UNSIGNED / DWORD / UDWORD
+
+    4-byte unsigned integer Range: 0 - 4,294,967,295
+hint-type-byte=
+    BYTE / UBYTE
+
+    1-byte unsigned integer Range: 0 - 255
+hint-type-word=
+    WORD / UWORD
+
+    2-byte unsigned integer Range: 0 - 65,535
+hint-type-sbyte=
+    SBYTE / SHORT
+
+    1-byte signed Integer Range: -128 - 127
+hint-type-sword=
+    SWORD / INT
+
+    2-byte signed integer Range: -32,768 - 32,767
+
 hint-func-end=todo
 hint-func-cls=todo
 hint-func-clreol=todo

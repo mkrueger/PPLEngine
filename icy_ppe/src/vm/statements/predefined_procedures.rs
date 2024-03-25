@@ -1,5 +1,7 @@
 use std::{fs, thread, time::Duration};
 
+use icy_engine::ascii::CP437_TO_UNICODE;
+
 use crate::{
     executable::{VariableTable, VariableType, VariableValue},
     icy_board::text_messages,
@@ -95,11 +97,12 @@ pub fn confunflag(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<
 pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let file = vm.io.resolve_file(&params[0].as_string());
 
-    let content = fs::read(&file);
-    match content {
-        Ok(content) => vm.write_raw(TerminalTarget::Both, &content),
-        Err(err) => vm.print(TerminalTarget::Both, format!("{file} error {err}").as_str()),
+    let content = fs::read(file)?;
+    let mut converted_content = Vec::new();
+    for byte in content {
+        converted_content.push(CP437_TO_UNICODE[byte as usize]);
     }
+    vm.write_raw(TerminalTarget::Both, &converted_content)
 }
 
 pub fn input(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
@@ -433,7 +436,7 @@ pub fn dec(_vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
 }
 
 pub fn newline(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
-    vm.write_raw(TerminalTarget::Both, &[b'\n'])
+    vm.write_raw(TerminalTarget::Both, &['\n'])
 }
 
 pub fn newlines(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {

@@ -73,6 +73,7 @@ fn run_test(data: &str, output: &str) {
         &mut ctx,
         &mut io,
         IcyBoardState::default(),
+        false,
     )
     .unwrap();
 
@@ -97,28 +98,13 @@ impl TestContext {
 }
 
 impl ExecutionContext for TestContext {
-    fn has_sysop(&self) -> bool {
-        false
-    }
-
-    fn gotoxy(&mut self, _terminal_target: TerminalTarget, _x: i32, _y: i32) -> Res<()> {
-        Ok(())
-    }
     fn get_char(&mut self) -> Res<Option<char>> {
         todo!()
     }
 
-    fn print(&mut self, _terminal_target: TerminalTarget, str: &str) -> Res<()> {
-        self.output.push_str(str);
+    fn write_raw(&mut self, data: &[char]) -> Res<()> {
+        self.output.extend(data);
         Ok(())
-    }
-
-    fn write_raw(&mut self, _terminal_target: TerminalTarget, _data: &[u8]) -> Res<()> {
-        Ok(())
-    }
-
-    fn send_to_com(&mut self, _data: &str) -> Res<()> {
-        todo!()
     }
 
     fn read(&mut self) -> Res<String> {
@@ -127,14 +113,8 @@ impl ExecutionContext for TestContext {
     fn inbytes(&mut self) -> i32 {
         0
     }
-    fn get_caret_position(&mut self) -> (i32, i32) {
-        (0, 0)
-    }
 
-    fn set_color(&mut self, _color: u8) {}
     fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
         Ok(())
     }
-
-    fn bell(&mut self) {}
 }

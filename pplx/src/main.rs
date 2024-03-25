@@ -105,6 +105,7 @@ fn main() {
         &mut output,
         &mut io,
         icy_board_data,
+        arguments.sysop,
     )
     .unwrap();
 

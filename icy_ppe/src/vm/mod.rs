@@ -1,3 +1,10 @@
+use icy_engine::ansi;
+use icy_engine::ansi::constants::COLOR_OFFSETS;
+use icy_engine::Buffer;
+use icy_engine::BufferParser;
+use icy_engine::Caret;
+use icy_engine::Position;
+use icy_engine::TextAttribute;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::string::String;
@@ -58,33 +65,15 @@ pub enum HangupType {
 }
 
 pub trait ExecutionContext {
-    fn has_sysop(&self) -> bool;
-
     fn get_bps(&self) -> i32 {
         115_200
     }
 
-    fn use_ansi(&self) -> bool {
-        true
-    }
-
     /// .
     ///
     /// # Errors
     /// Errors if the variable is not found.
-    fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()>;
-
-    /// .
-    ///
-    /// # Errors
-    /// Errors if the variable is not found.
-    fn print(&mut self, target: TerminalTarget, str: &str) -> Res<()>;
-
-    /// .
-    ///
-    /// # Errors
-    /// Errors if the variable is not found.
-    fn write_raw(&mut self, target: TerminalTarget, data: &[u8]) -> Res<()>;
+    fn write_raw(&mut self, data: &[char]) -> Res<()>;
 
     /// .
     ///
@@ -100,21 +89,10 @@ pub trait ExecutionContext {
 
     fn inbytes(&mut self) -> i32;
 
-    fn set_color(&mut self, color: u8);
-
-    fn get_caret_position(&mut self) -> (i32, i32);
-
-    /// simulate user input for later processing
-    /// # Errors
-    /// Errors if the variable is not found.
-    fn send_to_com(&mut self, data: &str) -> Res<()>;
-
     /// .
     /// # Errors
     /// Errors if the variable is not found.
     fn hangup(&mut self, hangup_type: HangupType) -> Res<()>;
-
-    fn bell(&mut self);
 }
 
 pub struct StackFrame {
@@ -175,6 +153,7 @@ pub struct VirtualMachine<'a> {
     pub cur_ptr: usize,
     pub is_running: bool,
     pub fpclear: bool,
+    pub is_sysop: bool,
 
     pub icy_board_data: IcyBoardState,
     pub cur_user: usize,
@@ -189,6 +168,18 @@ pub struct VirtualMachine<'a> {
 
     pub label_table: HashMap<usize, usize>,
     pub push_pop_stack: Vec<VariableValue>,
+
+    parser: ansi::Parser,
+    caret: Caret,
+    buffer: Buffer,
+}
+
+enum PcbState {
+    Default,
+    GotAt,
+    ReadColor1,
+    ReadColor2(char),
+    ReadAtSequence(String),
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -197,7 +188,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn has_sysop(&self) -> bool {
-        self.ctx2.has_sysop()
+        self.is_sysop
     }
 
     pub fn get_bps(&self) -> i32 {
@@ -207,7 +198,13 @@ impl<'a> VirtualMachine<'a> {
     /// # Errors
     pub fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()> {
         if self.icy_board_data.display_text {
-            self.ctx2.gotoxy(target, x, y)
+            self.write_raw(
+                target,
+                format!("\x1B[{y};{x}H")
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .as_slice(),
+            )
         } else {
             Ok(())
         }
@@ -215,19 +212,214 @@ impl<'a> VirtualMachine<'a> {
 
     /// # Errors
     pub fn print(&mut self, target: TerminalTarget, str: &str) -> Res<()> {
-        if self.icy_board_data.display_text {
-            self.ctx2.print(target, str)
-        } else {
-            Ok(())
+        self.write_raw(target, str.chars().collect::<Vec<char>>().as_slice())
+    }
+
+    fn no_terminal(&self, terminal_target: TerminalTarget) -> bool {
+        match terminal_target {
+            TerminalTarget::Sysop => !self.has_sysop(),
+            _ => false,
         }
     }
 
+    fn write_char(&mut self, c: char) -> Res<()> {
+        self.parser
+            .print_char(&mut self.buffer, 0, &mut self.caret, c);
+        self.ctx2.write_raw(&[c])
+    }
+    fn write_string(&mut self, data: &[char]) -> Res<()> {
+        for c in data {
+            self.parser
+                .print_char(&mut self.buffer, 0, &mut self.caret, *c);
+        }
+        self.ctx2.write_raw(data)
+    }
+
     /// # Errors
-    pub fn write_raw(&mut self, target: TerminalTarget, data: &[u8]) -> Res<()> {
+    pub fn write_raw(&mut self, target: TerminalTarget, data: &[char]) -> Res<()> {
+        if self.no_terminal(target) {
+            return Ok(());
+        }
         if self.icy_board_data.display_text {
-            self.ctx2.write_raw(target, data)
-        } else {
-            Ok(())
+            let mut state = PcbState::Default;
+
+            for c in data {
+                if *c == '\x1A' {
+                    break;
+                }
+                match state {
+                    PcbState::Default => {
+                        if *c == '@' {
+                            state = PcbState::GotAt;
+                        } else {
+                            self.write_char(*c);
+                        }
+                    }
+                    PcbState::GotAt => {
+                        if *c == 'X' || *c == 'x' {
+                            state = PcbState::ReadColor1;
+                        } else {
+                            state = PcbState::ReadAtSequence(c.to_string());
+                        }
+                    }
+                    PcbState::ReadAtSequence(s) => {
+                        if *c == '@' {
+                            state = PcbState::Default;
+                            match s.as_str() {
+                                "CLS" => {
+                                    self.write_string(
+                                        "\x1B[2J".chars().collect::<Vec<char>>().as_slice(),
+                                    );
+                                }
+                                str => {
+                                    self.write_string(
+                                        self.translate_variable(str)
+                                            .chars()
+                                            .collect::<Vec<char>>()
+                                            .as_slice(),
+                                    );
+                                }
+                            }
+                        } else {
+                            state = PcbState::ReadAtSequence(s + &c.to_string());
+                        }
+                    }
+                    PcbState::ReadColor1 => {
+                        if c.is_ascii_hexdigit() {
+                            state = PcbState::ReadColor2(*c);
+                        } else {
+                            self.write_char('@');
+                            self.write_char(*c);
+                            state = PcbState::Default;
+                        }
+                    }
+                    PcbState::ReadColor2(ch1) => {
+                        state = PcbState::Default;
+                        if !c.is_ascii_hexdigit() {
+                            self.write_char('@');
+                            self.write_char(ch1);
+                            self.write_char(*c);
+                        } else {
+                            let color = (c.to_digit(16).unwrap()
+                                | ((ch1 as char).to_digit(16).unwrap() << 4))
+                                as u8;
+                            self.set_color(color);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn translate_variable(&self, s: &str) -> String {
+        match s {
+            "ALIAS" => "1".to_string(),
+            "AUTOMORE" => "1".to_string(),
+            "BEEP" => "1".to_string(),
+            "BICPS" => "1".to_string(),
+            "BOARDNAME" => self.icy_board_data.data.board_name.to_string(),
+            "BPS" => self.get_bps().to_string(),
+            "BYTECREDIT" => "1".to_string(),
+            "BYTELIMIT" => "1".to_string(),
+            "BYTERATIO" => "1".to_string(),
+            "BYTESLEFT" => "1".to_string(),
+            "CARRIER" => "1".to_string(),
+            "CITY" => "1".to_string(),
+            "CLREOL" => "1".to_string(),
+            "CLS" => "1".to_string(),
+            "CONFNAME" => "1".to_string(),
+            "CONFNUM" => "1".to_string(),
+            "CREDLEFT" => "1".to_string(),
+            "CREDNOW" => "1".to_string(),
+            "CREDSTART" => "1".to_string(),
+            "CREDUSED" => "1".to_string(),
+            "CURMSGNUM" => "1".to_string(),
+            "DATAPHONE" => "1".to_string(),
+            "DAYBYTES" => "1".to_string(),
+            "DELAY" => "1".to_string(),
+            "DIRNAME" => "1".to_string(),
+            "DIRNUM" => "1".to_string(),
+            "DLBYTES" => "1".to_string(),
+            "DLFILES" => "1".to_string(),
+            "ENV=" => "1".to_string(),
+            "EVENT" => "1".to_string(),
+            "EXPDATE" => "1".to_string(),
+            "EXPDAYS" => "1".to_string(),
+            "FBYTES" => "1".to_string(),
+            "FFILES" => "1".to_string(),
+            "FILECREDIT" => "1".to_string(),
+            "FILERATIO" => "1".to_string(),
+            "FIRSTU" => "1".to_string(),
+            "FIRST" => "1".to_string(),
+            "FNUM" => "1".to_string(),
+            "FREESPACE" => "1".to_string(),
+            "HOMEPHONE" => "1".to_string(),
+            "HIGHMSGNUM" => "1".to_string(),
+            "INAME" => "1".to_string(),
+            "INCONF" => "1".to_string(),
+            "KBLEFT" => "1".to_string(),
+            "KBLIMIT" => "1".to_string(),
+            "LASTCALLERNODE" => "1".to_string(),
+            "LASTCALLERSYSTEM" => "1".to_string(),
+            "LASTDATEON" => "1".to_string(),
+            "LASTTIMEON" => "1".to_string(),
+            "LMR" => "1".to_string(),
+            "LOGDATE" => "1".to_string(),
+            "LOGTIME" => "1".to_string(),
+            "LOWMSGNUM" => "1".to_string(),
+            "MAXBYTES" => "1".to_string(),
+            "MAXFILES" => "1".to_string(),
+            "MINLEFT" => "1000".to_string(),
+            "MORE" => "1".to_string(),
+            "MSGLEFT" => "1".to_string(),
+            "MSGREAD" => "1".to_string(),
+            "NOCHAR" => self.icy_board_data.no_char.to_string(),
+            "NODE" => "1".to_string(),
+            "NUMBLT" => "1".to_string(),
+            "NUMCALLS" => "1".to_string(),
+            "NUMCONF" => "1".to_string(),
+            "NUMDIR" => "1".to_string(),
+            "NUMTIMESON" => "1".to_string(),
+            "OFFHOURS" => "1".to_string(),
+            "OPTEXT" => self.icy_board_data.op_text.to_string(),
+            "PAUSE" => "1".to_string(),
+            "POFF" => "1".to_string(),
+            "PON" => "1".to_string(),
+            "POS" => "1".to_string(),
+            "PROLTR" => "1".to_string(),
+            "PRODESC" => "1".to_string(),
+            "PWXDATE" => "1".to_string(),
+            "PWXDAYS" => "1".to_string(),
+            "QOFF" => "1".to_string(),
+            "QON" => "1".to_string(),
+            "RATIOBYTES" => "1".to_string(),
+            "RATIOFILES" => "1".to_string(),
+            "RBYTES" => "1".to_string(),
+            "RCPS" => "1".to_string(),
+            "REAL" => "1".to_string(),
+            "RFILES" => "1".to_string(),
+            "SBYTES" => "1".to_string(),
+            "SCPS" => "1".to_string(),
+            "SECURITY" => "1".to_string(),
+            "SFILES" => "1".to_string(),
+            "SYSDATE" => "1".to_string(),
+            "SYSOPIN" => "1".to_string(),
+            "SYSOPOUT" => "1".to_string(),
+            "SYSTIME" => "1".to_string(),
+            "TIMELIMIT" => "1000".to_string(),
+            "TIMELEFT" => "1000".to_string(),
+            "TIMEUSED" => "1".to_string(),
+            "TOTALTIME" => "1".to_string(),
+            "UPBYTES" => "1".to_string(),
+            "UPFILES" => "1".to_string(),
+            "USER" => "1".to_string(),
+            "WAIT" => "1".to_string(),
+            "WHO" => "1".to_string(),
+            "XOFF" => "1".to_string(),
+            "XON" => "1".to_string(),
+            "YESCHAR" => self.icy_board_data.yes_char.to_string(),
+            _ => "UNKNOWN".to_string(),
         }
     }
 
@@ -245,21 +437,47 @@ impl<'a> VirtualMachine<'a> {
         self.ctx2.inbytes()
     }
 
-    pub fn set_color(&mut self, color: u8) {
-        self.ctx2.set_color(color);
+    pub fn set_color(&mut self, color: u8) -> Res<()> {
+        if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
+            return Ok(());
+        }
+
+        let mut color_change = "\x1B[".to_string();
+
+        let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
+
+        if self.caret.get_attribute().is_bold() && !new_color.is_bold() {
+            color_change += "1;";
+        }
+        if self.caret.get_attribute().is_blinking() && !new_color.is_blinking() {
+            color_change += "5;";
+        }
+        if self.caret.get_attribute().get_foreground() != new_color.get_foreground() {
+            color_change += format!(
+                "{};",
+                COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
+            )
+            .as_str();
+        }
+
+        if self.caret.get_attribute().get_background() != new_color.get_background() {
+            color_change += format!(
+                "{};",
+                COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
+            )
+            .as_str();
+        }
+        color_change.pop();
+        color_change += "m";
+
+        self.write_raw(
+            TerminalTarget::Both,
+            color_change.chars().collect::<Vec<char>>().as_slice(),
+        )
     }
 
     pub fn get_caret_position(&mut self) -> (i32, i32) {
-        self.ctx2.get_caret_position()
-    }
-
-    /// # Errors
-    pub fn send_to_com(&mut self, data: &str) -> Res<()> {
-        if self.icy_board_data.display_text {
-            self.ctx2.send_to_com(data)
-        } else {
-            Ok(())
-        }
+        (self.caret.get_position().x, self.caret.get_position().y)
     }
 
     /// # Errors
@@ -267,8 +485,8 @@ impl<'a> VirtualMachine<'a> {
         self.ctx2.hangup(hangup_type)
     }
 
-    pub fn bell(&mut self) {
-        self.ctx2.bell();
+    pub fn bell(&mut self) -> Res<()> {
+        self.write_raw(TerminalTarget::Both, &['\x07'])
     }
 }
 
@@ -761,6 +979,7 @@ pub fn run(
     ctx: &mut dyn ExecutionContext,
     io: &mut dyn PCBoardIO,
     icy_board_data: IcyBoardState,
+    is_sysop: bool,
 ) -> Res<bool> {
     let Ok(script) = PPEScript::from_ppe_file(prg) else {
         return Ok(false);
@@ -771,6 +990,8 @@ pub fn run(
         label_table.insert(stmt.span.start * 2, i);
     }
 
+    let buffer = Buffer::new((80, 25));
+    let caret = Caret::new(Position::default());
     let mut vm = VirtualMachine {
         file_name,
         ctx2: ctx,
@@ -790,6 +1011,10 @@ pub fn run(
         parameter_stack: Vec::new(),
         write_back_stack: Vec::new(),
         push_pop_stack: Vec::new(),
+        is_sysop,
+        parser: ansi::Parser::default(),
+        buffer,
+        caret,
     };
 
     vm.run()?;

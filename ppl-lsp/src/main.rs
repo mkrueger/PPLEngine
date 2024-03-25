@@ -3,9 +3,10 @@ use std::path::PathBuf;
 
 use dashmap::DashMap;
 use i18n_embed_fl::fl;
-use icy_ppe::ast::{Ast, AstVisitor};
+use icy_ppe::ast::{walk_function_declaration, walk_function_implementation, Ast, AstVisitor};
 use icy_ppe::executable::{OpCode, VariableType, LAST_PPLC};
 use icy_ppe::parser::{parse_ast, Encoding};
+use ppl_language_server::completion::get_completion;
 use ppl_language_server::jump_definition::get_definition;
 use ppl_language_server::reference::get_reference;
 use ppl_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
@@ -38,19 +39,20 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
-                /*
-                                completion_provider: Some(CompletionOptions {
-                                    resolve_provider: Some(false),
-                                    trigger_characters: Some(vec![".".to_string()]),
-                                    work_done_progress_options: Default::default(),
-                                    all_commit_characters: None,
-                                    completion_item: None,
-                                }),
-                                execute_command_provider: Some(ExecuteCommandOptions {
-                                    commands: vec!["dummy.do_something".to_string()],
-                                    work_done_progress_options: Default::default(),
-                                }),
-                */
+
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: None,
+                    work_done_progress_options: Default::default(),
+                    all_commit_characters: None,
+                    completion_item: None,
+                }),
+
+                execute_command_provider: Some(ExecuteCommandOptions {
+                    commands: vec!["pplc".to_string(), "pplx".to_string()],
+                    work_done_progress_options: Default::default(),
+                }),
+
                 workspace: Some(WorkspaceServerCapabilities {
                     workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                         supported: Some(true),
@@ -311,56 +313,22 @@ impl LanguageServer for Backend {
         let inlay_hint_list = Vec::new();
         Ok(Some(inlay_hint_list))
     }
-    /*
-        async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-            let uri = params.text_document_position.text_document.uri;
-            let position = params.text_document_position.position;
-            let completions = || -> Option<Vec<CompletionItem>> {
-                let rope = self.document_map.get(&uri.to_string())?;
-                let ast = self.ast_map.get(&uri.to_string())?;
-                let char = rope.try_line_to_char(position.line as usize).ok()?;
-                let offset = char + position.character as usize;
-                let completions = completion(&ast, offset);
-                let mut ret = Vec::with_capacity(completions.len());
-                for (_, item) in completions {
-                    match item {
-                        ppl_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
-                            ret.push(CompletionItem {
-                                label: var.clone(),
-                                insert_text: Some(var.clone()),
-                                kind: Some(CompletionItemKind::VARIABLE),
-                                detail: Some(var),
-                                ..Default::default()
-                            });
-                        }
-                        ppl_language_server::completion::ImCompleteCompletionItem::Function(
-                            name,
-                            args,
-                        ) => {
-                            ret.push(CompletionItem {
-                                label: name.clone(),
-                                kind: Some(CompletionItemKind::FUNCTION),
-                                detail: Some(name.clone()),
-                                insert_text: Some(format!(
-                                    "{}({})",
-                                    name,
-                                    args.iter()
-                                        .enumerate()
-                                        .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
-                                        .collect::<Vec<_>>()
-                                        .join(",")
-                                )),
-                                insert_text_format: Some(InsertTextFormat::SNIPPET),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-                Some(ret)
-            }();
-            Ok(completions.map(CompletionResponse::Array))
-        }
-    */
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let completions = || -> Option<Vec<CompletionItem>> {
+            let rope = self.document_map.get(&uri.to_string())?;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let completions = get_completion(&ast, offset);
+
+            Some(completions)
+        }();
+        Ok(completions.map(CompletionResponse::Array))
+    }
+
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
         let workspace_edit = || -> Option<WorkspaceEdit> {
             let uri = params.text_document_position.text_document.uri;
@@ -526,6 +494,31 @@ impl AstVisitor<()> for TooltipVisitor {
         }
     }
 
+    fn visit_parameter_specifier(&mut self, param: &icy_ppe::ast::ParameterSpecifier) {
+        if param.get_type_token().span.contains(&self.offset) {
+            self.tooltip = get_type_hover(param.get_variable_type());
+        }
+    }
+
+    fn visit_function_declaration(&mut self, func_decl: &icy_ppe::ast::FunctionDeclarationAstNode) {
+        if func_decl
+            .get_return_type_token()
+            .span
+            .contains(&self.offset)
+        {
+            self.tooltip = get_type_hover(func_decl.get_return_type());
+        }
+        walk_function_declaration(self, func_decl);
+    }
+
+    fn visit_function_implementation(&mut self, function: &icy_ppe::ast::FunctionImplementation) {
+        if function.get_return_type_token().span.contains(&self.offset) {
+            self.tooltip = get_type_hover(*function.get_return_type());
+        }
+
+        walk_function_implementation(self, function);
+    }
+
     fn visit_predefined_call_statement(&mut self, call: &icy_ppe::ast::PredefinedCallStatement) {
         if call.get_identifier_token().span.contains(&self.offset) {
             self.tooltip = get_statement_hover(call.get_func().opcode);
@@ -573,234 +566,234 @@ fn get_tooltip(ast: &Ast, offset: usize) -> Option<Hover> {
 
 fn get_statement_hover(opcode: OpCode) -> Option<Hover> {
     match opcode {
-        OpCode::END => get_hint(fl!(LANGUAGE_LOADER, "hint-func-end")),
-        OpCode::CLS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-cls")),
-        OpCode::CLREOL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-clreol")),
-        OpCode::MORE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-more")),
-        OpCode::WAIT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-wait")),
-        OpCode::COLOR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-color")),
-        OpCode::GOTO => get_hint(fl!(LANGUAGE_LOADER, "hint-func-goto")),
-        OpCode::LET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-let")),
-        OpCode::PRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-print")),
-        OpCode::PRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-println")),
-        OpCode::CONFFLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-confflag")),
-        OpCode::CONFUNFLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-confunflag")),
-        OpCode::DISPFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dispfile")),
-        OpCode::INPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-input")),
-        OpCode::FCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fcreate")),
-        OpCode::FOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fopen")),
-        OpCode::FAPPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fappend")),
-        OpCode::FCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fclose")),
-        OpCode::FGET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fget")),
-        OpCode::FPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fput")),
-        OpCode::FPUTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fputln")),
-        OpCode::RESETDISP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-resetdisp")),
-        OpCode::STARTDISP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-startdisp")),
-        OpCode::FPUTPAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fputpad")),
-        OpCode::HANGUP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-hangup")),
-        OpCode::GETUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-getuser")),
-        OpCode::PUTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-putuser")),
-        OpCode::DEFCOLOR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-defcolor")),
-        OpCode::DELETE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-delete")),
-        OpCode::DELUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-deluser")),
-        OpCode::ADJTIME => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjtime")),
-        OpCode::LOG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-log")),
-        OpCode::INPUTSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputstr")),
-        OpCode::INPUTYN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputyn")),
-        OpCode::INPUTMONEY => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputmoney")),
-        OpCode::INPUTINT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputint")),
-        OpCode::INPUTCC => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputcc")),
-        OpCode::INPUTDATE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputdate")),
-        OpCode::INPUTTIME => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputtime")),
-        OpCode::GOSUB => get_hint(fl!(LANGUAGE_LOADER, "hint-func-gosub")),
-        OpCode::RETURN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-return")),
-        OpCode::PROMPTSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-promptstr")),
-        OpCode::DTRON => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dtron")),
-        OpCode::DTROFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dtroff")),
-        OpCode::CDCHKON => get_hint(fl!(LANGUAGE_LOADER, "hint-func-cdchkon")),
-        OpCode::CDCHKOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-cdchkoff")),
-        OpCode::DELAY => get_hint(fl!(LANGUAGE_LOADER, "hint-func-delay")),
-        OpCode::SENDMODEM => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sendmodem")),
-        OpCode::INC => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inc")),
-        OpCode::DEC => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dec")),
-        OpCode::NEWLINE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-newline")),
-        OpCode::NEWLINES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-newlines")),
-        OpCode::TOKENIZE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tokenize")),
-        OpCode::GETTOKEN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-gettoken")),
-        OpCode::SHELL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-shell")),
-        OpCode::DISPTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-disptext")),
-        OpCode::STOP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-stop")),
-        OpCode::INPUTTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-inputtext")),
-        OpCode::BEEP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-beep")),
-        OpCode::PUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-func-push")),
-        OpCode::POP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pop")),
-        OpCode::KBDSTUFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdstuff")),
-        OpCode::CALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-call")),
-        OpCode::JOIN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-join")),
-        OpCode::QUEST => get_hint(fl!(LANGUAGE_LOADER, "hint-func-quest")),
-        OpCode::BLT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-blt")),
-        OpCode::DIR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dir")),
-        OpCode::KBDFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdfile")),
-        OpCode::BYE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-bye")),
-        OpCode::GOODBYE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-goodbye")),
-        OpCode::BROADCAST => get_hint(fl!(LANGUAGE_LOADER, "hint-func-broadcast")),
-        OpCode::WAITFOR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-waitfor")),
-        OpCode::KBDCHKON => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdchkon")),
-        OpCode::KBDCHKOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdchkoff")),
-        OpCode::OPTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-optext")),
-        OpCode::DISPSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dispstr")),
-        OpCode::RDUNET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-rdunet")),
-        OpCode::WRUNET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-wrunet")),
-        OpCode::DOINTR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dointr")),
-        OpCode::VARSEG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-varseg")),
-        OpCode::VAROFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-varoff")),
-        OpCode::POKEB => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pokeb")),
-        OpCode::POKEW => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pokew")),
-        OpCode::VARADDR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-varaddr")),
-        OpCode::ANSIPOS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-ansipos")),
-        OpCode::BACKUP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-backup")),
-        OpCode::FORWARD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-forward")),
-        OpCode::FRESHLINE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-freshline")),
-        OpCode::WRUSYS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-wrusys")),
-        OpCode::RDUSYS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-rdusys")),
-        OpCode::NEWPWD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-newpwd")),
-        OpCode::OPENCAP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-opencap")),
-        OpCode::CLOSECAP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-closecap")),
-        OpCode::MESSAGE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-message")),
-        OpCode::SAVESCRN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-savescrn")),
-        OpCode::RESTSCRN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-restscrn")),
-        OpCode::SOUND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sound")),
-        OpCode::CHAT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-chat")),
-        OpCode::SPRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sprint")),
-        OpCode::SPRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sprintln")),
-        OpCode::MPRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-mprint")),
-        OpCode::MPRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-mprintln")),
-        OpCode::RENAME => get_hint(fl!(LANGUAGE_LOADER, "hint-func-rename")),
-        OpCode::FREWIND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-frewind")),
-        OpCode::POKEDW => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pokedw")),
-        OpCode::DBGLEVEL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dbglevel")),
-        OpCode::SHOWON => get_hint(fl!(LANGUAGE_LOADER, "hint-func-showon")),
-        OpCode::SHOWOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-showoff")),
-        OpCode::PAGEON => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pageon")),
-        OpCode::PAGEOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pageoff")),
-        OpCode::FSEEK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fseek")),
-        OpCode::FFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fflush")),
-        OpCode::FREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fread")),
-        OpCode::FWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fwrite")),
-        OpCode::FDEFIN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdefin")),
-        OpCode::FDEFOUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdefout")),
-        OpCode::FDGET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdget")),
-        OpCode::FDPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdput")),
-        OpCode::FDPUTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdputln")),
-        OpCode::FDPUTPAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdputpad")),
-        OpCode::FDREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdread")),
-        OpCode::FDWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdwrite")),
-        OpCode::ADJBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjbytes")),
-        OpCode::KBDSTRING => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdstring")),
-        OpCode::ALIAS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-alias")),
-        OpCode::REDIM => get_hint(fl!(LANGUAGE_LOADER, "hint-func-redim")),
-        OpCode::APPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-append")),
-        OpCode::COPY => get_hint(fl!(LANGUAGE_LOADER, "hint-func-copy")),
-        OpCode::KBDFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-func-kbdflush")),
-        OpCode::MDMFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-func-mdmflush")),
-        OpCode::KEYFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-func-keyflush")),
-        OpCode::LASTIN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-lastin")),
-        OpCode::FLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-flag")),
-        OpCode::DOWNLOAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-download")),
-        OpCode::WRUSYSDOOR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-wrusysdoor")),
-        OpCode::GETALTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-getaltuser")),
-        OpCode::ADJDBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjdbytes")),
-        OpCode::ADJTBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjtbytes")),
-        OpCode::ADJTFILES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjtfiles")),
-        OpCode::LANG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-lang")),
-        OpCode::SORT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sort")),
-        OpCode::MOUSEREG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-mousereg")),
-        OpCode::SCRFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-scrfile")),
-        OpCode::SEARCHINIT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-searchinit")),
-        OpCode::SEARCHFIND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-searchfind")),
-        OpCode::SEARCHSTOP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-searchstop")),
-        OpCode::PRFOUND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-prfound")),
-        OpCode::PRFOUNDLN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-prfoundln")),
-        OpCode::TPAGET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpaget")),
-        OpCode::TPAPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpaput")),
-        OpCode::TPACGET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpacget")),
-        OpCode::TPACPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpacput")),
-        OpCode::TPAREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tparead")),
-        OpCode::TPAWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpawrite")),
-        OpCode::TPACREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpacread")),
-        OpCode::TPACWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-tpacwrite")),
-        OpCode::BITSET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-bitset")),
-        OpCode::BITCLEAR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-bitclear")),
-        OpCode::BRAG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-brag")),
-        OpCode::FREALTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-frealtuser")),
-        OpCode::SETLMR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-setlmr")),
-        OpCode::SETENV => get_hint(fl!(LANGUAGE_LOADER, "hint-func-setenv")),
-        OpCode::FCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fcloseall")),
-        OpCode::DECLARE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-declare")),
-        OpCode::FUNCTION => get_hint(fl!(LANGUAGE_LOADER, "hint-func-function")),
-        OpCode::PROCEDURE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-procedure")),
-        OpCode::PCALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-pcall")),
-        OpCode::FPCLR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fpclr")),
-        OpCode::BEGIN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-begin")),
-        OpCode::FEND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fend")),
-        OpCode::STATIC => get_hint(fl!(LANGUAGE_LOADER, "hint-func-static")),
-        OpCode::STACKABORT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-stackabort")),
-        OpCode::DCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dcreate")),
-        OpCode::DOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dopen")),
-        OpCode::DCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dclose")),
-        OpCode::DSETALIAS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dsetalias")),
-        OpCode::DPACK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dpack")),
-        OpCode::DCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dcloseall")),
-        OpCode::DLOCK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dlock")),
-        OpCode::DLOCKR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dlockr")),
-        OpCode::DLOCKG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dlockg")),
-        OpCode::DUNLOCK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dunlock")),
-        OpCode::DNCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dncreate")),
-        OpCode::DNOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dnopen")),
-        OpCode::DNCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dnclose")),
-        OpCode::DNCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dncloseall")),
-        OpCode::DNEW => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dnew")),
-        OpCode::DADD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dadd")),
-        OpCode::DAPPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dappend")),
-        OpCode::DTOP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dtop")),
-        OpCode::DGO => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dgo")),
-        OpCode::DBOTTOM => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dbottom")),
-        OpCode::DSKIP => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dskip")),
-        OpCode::DBLANK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dblank")),
-        OpCode::DDELETE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-ddelete")),
-        OpCode::DRECALL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-drecall")),
-        OpCode::DTAG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dtag")),
-        OpCode::DSEEK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dseek")),
-        OpCode::DFBLANK => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dfblank")),
-        OpCode::DGET => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dget")),
-        OpCode::DPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dput")),
-        OpCode::DFCOPY => get_hint(fl!(LANGUAGE_LOADER, "hint-func-dfcopy")),
-        OpCode::EVAL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-eval")),
-        OpCode::ACCOUNT => get_hint(fl!(LANGUAGE_LOADER, "hint-func-account")),
-        OpCode::RECORDUSAGE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-recordusage")),
-        OpCode::MSGTOFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-msgtofile")),
-        OpCode::QWKLIMITS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-qwklimits")),
-        OpCode::COMMAND => get_hint(fl!(LANGUAGE_LOADER, "hint-func-command")),
-        OpCode::USELMRS => get_hint(fl!(LANGUAGE_LOADER, "hint-func-uselmrs")),
-        OpCode::CONFINFO => get_hint(fl!(LANGUAGE_LOADER, "hint-func-confinfo")),
-        OpCode::ADJTUBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adjtubytes")),
-        OpCode::GRAFMODE => get_hint(fl!(LANGUAGE_LOADER, "hint-func-grafmode")),
-        OpCode::ADDUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-func-adduser")),
-        OpCode::KILLMSG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-killmsg")),
-        OpCode::CHDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-chdir")),
-        OpCode::MKDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-mkdir")),
-        OpCode::REDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-func-redir")),
-        OpCode::FDOWRAKA => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdowraka")),
-        OpCode::FDOADDAKA => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdoaddaka")),
-        OpCode::FDOWRORG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdowrorg")),
-        OpCode::FDOADDORG => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdoaddorg")),
-        OpCode::FDOQMOD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdoqmod")),
-        OpCode::FDOQADD => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdoqadd")),
-        OpCode::FDOQDEL => get_hint(fl!(LANGUAGE_LOADER, "hint-func-fdoqdel")),
-        OpCode::SOUNDDELAY => get_hint(fl!(LANGUAGE_LOADER, "hint-func-sounddelay")),
-        OpCode::ShortDesc => get_hint(fl!(LANGUAGE_LOADER, "hint-func-shortdesc")),
-        OpCode::MoveMsg => get_hint(fl!(LANGUAGE_LOADER, "hint-func-movemsg")),
-        OpCode::SetBankBal => get_hint(fl!(LANGUAGE_LOADER, "hint-func-setbankbal")),
+        OpCode::END => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-end")),
+        OpCode::CLS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-cls")),
+        OpCode::CLREOL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-clreol")),
+        OpCode::MORE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-more")),
+        OpCode::WAIT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-wait")),
+        OpCode::COLOR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-color")),
+        OpCode::GOTO => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-goto")),
+        OpCode::LET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-let")),
+        OpCode::PRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-print")),
+        OpCode::PRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-println")),
+        OpCode::CONFFLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-confflag")),
+        OpCode::CONFUNFLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-confunflag")),
+        OpCode::DISPFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dispfile")),
+        OpCode::INPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-input")),
+        OpCode::FCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fcreate")),
+        OpCode::FOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fopen")),
+        OpCode::FAPPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fappend")),
+        OpCode::FCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fclose")),
+        OpCode::FGET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fget")),
+        OpCode::FPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fput")),
+        OpCode::FPUTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fputln")),
+        OpCode::RESETDISP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-resetdisp")),
+        OpCode::STARTDISP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-startdisp")),
+        OpCode::FPUTPAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fputpad")),
+        OpCode::HANGUP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-hangup")),
+        OpCode::GETUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-getuser")),
+        OpCode::PUTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-putuser")),
+        OpCode::DEFCOLOR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-defcolor")),
+        OpCode::DELETE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-delete")),
+        OpCode::DELUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-deluser")),
+        OpCode::ADJTIME => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjtime")),
+        OpCode::LOG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-log")),
+        OpCode::INPUTSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputstr")),
+        OpCode::INPUTYN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputyn")),
+        OpCode::INPUTMONEY => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputmoney")),
+        OpCode::INPUTINT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputint")),
+        OpCode::INPUTCC => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputcc")),
+        OpCode::INPUTDATE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputdate")),
+        OpCode::INPUTTIME => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputtime")),
+        OpCode::GOSUB => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-gosub")),
+        OpCode::RETURN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-return")),
+        OpCode::PROMPTSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-promptstr")),
+        OpCode::DTRON => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dtron")),
+        OpCode::DTROFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dtroff")),
+        OpCode::CDCHKON => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-cdchkon")),
+        OpCode::CDCHKOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-cdchkoff")),
+        OpCode::DELAY => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-delay")),
+        OpCode::SENDMODEM => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sendmodem")),
+        OpCode::INC => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inc")),
+        OpCode::DEC => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dec")),
+        OpCode::NEWLINE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-newline")),
+        OpCode::NEWLINES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-newlines")),
+        OpCode::TOKENIZE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tokenize")),
+        OpCode::GETTOKEN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-gettoken")),
+        OpCode::SHELL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-shell")),
+        OpCode::DISPTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-disptext")),
+        OpCode::STOP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-stop")),
+        OpCode::INPUTTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-inputtext")),
+        OpCode::BEEP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-beep")),
+        OpCode::PUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-push")),
+        OpCode::POP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pop")),
+        OpCode::KBDSTUFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdstuff")),
+        OpCode::CALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-call")),
+        OpCode::JOIN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-join")),
+        OpCode::QUEST => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-quest")),
+        OpCode::BLT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-blt")),
+        OpCode::DIR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dir")),
+        OpCode::KBDFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdfile")),
+        OpCode::BYE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-bye")),
+        OpCode::GOODBYE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-goodbye")),
+        OpCode::BROADCAST => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-broadcast")),
+        OpCode::WAITFOR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-waitfor")),
+        OpCode::KBDCHKON => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdchkon")),
+        OpCode::KBDCHKOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdchkoff")),
+        OpCode::OPTEXT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-optext")),
+        OpCode::DISPSTR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dispstr")),
+        OpCode::RDUNET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-rdunet")),
+        OpCode::WRUNET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-wrunet")),
+        OpCode::DOINTR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dointr")),
+        OpCode::VARSEG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-varseg")),
+        OpCode::VAROFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-varoff")),
+        OpCode::POKEB => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pokeb")),
+        OpCode::POKEW => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pokew")),
+        OpCode::VARADDR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-varaddr")),
+        OpCode::ANSIPOS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-ansipos")),
+        OpCode::BACKUP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-backup")),
+        OpCode::FORWARD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-forward")),
+        OpCode::FRESHLINE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-freshline")),
+        OpCode::WRUSYS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-wrusys")),
+        OpCode::RDUSYS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-rdusys")),
+        OpCode::NEWPWD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-newpwd")),
+        OpCode::OPENCAP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-opencap")),
+        OpCode::CLOSECAP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-closecap")),
+        OpCode::MESSAGE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-message")),
+        OpCode::SAVESCRN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-savescrn")),
+        OpCode::RESTSCRN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-restscrn")),
+        OpCode::SOUND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sound")),
+        OpCode::CHAT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-chat")),
+        OpCode::SPRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sprint")),
+        OpCode::SPRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sprintln")),
+        OpCode::MPRINT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-mprint")),
+        OpCode::MPRINTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-mprintln")),
+        OpCode::RENAME => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-rename")),
+        OpCode::FREWIND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-frewind")),
+        OpCode::POKEDW => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pokedw")),
+        OpCode::DBGLEVEL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dbglevel")),
+        OpCode::SHOWON => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-showon")),
+        OpCode::SHOWOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-showoff")),
+        OpCode::PAGEON => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pageon")),
+        OpCode::PAGEOFF => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pageoff")),
+        OpCode::FSEEK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fseek")),
+        OpCode::FFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fflush")),
+        OpCode::FREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fread")),
+        OpCode::FWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fwrite")),
+        OpCode::FDEFIN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdefin")),
+        OpCode::FDEFOUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdefout")),
+        OpCode::FDGET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdget")),
+        OpCode::FDPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdput")),
+        OpCode::FDPUTLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdputln")),
+        OpCode::FDPUTPAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdputpad")),
+        OpCode::FDREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdread")),
+        OpCode::FDWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdwrite")),
+        OpCode::ADJBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjbytes")),
+        OpCode::KBDSTRING => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdstring")),
+        OpCode::ALIAS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-alias")),
+        OpCode::REDIM => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-redim")),
+        OpCode::APPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-append")),
+        OpCode::COPY => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-copy")),
+        OpCode::KBDFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-kbdflush")),
+        OpCode::MDMFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-mdmflush")),
+        OpCode::KEYFLUSH => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-keyflush")),
+        OpCode::LASTIN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-lastin")),
+        OpCode::FLAG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-flag")),
+        OpCode::DOWNLOAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-download")),
+        OpCode::WRUSYSDOOR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-wrusysdoor")),
+        OpCode::GETALTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-getaltuser")),
+        OpCode::ADJDBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjdbytes")),
+        OpCode::ADJTBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjtbytes")),
+        OpCode::ADJTFILES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjtfiles")),
+        OpCode::LANG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-lang")),
+        OpCode::SORT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sort")),
+        OpCode::MOUSEREG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-mousereg")),
+        OpCode::SCRFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-scrfile")),
+        OpCode::SEARCHINIT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-searchinit")),
+        OpCode::SEARCHFIND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-searchfind")),
+        OpCode::SEARCHSTOP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-searchstop")),
+        OpCode::PRFOUND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-prfound")),
+        OpCode::PRFOUNDLN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-prfoundln")),
+        OpCode::TPAGET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpaget")),
+        OpCode::TPAPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpaput")),
+        OpCode::TPACGET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpacget")),
+        OpCode::TPACPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpacput")),
+        OpCode::TPAREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tparead")),
+        OpCode::TPAWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpawrite")),
+        OpCode::TPACREAD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpacread")),
+        OpCode::TPACWRITE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-tpacwrite")),
+        OpCode::BITSET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-bitset")),
+        OpCode::BITCLEAR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-bitclear")),
+        OpCode::BRAG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-brag")),
+        OpCode::FREALTUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-frealtuser")),
+        OpCode::SETLMR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-setlmr")),
+        OpCode::SETENV => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-setenv")),
+        OpCode::FCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fcloseall")),
+        OpCode::DECLARE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-declare")),
+        OpCode::FUNCTION => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-function")),
+        OpCode::PROCEDURE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-procedure")),
+        OpCode::PCALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-pcall")),
+        OpCode::FPCLR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fpclr")),
+        OpCode::BEGIN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-begin")),
+        OpCode::FEND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fend")),
+        OpCode::STATIC => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-static")),
+        OpCode::STACKABORT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-stackabort")),
+        OpCode::DCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dcreate")),
+        OpCode::DOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dopen")),
+        OpCode::DCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dclose")),
+        OpCode::DSETALIAS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dsetalias")),
+        OpCode::DPACK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dpack")),
+        OpCode::DCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dcloseall")),
+        OpCode::DLOCK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dlock")),
+        OpCode::DLOCKR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dlockr")),
+        OpCode::DLOCKG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dlockg")),
+        OpCode::DUNLOCK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dunlock")),
+        OpCode::DNCREATE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dncreate")),
+        OpCode::DNOPEN => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dnopen")),
+        OpCode::DNCLOSE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dnclose")),
+        OpCode::DNCLOSEALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dncloseall")),
+        OpCode::DNEW => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dnew")),
+        OpCode::DADD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dadd")),
+        OpCode::DAPPEND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dappend")),
+        OpCode::DTOP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dtop")),
+        OpCode::DGO => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dgo")),
+        OpCode::DBOTTOM => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dbottom")),
+        OpCode::DSKIP => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dskip")),
+        OpCode::DBLANK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dblank")),
+        OpCode::DDELETE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-ddelete")),
+        OpCode::DRECALL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-drecall")),
+        OpCode::DTAG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dtag")),
+        OpCode::DSEEK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dseek")),
+        OpCode::DFBLANK => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dfblank")),
+        OpCode::DGET => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dget")),
+        OpCode::DPUT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dput")),
+        OpCode::DFCOPY => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-dfcopy")),
+        OpCode::EVAL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-eval")),
+        OpCode::ACCOUNT => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-account")),
+        OpCode::RECORDUSAGE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-recordusage")),
+        OpCode::MSGTOFILE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-msgtofile")),
+        OpCode::QWKLIMITS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-qwklimits")),
+        OpCode::COMMAND => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-command")),
+        OpCode::USELMRS => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-uselmrs")),
+        OpCode::CONFINFO => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-confinfo")),
+        OpCode::ADJTUBYTES => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adjtubytes")),
+        OpCode::GRAFMODE => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-grafmode")),
+        OpCode::ADDUSER => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-adduser")),
+        OpCode::KILLMSG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-killmsg")),
+        OpCode::CHDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-chdir")),
+        OpCode::MKDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-mkdir")),
+        OpCode::REDIR => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-redir")),
+        OpCode::FDOWRAKA => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdowraka")),
+        OpCode::FDOADDAKA => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdoaddaka")),
+        OpCode::FDOWRORG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdowrorg")),
+        OpCode::FDOADDORG => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdoaddorg")),
+        OpCode::FDOQMOD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdoqmod")),
+        OpCode::FDOQADD => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdoqadd")),
+        OpCode::FDOQDEL => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-fdoqdel")),
+        OpCode::SOUNDDELAY => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-sounddelay")),
+        OpCode::ShortDesc => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-shortdesc")),
+        OpCode::MoveMsg => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-movemsg")),
+        OpCode::SetBankBal => get_hint(fl!(LANGUAGE_LOADER, "hint-statement-setbankbal")),
         _ => None,
     }
 }

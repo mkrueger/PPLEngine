@@ -1,111 +1,153 @@
-/*
-use std::collections::HashMap;
+use icy_ppe::{
+    ast::{walk_predefined_call_statement, Ast, AstVisitor},
+    executable::{StatementSignature, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
+    semantic::SemanticVisitor,
+};
+use tower_lsp::lsp_types::CompletionItem;
 
-use crate::chumsky::{Expr, Func, Spanned};
 pub enum ImCompleteCompletionItem {
     Variable(String),
     Function(String, Vec<String>),
 }
+
+const KEYWORDS: [&str; 18] = [
+    "LET",
+    "GOTO",
+    "GOSUB",
+    "WHILE",
+    "ENDWHILE",
+    "IF",
+    "ENDIF",
+    "ELSE",
+    "RETURN",
+    "BREAK",
+    "CONTINUE",
+    "SELECT",
+    "ENDSELECT",
+    "DECLARE",
+    "FUNCTION",
+    "PROCEDURE",
+    "ENDPROC",
+    "ENDFUNC",
+];
+const TYPES: [&str; 26] = [
+    "BOOLEAN", "DATE", "DDATE", "INTEGER", "SDWORD", "LONG", "MONEY", "STRING", "TIME", "BIGSTR",
+    "EDATE", "REAL", "FLOAT", "DREAL", "DOUBLE", "UNSIGNED", "DWORD", "UDWORD", "BYTE", "UBYTE",
+    "WORD", "UWORD", "SBYTE", "SHORT", "SWORD", "INT",
+];
+
 /// return (need_to_continue_search, founded reference)
-pub fn completion(
-    ast: &HashMap<String, Func>,
-    ident_offset: usize,
-) -> HashMap<String, ImCompleteCompletionItem> {
-    let mut map = HashMap::new();
-    for (_, v) in ast.iter() {
-        if v.name.1.end < ident_offset {
-            map.insert(
-                v.name.0.clone(),
-                ImCompleteCompletionItem::Function(
-                    v.name.0.clone(),
-                    v.args.clone().into_iter().map(|(name, _)| name).collect(),
-                ),
-            );
-        }
-    }
+pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
+    let mut map = CompletionVisitor::new(offset);
+    let mut semantic_visitor = SemanticVisitor::default();
+    ast.visit(&mut semantic_visitor);
 
-    // collect params variable
-    for (_, v) in ast.iter() {
-        if v.span.end > ident_offset && v.span.start < ident_offset {
-            // log::debug!("this is completion from body {}", name);
-            v.args.iter().for_each(|(item, _)| {
-                map.insert(
-                    item.clone(),
-                    ImCompleteCompletionItem::Variable(item.clone()),
-                );
+    ast.visit(&mut map);
+
+    if map.items.is_empty() {
+        for stmt in KEYWORDS {
+            map.items.push(CompletionItem {
+                label: stmt.to_string(),
+                insert_text: Some(stmt.to_string()),
+                kind: Some(tower_lsp::lsp_types::CompletionItemKind::KEYWORD),
+                insert_text_format: Some(tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
             });
-            get_completion_of(&v.body, &mut map, ident_offset);
+        }
+        for stmt in TYPES {
+            map.items.push(CompletionItem {
+                label: stmt.to_string(),
+                insert_text: Some(stmt.to_string()),
+                kind: Some(tower_lsp::lsp_types::CompletionItemKind::KEYWORD),
+                insert_text_format: Some(tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
+            });
+        }
+
+        for stmt in &STATEMENT_DEFINITIONS {
+            if stmt.sig == StatementSignature::Invalid {
+                continue;
+            }
+            map.items.push(CompletionItem {
+                label: stmt.name.to_string(),
+                insert_text: Some(stmt.name.to_string()),
+                kind: Some(tower_lsp::lsp_types::CompletionItemKind::FUNCTION),
+                insert_text_format: Some(tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
+            });
+        }
+
+        for (rt, r) in semantic_visitor.references {
+            if matches!(rt, icy_ppe::semantic::ReferenceType::Procedure(_)) {
+                if let Some(decl) = r.declaration {
+                    map.items.push(CompletionItem {
+                        label: decl.token.to_string(),
+                        insert_text: Some(decl.token.to_string()),
+                        kind: Some(tower_lsp::lsp_types::CompletionItemKind::FUNCTION),
+                        insert_text_format: Some(
+                            tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+    } else {
+        for (rt, r) in semantic_visitor.references {
+            if matches!(rt, icy_ppe::semantic::ReferenceType::Function(_)) {
+                if let Some(decl) = r.declaration {
+                    map.items.push(CompletionItem {
+                        label: decl.token.to_string(),
+                        insert_text: Some(decl.token.to_string()),
+                        kind: Some(tower_lsp::lsp_types::CompletionItemKind::FUNCTION),
+                        insert_text_format: Some(
+                            tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
         }
     }
-    map
+
+    map.items
 }
 
-pub fn get_completion_of(
-    expr: &Spanned<Expr>,
-    definition_map: &mut HashMap<String, ImCompleteCompletionItem>,
-    ident_offset: usize,
-) -> bool {
-    match &expr.0 {
-        Expr::Error => true,
-        Expr::Value(_) => true,
-        // Expr::List(exprs) => exprs
-        //     .iter()
-        //     .for_each(|expr| get_definition(expr, definition_ass_list)),
-        Expr::Local(local) => {
-            !(ident_offset >= local.1.start && ident_offset < local.1.end)
+#[derive(Default)]
+struct CompletionVisitor {
+    offset: usize,
+    pub items: Vec<CompletionItem>,
+}
+
+impl CompletionVisitor {
+    pub fn new(offset: usize) -> Self {
+        Self {
+            offset,
+            items: Vec::new(),
         }
-        Expr::Let(name, lhs, rest, _name_span) => {
-            definition_map.insert(
-                name.clone(),
-                ImCompleteCompletionItem::Variable(name.clone()),
-            );
-            match get_completion_of(lhs, definition_map, ident_offset) {
-                true => get_completion_of(rest, definition_map, ident_offset),
-                false => false,
-            }
-        }
-        Expr::Then(first, second) => match get_completion_of(first, definition_map, ident_offset) {
-            true => get_completion_of(second, definition_map, ident_offset),
-            false => false,
-        },
-        Expr::Binary(lhs, _op, rhs) => match get_completion_of(lhs, definition_map, ident_offset) {
-            true => get_completion_of(rhs, definition_map, ident_offset),
-            false => false,
-        },
-        Expr::Call(callee, args) => {
-            match get_completion_of(callee, definition_map, ident_offset) {
-                true => {}
-                false => return false,
-            }
-            for expr in &args.0 {
-                match get_completion_of(expr, definition_map, ident_offset) {
-                    true => continue,
-                    false => return false,
-                }
-            }
-            true
-        }
-        Expr::If(test, consequent, alternative) => {
-            match get_completion_of(test, definition_map, ident_offset) {
-                true => {}
-                false => return false,
-            }
-            match get_completion_of(consequent, definition_map, ident_offset) {
-                true => {}
-                false => return false,
-            }
-            get_completion_of(alternative, definition_map, ident_offset)
-        }
-        Expr::Print(expr) => get_completion_of(expr, definition_map, ident_offset),
-        Expr::List(lst) => {
-            for expr in lst {
-                match get_completion_of(expr, definition_map, ident_offset) {
-                    true => continue,
-                    false => return false,
-                }
-            }
-            true
+    }
+
+    fn add_functions(&mut self) {
+        for stmt in &FUNCTION_DEFINITIONS {
+            self.items.push(CompletionItem {
+                label: stmt.name.to_string(),
+                insert_text: Some(stmt.name.to_string()),
+                kind: Some(tower_lsp::lsp_types::CompletionItemKind::FUNCTION),
+                insert_text_format: Some(tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
+            });
         }
     }
 }
-*/
+
+impl AstVisitor<()> for CompletionVisitor {
+    fn visit_identifier_expression(&mut self, identifier: &icy_ppe::ast::IdentifierExpression) {
+        if identifier.get_identifier_token().span.end == self.offset {
+            self.add_functions();
+        }
+    }
+
+    fn visit_predefined_call_statement(&mut self, call: &icy_ppe::ast::PredefinedCallStatement) {
+        walk_predefined_call_statement(self, call);
+    }
+}

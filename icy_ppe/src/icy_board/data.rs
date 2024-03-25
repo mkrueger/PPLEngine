@@ -672,24 +672,27 @@ pub fn read_line(reader: &mut BufReader<File>, encoding: Encoding) -> Res<String
     } else {
         String::from_utf8_lossy(&buf).to_string()
     };
-    println!("{}", res);
     Ok(res)
 }
 
+/// # Errors
 pub fn read_bool(reader: &mut BufReader<File>, encoding: Encoding) -> Res<bool> {
     Ok(&read_line(reader, encoding)? == "-1")
 }
 
+/// # Errors
 pub fn read_int(reader: &mut BufReader<File>, encoding: Encoding) -> Res<i32> {
     let line = read_line(reader, encoding)?;
     Ok(line.parse::<i32>()?)
 }
 
+/// # Errors
 pub fn read_hex(reader: &mut BufReader<File>, encoding: Encoding) -> Res<i32> {
     let line = read_line(reader, encoding)?;
     Ok(i32::from_str_radix(&line, 16)?)
 }
 
+/// # Panics
 pub fn append_line(writer: &mut Vec<u8>, encoding: Encoding, s: &str) {
     if encoding == Encoding::CP437 {
         for c in s.chars() {
@@ -1529,7 +1532,7 @@ impl PcbDataType {
     }
 }
 
-fn convert_path(c_drive: &str, path: &str) -> String {
+fn _convert_path(c_drive: &str, path: &str) -> String {
     let mut path = path;
     let mut res = if path.starts_with("C:") {
         path = &path[2..];

@@ -126,15 +126,11 @@ pub trait AstVisitor<T: Default>: Sized {
         T::default()
     }
     fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) -> T {
-        for p in proc_decl.get_parameters() {
-            p.visit(self);
-        }
+        walk_procedure_declaration(self, proc_decl);
         T::default()
     }
     fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) -> T {
-        for p in func_decl.get_parameters() {
-            p.visit(self);
-        }
+        walk_function_declaration(self, func_decl);
         T::default()
     }
 
@@ -162,6 +158,18 @@ pub trait AstVisitor<T: Default>: Sized {
     fn visit_main(&mut self, main: &BlockStatement) -> T {
         walk_block_stmt(self, main);
         T::default()
+    }
+}
+
+pub fn walk_procedure_declaration<T: Default, V: AstVisitor<T>>(visitor: &mut V, proc_decl: &ProcedureDeclarationAstNode) {
+    for p in proc_decl.get_parameters() {
+        p.visit(visitor);
+    }
+}
+
+pub fn walk_function_declaration<T: Default, V: AstVisitor<T>>(visitor: &mut V, func_decl: &FunctionDeclarationAstNode) {
+    for p in func_decl.get_parameters() {
+        p.visit(visitor);
     }
 }
 

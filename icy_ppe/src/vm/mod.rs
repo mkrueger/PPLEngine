@@ -15,8 +15,8 @@ use crate::executable::PPEStatement;
 use crate::executable::VariableTable;
 use crate::executable::VariableType;
 use crate::executable::VariableValue;
-use crate::icy_board::data::IcyBoardData;
 use crate::icy_board::data::Node;
+use crate::icy_board::state::IcyBoardState;
 use crate::icy_board::users::UserRecord;
 use crate::Res;
 
@@ -176,7 +176,7 @@ pub struct VirtualMachine<'a> {
     pub is_running: bool,
     pub fpclear: bool,
 
-    pub icy_board_data: IcyBoardData,
+    pub icy_board_data: IcyBoardState,
     pub cur_user: usize,
     pub current_user: Option<UserRecord>,
     pub pcb_node: Option<Node>,
@@ -760,7 +760,7 @@ pub fn run(
     prg: &Executable,
     ctx: &mut dyn ExecutionContext,
     io: &mut dyn PCBoardIO,
-    icy_board_data: IcyBoardData,
+    icy_board_data: IcyBoardState,
 ) -> Res<bool> {
     let Ok(script) = PPEScript::from_ppe_file(prg) else {
         return Ok(false);

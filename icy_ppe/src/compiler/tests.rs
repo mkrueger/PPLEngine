@@ -3,7 +3,7 @@ use std::{env, fs::read_to_string, path::PathBuf};
 use crate::{
     compiler,
     executable::{Executable, LAST_PPLC},
-    icy_board::data::IcyBoardData,
+    icy_board::state::IcyBoardState,
     parser::{parse_ast, Encoding},
     vm::{run, ExecutionContext, HangupType, MemoryIO, TerminalTarget},
     Res,
@@ -72,7 +72,7 @@ fn run_test(data: &str, output: &str) {
         &exe,
         &mut ctx,
         &mut io,
-        IcyBoardData::default(),
+        IcyBoardState::default(),
     )
     .unwrap();
 

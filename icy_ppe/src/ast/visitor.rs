@@ -161,13 +161,19 @@ pub trait AstVisitor<T: Default>: Sized {
     }
 }
 
-pub fn walk_procedure_declaration<T: Default, V: AstVisitor<T>>(visitor: &mut V, proc_decl: &ProcedureDeclarationAstNode) {
+pub fn walk_procedure_declaration<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    proc_decl: &ProcedureDeclarationAstNode,
+) {
     for p in proc_decl.get_parameters() {
         p.visit(visitor);
     }
 }
 
-pub fn walk_function_declaration<T: Default, V: AstVisitor<T>>(visitor: &mut V, func_decl: &FunctionDeclarationAstNode) {
+pub fn walk_function_declaration<T: Default, V: AstVisitor<T>>(
+    visitor: &mut V,
+    func_decl: &FunctionDeclarationAstNode,
+) {
     for p in func_decl.get_parameters() {
         p.visit(visitor);
     }

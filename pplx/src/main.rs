@@ -4,7 +4,7 @@ use crossterm::ExecutableCommand;
 use icy_ppe::executable::read_file;
 use icy_ppe::icy_board::data::IcyBoardData;
 use icy_ppe::icy_board::data::Node;
-use icy_ppe::icy_board::data::PcbDataType;
+use icy_ppe::icy_board::state::IcyBoardState;
 use icy_ppe::icy_board::users::UserRecord;
 use icy_ppe::vm::run;
 use icy_ppe::vm::DiskIO;
@@ -57,11 +57,11 @@ fn main() {
         },
     ];
 
-    let pcb_data = PcbDataType::default();
-    let icy_board_data = IcyBoardData {
+    let pcb_data = IcyBoardData::default();
+    let icy_board_data = IcyBoardState {
         users,
         nodes: vec![Node::default()],
-        pcb_data,
+        data: pcb_data,
         yes_char: 'Y',
         no_char: 'N',
         display_text: true,

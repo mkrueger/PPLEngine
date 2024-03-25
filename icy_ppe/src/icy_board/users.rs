@@ -111,11 +111,9 @@ impl UserRecord {
     /// evelv
     pub fn read_users(path: &Path) -> Res<Vec<UserRecord>> {
         const RECORD_SIZE: u64 = 0x190;
-
         let mut users = Vec::new();
 
         let data = fs::read(path)?;
-
         let mut cursor = Cursor::new(data);
         while cursor.position() + RECORD_SIZE <= cursor.get_ref().len() as u64 {
             let mut name = [0u8; 25];

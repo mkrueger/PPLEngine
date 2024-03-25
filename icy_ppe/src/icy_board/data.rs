@@ -1,8 +1,6 @@
 use std::{
-    collections::HashMap,
-    fs::{self, File},
+    fs::File,
     io::{BufRead, BufReader},
-    path::Path,
 };
 
 use crate::{
@@ -11,10 +9,8 @@ use crate::{
     Res,
 };
 
-use super::{text_messages::DisplayText, users::UserRecord};
-
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct PcbDataType {
+pub struct IcyBoardData {
     /// IcyBoard version
     pub version: String,
     /// Sysop Dislay Name
@@ -716,13 +712,14 @@ pub fn append_hex(writer: &mut Vec<u8>, encoding: Encoding, i: i32) {
     append_line(writer, encoding, &i.to_string());
 }
 
-impl PcbDataType {
+impl IcyBoardData {
     /// .
     ///
     /// # Errors
     /// # Panics
     ///
     /// Panics if .
+    #[allow(clippy::field_reassign_with_default)]
     pub fn deserialize(filename: &str) -> Res<Self> {
         let mut reader = BufReader::new(File::open(filename)?);
 
@@ -734,7 +731,6 @@ impl PcbDataType {
         };
 
         let mut ret = Self::default();
-
         ret.sysop = read_line(&mut reader, encoding)?;
         ret.password = read_line(&mut reader, encoding)?;
         ret.use_real_name = read_bool(&mut reader, encoding)?;
@@ -1523,13 +1519,6 @@ impl PcbDataType {
 
         res
     }
-
-    /// Returns the load users of this [`PcbDataType`].
-    /// # Errors
-    /// If no file can be read.
-    pub fn load_users(&self) -> Res<Vec<UserRecord>> {
-        UserRecord::read_users(Path::new(&self.path.usr_file))
-    }
 }
 
 fn _convert_path(c_drive: &str, path: &str) -> String {
@@ -1562,61 +1551,4 @@ pub struct Node {
     pub message: String,
     pub channel: u8,
     pub last_update: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct IcyBoardData {
-    pub users: Vec<UserRecord>,
-    pub nodes: Vec<Node>,
-    pub pcb_data: PcbDataType,
-
-    pub icy_display_text: DisplayText,
-
-    pub yes_char: char,
-    pub no_char: char,
-
-    /// If true, the keyboard timer is checked.
-    /// After it's elapsed logoff the user for inactivity.
-    pub keyboard_check: bool,
-
-    /// The text displayed by the @OPTEXT@ macro
-    pub op_text: String,
-
-    /// 0 = no debug, 1 - errors, 2 - errors and warnings, 3 - all
-    pub debug_level: i32,
-
-    pub use_alias: bool,
-    pub display_text: bool,
-
-    pub env_vars: HashMap<String, String>,
-}
-
-impl IcyBoardData {
-    /// Returns the load data of this [`IcyBoardData`].
-    /// # Errors
-    pub fn load_data(&mut self) -> Res<()> {
-        let pcb_text = Path::new(&self.pcb_data.path.text_loc).join("PCBTEXT");
-
-        let text_data = fs::read(pcb_text)?;
-        self.icy_display_text = DisplayText::parse_file(&text_data)?;
-
-        Ok(())
-    }
-
-    /// Turns on keyboard check & resets the keyboard check timer.
-    pub fn reset_keyboard_check_timer(&mut self) {
-        self.keyboard_check = true;
-    }
-
-    pub fn get_env(&self, key: &str) -> Option<&String> {
-        self.env_vars.get(key)
-    }
-
-    pub fn set_env(&mut self, key: &str, value: &str) {
-        self.env_vars.insert(key.to_string(), value.to_string());
-    }
-
-    pub fn remove_env(&mut self, env: &str) {
-        self.env_vars.remove(env);
-    }
 }

@@ -3,11 +3,13 @@ use std::{fs, thread, time::Duration};
 use icy_engine::ascii::CP437_TO_UNICODE;
 use icy_ppe::{
     executable::{VariableTable, VariableType, VariableValue},
-    icy_board::text_messages,
     Res,
 };
 
-use crate::vm::{TerminalTarget, VirtualMachine};
+use crate::{
+    icy_board::text_messages,
+    vm::{TerminalTarget, VirtualMachine},
+};
 
 use super::super::errors::IcyError;
 
@@ -81,7 +83,7 @@ pub fn wait(vm: &mut VirtualMachine, _params: &mut [VariableValue]) -> Res<()> {
 
 pub fn color(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let color = params[0].as_int();
-    vm.set_color(color as u8);
+    vm.set_color(color as u8)?;
     Ok(())
 }
 
@@ -282,7 +284,7 @@ fn internal_input_string(
     if prompt.ends_with(TXT_STOPCHAR) {
         prompt.pop();
     }
-    vm.set_color(color as u8);
+    vm.set_color(color as u8)?;
     vm.print(TerminalTarget::Both, &prompt)?;
     let mut output = String::new();
     loop {
@@ -478,7 +480,7 @@ pub fn disptext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
         .icy_board_data
         .icy_display_text
         .get_display_color(rec as usize)?;
-    vm.set_color(color);
+    vm.set_color(color)?;
 
     let text = vm
         .icy_board_data
@@ -491,7 +493,7 @@ pub fn disptext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
     }
 
     if (flags & BELL) == BELL {
-        vm.bell();
+        vm.bell()?;
     }
 
     Ok(())
@@ -507,8 +509,7 @@ pub fn inputtext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<(
 }
 
 pub fn beep(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
-    vm.bell();
-    Ok(())
+    vm.bell()
 }
 
 pub fn push(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {

@@ -57,6 +57,7 @@ impl<T: PartialEq + Clone> Spanned<T> {
     }
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CommentType {
     SingleLineQuote,
@@ -258,6 +259,7 @@ impl fmt::Display for Token {
     }
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexerState {
     AfterEol,

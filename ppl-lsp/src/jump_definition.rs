@@ -1,4 +1,6 @@
-use icy_ppe::{ast::Ast, parser::lexer::Spanned, semantic::SemanticVisitor};
+use icy_ppe::{ast::Ast, parser::lexer::Spanned};
+
+use crate::semantic::SemanticVisitor;
 
 pub fn get_definition(ast: &Ast, offset: usize) -> Option<Spanned<String>> {
     let mut semantic_visitor = SemanticVisitor::default();

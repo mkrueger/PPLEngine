@@ -1,9 +1,10 @@
 use icy_ppe::{
     ast::{walk_predefined_call_statement, Ast, AstVisitor},
     executable::{StatementSignature, FUNCTION_DEFINITIONS, STATEMENT_DEFINITIONS},
-    semantic::SemanticVisitor,
 };
 use tower_lsp::lsp_types::CompletionItem;
+
+use crate::semantic::{self, SemanticVisitor};
 
 pub enum ImCompleteCompletionItem {
     Variable(String),
@@ -78,7 +79,7 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
         }
 
         for (rt, r) in semantic_visitor.references {
-            if matches!(rt, icy_ppe::semantic::ReferenceType::Procedure(_)) {
+            if matches!(rt, semantic::ReferenceType::Procedure(_)) {
                 if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),
@@ -91,7 +92,7 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
                     });
                 }
             }
-            if matches!(rt, icy_ppe::semantic::ReferenceType::Variable(_)) {
+            if matches!(rt, semantic::ReferenceType::Variable(_)) {
                 if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),
@@ -107,7 +108,7 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
         }
     } else {
         for (rt, r) in &semantic_visitor.references {
-            if matches!(rt, icy_ppe::semantic::ReferenceType::Function(_)) {
+            if matches!(rt, semantic::ReferenceType::Function(_)) {
                 if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),
@@ -121,7 +122,7 @@ pub fn get_completion(ast: &Ast, offset: usize) -> Vec<CompletionItem> {
                 }
             }
 
-            if matches!(rt, icy_ppe::semantic::ReferenceType::Variable(_)) {
+            if matches!(rt, semantic::ReferenceType::Variable(_)) {
                 if let Some(decl) = &r.declaration {
                     map.items.push(CompletionItem {
                         label: decl.token.to_string(),

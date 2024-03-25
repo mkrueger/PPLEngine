@@ -21,6 +21,7 @@ pub struct BuiltinConst {
     pub used_by: &'static [ConstantType],
 }
 
+#[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 pub enum ConstantType {
     General,

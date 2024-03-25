@@ -1,5 +1,6 @@
 use super::{AstVisitor, BlockStatement, Statement};
 
+#[repr(u8)]
 #[derive(PartialEq, Debug, Default)]
 pub enum OutputFunc {
     #[default]

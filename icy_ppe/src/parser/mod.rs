@@ -32,9 +32,6 @@ mod lexer_tests;
 #[cfg(test)]
 mod statement_tests;
 
-// #[cfg(test)]
-// mod parser_tests;
-
 #[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum ParserErrorType {
     #[default]
@@ -1034,6 +1031,7 @@ impl ErrorRepoter {
     pub fn report(&self) {}
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Encoding {
     Utf8,

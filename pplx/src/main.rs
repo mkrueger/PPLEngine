@@ -1,11 +1,11 @@
 use argh::FromArgs;
 use crossterm::cursor::MoveTo;
 use crossterm::ExecutableCommand;
+use icy_board::data::IcyBoardData;
+use icy_board::data::Node;
+use icy_board::state::IcyBoardState;
+use icy_board::users::UserRecord;
 use icy_ppe::executable::Executable;
-use icy_ppe::icy_board::data::IcyBoardData;
-use icy_ppe::icy_board::data::Node;
-use icy_ppe::icy_board::state::IcyBoardState;
-use icy_ppe::icy_board::users::UserRecord;
 use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
@@ -17,6 +17,7 @@ use vm::DiskIO;
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::queue;
+pub mod icy_board;
 mod output;
 pub mod vm;
 

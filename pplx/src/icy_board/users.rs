@@ -5,8 +5,7 @@ use std::{
 };
 
 use byteorder::{LittleEndian, ReadBytesExt};
-
-use crate::Res;
+use icy_ppe::Res;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UserRecord {

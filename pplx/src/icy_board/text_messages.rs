@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 use std::{fs, path::Path};
 
+use icy_ppe::Res;
 use thiserror::Error;
-
-use crate::Res;
 
 pub const LEAVECOMMENT: usize = 1;
 pub const COMMENTFIELDPROMPT: usize = 2;

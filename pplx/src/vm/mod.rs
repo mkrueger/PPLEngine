@@ -17,9 +17,6 @@ use icy_ppe::executable::PPEStatement;
 use icy_ppe::executable::VariableTable;
 use icy_ppe::executable::VariableType;
 use icy_ppe::executable::VariableValue;
-use icy_ppe::icy_board::data::Node;
-use icy_ppe::icy_board::state::IcyBoardState;
-use icy_ppe::icy_board::users::UserRecord;
 use icy_ppe::Res;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,6 +26,10 @@ use thiserror::Error;
 pub mod expressions;
 
 pub mod statements;
+use crate::icy_board::data::Node;
+use crate::icy_board::state::IcyBoardState;
+use crate::icy_board::users::UserRecord;
+
 use self::expressions::FUNCTION_TABLE;
 pub use self::statements::*;
 
@@ -224,13 +225,13 @@ impl<'a> VirtualMachine<'a> {
 
     fn write_char(&mut self, c: char) -> Res<()> {
         self.parser
-            .print_char(&mut self.buffer, 0, &mut self.caret, c);
+            .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
         self.ctx2.write_raw(&[c])
     }
     fn write_string(&mut self, data: &[char]) -> Res<()> {
         for c in data {
             self.parser
-                .print_char(&mut self.buffer, 0, &mut self.caret, *c);
+                .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
         }
         self.ctx2.write_raw(data)
     }
@@ -252,7 +253,7 @@ impl<'a> VirtualMachine<'a> {
                         if *c == '@' {
                             state = PcbState::GotAt;
                         } else {
-                            self.write_char(*c);
+                            self.write_char(*c)?;
                         }
                     }
                     PcbState::GotAt => {
@@ -269,7 +270,7 @@ impl<'a> VirtualMachine<'a> {
                                 "CLS" => {
                                     self.write_string(
                                         "\x1B[2J".chars().collect::<Vec<char>>().as_slice(),
-                                    );
+                                    )?;
                                 }
                                 str => {
                                     self.write_string(
@@ -277,7 +278,7 @@ impl<'a> VirtualMachine<'a> {
                                             .chars()
                                             .collect::<Vec<char>>()
                                             .as_slice(),
-                                    );
+                                    )?;
                                 }
                             }
                         } else {
@@ -288,22 +289,21 @@ impl<'a> VirtualMachine<'a> {
                         if c.is_ascii_hexdigit() {
                             state = PcbState::ReadColor2(*c);
                         } else {
-                            self.write_char('@');
-                            self.write_char(*c);
+                            self.write_char('@')?;
+                            self.write_char(*c)?;
                             state = PcbState::Default;
                         }
                     }
                     PcbState::ReadColor2(ch1) => {
                         state = PcbState::Default;
                         if !c.is_ascii_hexdigit() {
-                            self.write_char('@');
-                            self.write_char(ch1);
-                            self.write_char(*c);
+                            self.write_char('@')?;
+                            self.write_char(ch1)?;
+                            self.write_char(*c)?;
                         } else {
-                            let color = (c.to_digit(16).unwrap()
-                                | ((ch1 as char).to_digit(16).unwrap() << 4))
-                                as u8;
-                            self.set_color(color);
+                            let color =
+                                (c.to_digit(16).unwrap() | (ch1.to_digit(16).unwrap() << 4)) as u8;
+                            self.set_color(color)?;
                         }
                     }
                 }
@@ -729,7 +729,7 @@ impl<'a> VirtualMachine<'a> {
                 for arg in arguments {
                     args.push(self.eval_expr(arg)?);
                 }
-                Ok((FUNCTION_TABLE[(func.opcode as i16).abs() as usize])(self, &args).unwrap())
+                Ok((FUNCTION_TABLE[(func.opcode as i16).unsigned_abs() as usize])(self, &args).unwrap())
             }
 
             PPEExpr::FunctionCall(func_id, arguments) => {

@@ -3,11 +3,21 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    ast::AstVisitor,
+use icy_ppe::{
+    ast::{
+        walk_function_call_expression, walk_function_implementation,
+        walk_predefined_call_statement, walk_predefined_function_call_expression,
+        walk_procedure_call_statement, walk_procedure_implementation, AstVisitor, CommentAstNode,
+        ConstantExpression, FunctionCallExpression, FunctionDeclarationAstNode,
+        FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression,
+        LabelStatement, LetStatement, PredefinedCallStatement, PredefinedFunctionCallExpression,
+        ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation,
+        VariableDeclarationStatement,
+    },
     compiler::CompilationErrorType,
     executable::{FuncOpCode, OpCode, VarHeader, VariableType},
     parser::{
+        self,
         lexer::{Spanned, Token},
         ErrorRepoter,
     },
@@ -95,7 +105,7 @@ impl SemanticVisitor {
     fn set_declaration(
         &mut self,
         reftype: ReferenceType,
-        identifier_token: &Spanned<crate::parser::lexer::Token>,
+        identifier_token: &Spanned<parser::lexer::Token>,
     ) {
         for r in &mut self.references {
             if r.0 == reftype {
@@ -122,7 +132,7 @@ impl SemanticVisitor {
     fn add_reference(
         &mut self,
         reftype: ReferenceType,
-        identifier_token: &Spanned<crate::parser::lexer::Token>,
+        identifier_token: &Spanned<parser::lexer::Token>,
     ) {
         for r in &mut self.references {
             if r.0 == reftype {
@@ -212,7 +222,7 @@ impl SemanticVisitor {
     fn add_variable(
         &mut self,
         variable_type: VariableType,
-        identifier: &Spanned<crate::parser::lexer::Token>,
+        identifier: &Spanned<parser::lexer::Token>,
         dim: u8,
         vector_size: usize,
         matrix_size: usize,
@@ -258,7 +268,7 @@ impl SemanticVisitor {
 }
 
 impl AstVisitor<()> for SemanticVisitor {
-    fn visit_identifier_expression(&mut self, identifier: &crate::ast::IdentifierExpression) {
+    fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) {
         if let Some(decl) = self.lookup_variable(identifier.get_identifier()) {
             decl.1.references.push(Spanned::new(
                 identifier.get_identifier().to_string(),
@@ -272,34 +282,34 @@ impl AstVisitor<()> for SemanticVisitor {
         }
     }
 
-    fn visit_constant_expression(&mut self, _constant: &crate::ast::ConstantExpression) {
+    fn visit_constant_expression(&mut self, _constant: &ConstantExpression) {
         // nothing yet
     }
 
     fn visit_predefined_function_call_expression(
         &mut self,
-        call: &crate::ast::PredefinedFunctionCallExpression,
+        call: &PredefinedFunctionCallExpression,
     ) {
         self.add_reference(
             ReferenceType::PredefinedFunc(call.get_func().opcode),
             call.get_identifier_token(),
         );
-        crate::ast::walk_predefined_function_call_expression(self, call);
+        walk_predefined_function_call_expression(self, call);
     }
 
-    fn visit_comment(&mut self, _comment: &crate::ast::CommentAstNode) {
+    fn visit_comment(&mut self, _comment: &CommentAstNode) {
         // nothing yet
     }
 
-    fn visit_predefined_call_statement(&mut self, call: &crate::ast::PredefinedCallStatement) {
+    fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) {
         self.add_reference(
             ReferenceType::PredefinedProc(call.get_func().opcode),
             call.get_identifier_token(),
         );
-        crate::ast::walk_predefined_call_statement(self, call);
+        walk_predefined_call_statement(self, call);
     }
 
-    fn visit_function_call_expression(&mut self, call: &crate::ast::FunctionCallExpression) {
+    fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) {
         let mut found = false;
         if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
             if matches!(rt, ReferenceType::Function(_)) {
@@ -324,22 +334,22 @@ impl AstVisitor<()> for SemanticVisitor {
                 CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
             );
         }
-        crate::ast::walk_function_call_expression(self, call);
+        walk_function_call_expression(self, call);
     }
 
-    fn visit_goto_statement(&mut self, goto: &crate::ast::GotoStatement) {
+    fn visit_goto_statement(&mut self, goto: &GotoStatement) {
         self.add_label_usage(goto.get_label_token());
     }
 
-    fn visit_gosub_statement(&mut self, gosub: &crate::ast::GosubStatement) {
+    fn visit_gosub_statement(&mut self, gosub: &GosubStatement) {
         self.add_label_usage(gosub.get_label_token());
     }
 
-    fn visit_label_statement(&mut self, label: &crate::ast::LabelStatement) {
+    fn visit_label_statement(&mut self, label: &LabelStatement) {
         self.set_label_declaration(label.get_label_token());
     }
 
-    fn visit_let_statement(&mut self, let_stmt: &crate::ast::LetStatement) {
+    fn visit_let_statement(&mut self, let_stmt: &LetStatement) {
         if let Some((_rt, r)) = self.lookup_variable(let_stmt.get_identifier()) {
             r.references.push(Spanned::new(
                 let_stmt.get_identifier().to_string(),
@@ -354,10 +364,7 @@ impl AstVisitor<()> for SemanticVisitor {
         let_stmt.get_value_expression().visit(self);
     }
 
-    fn visit_variable_declaration_statement(
-        &mut self,
-        var_decl: &crate::ast::VariableDeclarationStatement,
-    ) {
+    fn visit_variable_declaration_statement(&mut self, var_decl: &VariableDeclarationStatement) {
         for v in var_decl.get_variables() {
             if self.has_variable_defined(v.get_identifier()) {
                 self.errors.lock().unwrap().report_error(
@@ -378,7 +385,7 @@ impl AstVisitor<()> for SemanticVisitor {
         }
     }
 
-    fn visit_procedure_call_statement(&mut self, call: &crate::ast::ProcedureCallStatement) {
+    fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) {
         let mut found = false;
         if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
             if matches!(rt, ReferenceType::Procedure(_)) {
@@ -397,10 +404,10 @@ impl AstVisitor<()> for SemanticVisitor {
             );
         }
 
-        crate::ast::walk_procedure_call_statement(self, call);
+        walk_procedure_call_statement(self, call);
     }
 
-    fn visit_procedure_declaration(&mut self, proc_decl: &crate::ast::ProcedureDeclarationAstNode) {
+    fn visit_procedure_declaration(&mut self, proc_decl: &ProcedureDeclarationAstNode) {
         if self.has_variable_defined(proc_decl.get_identifier()) {
             self.errors.lock().unwrap().report_error(
                 proc_decl.get_identifier_token().span.clone(),
@@ -419,7 +426,7 @@ impl AstVisitor<()> for SemanticVisitor {
         self.procedures += 1;
     }
 
-    fn visit_function_declaration(&mut self, func_decl: &crate::ast::FunctionDeclarationAstNode) {
+    fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) {
         if self.has_variable_defined(func_decl.get_identifier()) {
             self.errors.lock().unwrap().report_error(
                 func_decl.get_identifier_token().span.clone(),
@@ -438,7 +445,7 @@ impl AstVisitor<()> for SemanticVisitor {
         self.functions += 1;
     }
 
-    fn visit_function_implementation(&mut self, function: &crate::ast::FunctionImplementation) {
+    fn visit_function_implementation(&mut self, function: &FunctionImplementation) {
         if let Some((_rt, r)) = self.lookup_variable(function.get_identifier()) {
             r.references.push(Spanned::new(
                 function.get_identifier().to_string(),
@@ -452,11 +459,11 @@ impl AstVisitor<()> for SemanticVisitor {
         }
 
         self.start_parse_function_body();
-        crate::ast::walk_function_implementation(self, function);
+        walk_function_implementation(self, function);
         self.end_parse_function_body();
     }
 
-    fn visit_procedure_implementation(&mut self, procedure: &crate::ast::ProcedureImplementation) {
+    fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) {
         if let Some((_rt, r)) = self.lookup_variable(procedure.get_identifier()) {
             r.references.push(Spanned::new(
                 procedure.get_identifier().to_string(),
@@ -470,7 +477,7 @@ impl AstVisitor<()> for SemanticVisitor {
         }
 
         self.start_parse_function_body();
-        crate::ast::walk_procedure_implementation(self, procedure);
+        walk_procedure_implementation(self, procedure);
         self.end_parse_function_body();
     }
 }

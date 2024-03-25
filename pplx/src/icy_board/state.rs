@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use crate::Res;
+use icy_ppe::Res;
 
 use super::{
     data::{IcyBoardData, Node},

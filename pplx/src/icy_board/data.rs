@@ -3,7 +3,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use crate::{
+use icy_ppe::{
     parser::Encoding,
     tables::{CP437_TO_UNICODE, UNICODE_TO_CP437},
     Res,

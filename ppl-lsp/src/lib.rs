@@ -1,6 +1,7 @@
 pub mod completion;
 pub mod jump_definition;
 pub mod reference;
+pub mod semantic;
 pub mod semantic_token;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use core::panic;
 use std::path::PathBuf;
 
-use crate::{
+use icy_ppe::{
     executable::LAST_PPLC,
     parser::{parse_ast, Encoding},
 };

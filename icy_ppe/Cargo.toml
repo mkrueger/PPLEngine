@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4.0"
 thiserror = "1.0.57"
-byteorder = "1.5.0"
 log = "0.4.21"
 unicase = "2.7.0"
 crossterm = "0.27.0"

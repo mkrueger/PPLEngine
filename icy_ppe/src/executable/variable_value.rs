@@ -1114,6 +1114,7 @@ impl VariableValue {
         }
     }
 
+    #[must_use]
     pub fn get_array_value(&self, dim_1: usize, dim_2: usize, dim_3: usize) -> VariableValue {
         if let GenericVariableData::Dim1(data) = &self.generic_data {
             if dim_1 < data.len() {

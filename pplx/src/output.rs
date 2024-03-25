@@ -5,13 +5,10 @@ use std::{
 };
 
 use crossterm::{
-    cursor::{position, DisableBlinking, EnableBlinking, MoveTo},
     event::{poll, read, Event, KeyCode, KeyModifiers},
-    style::{Color, SetBackgroundColor, SetForegroundColor},
-    terminal::{disable_raw_mode, enable_raw_mode, Clear},
-    ExecutableCommand,
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
-use icy_ppe::{tables::CP437_TO_UNICODE, Res};
+use icy_ppe::Res;
 
 use crate::vm::{ExecutionContext, HangupType};
 
@@ -19,28 +16,6 @@ use crate::vm::{ExecutionContext, HangupType};
 pub struct Output {
     char_buffer: VecDeque<char>,
     pub is_sysop: bool,
-}
-
-fn get_color(n: usize) -> Color {
-    match n {
-        0 => Color::Black,
-        1 => Color::DarkRed,
-        2 => Color::DarkGreen,
-        3 => Color::DarkYellow,
-        4 => Color::DarkBlue,
-        5 => Color::DarkMagenta,
-        6 => Color::DarkCyan,
-        7 => Color::Grey,
-        8 => Color::DarkGrey,
-        9 => Color::Red,
-        10 => Color::Green,
-        11 => Color::Yellow,
-        12 => Color::Blue,
-        13 => Color::Magenta,
-        14 => Color::Cyan,
-        15 => Color::White,
-        _ => Color::Black,
-    }
 }
 
 impl Output {
@@ -99,7 +74,7 @@ impl ExecutionContext for Output {
     fn write_raw(&mut self, data: &[char]) -> Res<()> {
         disable_raw_mode().unwrap();
         for c in data {
-            print!("{}", *c as char);
+            print!("{}", *c);
         }
         stdout().flush().unwrap();
         enable_raw_mode().unwrap();

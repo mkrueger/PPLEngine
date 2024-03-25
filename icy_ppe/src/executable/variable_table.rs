@@ -179,6 +179,7 @@ impl FunctionValue {
     }
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum EntryType {
     #[default]

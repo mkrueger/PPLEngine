@@ -729,7 +729,10 @@ impl<'a> VirtualMachine<'a> {
                 for arg in arguments {
                     args.push(self.eval_expr(arg)?);
                 }
-                Ok((FUNCTION_TABLE[(func.opcode as i16).unsigned_abs() as usize])(self, &args).unwrap())
+                Ok(
+                    (FUNCTION_TABLE[(func.opcode as i16).unsigned_abs() as usize])(self, &args)
+                        .unwrap(),
+                )
             }
 
             PPEExpr::FunctionCall(func_id, arguments) => {

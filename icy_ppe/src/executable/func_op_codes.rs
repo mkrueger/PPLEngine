@@ -307,7 +307,6 @@ impl FuncOpCode {
     }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition {
     pub name: &'static str,

@@ -41,7 +41,7 @@ fn find_procedure() {
         r"
 declare procedure @foo@()
 $foo$()
-procedure $foo$()
+procedure @foo@()
 endproc
 ",
     );
@@ -53,7 +53,7 @@ fn find_function() {
         r"
 declare function @foo@() INT
 PRINTLN $foo$()
-function $foo$() INT
+function @foo@() INT
 $foo$ = 1
 endproc
 ",
@@ -88,6 +88,20 @@ fn find_variables2() {
         r"
     INTEGER @BAR@
 PRINTLN TOSTRING($BAR$)
+",
+    );
+}
+
+#[test]
+fn find_user_vars() {
+    find_references(
+        r"
+        PRINTLN $U_CMNT1$
+        PRINTLN $U_CMNT1$
+        PRINTLN $U_CMNT1$
+        PRINTLN $U_CMNT1$
+        PRINTLN $U_CMNT1$
+        PRINTLN $U_CMNT1$
 ",
     );
 }
@@ -132,13 +146,18 @@ fn find_references(arg: &str) {
         }
         panic!("parse error");
     }
-
     for (_rt, refs) in &visitor.references {
         if refs.usages.len() == spans.len() {
-            let decl = refs.declaration.as_ref().unwrap();
-            assert_eq!(declaration_span, decl.span);
+            if let Some(decl) = &refs.declaration {
+                if decl.span == declaration_span {
+                    assert_eq!(declaration_span, decl.span);
+                } else {
+                    let decl = refs.implementation.as_ref().unwrap();
+                    assert_eq!(declaration_span, decl.span);
+                }
+            }
 
-            for r in &refs.usages {
+            for r in refs.usages.iter().chain(refs.return_types.iter()) {
                 assert!(spans.contains(&r.span));
             }
             return;

@@ -176,6 +176,7 @@ impl AstVisitor<()> for SemanticTokenVisitor {
     fn visit_function_declaration(&mut self, func_decl: &icy_ppe::ast::FunctionDeclarationAstNode) {
         self.highlight_token(func_decl.get_declare_token(), SemanticTokenType::KEYWORD);
         self.highlight_token(func_decl.get_function_token(), SemanticTokenType::KEYWORD);
+        self.highlight_token(func_decl.get_return_type_token(), SemanticTokenType::TYPE);
         self.higlight_parameters(func_decl.get_parameters());
     }
 

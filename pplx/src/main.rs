@@ -112,5 +112,5 @@ fn main() {
         arguments.sysop,
     )
     .unwrap();
-disable_raw_mode().unwrap();
+    disable_raw_mode().unwrap();
 }

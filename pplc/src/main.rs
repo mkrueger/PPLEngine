@@ -3,6 +3,7 @@ use ariadne::{Label, Report, ReportKind, Source};
 use icy_ppe::{
     compiler::PPECompiler,
     parser::{load_with_encoding, parse_ast, Encoding},
+    semantic::SemanticVisitor,
 };
 use semver::Version;
 use std::{
@@ -77,16 +78,19 @@ fn main() {
 
     println!();
     println!("Parsing...");
-    let (mut prg, errors) = parse_ast(PathBuf::from(&file_name), &src, encoding, version);
+    let (mut ast, errors) = parse_ast(PathBuf::from(&file_name), &src, encoding, version);
     if arguments.nouvar {
-        prg.require_user_variables = false;
+        ast.require_user_variables = false;
     }
     if arguments.forceuvar {
-        prg.require_user_variables = true;
+        ast.require_user_variables = true;
     }
     println!("Compiling...");
-    let mut compiler = PPECompiler::new(version, errors.clone());
-    compiler.compile(&prg);
+
+    let mut sv = SemanticVisitor::new(version, errors);
+    ast.visit(&mut sv);
+
+    let errors = sv.errors.clone();
 
     if errors.lock().unwrap().has_errors()
         || (errors.lock().unwrap().has_warnings() && !arguments.nowarnings)
@@ -129,6 +133,10 @@ fn main() {
     }
 
     println!();
+
+    let mut compiler = PPECompiler::new(version);
+    compiler.compile(&ast);
+
     match compiler.create_executable(version) {
         Ok(executable) => {
             if arguments.disassemble {

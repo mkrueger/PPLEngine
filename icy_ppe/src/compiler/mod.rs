@@ -2,10 +2,7 @@ pub use ast_transform::*;
 use unicase::Ascii;
 pub mod ast_transform;
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::{
@@ -15,10 +12,7 @@ use crate::{
         PPECommand, PPEExpr, PPEScript, ProcedureValue, TableEntry, VarHeader, VariableTable,
         VariableType, VariableValue, USER_VARIABLES,
     },
-    parser::{
-        lexer::{Spanned, Token},
-        ErrorRepoter, ParserErrorType,
-    },
+    parser::lexer::{Spanned, Token},
 };
 
 use self::expr_compiler::ExpressionCompiler;
@@ -50,13 +44,10 @@ pub enum CompilationErrorType {
     #[error("Function {0} not found.")]
     FunctionNotFound(String),
 
-    #[error("Invalid number of dimension parameters for '{0}' should be {1}. was {2}")]
-    InvalidDimensions(String, u8, usize),
-
     #[error("SORT arguments should be one (1) dimensional arrays ({0})")]
     SortArgumentDimensionError(u8),
 
-    #[error("Argument {0} should be a variable.")]
+    #[error("Argument should be a variable ({0})")]
     VariableExpected(usize),
 
     #[error("Can't assign value to.")]
@@ -64,6 +55,9 @@ pub enum CompilationErrorType {
 
     #[error("Unused variable ({0})")]
     UnusedVariable(String),
+
+    #[error("Missing FUNCTION/PROCEDURE definition. ({0})")]
+    MissingImplementation(String),
 }
 
 #[derive(Error, Debug)]
@@ -86,7 +80,6 @@ pub struct PPECompiler {
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 
-    pub errors: Arc<Mutex<ErrorRepoter>>,
     cur_function: unicase::Ascii<String>,
     cur_function_id: i32,
 
@@ -94,7 +87,7 @@ pub struct PPECompiler {
 }
 
 impl PPECompiler {
-    pub fn new(version: u16, errors: Arc<Mutex<ErrorRepoter>>) -> Self {
+    pub fn new(version: u16) -> Self {
         Self {
             version,
             variable_table: VariableTable::default(),
@@ -102,7 +95,6 @@ impl PPECompiler {
             local_variable_lookup: HashMap::new(),
             label_table: Vec::new(),
             label_lookup_table: HashMap::new(),
-            errors,
             commands: PPEScript::default(),
             cur_function: unicase::Ascii::new(String::new()),
             cur_offset: 0,
@@ -151,7 +143,11 @@ impl PPECompiler {
             cube_size,
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, variable_type.create_empty_value(), EntryType::Variable);
+        let mut entry = TableEntry::new(
+            header,
+            variable_type.create_empty_value(),
+            EntryType::Variable,
+        );
         entry.set_name(name.to_string());
         self.push_variable(name.clone(), entry);
     }
@@ -198,12 +194,7 @@ impl PPECompiler {
                 AstNode::Procedure(_proc) => {}
                 AstNode::FunctionDeclaration(func) => {
                     if self.has_variable(func.get_identifier()) {
-                        self.errors.lock().unwrap().report_error(
-                            func.get_identifier_token().span.clone(),
-                            CompilationErrorType::VariableAlreadyDefined(
-                                func.get_identifier().to_string(),
-                            ),
-                        );
+                        log::error!("Variable already defined: {}", func.get_identifier());
                         return;
                     }
 
@@ -226,18 +217,17 @@ impl PPECompiler {
                         return_var: func.get_return_type() as i16,
                     };
 
-                    let mut entry = TableEntry::new(header, VariableValue::new_function(value), EntryType::Function);
+                    let mut entry = TableEntry::new(
+                        header,
+                        VariableValue::new_function(value),
+                        EntryType::Function,
+                    );
                     entry.set_name(func.get_identifier().to_string());
                     self.push_variable(func.get_identifier().clone(), entry);
                 }
                 AstNode::ProcedureDeclaration(proc) => {
                     if self.has_variable(proc.get_identifier()) {
-                        self.errors.lock().unwrap().report_error(
-                            proc.get_identifier_token().span.clone(),
-                            CompilationErrorType::VariableAlreadyDefined(
-                                proc.get_identifier().to_string(),
-                            ),
-                        );
+                        log::error!("Variable already defined: {}", proc.get_identifier());
                         return;
                     }
                     let id: usize = self.next_id();
@@ -265,7 +255,11 @@ impl PPECompiler {
                         pass_flags,
                     };
 
-                    let mut entry = TableEntry::new(header, VariableValue::new_procedure(value), EntryType::Procedure);
+                    let mut entry = TableEntry::new(
+                        header,
+                        VariableValue::new_procedure(value),
+                        EntryType::Procedure,
+                    );
                     entry.set_name(proc.get_identifier().to_string());
                     self.push_variable(proc.get_identifier().clone(), entry);
                 }
@@ -296,15 +290,11 @@ impl PPECompiler {
             match imp {
                 AstNode::Procedure(proc) => {
                     let Some(idx) = self.lookup_variable_index(proc.get_identifier()) else {
-                        self.errors.lock().unwrap().report_error(
-                            proc.get_identifier_token().span.clone(),
-                            CompilationErrorType::ProcedureNotFound(
-                                proc.get_identifier().to_string(),
-                            ),
-                        );
+                        log::error!("Procedure not found: {}", proc.get_identifier());
                         continue;
                     };
                     let first = self.variable_count();
+                    self.start_parse_function_body();
                     self.add_parameters(proc.get_parameters());
 
                     {
@@ -313,7 +303,6 @@ impl PPECompiler {
                         decl.value.data.procedure_value.start_offset = start_offset;
                         decl.value.data.procedure_value.first_var_id = first as i16;
                     }
-                    self.start_parse_function_body();
                     proc.get_statements().iter().for_each(|s| {
                         self.compile_add_statement(s);
                     });
@@ -347,15 +336,12 @@ impl PPECompiler {
                 }
                 AstNode::Function(func) => {
                     let Some(idx) = self.lookup_variable_index(func.get_identifier()) else {
-                        self.errors.lock().unwrap().report_error(
-                            func.get_identifier_token().span.clone(),
-                            CompilationErrorType::FunctionNotFound(
-                                func.get_identifier().to_string(),
-                            ),
-                        );
+                        log::error!("Function not found: {}", func.get_identifier());
                         continue;
                     };
                     let first = self.variable_count();
+                    self.start_parse_function_body();
+
                     self.add_parameters(func.get_parameters());
 
                     let id = self.next_id();
@@ -378,12 +364,14 @@ impl PPECompiler {
                         cube_size: 0,
                         flags: 0,
                     };
-                    let mut entry =
-                        TableEntry::new(header, func.get_return_type().create_empty_value(), EntryType::FunctionResult);
+                    let mut entry = TableEntry::new(
+                        header,
+                        func.get_return_type().create_empty_value(),
+                        EntryType::FunctionResult,
+                    );
                     entry.set_name(format!("#{id} result"));
                     self.push_variable(Ascii::new(entry.get_name().clone()), entry);
 
-                    self.start_parse_function_body();
                     func.get_statements().iter().for_each(|s| {
                         self.compile_add_statement(s);
                     });
@@ -444,7 +432,11 @@ impl PPECompiler {
                 cube_size: param.get_variable().get_cube_size(),
                 flags: 0,
             };
-            let mut entry = TableEntry::new(header, param.get_variable_type().create_empty_value(), crate::executable::EntryType::Parameter);
+            let mut entry = TableEntry::new(
+                header,
+                param.get_variable_type().create_empty_value(),
+                crate::executable::EntryType::Parameter,
+            );
             entry.set_name(param.get_variable().get_identifier().to_string());
             self.push_variable(param.get_variable().get_identifier().clone(), entry);
         }
@@ -483,12 +475,7 @@ impl PPECompiler {
                 let var_name = let_smt.get_identifier();
 
                 let Some(decl_idx) = self.lookup_variable_index(var_name) else {
-                    self.errors.lock().unwrap().report_error(
-                        let_smt.get_identifier_token().span.clone(),
-                        CompilationErrorType::VariableNotFound(
-                            let_smt.get_identifier().to_string(),
-                        ),
-                    );
+                    log::error!("Variable not found: {}", var_name);
                     return None;
                 };
 
@@ -502,14 +489,7 @@ impl PPECompiler {
                 }
 
                 if decl.header.dim != let_smt.get_arguments().len() as u8 {
-                    self.errors.lock().unwrap().report_error(
-                        let_smt.get_identifier_token().span.clone(),
-                        CompilationErrorType::InvalidDimensions(
-                            let_smt.get_identifier().to_string(),
-                            decl.header.dim,
-                            let_smt.get_arguments().len(),
-                        ),
-                    );
+                    log::error!("Invalid dimensions for variable: {}", var_name.to_string());
                     return None;
                 }
                 let decl_id = decl.header.id;
@@ -535,120 +515,6 @@ impl PPECompiler {
                     arguments.push(expr_buffer);
                 }
 
-                match def.sig {
-                    crate::executable::StatementSignature::Invalid => panic!("Invalid signature"),
-                    crate::executable::StatementSignature::ArgumentsWithVariable(v, arg_count) => {
-                        if !self.check_arg_count(
-                            arg_count,
-                            call_stmt.get_arguments().len(),
-                            call_stmt.get_identifier_token(),
-                        ) {
-                            return None;
-                        }
-                        if v > 0
-                            && !self.check_argument_is_variable(
-                                v - 1,
-                                &call_stmt.get_arguments()[v - 1],
-                            )
-                        {
-                            return None;
-                        }
-                    }
-                    crate::executable::StatementSignature::VariableArguments(_) => {}
-                    crate::executable::StatementSignature::SpecialCaseDlockg => {
-                        if !self.check_arg_count(
-                            3,
-                            call_stmt.get_arguments().len(),
-                            call_stmt.get_identifier_token(),
-                        ) {
-                            return None;
-                        }
-                        if !self.check_argument_is_variable(2, &call_stmt.get_arguments()[2]) {
-                            return None;
-                        }
-                    }
-                    crate::executable::StatementSignature::SpecialCaseDcreate => {
-                        if !self.check_arg_count(
-                            4,
-                            call_stmt.get_arguments().len(),
-                            call_stmt.get_identifier_token(),
-                        ) {
-                            return None;
-                        }
-                        if !self.check_argument_is_variable(3, &call_stmt.get_arguments()[3]) {
-                            return None;
-                        }
-                    }
-                    crate::executable::StatementSignature::SpecialCaseSort => {
-                        if !self.check_arg_count(
-                            2,
-                            call_stmt.get_arguments().len(),
-                            call_stmt.get_identifier_token(),
-                        ) {
-                            return None;
-                        }
-
-                        for i in 0..=1 {
-                            if let Expression::Identifier(a) = &call_stmt.get_arguments()[i] {
-                                if let Some(var) = self.lookup_variable(a.get_identifier()) {
-                                    if var.header.dim != 1 {
-                                        self.errors.lock().unwrap().report_error(
-                                            a.get_identifier_token().span.clone(),
-                                            CompilationErrorType::SortArgumentDimensionError(
-                                                var.header.dim,
-                                            ),
-                                        );
-                                        return None;
-                                    }
-                                } else {
-                                    self.errors.lock().unwrap().report_error(
-                                        call_stmt.get_arguments()[i].get_span().clone(),
-                                        CompilationErrorType::VariableExpected(i + 1),
-                                    );
-                                }
-                            } else {
-                                self.errors.lock().unwrap().report_error(
-                                    call_stmt.get_arguments()[i].get_span().clone(),
-                                    CompilationErrorType::VariableExpected(i + 1),
-                                );
-                            }
-                        }
-                    }
-                    crate::executable::StatementSignature::SpecialCaseVarSeg => {
-                        if !self.check_arg_count(
-                            2,
-                            call_stmt.get_arguments().len(),
-                            call_stmt.get_identifier_token(),
-                        ) {
-                            return None;
-                        }
-                        for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
-                            if !self.check_argument_is_variable(v, arg) {
-                                return None;
-                            }
-                        }
-                    }
-                    crate::executable::StatementSignature::SpecialCasePop => {
-                        for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
-                            if !self.check_argument_is_variable(v, arg) {
-                                return None;
-                            }
-                        }
-                    }
-                }
-
-                /*
-                if (call_stmt.get_arguments().len() as i8) < def.min_args
-                    || (call_stmt.get_arguments().len() as i8) > def.max_args
-                {
-                    panic!("Invalid number of parameters for {}", def.name);
-                }
-                if def.min_args != def.max_args {
-                    self.script_buffer
-                        .push(call_stmt.get_arguments().len() as i16);
-                    }
-                */
-
                 Some(PPECommand::PredefinedCall(
                     def.opcode.get_definition(), // to de-alias aliases
                     arguments,
@@ -656,11 +522,9 @@ impl PPECompiler {
             }
             Statement::Call(call_stmt) => {
                 let Some(decl_idx) = self.lookup_variable_index(call_stmt.get_identifier()) else {
-                    self.errors.lock().unwrap().report_error(
-                        call_stmt.get_identifier_token().span.clone(),
-                        CompilationErrorType::ProcedureNotFound(
-                            call_stmt.get_identifier().to_string(),
-                        ),
+                    log::error!(
+                        "Procedure not found: {}",
+                        call_stmt.get_identifier().to_string()
                     );
                     return None;
                 };
@@ -673,26 +537,21 @@ impl PPECompiler {
                 let decl = self.variable_table.get_var_entry(decl_idx).clone();
                 if decl.header.variable_type == VariableType::Procedure {
                     let len = unsafe { decl.value.data.procedure_value.parameters as usize };
-                    if !self.check_arg_count(len, arguments.len(), call_stmt.get_identifier_token())
-                    {
+                    if !Self::check_arg_count(
+                        len,
+                        arguments.len(),
+                        call_stmt.get_identifier_token(),
+                    ) {
                         return None;
                     }
-                    for i in 0..arguments.len() {
-                        unsafe {
-                            if decl.value.data.procedure_value.pass_flags & (1 << i) != 0
-                                && !self
-                                    .check_argument_is_variable(i, &call_stmt.get_arguments()[i])
-                            {
-                                return None;
-                            }
-                        }
-                    }
-
                     Some(PPECommand::ProcedureCall(decl.header.id, arguments))
                 } else if decl.header.variable_type == VariableType::Function {
                     let len = unsafe { decl.value.data.function_value.parameters as usize };
-                    if !self.check_arg_count(len, arguments.len(), call_stmt.get_identifier_token())
-                    {
+                    if !Self::check_arg_count(
+                        len,
+                        arguments.len(),
+                        call_stmt.get_identifier_token(),
+                    ) {
                         return None;
                     }
 
@@ -701,24 +560,14 @@ impl PPECompiler {
                         vec![PPEExpr::FunctionCall(decl.header.id, arguments)],
                     ))
                 } else {
-                    self.errors.lock().unwrap().report_error(
-                        call_stmt.get_identifier_token().span.clone(),
-                        CompilationErrorType::ProcedureNotFound(
-                            call_stmt.get_identifier().to_string(),
-                        ),
-                    );
+                    log::error!("Invalid call to variable: {}", call_stmt.get_identifier());
                     return None;
                 }
             }
             Statement::VariableDeclaration(var_decl) => {
                 for v in var_decl.get_variables() {
                     if self.has_variable_defined(v.get_identifier()) {
-                        self.errors.lock().unwrap().report_error(
-                            v.get_identifier_token().span.clone(),
-                            CompilationErrorType::VariableAlreadyDefined(
-                                v.get_identifier().to_string(),
-                            ),
-                        );
+                        log::error!("Variable already defined: {}", v.get_identifier());
                         continue;
                     }
 
@@ -745,30 +594,16 @@ impl PPECompiler {
     }
 
     fn check_arg_count(
-        &mut self,
         arg_count_expected: usize,
         arg_count: usize,
         identifier_token: &Spanned<Token>,
     ) -> bool {
-        if arg_count_expected < arg_count {
-            self.errors.lock().unwrap().report_error(
-                identifier_token.span.clone(),
-                ParserErrorType::TooFewArguments(
-                    identifier_token.token.to_string(),
-                    arg_count,
-                    arg_count_expected as i8,
-                ),
-            );
-            return false;
-        }
-        if arg_count_expected > arg_count {
-            self.errors.lock().unwrap().report_error(
-                identifier_token.span.clone(),
-                ParserErrorType::TooManyArguments(
-                    identifier_token.token.to_string(),
-                    arg_count,
-                    arg_count_expected as i8,
-                ),
+        if arg_count_expected != arg_count {
+            log::error!(
+                "Invalid number of parameters for {}: expected {}, got {}",
+                identifier_token.token,
+                arg_count_expected,
+                arg_count
             );
             return false;
         }
@@ -859,11 +694,7 @@ impl PPECompiler {
         };
         if let Some(idx) = self.label_lookup_table.get_mut(identifier) {
             if self.label_table[*idx] >= 0 {
-                self.errors.lock().unwrap().report_error(
-                    label_token.span.clone(),
-                    CompilationErrorType::LabelAlreadyDefined(identifier.to_string()),
-                );
-
+                log::error!("Label already defined: {}", identifier);
                 return;
             }
             self.label_table[*idx] = self.cur_offset as i32;
@@ -935,22 +766,5 @@ impl PPECompiler {
                 _ => {}
             }
         }
-    }
-
-    fn check_argument_is_variable(&self, arg: usize, v: &Expression) -> bool {
-        // that the identifier/dim is in the vtable is checked in argument evaluation
-        if let Expression::Identifier(_) = v {
-            return true;
-        }
-        if let Expression::FunctionCall(a) = v {
-            if let Some(var) = self.lookup_variable(a.get_identifier()) {
-                return var.header.dim > 0;
-            }
-        }
-        self.errors.lock().unwrap().report_error(
-            v.get_span().clone(),
-            CompilationErrorType::VariableExpected(arg + 1),
-        );
-        false
     }
 }

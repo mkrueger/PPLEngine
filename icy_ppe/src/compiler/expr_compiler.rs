@@ -1,9 +1,9 @@
 use crate::{
     ast::AstVisitor,
-    executable::{FunctionDefinition, PPEExpr, VariableType, FUNCTION_DEFINITIONS},
+    executable::{PPEExpr, VariableType},
 };
 
-use super::{CompilationErrorType, PPECompiler};
+use super::PPECompiler;
 
 pub struct ExpressionCompiler<'a> {
     pub compiler: &'a mut PPECompiler,
@@ -17,10 +17,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier()) {
             return PPEExpr::Value(decl.header.id);
         }
-        self.compiler.errors.lock().unwrap().report_error(
-            identifier.get_identifier_token().span.clone(),
-            CompilationErrorType::VariableNotFound(identifier.get_identifier().to_string()),
-        );
+        log::error!("Variable not found: {}", identifier.get_identifier());
         PPEExpr::Value(0)
     }
 
@@ -44,16 +41,7 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         &mut self,
         call: &crate::ast::PredefinedFunctionCallExpression,
     ) -> PPEExpr {
-        let predef = FunctionDefinition::get_function_definition(call.get_identifier());
-        if predef < 0 {
-            self.compiler.errors.lock().unwrap().report_error(
-                call.get_identifier_token().span.clone(),
-                CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
-            );
-            return PPEExpr::Value(0);
-        }
-        let def = &FUNCTION_DEFINITIONS[predef as usize];
-
+        let def = call.get_func();
         PPEExpr::PredefinedFunctionCall(
             def.opcode.get_definition(), // to de-alias aliases
             call.get_arguments().iter().map(|e| e.visit(self)).collect(),
@@ -75,9 +63,9 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 .compiler
                 .lookup_variable_index(func_call.get_identifier())
             else {
-                self.compiler.errors.lock().unwrap().report_error(
-                    func_call.get_identifier_token().span.clone(),
-                    CompilationErrorType::FunctionNotFound(func_call.get_identifier().to_string()),
+                log::error!(
+                    "function not found: {}",
+                    func_call.get_identifier().to_string()
                 );
                 return PPEExpr::Value(0);
             };
@@ -88,13 +76,9 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 return PPEExpr::FunctionCall(var.header.id, arguments);
             }
             if var.header.dim as usize != arguments.len() {
-                self.compiler.errors.lock().unwrap().report_error(
-                    func_call.get_identifier_token().span.clone(),
-                    CompilationErrorType::InvalidDimensions(
-                        func_call.get_identifier().to_string(),
-                        var.value.get_dimensions(),
-                        arguments.len(),
-                    ),
+                log::error!(
+                    "Invalid dimensions for function call: {}",
+                    func_call.get_identifier().to_string()
                 );
 
                 return PPEExpr::Value(0);
@@ -106,21 +90,17 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             .compiler
             .lookup_variable_index(func_call.get_identifier())
         else {
-            self.compiler.errors.lock().unwrap().report_error(
-                func_call.get_identifier_token().span.clone(),
-                CompilationErrorType::VariableNotFound(func_call.get_identifier().to_string()),
+            log::error!(
+                "function not found: {}",
+                func_call.get_identifier().to_string()
             );
             return PPEExpr::Value(0);
         };
         let var = &self.compiler.variable_table.get_var_entry(table_idx);
         if var.header.dim as usize != arguments.len() {
-            self.compiler.errors.lock().unwrap().report_error(
-                func_call.get_identifier_token().span.clone(),
-                CompilationErrorType::InvalidDimensions(
-                    func_call.get_identifier().to_string(),
-                    var.header.dim,
-                    arguments.len(),
-                ),
+            log::error!(
+                "Invalid dimensions for function call: {}",
+                func_call.get_identifier().to_string()
             );
             return PPEExpr::Value(0);
         }

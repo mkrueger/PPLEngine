@@ -15,7 +15,7 @@ use super::{
     VariableType, VariableValue, LAST_PPLC,
 };
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct VarHeader {
     pub id: usize,
     pub dim: u8,
@@ -472,7 +472,7 @@ impl VariableTable {
             let cur = result[k].clone();
             match cur.header.variable_type {
                 VariableType::Function => unsafe {
-                    let ret =  (cur.value.data.function_value.return_var as usize).saturating_sub(1);
+                    let ret = (cur.value.data.function_value.return_var as usize).saturating_sub(1);
                     let last = cur.value.data.function_value.local_variables as usize + ret;
                     for (j, i) in
                         (cur.value.data.function_value.first_var_id as usize..last).enumerate()

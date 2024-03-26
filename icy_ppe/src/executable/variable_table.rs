@@ -615,7 +615,7 @@ impl VariableTable {
     }
 
     pub fn set_value(&mut self, id: usize, value: VariableValue) {
-        self.entries[id - 1].value = value;
+        self.entries[id - 1].value = value.convert_to(self.entries[id - 1].value.vtype);
     }
 
     pub fn get_value(&self, id: usize) -> &VariableValue {

@@ -1,6 +1,5 @@
 use std::{fs, thread, time::Duration};
 
-use icy_engine::ascii::CP437_TO_UNICODE;
 use icy_ppe::{
     executable::{VariableTable, VariableType, VariableValue},
     Res,
@@ -102,7 +101,7 @@ pub fn dispfile(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()
     let content = fs::read(file)?;
     let mut converted_content = Vec::new();
     for byte in content {
-        converted_content.push(CP437_TO_UNICODE[byte as usize]);
+        converted_content.push(icy_ppe::tables::CP437_TO_UNICODE[byte as usize]);
     }
     vm.write_raw(TerminalTarget::Both, &converted_content)
 }
@@ -649,7 +648,6 @@ pub fn varaddr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()>
 pub fn ansipos(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let x = params[0].as_int();
     let y = params[1].as_int();
-
     vm.gotoxy(TerminalTarget::Both, x, y)
 }
 

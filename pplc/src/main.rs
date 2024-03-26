@@ -129,7 +129,9 @@ fn main() {
         } else {
             println!("{} errors", error_count);
         }
-        return;
+        if errors.lock().unwrap().has_errors() {
+            return;
+        }
     }
 
     println!();

@@ -201,7 +201,7 @@ impl<'a> VirtualMachine<'a> {
         if self.icy_board_data.display_text {
             self.write_raw(
                 target,
-                format!("\x1B[{y};{x}H")
+                format!("\x1B[{};{}H", y, x)
                     .chars()
                     .collect::<Vec<char>>()
                     .as_slice(),
@@ -227,6 +227,7 @@ impl<'a> VirtualMachine<'a> {
         self.parser
             .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
         self.ctx2.write_raw(&[c])
+        //   Ok(())
     }
     fn write_string(&mut self, data: &[char]) -> Res<()> {
         for c in data {
@@ -234,6 +235,7 @@ impl<'a> VirtualMachine<'a> {
                 .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
         }
         self.ctx2.write_raw(data)
+        //    Ok(())
     }
 
     /// # Errors
@@ -446,9 +448,15 @@ impl<'a> VirtualMachine<'a> {
 
         let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
 
-        if self.caret.get_attribute().is_bold() && !new_color.is_bold() {
+        let was_bold = self.caret.get_attribute().get_foreground() > 7;
+        let new_bold = new_color.get_foreground() > 7;
+
+        if !was_bold && new_bold {
             color_change += "1;";
+        } else if was_bold && !new_bold {
+            color_change += "0;";
         }
+
         if self.caret.get_attribute().is_blinking() && !new_color.is_blinking() {
             color_change += "5;";
         }
@@ -469,7 +477,7 @@ impl<'a> VirtualMachine<'a> {
         }
         color_change.pop();
         color_change += "m";
-
+        // println!("color_change: {}", &color_change[1..]);
         self.write_raw(
             TerminalTarget::Both,
             color_change.chars().collect::<Vec<char>>().as_slice(),
@@ -944,6 +952,18 @@ impl<'a> VirtualMachine<'a> {
                     args.push(expr);
                 }
                 (STATEMENT_TABLE[proc.opcode as usize])(self, &mut args).unwrap();
+
+                match proc.sig {
+                    icy_ppe::executable::StatementSignature::ArgumentsWithVariable(var, _)
+                    | icy_ppe::executable::StatementSignature::VariableArguments(var) => {
+                        if var > 0 {
+                            self.set_variable(&arguments[var - 1], args[var - 1].clone())?;
+                        }
+                    }
+                    icy_ppe::executable::StatementSignature::SpecialCaseDlockg => {}
+                    icy_ppe::executable::StatementSignature::SpecialCaseDcreate => {}
+                    _ => {}
+                }
             }
             PPECommand::Goto(label) => {
                 self.goto(*label)?;

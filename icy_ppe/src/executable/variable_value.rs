@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    ffi::c_short,
     fmt,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
@@ -1040,6 +1041,9 @@ impl VariableValue {
     ///
     /// Panics if .
     pub fn as_int(&self) -> i32 {
+        if let GenericVariableData::String(s) = &self.generic_data {
+            return s.parse::<i32>().unwrap_or_default();
+        }
         unsafe { self.data.int_value }
     }
 
@@ -1148,20 +1152,111 @@ impl VariableValue {
         match &mut self.generic_data {
             GenericVariableData::Dim1(data) => {
                 if dim1 < data.len() {
-                    data[dim1] = val;
+                    data[dim1] = val.convert_to(self.vtype);
                 }
             }
             GenericVariableData::Dim2(data) => {
                 if dim1 < data.len() && dim2 < data[dim1].len() {
-                    data[dim2][dim1] = val;
+                    data[dim2][dim1] = val.convert_to(self.vtype);
                 }
             }
             GenericVariableData::Dim3(data) => {
                 if dim1 < data.len() && dim2 < data[dim1].len() && dim3 < data[dim1][dim2].len() {
-                    data[dim3][dim2][dim1] = val;
+                    data[dim3][dim2][dim1] = val.convert_to(self.vtype);
                 }
             }
             _ => log::error!("no array variable: {self}"),
+        }
+    }
+
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use]
+    pub fn convert_to(self, convert_to_type: VariableType) -> VariableValue {
+        if self.vtype == convert_to_type {
+            return self;
+        }
+
+        match convert_to_type {
+            VariableType::Boolean => {
+                if self.vtype == VariableType::String {
+                    return VariableValue::new_bool(self.as_string() == "0");
+                }
+                VariableValue::new_bool(self.as_int() != 0)
+            }
+            VariableType::Unsigned => VariableValue::new_unsigned(self.as_int() as u64),
+            VariableType::Date => VariableValue::new_date(self.as_int()),
+            VariableType::EDate => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    edate_value: self.as_int() as u32,
+                },
+            ),
+            VariableType::Integer => VariableValue::new_int(self.as_int()),
+            VariableType::Money => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    money_value: self.as_int(),
+                },
+            ),
+            VariableType::String => VariableValue::new_string(self.as_string()),
+            VariableType::Time => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    time_value: self.as_int(),
+                },
+            ),
+            VariableType::Byte => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    byte_value: self.as_int() as u8,
+                },
+            ),
+            VariableType::Word => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    word_value: self.as_int() as u16,
+                },
+            ),
+            VariableType::SByte => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    sbyte_value: self.as_int() as i8,
+                },
+            ),
+            VariableType::SWord => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    sword_value: self.as_int() as i16,
+                },
+            ),
+            VariableType::BigStr => VariableValue::new_string(self.as_string()),
+
+            VariableType::Float => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    float_value: self.as_string().parse().unwrap(),
+                },
+            ),
+            VariableType::Double => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    double_value: self.as_string().parse().unwrap(),
+                },
+            ),
+
+            VariableType::DDate => VariableValue::new(
+                convert_to_type,
+                VariableData {
+                    ddate_value: self.as_int(),
+                },
+            ),
+            VariableType::Function | VariableType::Procedure | VariableType::Unknown => {
+                panic!("Unknown variable type")
+            }
         }
     }
 }

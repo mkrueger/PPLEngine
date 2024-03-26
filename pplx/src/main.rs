@@ -1,5 +1,7 @@
 use argh::FromArgs;
 use crossterm::cursor::MoveTo;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use crossterm::ExecutableCommand;
 use icy_board::data::IcyBoardData;
 use icy_board::data::Node;
@@ -75,7 +77,7 @@ fn main() {
     let mut output = Output::default();
 
     output.is_sysop = arguments.sysop;
-    // enable_raw_mode().unwrap();
+    enable_raw_mode().unwrap();
     let supports_keyboard_enhancement = matches!(
         crossterm::terminal::supports_keyboard_enhancement(),
         Ok(true)
@@ -110,6 +112,5 @@ fn main() {
         arguments.sysop,
     )
     .unwrap();
-
-    // disable_raw_mode().unwrap();
+disable_raw_mode().unwrap();
 }

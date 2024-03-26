@@ -20,5 +20,6 @@ pub mod decompiler;
 pub mod executable;
 pub mod parser;
 pub mod tables;
+pub mod semantic;
 
 pub type Res<T> = Result<T, Box<dyn std::error::Error>>;

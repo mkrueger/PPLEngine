@@ -1,18 +1,10 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
+    collections::HashMap, sync::{Arc, Mutex}
 };
 
-use icy_ppe::{
+use crate::{
     ast::{
-        walk_function_call_expression, walk_function_implementation,
-        walk_predefined_call_statement, walk_predefined_function_call_expression,
-        walk_procedure_call_statement, walk_procedure_implementation, AstVisitor, CommentAstNode,
-        ConstantExpression, FunctionCallExpression, FunctionDeclarationAstNode,
-        FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression,
-        LabelStatement, LetStatement, PredefinedCallStatement, PredefinedFunctionCallExpression,
-        ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation,
-        VariableDeclarationStatement,
+        walk_function_call_expression, walk_function_implementation, walk_predefined_call_statement, walk_predefined_function_call_expression, walk_procedure_call_statement, walk_procedure_implementation, walk_program, AstVisitor, CommentAstNode, ConstantExpression, FunctionCallExpression, FunctionDeclarationAstNode, FunctionImplementation, GosubStatement, GotoStatement, IdentifierExpression, LabelStatement, LetStatement, PredefinedCallStatement, PredefinedFunctionCallExpression, ProcedureCallStatement, ProcedureDeclarationAstNode, ProcedureImplementation, VariableDeclarationStatement
     },
     compiler::CompilationErrorType,
     executable::{FuncOpCode, OpCode, VarHeader, VariableType},
@@ -39,13 +31,18 @@ pub enum ReferenceType {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct References {
+    pub variable_type: VariableType,
+
     pub declaration: Option<Spanned<String>>,
-    pub references: Vec<Spanned<String>>,
+    pub implementation: Option<Spanned<String>>,
+    pub return_types: Vec<Spanned<String>>,
+
+    pub usages: Vec<Spanned<String>>,
 }
 
 impl References {
     pub fn contains(&self, offset: usize) -> bool {
-        for r in &self.references {
+        for r in &self.usages {
             if r.span.contains(&offset) {
                 return true;
             }
@@ -64,6 +61,8 @@ pub struct SemanticVisitor {
 
     pub errors: Arc<Mutex<ErrorRepoter>>,
     pub references: Vec<(ReferenceType, References)>,
+
+    pub expression_lookup: HashMap<core::ops::Range<usize>, usize>, 
 
     // labels
     label_count: usize,
@@ -90,6 +89,7 @@ impl SemanticVisitor {
 
             label_count: 0,
             label_lookup_table: HashMap::new(),
+            expression_lookup: HashMap::new(),
 
             local_lookup: false,
             variable_count: 0,
@@ -102,29 +102,24 @@ impl SemanticVisitor {
         }
     }
 
-    fn set_declaration(
+    fn add_declaration(
         &mut self,
         reftype: ReferenceType,
+        variable_type: VariableType,
         identifier_token: &Spanned<parser::lexer::Token>,
     ) {
-        for r in &mut self.references {
-            if r.0 == reftype {
-                r.1.declaration = Some(Spanned::new(
-                    identifier_token.token.to_string(),
-                    identifier_token.span.clone(),
-                ));
-                return;
-            }
-        }
-
+        self.expression_lookup.insert(identifier_token.span.clone(), self.references.len());
         self.references.push((
             reftype,
             References {
+                variable_type,
+                implementation: None,
+                return_types: vec![],
                 declaration: Some(Spanned::new(
                     identifier_token.token.to_string(),
                     identifier_token.span.clone(),
                 )),
-                references: vec![],
+                usages: vec![],
             },
         ));
     }
@@ -132,24 +127,30 @@ impl SemanticVisitor {
     fn add_reference(
         &mut self,
         reftype: ReferenceType,
+        variable_type: VariableType,
         identifier_token: &Spanned<parser::lexer::Token>,
     ) {
-        for r in &mut self.references {
+        for (i, r) in &mut self.references.iter_mut().enumerate() {
             if r.0 == reftype {
-                r.1.references.push(Spanned::new(
+                r.1.usages.push(Spanned::new(
                     identifier_token.token.to_string(),
                     identifier_token.span.clone(),
                 ));
+                self.expression_lookup.insert(identifier_token.span.clone(), i);
                 return;
             }
         }
         log::info!("Label ref {:?}", identifier_token);
-
+        self.expression_lookup.insert(identifier_token.span.clone(), self.references.len());
         self.references.push((
             reftype,
             References {
                 declaration: None,
-                references: vec![Spanned::new(
+                implementation: None,
+                return_types: vec![],
+
+                variable_type,
+                usages: vec![Spanned::new(
                     identifier_token.token.to_string(),
                     identifier_token.span.clone(),
                 )],
@@ -171,7 +172,7 @@ impl SemanticVisitor {
             self.label_count
         };
 
-        self.add_reference(ReferenceType::Label(idx), label_token);
+        self.add_reference(ReferenceType::Label(idx), VariableType::Unknown, label_token);
     }
 
     fn set_label_declaration(&mut self, label_token: &Spanned<Token>) {
@@ -197,8 +198,36 @@ impl SemanticVisitor {
             self.label_count
         };
 
-        log::info!("Label decla {:?} -> {:?}", identifier, label_token.span);
-        self.set_declaration(ReferenceType::Label(idx), label_token);
+        log::info!("Label declaration {:?} -> {:?}", identifier, label_token.span);
+
+        let reftype = ReferenceType::Label(idx);
+
+        for (i, r) in &mut self.references.iter_mut().enumerate() {
+            if r.0 == reftype {
+                r.1.declaration = Some(Spanned::new(
+                    label_token.token.to_string(),
+                    label_token.span.clone(),
+                ));
+                self.expression_lookup.insert(label_token.span.clone(), i);
+                return;
+            }
+        }
+
+        self.expression_lookup.insert(label_token.span.clone(), self.references.len());
+        self.references.push((
+            reftype,
+            References {
+                variable_type: VariableType::Unknown,
+                implementation: None,
+                return_types: vec![],
+                declaration: Some(Spanned::new(
+                    label_token.token.to_string(),
+                    label_token.span.clone(),
+                )),
+                usages: vec![],
+            },
+        ));
+
     }
 
     fn start_parse_function_body(&mut self) {
@@ -240,7 +269,7 @@ impl SemanticVisitor {
             flags: 0,
         };
         self.variables.push(header);
-        self.set_declaration(ReferenceType::Variable(id), identifier);
+        self.add_declaration(ReferenceType::Variable(id), variable_type, identifier);
         if self.local_lookup {
             self.local_variable_lookup
                 .insert(unicase::Ascii::new(identifier.token.to_string()), id);
@@ -253,27 +282,44 @@ impl SemanticVisitor {
     fn lookup_variable(
         &mut self,
         id: &unicase::Ascii<String>,
-    ) -> Option<&mut (ReferenceType, References)> {
+    ) -> Option<usize> {
         if self.local_lookup {
             if let Some(idx) = self.local_variable_lookup.get(id) {
-                return self.references.get_mut(*idx);
+                return Some(*idx);
             }
         }
 
         if let Some(idx) = self.variable_lookup.get(id) {
-            return self.references.get_mut(*idx);
+            return Some(*idx);
         }
         None
+    }
+    
+    fn add_reference_to(&mut self, identifier: &Spanned<Token>, idx: usize) {
+        self.expression_lookup.insert(identifier.span.clone(), idx);
+        self.references[idx].1.usages.push(Spanned::new(
+            identifier.token.to_string(),
+            identifier.span.clone(),
+        ));
     }
 }
 
 impl AstVisitor<()> for SemanticVisitor {
     fn visit_identifier_expression(&mut self, identifier: &IdentifierExpression) {
-        if let Some(decl) = self.lookup_variable(identifier.get_identifier()) {
-            decl.1.references.push(Spanned::new(
-                identifier.get_identifier().to_string(),
-                identifier.get_identifier_token().span.clone(),
-            ));
+        if let Some(idx) = self.lookup_variable(identifier.get_identifier()) {
+            let (rt, r) = &mut self.references[idx];
+
+            if matches!(rt, ReferenceType::Function(_)) {
+                let identifier = identifier.get_identifier_token();
+                self.expression_lookup.insert(identifier.span.clone(), idx);
+                self.references[idx].1.return_types.push(Spanned::new(
+                    identifier.token.to_string(),
+                    identifier.span.clone(),
+                ));
+        
+            } else {
+                self.add_reference_to(identifier.get_identifier_token(), idx);
+            }
         } else {
             self.errors.lock().unwrap().report_error(
                 identifier.get_identifier_token().span.clone(),
@@ -292,6 +338,7 @@ impl AstVisitor<()> for SemanticVisitor {
     ) {
         self.add_reference(
             ReferenceType::PredefinedFunc(call.get_func().opcode),
+            VariableType::Function,
             call.get_identifier_token(),
         );
         walk_predefined_function_call_expression(self, call);
@@ -304,6 +351,7 @@ impl AstVisitor<()> for SemanticVisitor {
     fn visit_predefined_call_statement(&mut self, call: &PredefinedCallStatement) {
         self.add_reference(
             ReferenceType::PredefinedProc(call.get_func().opcode),
+            VariableType::Procedure,
             call.get_identifier_token(),
         );
         walk_predefined_call_statement(self, call);
@@ -311,16 +359,11 @@ impl AstVisitor<()> for SemanticVisitor {
 
     fn visit_function_call_expression(&mut self, call: &FunctionCallExpression) {
         let mut found = false;
-        if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
-            if matches!(rt, ReferenceType::Function(_)) {
-                r.references.push(Spanned::new(
-                    call.get_identifier().to_string(),
-                    call.get_identifier_token().span.clone(),
-                ));
-                found = true;
-            }
-            if matches!(rt, ReferenceType::Variable(_)) {
-                r.references.push(Spanned::new(
+        if let Some(idx) = self.lookup_variable(call.get_identifier()) {
+            let (rt, r) = &mut self.references[idx];
+            if matches!(rt, ReferenceType::Function(_)) || matches!(rt, ReferenceType::Variable(_)){
+                self.expression_lookup.insert(call.get_identifier_token().span.clone(), idx);
+                r.usages.push(Spanned::new(
                     call.get_identifier().to_string(),
                     call.get_identifier_token().span.clone(),
                 ));
@@ -350,11 +393,15 @@ impl AstVisitor<()> for SemanticVisitor {
     }
 
     fn visit_let_statement(&mut self, let_stmt: &LetStatement) {
-        if let Some((_rt, r)) = self.lookup_variable(let_stmt.get_identifier()) {
-            r.references.push(Spanned::new(
-                let_stmt.get_identifier().to_string(),
-                let_stmt.get_identifier_token().span.clone(),
-            ));
+        if let Some(idx) = self.lookup_variable(let_stmt.get_identifier()) {
+            if self.references[idx].1.variable_type == VariableType::Procedure {
+                self.errors.lock().unwrap().report_error(
+                    let_stmt.get_identifier_token().span.clone(),
+                    CompilationErrorType::InvalidLetVariable,
+                );
+            } else {
+                self.add_reference_to(let_stmt.get_identifier_token(), idx);
+            }
         } else {
             self.errors.lock().unwrap().report_error(
                 let_stmt.get_identifier_token().span.clone(),
@@ -387,12 +434,9 @@ impl AstVisitor<()> for SemanticVisitor {
 
     fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) {
         let mut found = false;
-        if let Some((rt, r)) = self.lookup_variable(call.get_identifier()) {
-            if matches!(rt, ReferenceType::Procedure(_)) {
-                r.references.push(Spanned::new(
-                    call.get_identifier().to_string(),
-                    call.get_identifier_token().span.clone(),
-                ));
+        if let Some(idx) = self.lookup_variable(call.get_identifier()) {
+            if matches!(self.references[idx].0, ReferenceType::Procedure(_)) || matches!(self.references[idx].0, ReferenceType::Function(_)) || matches!(self.references[idx].0, ReferenceType::Variable(_)) {
+                self.add_reference_to(call.get_identifier_token(), idx);
                 found = true;
             }
         }
@@ -419,8 +463,9 @@ impl AstVisitor<()> for SemanticVisitor {
         }
         self.variable_lookup
             .insert(proc_decl.get_identifier().clone(), self.references.len());
-        self.set_declaration(
+        self.add_declaration(
             ReferenceType::Procedure(self.procedures),
+            VariableType::Procedure,
             proc_decl.get_identifier_token(),
         );
         self.procedures += 1;
@@ -438,18 +483,21 @@ impl AstVisitor<()> for SemanticVisitor {
         }
         self.variable_lookup
             .insert(func_decl.get_identifier().clone(), self.references.len());
-        self.set_declaration(
+        self.add_declaration(
             ReferenceType::Function(self.functions),
+            VariableType::Function,
             func_decl.get_identifier_token(),
         );
         self.functions += 1;
     }
 
     fn visit_function_implementation(&mut self, function: &FunctionImplementation) {
-        if let Some((_rt, r)) = self.lookup_variable(function.get_identifier()) {
-            r.references.push(Spanned::new(
-                function.get_identifier().to_string(),
-                function.get_identifier_token().span.clone(),
+        if let Some(idx) = self.lookup_variable(function.get_identifier()) {
+            let identifier = function.get_identifier_token();
+            self.expression_lookup.insert(identifier.span.clone(), idx);
+            self.references[idx].1.implementation = Some(Spanned::new(
+                identifier.token.to_string(),
+                identifier.span.clone(),
             ));
         } else {
             self.errors.lock().unwrap().report_error(
@@ -464,10 +512,12 @@ impl AstVisitor<()> for SemanticVisitor {
     }
 
     fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) {
-        if let Some((_rt, r)) = self.lookup_variable(procedure.get_identifier()) {
-            r.references.push(Spanned::new(
-                procedure.get_identifier().to_string(),
-                procedure.get_identifier_token().span.clone(),
+        if let Some(idx) = self.lookup_variable(procedure.get_identifier()) {
+            let identifier = procedure.get_identifier_token();
+            self.expression_lookup.insert(identifier.span.clone(), idx);
+            self.references[idx].1.implementation = Some(Spanned::new(
+                identifier.token.to_string(),
+                identifier.span.clone(),
             ));
         } else {
             self.errors.lock().unwrap().report_error(
@@ -479,5 +529,17 @@ impl AstVisitor<()> for SemanticVisitor {
         self.start_parse_function_body();
         walk_procedure_implementation(self, procedure);
         self.end_parse_function_body();
+    }
+
+    fn visit_program(&mut self, program: &crate::ast::Ast) {
+        walk_program(self, program);
+        for (_i, r) in &mut self.references.iter() {
+            if r.usages.is_empty() {
+                self.errors.lock().unwrap().report_warning(
+                    r.declaration.as_ref().unwrap().span.clone(),
+                    CompilationErrorType::UnusedVariable(r.declaration.as_ref().unwrap().token.to_string()),
+                );
+            }
+        }
     }
 }

@@ -56,6 +56,7 @@ pub enum VariableType {
     /// It holds a long integer for julian dates.
     /// When coerced to string type it is in the format CCYYMMDD or 19940527
     DDate = 17,
+
     Unknown = 255,
 }
 
@@ -88,7 +89,7 @@ impl VariableType {
             16 => VariableType::Procedure,
             17 => VariableType::DDate,
             _ => {
-                log::warn!("Unknown variable type: {}", b);
+                log::warn!("Invalid variable type: {}", b);
                 VariableType::Integer
             }
         }

@@ -134,7 +134,7 @@ pub enum ParserErrorType {
     #[error("Version ({2}) not supported for statement ({0}:{1})")]
     StatementVersionNotSupported(OpCode, u16, u16),
 
-    #[error("Version ({2}) not supported for function ({0}:{1})")]
+    #[error("Version ({2}) not supported for function ({0:?}:{1})")]
     FunctionVersionNotSupported(FuncOpCode, u16, u16),
 }
 

@@ -134,25 +134,6 @@ pub enum Token {
 
     Label(unicase::Ascii<String>),
 
-    /*
-    // Types
-    #[token("BOOLEAN", |_| VariableType::Boolean, ignore(case))]
-    #[token("UNSIGNED", |_| VariableType::Unsigned, ignore(case))]
-    #[token("DATE", |_| VariableType::Date, ignore(case))]
-    #[token("EDATE", |_| VariableType::EDate, ignore(case))]
-    #[token("INTEGER", |_| VariableType::Integer, ignore(case))]
-    #[token("MONEY", |_| VariableType::Money, ignore(case))]
-    #[token("REAL", |_| VariableType::Real, ignore(case))]
-    #[token("STRING", |_| VariableType::String, ignore(case))]
-    #[token("TIME", |_| VariableType::Time, ignore(case))]
-    #[token("BYTE", |_| VariableType::Byte, ignore(case))]
-    #[token("WORD", |_| VariableType::Word, ignore(case))]
-    #[token("SHORT", |_| VariableType::SWord, ignore(case))]
-    #[token("INT", |_| VariableType::Integer, ignore(case))]
-    #[token("BIGSTR", |_| VariableType::String, ignore(case))]
-    #[token("DREAL", |_| VariableType::Real, ignore(case))]
-    #[token("DDATE", |_| VariableType::DDate, ignore(case))]
-    VarType(VariableType),*/
     Declare,
     Function,
     Procedure,

@@ -92,7 +92,6 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
                 ..Default::default()
             },
             entry_type: EntryType::Constant,
-            number: 0,
             function_id: 0,
         });
     }
@@ -118,7 +117,6 @@ fn test_deserialization(script: &[i16], expected: &PPEExpr) {
                 ..Default::default()
             },
             entry_type: super::EntryType::Constant,
-            number: 0,
             function_id: 0,
         });
     }

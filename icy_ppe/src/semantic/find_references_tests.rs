@@ -1,7 +1,7 @@
 use core::panic;
 use std::path::PathBuf;
 
-use icy_ppe::{
+use crate::{
     executable::LAST_PPLC,
     parser::{parse_ast, Encoding},
 };
@@ -134,11 +134,11 @@ fn find_references(arg: &str) {
     }
 
     for (_rt, refs) in &visitor.references {
-        if refs.references.len() == spans.len() {
+        if refs.usages.len() == spans.len() {
             let decl = refs.declaration.as_ref().unwrap();
             assert_eq!(declaration_span, decl.span);
 
-            for r in &refs.references {
+            for r in &refs.usages {
                 assert!(spans.contains(&r.span));
             }
             return;
@@ -153,9 +153,9 @@ fn find_references(arg: &str) {
 
     println!("reference table ({})\n", visitor.references.len());
     for (rt, refs) in visitor.references {
-        println!("----->{:?} ({})", rt, refs.references.len());
+        println!("----->{:?} ({})", rt, refs.usages.len());
         println!("decl:{:?}", refs.declaration);
-        for r in &refs.references {
+        for r in &refs.usages {
             println!("ref:{r:?}");
         }
         println!();

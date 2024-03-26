@@ -202,20 +202,18 @@ pub struct TableEntry {
     pub header: VarHeader,
     pub name: String,
     pub entry_type: EntryType,
-    pub number: usize,
     pub value: VariableValue,
     pub function_id: usize,
 }
 
 impl TableEntry {
-    pub fn new(header: VarHeader, variable: VariableValue) -> Self {
+    pub fn new(header: VarHeader, variable: VariableValue, entry_type: EntryType) -> Self {
         Self {
             header,
             name: "Unnamed".to_string(),
-            number: 0,
             value: variable,
             function_id: 0,
-            entry_type: EntryType::Constant,
+            entry_type,
         }
     }
 
@@ -364,6 +362,7 @@ impl VariableTable {
             i += 11;
 
             let variable;
+            let entry_type;
             match header.variable_type {
                 VariableType::String => {
                     let string_length = u16::from_le_bytes((buf[i..=i + 1]).try_into()?) as usize;
@@ -384,6 +383,7 @@ impl VariableTable {
                         ..Default::default()
                     };
                     i += string_length;
+                    entry_type = EntryType::Constant;
                 }
 
                 VariableType::Function | VariableType::Procedure => {
@@ -409,6 +409,12 @@ impl VariableTable {
                         vtype,
                         data: VariableData { function_value },
                         ..Default::default()
+                    };
+
+                    entry_type = if vtype == VariableType::Function {
+                        EntryType::Function
+                    } else {
+                        EntryType::Procedure
                     };
                     i += 8;
                 }
@@ -454,10 +460,11 @@ impl VariableTable {
                         };
                         i += 8;
                     }
-                } // B9 4b
+                    entry_type = EntryType::Constant;
+                }
             }
 
-            result[var_count as usize] = TableEntry::new(header, variable);
+            result[var_count as usize] = TableEntry::new(header, variable, entry_type);
             var_count -= 1;
         }
 
@@ -465,26 +472,18 @@ impl VariableTable {
             let cur = result[k].clone();
             match cur.header.variable_type {
                 VariableType::Function => unsafe {
-                    let last = (cur.value.data.function_value.local_variables as usize
-                        + cur.value.data.function_value.return_var as usize)
-                        .saturating_sub(1);
+                    let ret =  (cur.value.data.function_value.return_var as usize).saturating_sub(1);
+                    let last = cur.value.data.function_value.local_variables as usize + ret;
                     for (j, i) in
                         (cur.value.data.function_value.first_var_id as usize..last).enumerate()
                     {
                         let fvar = &mut result[i];
-                        if i == (cur.value.data.function_value.return_var as usize)
-                            .saturating_sub(1)
-                        {
+                        if i == ret {
                             fvar.set_type(EntryType::FunctionResult);
-                            fvar.number = k;
                         } else if j < cur.value.data.function_value.parameters as usize {
                             fvar.set_type(EntryType::Parameter);
-                            fvar.number = ((cur.value.data.function_value.first_var_id + 1)
-                                as usize)
-                                .saturating_sub(i);
                         }
                     }
-                    result[k].set_type(EntryType::Function);
                 },
                 VariableType::Procedure => unsafe {
                     let mut j = 0;
@@ -498,9 +497,7 @@ impl VariableTable {
                             fvar.set_type(EntryType::Parameter);
                         }
                         j += 1;
-                        fvar.number = j;
                     });
-                    result[k].set_type(EntryType::Procedure);
                 },
                 _ => {}
             }

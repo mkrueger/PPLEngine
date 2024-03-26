@@ -4,7 +4,7 @@ use icy_ppe::{
 };
 use tower_lsp::lsp_types::CompletionItem;
 
-use crate::semantic::{self, SemanticVisitor};
+use icy_ppe::semantic::{self, SemanticVisitor};
 
 pub enum ImCompleteCompletionItem {
     Variable(String),

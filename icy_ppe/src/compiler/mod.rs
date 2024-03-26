@@ -58,6 +58,12 @@ pub enum CompilationErrorType {
 
     #[error("Argument {0} should be a variable.")]
     VariableExpected(usize),
+
+    #[error("Can't assign value to.")]
+    InvalidLetVariable,
+
+    #[error("Unused variable ({0})")]
+    UnusedVariable(String),
 }
 
 #[derive(Error, Debug)]
@@ -145,9 +151,8 @@ impl PPECompiler {
             cube_size,
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, variable_type.create_empty_value());
+        let mut entry = TableEntry::new(header, variable_type.create_empty_value(), EntryType::Variable);
         entry.set_name(name.to_string());
-        entry.set_type(EntryType::Variable);
         self.push_variable(name.clone(), entry);
     }
 
@@ -162,9 +167,8 @@ impl PPECompiler {
             cube_size: val.get_cube_size(),
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, val);
+        let mut entry = TableEntry::new(header, val, EntryType::UserVariable);
         entry.set_name(name.to_string());
-        entry.set_type(EntryType::UserVariable);
         self.push_variable(unicase::Ascii::new(name.to_string()), entry);
     }
 
@@ -222,9 +226,8 @@ impl PPECompiler {
                         return_var: func.get_return_type() as i16,
                     };
 
-                    let mut entry = TableEntry::new(header, VariableValue::new_function(value));
+                    let mut entry = TableEntry::new(header, VariableValue::new_function(value), EntryType::Function);
                     entry.set_name(func.get_identifier().to_string());
-                    entry.set_type(EntryType::Function);
                     self.push_variable(func.get_identifier().clone(), entry);
                 }
                 AstNode::ProcedureDeclaration(proc) => {
@@ -262,10 +265,8 @@ impl PPECompiler {
                         pass_flags,
                     };
 
-                    let mut entry = TableEntry::new(header, VariableValue::new_procedure(value));
+                    let mut entry = TableEntry::new(header, VariableValue::new_procedure(value), EntryType::Procedure);
                     entry.set_name(proc.get_identifier().to_string());
-                    entry.set_type(EntryType::Procedure);
-
                     self.push_variable(proc.get_identifier().clone(), entry);
                 }
                 AstNode::VariableDeclaration(stmt) => {
@@ -378,9 +379,8 @@ impl PPECompiler {
                         flags: 0,
                     };
                     let mut entry =
-                        TableEntry::new(header, func.get_return_type().create_empty_value());
+                        TableEntry::new(header, func.get_return_type().create_empty_value(), EntryType::FunctionResult);
                     entry.set_name(format!("#{id} result"));
-                    entry.set_type(EntryType::FunctionResult);
                     self.push_variable(Ascii::new(entry.get_name().clone()), entry);
 
                     self.start_parse_function_body();
@@ -444,9 +444,8 @@ impl PPECompiler {
                 cube_size: param.get_variable().get_cube_size(),
                 flags: 0,
             };
-            let mut entry = TableEntry::new(header, param.get_variable_type().create_empty_value());
+            let mut entry = TableEntry::new(header, param.get_variable_type().create_empty_value(), crate::executable::EntryType::Parameter);
             entry.set_name(param.get_variable().get_identifier().to_string());
-            entry.set_type(crate::executable::EntryType::Parameter);
             self.push_variable(param.get_variable().get_identifier().clone(), entry);
         }
     }
@@ -820,12 +819,11 @@ impl PPECompiler {
             cube_size: 0,
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, value.clone());
+        let mut entry = TableEntry::new(header, value.clone(), EntryType::Constant);
         entry.set_name(format!(
             "CONST_{}",
             self.const_lookup_table.len() + self.string_lookup_table.len() + 1
         ));
-        entry.set_type(EntryType::Constant);
         self.variable_table.push(entry);
         if let GenericVariableData::String(str) = value.generic_data {
             self.string_lookup_table.insert(str, id);

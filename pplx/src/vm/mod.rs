@@ -814,8 +814,6 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn execute_statement(&mut self, stmt: &PPECommand) -> Result<(), VMError> {
-        //crossterm::terminal::disable_raw_mode().unwrap();
-
         match stmt {
             PPECommand::End | PPECommand::Stop => {
                 self.is_running = false;

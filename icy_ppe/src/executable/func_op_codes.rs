@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 #[repr(i16)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
@@ -309,11 +307,6 @@ impl FuncOpCode {
     }
 }
 
-impl Display for FuncOpCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition {

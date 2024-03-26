@@ -58,19 +58,7 @@ impl Output {
 }
 
 impl ExecutionContext for Output {
-    /*
-        fn print(&mut self, terminal_target: TerminalTarget, str: &str) -> Res<()> {
-            if self.no_terminal(terminal_target) {
-                return Ok(());
-            }
-            let mut state = PcbState::Default;
-            disable_raw_mode().unwrap();
-            stdout().flush().unwrap();
-            //enable_raw_mode().unwrap();
 
-            Ok(())
-        }
-    */
     fn write_raw(&mut self, data: &[char]) -> Res<()> {
         disable_raw_mode().unwrap();
         for c in data {

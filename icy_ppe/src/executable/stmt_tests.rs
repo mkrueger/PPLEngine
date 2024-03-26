@@ -192,7 +192,6 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
                 ..Default::default()
             },
             entry_type: super::EntryType::Constant,
-            number: 0,
             function_id: 0,
         });
     }
@@ -219,7 +218,6 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
                 ..Default::default()
             },
             entry_type: super::EntryType::Constant,
-            number: 0,
             function_id: 0,
         });
     }
@@ -246,7 +244,6 @@ fn test_deserialize(expected: &PPECommand, script: &[i16]) {
                 ..Default::default()
             },
             entry_type: super::EntryType::Constant,
-            number: 0,
             function_id: 0,
         });
     }

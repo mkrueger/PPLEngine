@@ -595,7 +595,6 @@ pub fn optext(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> 
 }
 pub fn dispstr(vm: &mut VirtualMachine, params: &mut [VariableValue]) -> Res<()> {
     let value = params[0].as_string();
-    crossterm::terminal::disable_raw_mode().unwrap();
     vm.print(TerminalTarget::Both, &value)
 }
 

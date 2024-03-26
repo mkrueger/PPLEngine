@@ -1,6 +1,6 @@
 use icy_ppe::{ast::Ast, parser::lexer::Spanned};
 
-use crate::semantic::SemanticVisitor;
+use icy_ppe::semantic::SemanticVisitor;
 
 #[derive(Debug, Clone)]
 pub enum ReferenceSymbol {
@@ -19,7 +19,18 @@ pub fn get_reference(ast: &Ast, offset: usize, include_self: bool) -> Vec<Spanne
                     reference_list.push(decl.clone());
                 }
             }
-            for r in &refs.references {
+            if let Some(decl) = &refs.implementation {
+                if include_self || !decl.span.contains(&offset) {
+                    reference_list.push(decl.clone());
+                }
+            }
+            for r in &refs.usages {
+                if include_self || !r.span.contains(&offset) {
+                    reference_list.push(r.clone());
+                }
+            }
+
+            for r in &refs.return_types {
                 if include_self || !r.span.contains(&offset) {
                     reference_list.push(r.clone());
                 }

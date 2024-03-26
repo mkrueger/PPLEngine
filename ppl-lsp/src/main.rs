@@ -6,6 +6,7 @@ use i18n_embed_fl::fl;
 use icy_ppe::ast::{walk_function_declaration, walk_function_implementation, Ast, AstVisitor};
 use icy_ppe::executable::{OpCode, VariableType, LAST_PPLC};
 use icy_ppe::parser::{parse_ast, Encoding};
+use icy_ppe::semantic::SemanticVisitor;
 use ppl_language_server::completion::get_completion;
 use ppl_language_server::jump_definition::get_definition;
 use ppl_language_server::reference::get_reference;
@@ -417,12 +418,17 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         let uri = params.uri.to_string();
         self.document_map.insert(uri.clone(), rope.clone());
-        let (prg, errors) = parse_ast(PathBuf::from(uri), &params.text, Encoding::Utf8, LAST_PPLC);
-        let semantic_tokens = semantic_token_from_ast(&prg);
+        let (ast, errors) = parse_ast(PathBuf::from(uri), &params.text, Encoding::Utf8, LAST_PPLC);
+
+        let mut semantic_visitor = SemanticVisitor::new(LAST_PPLC, errors);
+
+        ast.visit(&mut semantic_visitor);
+
+        let semantic_tokens = semantic_token_from_ast(&ast);
 
         let mut diagnostics = Vec::new();
 
-        for err in &errors.lock().unwrap().errors {
+        for err in &semantic_visitor.errors.lock().unwrap().errors {
             let start_position =
                 offset_to_position(err.span.start, &rope).unwrap_or(Position::new(0, 0));
             let end_position =
@@ -434,7 +440,7 @@ impl Backend {
             diag.severity = Some(DiagnosticSeverity::ERROR);
             diagnostics.push(diag);
         }
-        for err in &errors.lock().unwrap().warnings {
+        for err in &semantic_visitor.errors.lock().unwrap().warnings {
             let start_position =
                 offset_to_position(err.span.start, &rope).unwrap_or(Position::new(0, 0));
             let end_position =
@@ -451,7 +457,7 @@ impl Backend {
             .publish_diagnostics(params.uri.clone(), diagnostics, Some(params.version))
             .await;
 
-        self.ast_map.insert(params.uri.to_string(), prg);
+        self.ast_map.insert(params.uri.to_string(), ast);
         // self.client
         //     .log_message(MessageType::INFO, &format!("{:?}", semantic_tokens))
         //     .await;

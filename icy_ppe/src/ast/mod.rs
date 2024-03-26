@@ -292,8 +292,8 @@ impl FunctionImplementation {
         &self.return_type_token
     }
 
-    pub fn get_return_type(&self) -> &VariableType {
-        &self.return_type
+    pub fn get_return_type(&self) -> VariableType {
+        self.return_type
     }
 
     pub fn get_statements(&self) -> &Vec<Statement> {

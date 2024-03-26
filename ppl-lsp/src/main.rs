@@ -519,7 +519,7 @@ impl AstVisitor<()> for TooltipVisitor {
 
     fn visit_function_implementation(&mut self, function: &icy_ppe::ast::FunctionImplementation) {
         if function.get_return_type_token().span.contains(&self.offset) {
-            self.tooltip = get_type_hover(*function.get_return_type());
+            self.tooltip = get_type_hover(function.get_return_type());
         }
 
         walk_function_implementation(self, function);

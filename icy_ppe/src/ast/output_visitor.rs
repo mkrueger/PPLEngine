@@ -560,7 +560,7 @@ impl AstVisitor<()> for OutputVisitor {
         self.eol();
     }
 
-    fn visit_program(&mut self, program: &super::Ast) {
+    fn visit_ast(&mut self, program: &super::Ast) {
         for stmt in &program.nodes {
             stmt.visit(self);
             self.eol();

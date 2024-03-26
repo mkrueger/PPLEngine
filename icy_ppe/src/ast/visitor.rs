@@ -150,7 +150,7 @@ pub trait AstVisitor<T: Default>: Sized {
         T::default()
     }
 
-    fn visit_program(&mut self, program: &Ast) -> T {
+    fn visit_ast(&mut self, program: &Ast) -> T {
         walk_program(self, program);
         T::default()
     }
@@ -708,7 +708,7 @@ pub trait AstVisitorMut: Sized {
                 .collect(),
             function.rightpar_token.clone(),
             function.get_return_type_token().clone(),
-            *function.get_return_type(),
+            function.get_return_type(),
             function
                 .get_statements()
                 .iter()
@@ -746,7 +746,7 @@ pub trait AstVisitorMut: Sized {
         ))
     }
 
-    fn visit_program(&mut self, program: &Ast) -> Ast {
+    fn visit_ast(&mut self, program: &Ast) -> Ast {
         let mut new_program = Ast::new();
         new_program.file_name = program.file_name.clone();
         for node in &program.nodes {

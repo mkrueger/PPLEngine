@@ -207,10 +207,15 @@ pub struct TableEntry {
 }
 
 impl TableEntry {
-    pub fn new(header: VarHeader, variable: VariableValue, entry_type: EntryType) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        header: VarHeader,
+        variable: VariableValue,
+        entry_type: EntryType,
+    ) -> Self {
         Self {
             header,
-            name: "Unnamed".to_string(),
+            name: name.into(),
             value: variable,
             function_id: 0,
             entry_type,
@@ -464,7 +469,7 @@ impl VariableTable {
                 }
             }
 
-            result[var_count as usize] = TableEntry::new(header, variable, entry_type);
+            result[var_count as usize] = TableEntry::new("", header, variable, entry_type);
             var_count -= 1;
         }
 

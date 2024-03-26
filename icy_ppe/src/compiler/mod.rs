@@ -26,22 +26,22 @@ pub mod tests;
 
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
+    #[error("Label already used ({0})")]
+    LabelAlreadyDefined(String),
+
+    #[error("Label not found ({0})")]
+    LabelNotFound(String),
+
+    #[error("Variable name already used ({0})")]
+    VariableAlreadyDefined(String),
+
     #[error("Variable not found ({0})")]
     VariableNotFound(String),
 
     #[error("Procedure not found ({0})")]
     ProcedureNotFound(String),
 
-    #[error("Label already used ({0})")]
-    LabelAlreadyDefined(String),
-
-    #[error("Label not found ({0})")]
-    UndefinedLabel(String),
-
-    #[error("Variable name already used ({0})")]
-    VariableAlreadyDefined(String),
-
-    #[error("Function {0} not found.")]
+    #[error("Function not found ({0})")]
     FunctionNotFound(String),
 
     #[error("SORT arguments should be one (1) dimensional arrays ({0})")]
@@ -58,6 +58,12 @@ pub enum CompilationErrorType {
 
     #[error("Missing FUNCTION/PROCEDURE definition. ({0})")]
     MissingImplementation(String),
+
+    #[error("FUNCTION return type does not match with declaration ({0})")]
+    ReturnTypeMismatch(String),
+
+    #[error("FUNCTION/PROCEDURE parameters not match with declaration ({0})")]
+    ParameterMismatch(String),
 }
 
 #[derive(Error, Debug)]
@@ -65,6 +71,7 @@ pub enum CompilationWarningType {
     #[error("Unused label {0}")]
     UnusedLabel(String),
 }
+
 pub struct PPECompiler {
     version: u16,
     variable_id: usize,
@@ -143,12 +150,12 @@ impl PPECompiler {
             cube_size,
             flags: 0,
         };
-        let mut entry = TableEntry::new(
+        let entry = TableEntry::new(
+            name.to_string(),
             header,
             variable_type.create_empty_value(),
             EntryType::Variable,
         );
-        entry.set_name(name.to_string());
         self.push_variable(name.clone(), entry);
     }
 
@@ -163,8 +170,7 @@ impl PPECompiler {
             cube_size: val.get_cube_size(),
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, val, EntryType::UserVariable);
-        entry.set_name(name.to_string());
+        let entry = TableEntry::new(name, header, val, EntryType::UserVariable);
         self.push_variable(unicase::Ascii::new(name.to_string()), entry);
     }
 
@@ -217,12 +223,12 @@ impl PPECompiler {
                         return_var: func.get_return_type() as i16,
                     };
 
-                    let mut entry = TableEntry::new(
+                    let entry = TableEntry::new(
+                        func.get_identifier().to_string(),
                         header,
                         VariableValue::new_function(value),
                         EntryType::Function,
                     );
-                    entry.set_name(func.get_identifier().to_string());
                     self.push_variable(func.get_identifier().clone(), entry);
                 }
                 AstNode::ProcedureDeclaration(proc) => {
@@ -255,12 +261,12 @@ impl PPECompiler {
                         pass_flags,
                     };
 
-                    let mut entry = TableEntry::new(
+                    let entry = TableEntry::new(
+                        proc.get_identifier().to_string(),
                         header,
                         VariableValue::new_procedure(value),
                         EntryType::Procedure,
                     );
-                    entry.set_name(proc.get_identifier().to_string());
                     self.push_variable(proc.get_identifier().clone(), entry);
                 }
                 AstNode::VariableDeclaration(stmt) => {
@@ -357,19 +363,19 @@ impl PPECompiler {
 
                     let header: VarHeader = VarHeader {
                         id,
-                        variable_type: *func.get_return_type(),
+                        variable_type: func.get_return_type(),
                         dim: 0,
                         vector_size: 0,
                         matrix_size: 0,
                         cube_size: 0,
                         flags: 0,
                     };
-                    let mut entry = TableEntry::new(
+                    let entry = TableEntry::new(
+                        format!("#{id} result"),
                         header,
                         func.get_return_type().create_empty_value(),
                         EntryType::FunctionResult,
                     );
-                    entry.set_name(format!("#{id} result"));
                     self.push_variable(Ascii::new(entry.get_name().clone()), entry);
 
                     func.get_statements().iter().for_each(|s| {
@@ -432,12 +438,12 @@ impl PPECompiler {
                 cube_size: param.get_variable().get_cube_size(),
                 flags: 0,
             };
-            let mut entry = TableEntry::new(
+            let entry = TableEntry::new(
+                param.get_variable().get_identifier().to_string(),
                 header,
                 param.get_variable_type().create_empty_value(),
                 crate::executable::EntryType::Parameter,
             );
-            entry.set_name(param.get_variable().get_identifier().to_string());
             self.push_variable(param.get_variable().get_identifier().clone(), entry);
         }
     }
@@ -654,11 +660,11 @@ impl PPECompiler {
             cube_size: 0,
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, value.clone(), EntryType::Constant);
-        entry.set_name(format!(
+        let name = format!(
             "CONST_{}",
             self.const_lookup_table.len() + self.string_lookup_table.len() + 1
-        ));
+        );
+        let entry = TableEntry::new(name, header, value.clone(), EntryType::Constant);
         self.variable_table.push(entry);
         if let GenericVariableData::String(str) = value.generic_data {
             self.string_lookup_table.insert(str, id);

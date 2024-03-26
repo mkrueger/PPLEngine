@@ -29,62 +29,69 @@ Decompiler is completely rewritten and can disassemble now on top of recompilati
 * It tries to do some name guessing based on variable usage.
 
 ```text
-Usage: ppld [OPTIONS] INPUT
+Usage: ppld <input> [--raw] [-d] [--output] [--style <style>]
 
-Arguments:
-  INPUT  file[.ppe] to decompile
+PCBoard Programming Language Decompiler
+
+Positional Arguments:
+  input             file[.ppe] to decompile
 
 Options:
-  -r, --raw            raw ppe without reconstruction control structures
-  -d, --disassemble    raw ppe without reconstruction control structures
-  -o, --output         output to console instead of writing to file
-  -s, --style STYLE  keyword casing style, valid values are u=upper (default), l=lower, c=camel
-  -h, --help           Print help
-  -V, --version        Print version
+  --raw             raw ppe without reconstruction control structures
+  -d, --disassemble output the disassembly instead of ppl
+  --output          output to console instead of writing to file
+  --style           keyword casing style, valid values are u=upper (default),
+                    l=lower, c=camel
+  --help            display usage information
 ```
 
 The dissamble output can be used to see what the compilers are generating and for debugging purposes.
 
 ### Compiler
 
-Supports up to15.4 PPL (1.0 -> 3.40 PPE format)
+Supports up to 15.4 PPL (1.0 -> 3.40 PPE format)
 
-Should be compatible to the old PCB compiler with some slight differences - I added some keywords which are not available as identifier (but as label):
-
-```text
-LET,
-IF, ELSE, ELSEIF,ENDIF,
-WHILE, ENDWHILE,
-FOR, NEXT, BREAK, CONTINUE, RETURN,
-GOSUB, GOTO,
-SELECT, CASE, DEFAULT, ENDSELECT
-```
-
-I think it improves the language and it's open for discussion. Note that some aliases like "quit" for the break keyword is not a keyword but is recognized as 'break' statement. I can change the status of a keyword so it's not a hard limit - as said "open for discussion".
+Should be compatible to the old PCB compiler with some slight differences (see PPL differences)
 
 The compiler automatically generates user variables, if needed but behavior can be changed with command line options. It does some optimizations so it should produce smaller & faster exectuables than the original one.
 
 pplc has following options:
 
 ```text
-Usage: pplc [OPTIONS] INPUT
-Arguments:
-  INPUT  file[.pps] to compile (extension defaults to .pps if not specified)
+Usage: pplc <input> [-d] [--nouvar] [--forceuvar] [--nowarnings] [--ppl-version <ppl-version>] [--dos]
+
+PCBoard Programming Language Compiler
+
+Positional Arguments:
+  input             file[.pps] to compile (extension defaults to .pps if not
+                    specified)
 
 Options:
-  -d, --disassemble                Output the disassembly instead of compiling
-      --nouvar                     Force no user variables
-      --forceuvar                  Force user variables
-      --nowarnings                 Don't report any warnings
-      --ppl-version PPL_VERSION    Version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
-      --dos                        Input file is CP437
-  -h, --help                       Print help
-  -V, --version                    Print version
+  -d, --disassemble output the disassembly instead of compiling
+  --nouvar          force no user variables
+  --forceuvar       force user variables
+  --nowarnings      don't report any warnings
+  --ppl-version     version number for the compiler, valid: 100, 200, 300, 310,
+                    330 (default), 340
+  --dos             input file is CP437
+  --help            display usage information
 
 As default the compiler takes UTF8 input - DOS special chars are translated to CP437 in the output.
 ```
 
 Note:  All old DOS files are usually CP437 - so it's recommended to use --dos for compiling these.
+
+#### PPL differences
+
+The aim is to be as compatible as possible.
+
+* Added keywords that are invalid as identifiers (but are ok for labels):
+  ```LET```, ```IF```, ```ELSE```, ```ELSEIF```, ```ENDIF```, ```WHILE```, ```ENDWHILE```, ```FOR```, ```NEXT```, ```BREAK```, ```CONTINUE```, ```RETURN```, ```GOSUB```, ```GOTO```, ```SELECT```, ```CASE```, ```DEFAULT```, ```ENDSELECT```
+
+I think it improves the language and it's open for discussion. Note that some aliases like "quit" for the break keyword is not a keyword but is recognized as 'break' statement. I can change the status of a keyword so it's not a hard limit - as said "open for discussion".
+
+* Added ```€``` as valid identifier character. (for UTF8 files)
+* Return type differences in function declaration/implementation is an error, original compiler didn't care.
 
 ### Runner
 
@@ -134,9 +141,3 @@ code .
 
 And run from inside vs code the project with F5. A new vs code opens with PPL support.
 (Still need to figure out how to plug in the lsp for other editors)
-
-## PPL differences
-
-The aim is to be as compatible as possible.
-
-* Added € as valid identifier character. (for UTF8 files)

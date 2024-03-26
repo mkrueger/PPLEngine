@@ -19,12 +19,12 @@ impl Ast {
     }
 
     pub fn visit<T: Default, V: AstVisitor<T>>(&self, visitor: &mut V) {
-        visitor.visit_program(self);
+        visitor.visit_ast(self);
     }
 
     #[must_use]
     pub fn visit_mut<V: AstVisitorMut>(&self, visitor: &mut V) -> Self {
-        visitor.visit_program(self)
+        visitor.visit_ast(self)
     }
 }
 

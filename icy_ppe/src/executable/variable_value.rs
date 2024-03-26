@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    ffi::c_short,
     fmt,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
@@ -1233,7 +1232,11 @@ impl VariableValue {
                     sword_value: self.as_int() as i16,
                 },
             ),
-            VariableType::BigStr => VariableValue::new_string(self.as_string()),
+            VariableType::BigStr => VariableValue {
+                vtype: VariableType::BigStr,
+                data: VariableData::default(),
+                generic_data: GenericVariableData::String(self.as_string()),
+            },
 
             VariableType::Float => VariableValue::new(
                 convert_to_type,

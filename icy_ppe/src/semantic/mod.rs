@@ -82,6 +82,21 @@ impl References {
     }
 }
 
+type NameTableLookup = HashMap<unicase::Ascii<String>, usize>;
+
+enum FunctionDeclaration {
+    Function(FunctionDeclarationAstNode),
+    Procedure(ProcedureDeclarationAstNode),
+}
+
+struct FunctionContainer {
+    pub id: unicase::Ascii<String>,
+    pub functions: FunctionDeclaration,
+
+    pub parameters: core::ops::Range<usize>,
+    pub local_variables: core::ops::Range<usize>,
+}
+
 #[derive(Default)]
 pub struct SemanticVisitor {
     version: u16,
@@ -94,12 +109,11 @@ pub struct SemanticVisitor {
 
     // labels
     label_count: usize,
-    label_lookup_table: HashMap<unicase::Ascii<String>, usize>,
+    label_lookup_table: NameTableLookup,
 
     // variables
-    local_lookup: bool,
-    variable_lookup: HashMap<unicase::Ascii<String>, usize>,
-    local_variable_lookup: HashMap<unicase::Ascii<String>, usize>,
+    variable_lookup: NameTableLookup,
+    local_variable_lookup: Option<NameTableLookup>,
 
     // constants
     constant_start_id: usize,
@@ -107,9 +121,7 @@ pub struct SemanticVisitor {
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 
-    procedures: usize,
-
-    functions: usize,
+    function_containers: Vec<FunctionContainer>,
 }
 
 impl SemanticVisitor {
@@ -123,12 +135,10 @@ impl SemanticVisitor {
             label_lookup_table: HashMap::new(),
             expression_lookup: HashMap::new(),
 
-            local_lookup: false,
             variable_lookup: HashMap::new(),
-            local_variable_lookup: HashMap::new(),
+            local_variable_lookup: None,
             require_user_variables: false,
-            procedures: 0,
-            functions: 0,
+            function_containers: Vec::new(),
 
             constant_start_id: 0,
             constants: Vec::new(),
@@ -168,9 +178,12 @@ impl SemanticVisitor {
                         cube_size: user_var.value.get_cube_size(),
                         flags: 0,
                     };
-                    let mut entry =
-                        TableEntry::new(header, user_var.value.clone(), EntryType::UserVariable);
-                    entry.set_name(user_var.name.to_string());
+                    let entry = TableEntry::new(
+                        user_var.name,
+                        header,
+                        user_var.value.clone(),
+                        EntryType::UserVariable,
+                    );
                     res.push(entry);
                 } else {
                     break;
@@ -195,12 +208,12 @@ impl SemanticVisitor {
             let mut header = r.header.as_ref().unwrap().clone();
             header.id = id;
 
-            let mut entry = TableEntry::new(
+            let entry = TableEntry::new(
+                r.declaration.as_ref().unwrap().token.to_string(),
                 header,
                 r.variable_type.create_empty_value(),
                 EntryType::Variable,
             );
-            entry.set_name(r.declaration.as_ref().unwrap().token.clone());
             res.push(entry);
         }
 
@@ -237,8 +250,12 @@ impl SemanticVisitor {
             cube_size: 0,
             flags: 0,
         };
-        let mut entry = TableEntry::new(header, value.clone(), EntryType::Constant);
-        entry.set_name(format!("CONST_{}", id + 1));
+        let entry = TableEntry::new(
+            format!("CONST_{}", id + 1),
+            header,
+            value.clone(),
+            EntryType::Constant,
+        );
         self.constants.push(entry);
         if let GenericVariableData::String(str) = value.generic_data {
             self.string_lookup_table.insert(str, id);
@@ -397,19 +414,16 @@ impl SemanticVisitor {
     }
 
     fn start_parse_function_body(&mut self) {
-        self.label_lookup_table.clear();
-        self.local_variable_lookup.clear();
-        self.local_lookup = true;
+        self.local_variable_lookup = Some(HashMap::new());
     }
 
-    fn end_parse_function_body(&mut self) {
-        self.local_variable_lookup.clear();
-        self.local_lookup = false;
+    fn end_parse_function_body(&mut self) -> Option<NameTableLookup> {
+        self.local_variable_lookup.take()
     }
 
     fn has_variable_defined(&self, id: &unicase::Ascii<String>) -> bool {
-        if self.local_lookup {
-            return self.local_variable_lookup.contains_key(id);
+        if let Some(local_lookup) = &self.local_variable_lookup {
+            return local_lookup.contains_key(id);
         }
         self.variable_lookup.contains_key(id)
     }
@@ -464,9 +478,9 @@ impl SemanticVisitor {
             flags: 0,
         };
         self.references.last_mut().unwrap().1.header = Some(header);
-        if self.local_lookup {
-            self.local_variable_lookup
-                .insert(unicase::Ascii::new(identifier.token.to_string()), id);
+
+        if let Some(local_lookup) = &mut self.local_variable_lookup {
+            local_lookup.insert(unicase::Ascii::new(identifier.token.to_string()), id);
         } else {
             self.variable_lookup
                 .insert(unicase::Ascii::new(identifier.token.to_string()), id);
@@ -474,8 +488,8 @@ impl SemanticVisitor {
     }
 
     fn lookup_variable(&mut self, id: &unicase::Ascii<String>) -> Option<usize> {
-        if self.local_lookup {
-            if let Some(idx) = self.local_variable_lookup.get(id) {
+        if let Some(local_lookup) = &self.local_variable_lookup {
+            if let Some(idx) = local_lookup.get(id) {
                 return Some(*idx);
             }
         }
@@ -502,7 +516,8 @@ impl SemanticVisitor {
                 param.get_variable_type(),
                 param.get_variable().get_identifier_token(),
             );
-            self.local_variable_lookup.insert(
+
+            self.local_variable_lookup.as_mut().unwrap().insert(
                 unicase::Ascii::new(param.get_variable().get_identifier().to_string()),
                 id,
             );
@@ -877,11 +892,17 @@ impl AstVisitor<()> for SemanticVisitor {
         self.variable_lookup
             .insert(proc_decl.get_identifier().clone(), self.references.len());
         self.add_declaration(
-            ReferenceType::Procedure(self.procedures),
+            ReferenceType::Procedure(self.function_containers.len()),
             VariableType::Procedure,
             proc_decl.get_identifier_token(),
         );
-        self.procedures += 1;
+
+        self.function_containers.push(FunctionContainer {
+            id: proc_decl.get_identifier().clone(),
+            functions: FunctionDeclaration::Procedure(proc_decl.clone()),
+            parameters: 0..0,
+            local_variables: 0..0,
+        });
     }
 
     fn visit_function_declaration(&mut self, func_decl: &FunctionDeclarationAstNode) {
@@ -897,11 +918,16 @@ impl AstVisitor<()> for SemanticVisitor {
         self.variable_lookup
             .insert(func_decl.get_identifier().clone(), self.references.len());
         self.add_declaration(
-            ReferenceType::Function(self.functions),
+            ReferenceType::Function(self.function_containers.len()),
             VariableType::Function,
             func_decl.get_identifier_token(),
         );
-        self.functions += 1;
+        self.function_containers.push(FunctionContainer {
+            id: func_decl.get_identifier().clone(),
+            functions: FunctionDeclaration::Function(func_decl.clone()),
+            parameters: 0..0,
+            local_variables: 0..0,
+        });
     }
 
     fn visit_function_implementation(&mut self, function: &FunctionImplementation) {
@@ -920,9 +946,41 @@ impl AstVisitor<()> for SemanticVisitor {
         }
 
         self.start_parse_function_body();
+        let start_parameter = self.references.len();
         self.add_parameters(function.get_parameters());
+        let end_parameter = self.references.len();
+
+        let start_locals = self.references.len();
         walk_function_implementation(self, function);
+        let end_locals = self.references.len();
         self.end_parse_function_body();
+
+        for f in &mut self.function_containers {
+            if f.id == function.get_identifier() {
+                if let FunctionDeclaration::Function(decl) = &f.functions {
+                    if decl.get_return_type() != function.get_return_type() {
+                        self.errors.lock().unwrap().report_error(
+                            function.get_return_type_token().span.clone(),
+                            CompilationErrorType::ReturnTypeMismatch(
+                                function.get_identifier().to_string(),
+                            ),
+                        );
+                    }
+
+                    if decl.get_parameters().len() != function.get_parameters().len() {
+                        self.errors.lock().unwrap().report_error(
+                            function.get_identifier_token().span.clone(),
+                            CompilationErrorType::ParameterMismatch(
+                                function.get_identifier().to_string(),
+                            ),
+                        );
+                    }
+                }
+                f.parameters = start_parameter..end_parameter;
+                f.local_variables = start_locals..end_locals;
+                break;
+            }
+        }
     }
 
     fn visit_procedure_implementation(&mut self, procedure: &ProcedureImplementation) {
@@ -941,12 +999,35 @@ impl AstVisitor<()> for SemanticVisitor {
         }
 
         self.start_parse_function_body();
+        let start_parameter = self.references.len();
         self.add_parameters(procedure.get_parameters());
+        let end_parameter = self.references.len();
+        let start_locals = self.references.len();
         walk_procedure_implementation(self, procedure);
+        let end_locals = self.references.len();
         self.end_parse_function_body();
+
+        for f in &mut self.function_containers {
+            if f.id == procedure.get_identifier() {
+                if let FunctionDeclaration::Procedure(decl) = &f.functions {
+                    if decl.get_parameters().len() != procedure.get_parameters().len() {
+                        self.errors.lock().unwrap().report_error(
+                            procedure.get_identifier_token().span.clone(),
+                            CompilationErrorType::ParameterMismatch(
+                                procedure.get_identifier().to_string(),
+                            ),
+                        );
+                    }
+                }
+
+                f.parameters = start_parameter..end_parameter;
+                f.local_variables = start_locals..end_locals;
+                break;
+            }
+        }
     }
 
-    fn visit_program(&mut self, program: &crate::ast::Ast) {
+    fn visit_ast(&mut self, program: &crate::ast::Ast) {
         for node in &program.nodes {
             match node {
                 crate::ast::AstNode::Function(_) | crate::ast::AstNode::Procedure(_) => {}
@@ -965,8 +1046,16 @@ impl AstVisitor<()> for SemanticVisitor {
             }
         }
 
-        for (_i, r) in &mut self.references.iter() {
+        for (rt, r) in &mut self.references.iter() {
             let Some(decl) = &r.declaration else {
+                if matches!(rt, ReferenceType::Label(_)) {
+                    self.errors.lock().unwrap().report_error(
+                        r.usages.first().unwrap().span.clone(),
+                        CompilationErrorType::LabelNotFound(
+                            r.usages.first().unwrap().token.to_string(),
+                        ),
+                    );
+                }
                 continue;
             };
 

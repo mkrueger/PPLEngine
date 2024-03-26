@@ -16,8 +16,9 @@ use crate::{
     },
     compiler::CompilationErrorType,
     executable::{
-        EntryType, FuncOpCode, GenericVariableData, OpCode, TableEntry, VarHeader, VariableTable,
-        VariableType, VariableValue, USER_VARIABLES,
+        EntryType, FuncOpCode, FunctionValue, GenericVariableData, OpCode, ProcedureValue,
+        TableEntry, VarHeader, VariableData, VariableTable, VariableType, VariableValue,
+        USER_VARIABLES,
     },
     parser::{
         self,
@@ -51,8 +52,6 @@ pub struct References {
     pub return_types: Vec<Spanned<String>>,
 
     pub usages: Vec<Spanned<String>>,
-
-    pub table_id: usize,
 }
 
 impl References {
@@ -80,6 +79,17 @@ impl References {
             false
         }
     }
+
+    fn create_table_entry(&self) -> TableEntry {
+        let header = self.header.as_ref().unwrap().clone();
+
+        TableEntry::new(
+            self.declaration.as_ref().unwrap().token.to_string(),
+            header,
+            self.variable_type.create_empty_value(),
+            EntryType::Variable,
+        )
+    }
 }
 
 type NameTableLookup = HashMap<unicase::Ascii<String>, usize>;
@@ -90,7 +100,8 @@ enum FunctionDeclaration {
 }
 
 struct FunctionContainer {
-    pub id: unicase::Ascii<String>,
+    pub name: unicase::Ascii<String>,
+    pub id: usize,
     pub functions: FunctionDeclaration,
 
     pub parameters: core::ops::Range<usize>,
@@ -116,12 +127,53 @@ pub struct SemanticVisitor {
     local_variable_lookup: Option<NameTableLookup>,
 
     // constants
-    constant_start_id: usize,
     constants: Vec<TableEntry>,
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 
     function_containers: Vec<FunctionContainer>,
+}
+
+#[derive(Default)]
+pub struct LookupVariabeleTable {
+    pub variable_table: VariableTable,
+    variable_lookup: NameTableLookup,
+
+    local_variable_lookup: Option<NameTableLookup>,
+    local_lookups: HashMap<unicase::Ascii<String>, NameTableLookup>,
+
+    const_start: usize,
+    const_lookup_table: HashMap<(VariableType, u64), usize>,
+    string_lookup_table: HashMap<String, usize>,
+}
+
+impl LookupVariabeleTable {
+    pub fn push(&mut self, mut entry: TableEntry) {
+        entry.header.id = self.variable_table.len() + 1;
+
+        let name = unicase::Ascii::new(entry.name.clone());
+        self.variable_lookup.insert(name, self.variable_table.len());
+        self.variable_table.push(entry);
+    }
+
+    pub fn start_constants(
+        &mut self,
+        const_lookup_table: HashMap<(VariableType, u64), usize>,
+        string_lookup_table: HashMap<String, usize>,
+    ) {
+        self.const_start = self.variable_table.len();
+        self.const_lookup_table = const_lookup_table;
+        self.string_lookup_table = string_lookup_table;
+    }
+
+    fn start_define_function_body(&mut self) {
+        self.local_variable_lookup = Some(HashMap::new());
+    }
+
+    fn end_define_function_body(&mut self, function: unicase::Ascii<String>) {
+        self.local_lookups
+            .insert(function, self.local_variable_lookup.take().unwrap());
+    }
 }
 
 impl SemanticVisitor {
@@ -140,7 +192,6 @@ impl SemanticVisitor {
             require_user_variables: false,
             function_containers: Vec::new(),
 
-            constant_start_id: 0,
             constants: Vec::new(),
             const_lookup_table: HashMap::new(),
             string_lookup_table: HashMap::new(),
@@ -160,17 +211,14 @@ impl SemanticVisitor {
     /// # Panics
     ///
     /// Panics if .
-    pub fn generate_variable_table(&mut self) -> VariableTable {
-        let mut res = VariableTable::default();
-        let mut id = 0;
+    pub fn generate_variable_table(&mut self) -> LookupVariabeleTable {
+        let mut variable_table = LookupVariabeleTable::default();
+
         if self.require_user_variables {
             for user_var in USER_VARIABLES.iter() {
                 if user_var.version <= self.version {
-                    self.references[id].1.table_id = id;
-                    id += 1;
-
                     let header = VarHeader {
-                        id,
+                        id: 0,
                         variable_type: user_var.value.get_type(),
                         dim: user_var.value.get_dimensions(),
                         vector_size: user_var.value.get_vector_size(),
@@ -184,14 +232,14 @@ impl SemanticVisitor {
                         user_var.value.clone(),
                         EntryType::UserVariable,
                     );
-                    res.push(entry);
+                    variable_table.push(entry);
                 } else {
                     break;
                 }
             }
         }
 
-        let start = id;
+        let start = variable_table.variable_table.len() + 1;
         for i in 0..self.variable_lookup.len() {
             let (rt, r) = &mut self.references[start + i];
             if matches!(rt, ReferenceType::Function(_)) || matches!(rt, ReferenceType::Procedure(_))
@@ -202,27 +250,117 @@ impl SemanticVisitor {
             if r.usages.is_empty() {
                 continue;
             }
-            id += 1;
-            r.table_id = id;
-
-            let mut header = r.header.as_ref().unwrap().clone();
-            header.id = id;
-
-            let entry = TableEntry::new(
-                r.declaration.as_ref().unwrap().token.to_string(),
-                header,
-                r.variable_type.create_empty_value(),
-                EntryType::Variable,
-            );
-            res.push(entry);
+            variable_table.push(r.create_table_entry());
         }
 
-        self.constant_start_id = id;
+        for f in &self.function_containers {
+            let (_rt, r) = &mut self.references[f.id];
+            if r.usages.is_empty() {
+                continue;
+            }
+            let id = variable_table.variable_table.len() + 2;
 
+            if let FunctionDeclaration::Function(_func) = &f.functions {
+                let header = VarHeader {
+                    id: 0,
+                    dim: 0,
+                    vector_size: 0,
+                    matrix_size: 0,
+                    cube_size: 0,
+                    variable_type: VariableType::Function,
+                    flags: 0,
+                };
+                let function_value = FunctionValue {
+                    parameters: f.parameters.len() as u8,
+                    local_variables: f.local_variables.len() as u8 + 1,
+                    start_offset: 0,
+                    first_var_id: id as i16,
+                    return_var: (id + f.parameters.len() + f.local_variables.len()) as i16,
+                };
+                variable_table.push(TableEntry::new(
+                    f.name.to_string(),
+                    header,
+                    VariableValue {
+                        vtype: VariableType::Function,
+                        data: VariableData { function_value },
+                        generic_data: GenericVariableData::None,
+                    },
+                    EntryType::Variable,
+                ));
+            } else if let FunctionDeclaration::Procedure(proc) = &f.functions {
+                let header = VarHeader {
+                    id: 0,
+                    dim: 0,
+                    vector_size: 0,
+                    matrix_size: 0,
+                    cube_size: 0,
+                    variable_type: VariableType::Procedure,
+                    flags: 0,
+                };
+                let id = variable_table.variable_table.len() + 2;
+                let procedure_value = ProcedureValue {
+                    parameters: f.parameters.len() as u8,
+                    local_variables: f.local_variables.len() as u8 + 1,
+                    start_offset: 0,
+                    first_var_id: id as i16,
+                    pass_flags: proc.get_pass_flags(),
+                };
+                variable_table.push(TableEntry::new(
+                    f.name.to_string(),
+                    header,
+                    VariableValue {
+                        vtype: VariableType::Procedure,
+                        data: VariableData { procedure_value },
+                        generic_data: GenericVariableData::None,
+                    },
+                    EntryType::Variable,
+                ));
+            }
+
+            variable_table.start_define_function_body();
+
+            for f in f.local_variables.clone() {
+                let (_rt, r) = &mut self.references[f];
+                variable_table.push(r.create_table_entry());
+            }
+            for f in f.parameters.clone() {
+                let (_rt, r) = &mut self.references[f];
+                let mut h = r.create_table_entry();
+                h.entry_type = EntryType::Parameter;
+                variable_table.push(h);
+            }
+
+            if let FunctionDeclaration::Function(f) = &f.functions {
+                let return_type = f.get_return_type();
+                let header = VarHeader {
+                    id,
+                    dim: 0,
+                    vector_size: 0,
+                    matrix_size: 0,
+                    cube_size: 0,
+                    variable_type: return_type,
+                    flags: 0,
+                };
+                variable_table.push(TableEntry::new(
+                    format!("{} result", f.get_identifier()),
+                    header,
+                    return_type.create_empty_value(),
+                    EntryType::Variable,
+                ));
+                variable_table.end_define_function_body(f.get_identifier().clone());
+            } else if let FunctionDeclaration::Procedure(proc) = &f.functions {
+                variable_table.end_define_function_body(proc.get_identifier().clone());
+            }
+        }
+
+        variable_table.start_constants(
+            self.const_lookup_table.clone(),
+            self.string_lookup_table.clone(),
+        );
         for c in &self.constants {
-            res.push(c.clone());
+            variable_table.push(c.clone());
         }
-        res
+        variable_table
     }
 
     fn add_constant(&mut self, constant: &Constant) -> usize {
@@ -288,7 +426,6 @@ impl SemanticVisitor {
                     identifier_token.span.clone(),
                 )),
                 usages: vec![],
-                table_id: 0,
             },
         ));
     }
@@ -326,7 +463,6 @@ impl SemanticVisitor {
                     identifier_token.token.to_string(),
                     identifier_token.span.clone(),
                 )],
-                table_id: 0,
             },
         ));
     }
@@ -408,7 +544,6 @@ impl SemanticVisitor {
                     label_token.span.clone(),
                 )),
                 usages: vec![],
-                table_id: 0,
             },
         ));
     }
@@ -449,7 +584,6 @@ impl SemanticVisitor {
                 implementation: None,
                 return_types: vec![],
                 usages: vec![],
-                table_id: 0,
             },
         ));
         self.variable_lookup
@@ -754,7 +888,7 @@ impl AstVisitor<()> for SemanticVisitor {
                     let f = self
                         .function_containers
                         .iter()
-                        .find(|p| p.id == call.get_identifier())
+                        .find(|p| p.name == call.get_identifier())
                         .unwrap();
                     if let FunctionDeclaration::Function(f) = &f.functions {
                         f.get_parameters().len()
@@ -865,7 +999,7 @@ impl AstVisitor<()> for SemanticVisitor {
                 let f = self
                     .function_containers
                     .iter()
-                    .find(|p| p.id == call.get_identifier())
+                    .find(|p| p.name == call.get_identifier())
                     .unwrap();
                 if let FunctionDeclaration::Function(f) = &f.functions {
                     self.check_arg_count(
@@ -883,7 +1017,7 @@ impl AstVisitor<()> for SemanticVisitor {
                 let func_container = self
                     .function_containers
                     .iter()
-                    .find(|p| p.id == call.get_identifier())
+                    .find(|p| p.name == call.get_identifier())
                     .unwrap();
 
                 if let FunctionDeclaration::Procedure(f) = &func_container.functions {
@@ -891,17 +1025,11 @@ impl AstVisitor<()> for SemanticVisitor {
                     let par_len = f.get_parameters().len();
 
                     let arg_count = arg_count.min(par_len);
-                    let mut mask = 0;
-                    for i in 0..arg_count {
-                        let v = f.get_parameters()[i].is_var();
-                        if v {
-                            mask |= 1 << i;
-                        }
-                    }
+                    let pass_flags = f.get_pass_flags();
                     self.check_arg_count(par_len, arg_count, call.get_identifier_token());
 
                     for i in 0..arg_count {
-                        if mask & (1 << i) != 0 {
+                        if pass_flags & (1 << i) != 0 {
                             self.check_argument_is_variable(i, &call.get_arguments()[i]);
                         }
                     }
@@ -932,8 +1060,9 @@ impl AstVisitor<()> for SemanticVisitor {
             );
             return;
         }
+        let id = self.references.len();
         self.variable_lookup
-            .insert(proc_decl.get_identifier().clone(), self.references.len());
+            .insert(proc_decl.get_identifier().clone(), id);
         self.add_declaration(
             ReferenceType::Procedure(self.function_containers.len()),
             VariableType::Procedure,
@@ -941,7 +1070,8 @@ impl AstVisitor<()> for SemanticVisitor {
         );
 
         self.function_containers.push(FunctionContainer {
-            id: proc_decl.get_identifier().clone(),
+            name: proc_decl.get_identifier().clone(),
+            id,
             functions: FunctionDeclaration::Procedure(proc_decl.clone()),
             parameters: 0..0,
             local_variables: 0..0,
@@ -958,15 +1088,17 @@ impl AstVisitor<()> for SemanticVisitor {
             );
             return;
         }
+        let id = self.references.len();
         self.variable_lookup
-            .insert(func_decl.get_identifier().clone(), self.references.len());
+            .insert(func_decl.get_identifier().clone(), id);
         self.add_declaration(
             ReferenceType::Function(self.function_containers.len()),
             VariableType::Function,
             func_decl.get_identifier_token(),
         );
         self.function_containers.push(FunctionContainer {
-            id: func_decl.get_identifier().clone(),
+            name: func_decl.get_identifier().clone(),
+            id,
             functions: FunctionDeclaration::Function(func_decl.clone()),
             parameters: 0..0,
             local_variables: 0..0,
@@ -999,7 +1131,7 @@ impl AstVisitor<()> for SemanticVisitor {
         self.end_parse_function_body();
 
         for f in &mut self.function_containers {
-            if f.id == function.get_identifier() {
+            if f.name == function.get_identifier() {
                 if let FunctionDeclaration::Function(decl) = &f.functions {
                     if decl.get_return_type() != function.get_return_type() {
                         self.errors.lock().unwrap().report_error(
@@ -1051,7 +1183,7 @@ impl AstVisitor<()> for SemanticVisitor {
         self.end_parse_function_body();
 
         for f in &mut self.function_containers {
-            if f.id == procedure.get_identifier() {
+            if f.name == procedure.get_identifier() {
                 if let FunctionDeclaration::Procedure(decl) = &f.functions {
                     if decl.get_parameters().len() != procedure.get_parameters().len() {
                         self.errors.lock().unwrap().report_error(
@@ -1109,6 +1241,12 @@ impl AstVisitor<()> for SemanticVisitor {
                     self.errors.lock().unwrap().report_error(
                         decl.span.clone(),
                         CompilationErrorType::MissingImplementation(decl.token.to_string()),
+                    );
+                }
+                if r.usages.is_empty() {
+                    self.errors.lock().unwrap().report_warning(
+                        decl.span.clone(),
+                        CompilationErrorType::UnusedFunction(decl.token.to_string()),
                     );
                 }
             } else if r.usages.is_empty() {

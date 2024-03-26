@@ -56,6 +56,9 @@ pub enum CompilationErrorType {
     #[error("Unused variable ({0})")]
     UnusedVariable(String),
 
+    #[error("Unused FUNCTION/PROCEDURE ({0})")]
+    UnusedFunction(String),
+
     #[error("Missing FUNCTION/PROCEDURE definition. ({0})")]
     MissingImplementation(String),
 

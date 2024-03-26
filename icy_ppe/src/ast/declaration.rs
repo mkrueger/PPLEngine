@@ -435,6 +435,16 @@ impl ProcedureDeclarationAstNode {
         &self.rightpar_token
     }
 
+    pub fn get_pass_flags(&self) -> u16 {
+        let mut flags = 0;
+        for param in &self.parameters {
+            if param.is_var() {
+                flags |= 1;
+            }
+        }
+        flags
+    }
+
     pub fn empty_node(
         identifier: unicase::Ascii<String>,
         parameters: Vec<ParameterSpecifier>,

@@ -509,22 +509,23 @@ impl SemanticVisitor {
         }
     }
 
-    fn check_argument_is_variable(&mut self, arg: usize, v: &Expression) -> bool {
+    fn check_argument_is_variable(&mut self, arg: usize, v: &Expression) {
         // that the identifier/dim is in the vtable is checked in argument evaluation
         if let Expression::Identifier(_) = v {
-            return true;
+            return;
         }
         if let Expression::FunctionCall(a) = v {
             if let Some(idx) = self.lookup_variable(a.get_identifier()) {
                 let (rt, _) = &mut self.references[idx];
-                return matches!(rt, ReferenceType::Variable(_));
+                if matches!(rt, ReferenceType::Variable(_)) {
+                    return;
+                }
             }
         }
         self.errors.lock().unwrap().report_error(
             v.get_span().clone(),
             CompilationErrorType::VariableExpected(arg + 1),
         );
-        false
     }
 
     fn check_arg_count(
@@ -532,8 +533,8 @@ impl SemanticVisitor {
         arg_count_expected: usize,
         arg_count: usize,
         identifier_token: &Spanned<Token>,
-    ) -> bool {
-        if arg_count_expected < arg_count {
+    ) {
+        if arg_count < arg_count_expected {
             self.errors.lock().unwrap().report_error(
                 identifier_token.span.clone(),
                 ParserErrorType::TooFewArguments(
@@ -542,9 +543,8 @@ impl SemanticVisitor {
                     arg_count_expected as i8,
                 ),
             );
-            return false;
         }
-        if arg_count_expected > arg_count {
+        if arg_count > arg_count_expected {
             self.errors.lock().unwrap().report_error(
                 identifier_token.span.clone(),
                 ParserErrorType::TooManyArguments(
@@ -553,9 +553,7 @@ impl SemanticVisitor {
                     arg_count_expected as i8,
                 ),
             );
-            return false;
         }
-        true
     }
 }
 
@@ -621,54 +619,48 @@ impl AstVisitor<()> for SemanticVisitor {
         match def.sig {
             crate::executable::StatementSignature::Invalid => panic!("Invalid signature"),
             crate::executable::StatementSignature::ArgumentsWithVariable(v, arg_count) => {
-                if !self.check_arg_count(
+                self.check_arg_count(
                     arg_count,
                     call_stmt.get_arguments().len(),
                     call_stmt.get_identifier_token(),
-                ) {
-                    return;
-                }
-                if v > 0
-                    && !self.check_argument_is_variable(v - 1, &call_stmt.get_arguments()[v - 1])
-                {
-                    return;
+                );
+
+                if v > 0 {
+                    self.check_argument_is_variable(v - 1, &call_stmt.get_arguments()[v - 1]);
                 }
             }
             crate::executable::StatementSignature::VariableArguments(_) => {}
             crate::executable::StatementSignature::SpecialCaseDlockg => {
-                if !self.check_arg_count(
+                self.check_arg_count(
                     3,
                     call_stmt.get_arguments().len(),
                     call_stmt.get_identifier_token(),
-                ) {
-                    return;
-                }
-                if !self.check_argument_is_variable(2, &call_stmt.get_arguments()[2]) {
-                    return;
+                );
+                if call_stmt.get_arguments().len() >= 3 {
+                    self.check_argument_is_variable(2, &call_stmt.get_arguments()[2]);
                 }
             }
             crate::executable::StatementSignature::SpecialCaseDcreate => {
-                if !self.check_arg_count(
+                self.check_arg_count(
                     4,
                     call_stmt.get_arguments().len(),
                     call_stmt.get_identifier_token(),
-                ) {
-                    return;
-                }
-                if !self.check_argument_is_variable(3, &call_stmt.get_arguments()[3]) {
-                    return;
+                );
+                if call_stmt.get_arguments().len() >= 4 {
+                    self.check_argument_is_variable(3, &call_stmt.get_arguments()[3]);
                 }
             }
             crate::executable::StatementSignature::SpecialCaseSort => {
-                if !self.check_arg_count(
+                self.check_arg_count(
                     2,
                     call_stmt.get_arguments().len(),
                     call_stmt.get_identifier_token(),
-                ) {
-                    return;
-                }
+                );
 
                 for i in 0..=1 {
+                    if call_stmt.get_arguments().len() <= i {
+                        break;
+                    }
                     if let Expression::Identifier(a) = &call_stmt.get_arguments()[i] {
                         if let Some(idx) = self.lookup_variable(a.get_identifier()) {
                             let (_rt, r) = &mut self.references[idx];
@@ -680,7 +672,6 @@ impl AstVisitor<()> for SemanticVisitor {
                                             header.dim,
                                         ),
                                     );
-                                    return;
                                 }
                             }
                         } else {
@@ -698,24 +689,19 @@ impl AstVisitor<()> for SemanticVisitor {
                 }
             }
             crate::executable::StatementSignature::SpecialCaseVarSeg => {
-                if !self.check_arg_count(
+                self.check_arg_count(
                     2,
                     call_stmt.get_arguments().len(),
                     call_stmt.get_identifier_token(),
-                ) {
-                    return;
-                }
+                );
+
                 for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
-                    if !self.check_argument_is_variable(v, arg) {
-                        return;
-                    }
+                    self.check_argument_is_variable(v, arg);
                 }
             }
             crate::executable::StatementSignature::SpecialCasePop => {
                 for (v, arg) in call_stmt.get_arguments().iter().enumerate() {
-                    if !self.check_argument_is_variable(v, arg) {
-                        return;
-                    }
+                    self.check_argument_is_variable(v, arg);
                 }
             }
         }

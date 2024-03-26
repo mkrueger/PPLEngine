@@ -516,6 +516,15 @@ impl SemanticVisitor {
                 param.get_variable_type(),
                 param.get_variable().get_identifier_token(),
             );
+            self.references[id].1.header = Some(VarHeader {
+                id,
+                variable_type: param.get_variable_type(),
+                dim: 0,
+                vector_size: 0,
+                matrix_size: 0,
+                cube_size: 0,
+                flags: 0,
+            });
 
             self.local_variable_lookup.as_mut().unwrap().insert(
                 unicase::Ascii::new(param.get_variable().get_identifier().to_string()),
@@ -524,12 +533,12 @@ impl SemanticVisitor {
         }
     }
 
-    fn check_argument_is_variable(&mut self, arg: usize, v: &Expression) {
+    fn check_argument_is_variable(&mut self, arg_num: usize, expr: &Expression) {
         // that the identifier/dim is in the vtable is checked in argument evaluation
-        if let Expression::Identifier(_) = v {
+        if let Expression::Identifier(_) = expr {
             return;
         }
-        if let Expression::FunctionCall(a) = v {
+        if let Expression::FunctionCall(a) = expr {
             if let Some(idx) = self.lookup_variable(a.get_identifier()) {
                 let (rt, _) = &mut self.references[idx];
                 if matches!(rt, ReferenceType::Variable(_)) {
@@ -538,8 +547,8 @@ impl SemanticVisitor {
             }
         }
         self.errors.lock().unwrap().report_error(
-            v.get_span().clone(),
-            CompilationErrorType::VariableExpected(arg + 1),
+            expr.get_span().clone(),
+            CompilationErrorType::VariableExpected(arg_num + 1),
         );
     }
 
@@ -742,11 +751,16 @@ impl AstVisitor<()> for SemanticVisitor {
                 arg_count = if let Some(header) = &r.header {
                     header.dim as usize
                 } else {
-                    self.errors.lock().unwrap().report_error(
-                        call.get_identifier_token().span.clone(),
-                        CompilationErrorType::FunctionNotFound(call.get_identifier().to_string()),
-                    );
-                    0
+                    let f = self
+                        .function_containers
+                        .iter()
+                        .find(|p| p.id == call.get_identifier())
+                        .unwrap();
+                    if let FunctionDeclaration::Function(f) = &f.functions {
+                        f.get_parameters().len()
+                    } else {
+                        0
+                    }
                 };
                 r.usages.push(Spanned::new(
                     call.get_identifier().to_string(),
@@ -842,27 +856,56 @@ impl AstVisitor<()> for SemanticVisitor {
     fn visit_procedure_call_statement(&mut self, call: &ProcedureCallStatement) {
         let mut found = false;
         if let Some(idx) = self.lookup_variable(call.get_identifier()) {
-            if matches!(self.references[idx].0, ReferenceType::Function(_))
-                || matches!(self.references[idx].0, ReferenceType::Variable(_))
-            {
+            if matches!(self.references[idx].0, ReferenceType::Variable(_)) {
+                self.add_reference_to(call.get_identifier_token(), idx);
+                found = true;
+            }
+
+            if matches!(self.references[idx].0, ReferenceType::Function(_)) {
+                let f = self
+                    .function_containers
+                    .iter()
+                    .find(|p| p.id == call.get_identifier())
+                    .unwrap();
+                if let FunctionDeclaration::Function(f) = &f.functions {
+                    self.check_arg_count(
+                        f.get_parameters().len(),
+                        call.get_arguments().len(),
+                        call.get_identifier_token(),
+                    );
+                }
+
                 self.add_reference_to(call.get_identifier_token(), idx);
                 found = true;
             }
 
             if matches!(self.references[idx].0, ReferenceType::Procedure(_)) {
-                /* TODO: Check VAR arguments in procedure calls.
-                if let Some(header) = self.references[idx].1.header {
-                    for i in 0..call.get_arguments().len() {
-                        unsafe {
-                            if decl.value.data.procedure_value.pass_flags & (1 << i) != 0
-                                && !self.check_argument_is_variable(i, &call_stmt.get_arguments()[i])
-                            {
-                                return None;
-                            }
+                let func_container = self
+                    .function_containers
+                    .iter()
+                    .find(|p| p.id == call.get_identifier())
+                    .unwrap();
+
+                if let FunctionDeclaration::Procedure(f) = &func_container.functions {
+                    let arg_count = call.get_arguments().len();
+                    let par_len = f.get_parameters().len();
+
+                    let arg_count = arg_count.min(par_len);
+                    let mut mask = 0;
+                    for i in 0..arg_count {
+                        let v = f.get_parameters()[i].is_var();
+                        if v {
+                            mask |= 1 << i;
+                        }
+                    }
+                    self.check_arg_count(par_len, arg_count, call.get_identifier_token());
+
+                    for i in 0..arg_count {
+                        if mask & (1 << i) != 0 {
+                            self.check_argument_is_variable(i, &call.get_arguments()[i]);
                         }
                     }
                 }
-                */
 
                 self.add_reference_to(call.get_identifier_token(), idx);
                 found = true;

@@ -143,9 +143,10 @@ impl Decompiler {
             }
             statements.pop();
         }
+        /*
         statements.push(LabelStatement::create_empty_statement(unicase::Ascii::new(
             "EXIT_LABEL".to_string(),
-        )));
+        )));*/
         if !self.functions.is_empty() {
             statements.push(PredefinedCallStatement::create_empty_statement(
                 OpCode::END.get_definition(),
@@ -574,18 +575,18 @@ pub fn decompile(executable: Executable, raw: bool) -> Res<(Ast, Vec<DecompilerI
                 for node in &mut ast.nodes {
                     match node {
                         AstNode::Function(f) => {
-                            reconstruct::do_pass3(f.get_statements_mut());
+                            reconstruct::reconstruct_block(f.get_statements_mut());
                         }
                         AstNode::Procedure(p) => {
-                            reconstruct::do_pass3(p.get_statements_mut());
+                            reconstruct::reconstruct_block(p.get_statements_mut());
                         }
                         AstNode::Main(block) => {
-                            reconstruct::do_pass3(block.get_statements_mut());
+                            reconstruct::reconstruct_block(block.get_statements_mut());
                         }
                         _ => {}
                     }
                 }
-                ast = reconstruct::do_pass4(&mut ast);
+                ast = reconstruct::finish_ast(&mut ast);
             }
 
             Ok((ast, d.issues))

@@ -1,15 +1,12 @@
-use crate::ast::{
-    BinOp, BreakStatement, CaseBlock, CaseSpecifier, ContinueStatement, ElseBlock, ElseIfBlock,
-    ForStatement, IfStatement, IfThenStatement, RenameVisitor, SelectStatement, WhileDoStatement,
-};
+use crate::ast::RenameVisitor;
 
 use super::{
     constant_scan_visitor::ConstantScanVisitor, rename_visitor::RenameScanVistitor, Ast,
-    Expression, HashSet, Statement,
+    Expression, Statement,
 };
 
-pub fn do_pass3(statements: &mut Vec<Statement>) {
-    optimize_block(statements);
+pub fn reconstruct_block(statements: &mut Vec<Statement>) {
+    // optimize_block(statements);
 }
 
 fn _optimize_argument(arg: &mut Expression) {
@@ -18,6 +15,7 @@ fn _optimize_argument(arg: &mut Expression) {
     }
 }
 
+/*
 fn optimize_loops(statements: &mut Vec<Statement>) {
     scan_for_next(statements);
     scan_do_while(statements);
@@ -845,9 +843,10 @@ fn strip_unused_labels2(
         i += 1;
     }
 }
+*/
 
 #[must_use]
-pub fn do_pass4(prg: &mut Ast) -> Ast {
+pub fn finish_ast(prg: &mut Ast) -> Ast {
     let mut scanner = RenameScanVistitor::default();
     prg.visit(&mut scanner);
     let prg = prg.visit_mut(&mut ConstantScanVisitor::default());

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -106,8 +106,36 @@ struct FunctionContainer {
     pub id: usize,
     pub functions: FunctionDeclaration,
 
+    pub lookup: VariableLookups,
     pub parameters: core::ops::Range<usize>,
     pub local_variables: core::ops::Range<usize>,
+}
+
+#[derive(Default)]
+struct VariableLookups {
+    pub variable_lookup: NameTableLookup,
+
+    constants: Vec<Constant>,
+    pub const_lookup_table: HashSet<(VariableType, u64)>,
+    pub string_lookup_table: HashSet<String>,
+}
+
+impl VariableLookups {
+    pub fn add_constant(&mut self, constant: &Constant) {
+        let value = constant.get_value();
+        if let GenericVariableData::String(str) = &value.generic_data {
+            if self.string_lookup_table.insert(str.to_string()) {
+                self.constants.push(constant.clone());
+            }
+        } else {
+            unsafe {
+                let key = (constant.get_var_type(), value.data.u64_value);
+                if self.const_lookup_table.insert(key) {
+                    self.constants.push(constant.clone());
+                }
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -125,14 +153,11 @@ pub struct SemanticVisitor {
     label_lookup_table: NameTableLookup,
 
     // variables
-    variable_lookup: NameTableLookup,
-    local_variable_lookup: Option<NameTableLookup>,
+    global_lookup: VariableLookups,
+
+    local_variable_lookup: Option<VariableLookups>,
 
     // constants
-    constants: Vec<TableEntry>,
-    const_lookup_table: HashMap<(VariableType, u64), usize>,
-    string_lookup_table: HashMap<String, usize>,
-
     function_containers: Vec<FunctionContainer>,
 }
 
@@ -144,7 +169,6 @@ pub struct LookupVariabeleTable {
     local_variable_lookup: Option<unicase::Ascii<String>>,
     local_lookups: HashMap<unicase::Ascii<String>, NameTableLookup>,
 
-    const_start: usize,
     const_lookup_table: HashMap<(VariableType, u64), usize>,
     string_lookup_table: HashMap<String, usize>,
 }
@@ -155,8 +179,9 @@ impl LookupVariabeleTable {
     /// # Panics
     ///
     /// Panics if .
-    pub fn push(&mut self, mut entry: TableEntry) {
-        entry.header.id = self.variable_table.len() + 1;
+    pub fn push(&mut self, mut entry: TableEntry) -> usize {
+        let id = self.variable_table.len() + 1;
+        entry.header.id = id;
         let name = unicase::Ascii::new(entry.name.clone());
         if let Some(local) = &self.local_variable_lookup {
             self.local_lookups
@@ -167,6 +192,7 @@ impl LookupVariabeleTable {
             self.variable_lookup.insert(name, entry.header.id);
         }
         self.variable_table.push(entry);
+        id
     }
 
     /// .
@@ -208,13 +234,13 @@ impl LookupVariabeleTable {
 
         if let GenericVariableData::String(str) = &value.generic_data {
             if let Some(id) = self.string_lookup_table.get(str) {
-                return self.const_start + *id;
+                return *id;
             }
         } else {
             unsafe {
                 let key = (constant.get_var_type(), value.data.u64_value);
                 if let Some(id) = self.const_lookup_table.get(&key) {
-                    return self.const_start + *id;
+                    return *id;
                 }
             }
         }
@@ -222,19 +248,52 @@ impl LookupVariabeleTable {
         0
     }
 
-    fn start_constants(
-        &mut self,
-        const_lookup_table: HashMap<(VariableType, u64), usize>,
-        string_lookup_table: HashMap<String, usize>,
-    ) {
-        self.const_start = self.variable_table.len() + 1;
-        self.const_lookup_table = const_lookup_table;
-        self.string_lookup_table = string_lookup_table;
-    }
-
     fn start_define_function_body(&mut self, identifer: unicase::Ascii<String>) {
         self.local_variable_lookup = Some(identifer.clone());
         self.local_lookups.insert(identifer, NameTableLookup::new());
+    }
+
+    fn add_constant(&mut self, constant: &Constant) {
+        let value = constant.get_value();
+        if let GenericVariableData::String(str) = &value.generic_data {
+            if self.string_lookup_table.contains_key(str) {
+                return;
+            }
+        } else {
+            unsafe {
+                let key = (constant.get_var_type(), value.data.u64_value);
+                if self.const_lookup_table.contains_key(&key) {
+                    return;
+                }
+            }
+        }
+
+        let header: VarHeader = VarHeader {
+            id: 0,
+            variable_type: constant.get_var_type(),
+            dim: 0,
+            vector_size: 0,
+            matrix_size: 0,
+            cube_size: 0,
+            flags: 0,
+        };
+
+        let const_num = self.string_lookup_table.len() + self.const_lookup_table.len() + 1;
+        let entry = TableEntry::new(
+            format!("CONST_{}", const_num + 1),
+            header,
+            value.clone(),
+            EntryType::Constant,
+        );
+        let id = self.push(entry);
+        if let GenericVariableData::String(str) = value.generic_data {
+            self.string_lookup_table.insert(str, id);
+        } else {
+            unsafe {
+                let key = (constant.get_var_type(), value.data.u64_value);
+                self.const_lookup_table.insert(key, id);
+            }
+        }
     }
 }
 
@@ -249,14 +308,10 @@ impl SemanticVisitor {
             label_lookup_table: HashMap::new(),
             expression_lookup: HashMap::new(),
 
-            variable_lookup: HashMap::new(),
+            global_lookup: VariableLookups::default(),
             local_variable_lookup: None,
             require_user_variables: false,
             function_containers: Vec::new(),
-
-            constants: Vec::new(),
-            const_lookup_table: HashMap::new(),
-            string_lookup_table: HashMap::new(),
         };
         for user_var in USER_VARIABLES.iter() {
             if user_var.version <= version {
@@ -302,7 +357,7 @@ impl SemanticVisitor {
         }
 
         let start = variable_table.variable_table.len() + 1;
-        for i in 0..self.variable_lookup.len() {
+        for i in 0..self.global_lookup.variable_lookup.len() {
             let (rt, r) = &mut self.references[start + i];
             if !matches!(rt, ReferenceType::Variable(_)) {
                 continue;
@@ -427,57 +482,27 @@ impl SemanticVisitor {
             variable_table.end_compile_function_body();
         }
 
-        variable_table.start_constants(
-            self.const_lookup_table.clone(),
-            self.string_lookup_table.clone(),
-        );
-        for c in &self.constants {
-            variable_table.push(c.clone());
+        for c in &self.global_lookup.constants {
+            variable_table.add_constant(c);
+        }
+        for f in &self.function_containers {
+            let (_rt, r) = &mut self.references[f.id];
+            if r.usages.is_empty() {
+                continue;
+            }
+            for c in &f.lookup.constants {
+                variable_table.add_constant(c);
+            }
         }
         variable_table
     }
 
-    fn add_constant(&mut self, constant: &Constant) -> usize {
-        let value = constant.get_value();
-
-        if let GenericVariableData::String(str) = &value.generic_data {
-            if let Some(id) = self.string_lookup_table.get(str) {
-                return *id;
-            }
+    fn add_constant(&mut self, constant: &Constant) {
+        if let Some(local_lookup) = &mut self.local_variable_lookup {
+            local_lookup.add_constant(constant);
         } else {
-            unsafe {
-                let key = (constant.get_var_type(), value.data.u64_value);
-                if let Some(id) = self.const_lookup_table.get(&key) {
-                    return *id;
-                }
-            }
+            self.global_lookup.add_constant(constant);
         }
-        let id = self.constants.len();
-        let header: VarHeader = VarHeader {
-            id,
-            variable_type: constant.get_var_type(),
-            dim: 0,
-            vector_size: 0,
-            matrix_size: 0,
-            cube_size: 0,
-            flags: 0,
-        };
-        let entry = TableEntry::new(
-            format!("CONST_{}", id + 1),
-            header,
-            value.clone(),
-            EntryType::Constant,
-        );
-        self.constants.push(entry);
-        if let GenericVariableData::String(str) = value.generic_data {
-            self.string_lookup_table.insert(str, id);
-        } else {
-            unsafe {
-                let key = (constant.get_var_type(), value.data.u64_value);
-                self.const_lookup_table.insert(key, id);
-            }
-        }
-        id
     }
 
     fn add_declaration(
@@ -623,19 +648,19 @@ impl SemanticVisitor {
     }
 
     fn start_parse_function_body(&mut self) {
-        self.local_variable_lookup = Some(HashMap::new());
+        self.local_variable_lookup = Some(VariableLookups::default());
         self.label_lookup_table.clear();
     }
 
-    fn end_parse_function_body(&mut self) -> Option<NameTableLookup> {
+    fn end_parse_function_body(&mut self) -> Option<VariableLookups> {
         self.local_variable_lookup.take()
     }
 
     fn has_variable_defined(&self, id: &unicase::Ascii<String>) -> bool {
         if let Some(local_lookup) = &self.local_variable_lookup {
-            return local_lookup.contains_key(id);
+            return local_lookup.variable_lookup.contains_key(id);
         }
-        self.variable_lookup.contains_key(id)
+        self.global_lookup.variable_lookup.contains_key(id)
     }
 
     fn add_predefined_variable(&mut self, name: &str, val: &VariableValue) {
@@ -661,7 +686,8 @@ impl SemanticVisitor {
                 usages: vec![],
             },
         ));
-        self.variable_lookup
+        self.global_lookup
+            .variable_lookup
             .insert(unicase::Ascii::new(name.to_string()), id);
     }
 
@@ -689,21 +715,24 @@ impl SemanticVisitor {
         self.references.last_mut().unwrap().1.header = Some(header);
 
         if let Some(local_lookup) = &mut self.local_variable_lookup {
-            local_lookup.insert(unicase::Ascii::new(identifier.token.to_string()), id);
+            local_lookup
+                .variable_lookup
+                .insert(unicase::Ascii::new(identifier.token.to_string()), id);
         } else {
-            self.variable_lookup
+            self.global_lookup
+                .variable_lookup
                 .insert(unicase::Ascii::new(identifier.token.to_string()), id);
         }
     }
 
     fn lookup_variable(&mut self, id: &unicase::Ascii<String>) -> Option<usize> {
         if let Some(local_lookup) = &self.local_variable_lookup {
-            if let Some(idx) = local_lookup.get(id) {
+            if let Some(idx) = local_lookup.variable_lookup.get(id) {
                 return Some(*idx);
             }
         }
 
-        if let Some(idx) = self.variable_lookup.get(id) {
+        if let Some(idx) = self.global_lookup.variable_lookup.get(id) {
             return Some(*idx);
         }
         None
@@ -735,10 +764,14 @@ impl SemanticVisitor {
                 flags: 0,
             });
 
-            self.local_variable_lookup.as_mut().unwrap().insert(
-                unicase::Ascii::new(param.get_variable().get_identifier().to_string()),
-                id,
-            );
+            self.local_variable_lookup
+                .as_mut()
+                .unwrap()
+                .variable_lookup
+                .insert(
+                    unicase::Ascii::new(param.get_variable().get_identifier().to_string()),
+                    id,
+                );
         }
     }
 
@@ -1141,7 +1174,8 @@ impl AstVisitor<()> for SemanticVisitor {
             return;
         }
         let id = self.references.len();
-        self.variable_lookup
+        self.global_lookup
+            .variable_lookup
             .insert(proc_decl.get_identifier().clone(), id);
         self.add_declaration(
             ReferenceType::Procedure(self.function_containers.len()),
@@ -1153,6 +1187,7 @@ impl AstVisitor<()> for SemanticVisitor {
             name: proc_decl.get_identifier().clone(),
             id,
             functions: FunctionDeclaration::Procedure(proc_decl.clone()),
+            lookup: VariableLookups::default(),
             parameters: 0..0,
             local_variables: 0..0,
         });
@@ -1169,7 +1204,8 @@ impl AstVisitor<()> for SemanticVisitor {
             return;
         }
         let id = self.references.len();
-        self.variable_lookup
+        self.global_lookup
+            .variable_lookup
             .insert(func_decl.get_identifier().clone(), id);
         self.add_declaration(
             ReferenceType::Function(self.function_containers.len()),
@@ -1180,6 +1216,7 @@ impl AstVisitor<()> for SemanticVisitor {
             name: func_decl.get_identifier().clone(),
             id,
             functions: FunctionDeclaration::Function(func_decl.clone()),
+            lookup: VariableLookups::default(),
             parameters: 0..0,
             local_variables: 0..0,
         });
@@ -1208,7 +1245,7 @@ impl AstVisitor<()> for SemanticVisitor {
         let start_locals = self.references.len();
         walk_function_implementation(self, function);
         let end_locals = self.references.len();
-        self.end_parse_function_body();
+        let lookup = self.end_parse_function_body().unwrap();
 
         for f in &mut self.function_containers {
             if f.name == function.get_identifier() {
@@ -1231,6 +1268,7 @@ impl AstVisitor<()> for SemanticVisitor {
                         );
                     }
                 }
+                f.lookup = lookup;
                 f.parameters = start_parameter..end_parameter;
                 f.local_variables = start_locals..end_locals;
                 break;
@@ -1261,7 +1299,7 @@ impl AstVisitor<()> for SemanticVisitor {
         let start_locals = self.references.len();
         walk_procedure_implementation(self, procedure);
         let end_locals = self.references.len();
-        self.end_parse_function_body();
+        let lookup = self.end_parse_function_body().unwrap();
 
         for f in &mut self.function_containers {
             if f.name == procedure.get_identifier() {
@@ -1275,6 +1313,7 @@ impl AstVisitor<()> for SemanticVisitor {
                         );
                     }
                 }
+                f.lookup = lookup;
 
                 f.parameters = start_parameter..end_parameter;
                 f.local_variables = start_locals..end_locals;

@@ -1,5 +1,11 @@
-use argh::FromArgs;
+use clap::Parser;
 use crossterm::cursor::MoveTo;
+use crossterm::execute;
+use crossterm::style::Attribute;
+use crossterm::style::Color;
+use crossterm::style::Print;
+use crossterm::style::SetAttribute;
+use crossterm::style::SetForegroundColor;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use crossterm::ExecutableCommand;
@@ -21,16 +27,15 @@ use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::queue;
 mod output;
 
-#[derive(FromArgs)]
-#[argh(description = "PCBoard Programming Language Execution Environment")]
-struct Args {
+#[derive(clap::Parser)]
+#[command(version="", about="PCBoard Programming Language Execution Environment", long_about = None)]
+struct Cli {
     /// if set, the executable will run in sysop mode
-    #[argh(switch, short = 's')]
+    #[arg(long, short)]
     sysop: bool,
 
     /// file[.ppe] to run
-    #[argh(positional)]
-    input: String,
+    file: String,
 }
 
 lazy_static::lazy_static! {
@@ -38,8 +43,8 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    let arguments: Args = argh::from_env();
-    let mut file_name = arguments.input;
+    let arguments = Cli::parse();
+    let mut file_name = arguments.file;
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".ppe");
@@ -70,45 +75,63 @@ fn main() {
         ..Default::default()
     };
 
-    let exe = Executable::read_file(&file_name, false).unwrap();
-    let mut io = DiskIO::new(".");
-    let mut output = Output::default();
+    match Executable::read_file(&file_name, false) {
+        Ok(exe) => {
+            let mut io = DiskIO::new(".");
+            let mut output = Output::default();
 
-    output.is_sysop = arguments.sysop;
-    enable_raw_mode().unwrap();
-    let supports_keyboard_enhancement = matches!(
-        crossterm::terminal::supports_keyboard_enhancement(),
-        Ok(true)
-    );
+            output.is_sysop = arguments.sysop;
+            enable_raw_mode().unwrap();
+            let supports_keyboard_enhancement = matches!(
+                crossterm::terminal::supports_keyboard_enhancement(),
+                Ok(true)
+            );
 
-    if supports_keyboard_enhancement {
-        queue!(
-            stdout(),
-            PushKeyboardEnhancementFlags(
-                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            if supports_keyboard_enhancement {
+                queue!(
+                    stdout(),
+                    PushKeyboardEnhancementFlags(
+                        KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                            | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                            | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                            | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                    )
+                )
+                .unwrap();
+            }
+
+            stdout()
+                .execute(crossterm::terminal::Clear(
+                    crossterm::terminal::ClearType::All,
+                ))
+                .unwrap()
+                .execute(MoveTo(0, 0))
+                .unwrap();
+            run(
+                PathBuf::from(file_name),
+                &exe,
+                &mut output,
+                &mut io,
+                icy_board_data,
+                arguments.sysop,
             )
-        )
-        .unwrap();
+            .unwrap();
+            disable_raw_mode().unwrap();
+        }
+        Err(err) => {
+            execute!(
+                stdout(),
+                SetAttribute(Attribute::Bold),
+                SetForegroundColor(Color::Red),
+                Print("ERROR: ".to_string()),
+                SetAttribute(Attribute::Reset),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{}", err)),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
+            println!();
+            println!();
+        }
     }
-
-    stdout()
-        .execute(crossterm::terminal::Clear(
-            crossterm::terminal::ClearType::All,
-        ))
-        .unwrap()
-        .execute(MoveTo(0, 0))
-        .unwrap();
-    run(
-        PathBuf::from(file_name),
-        &exe,
-        &mut output,
-        &mut io,
-        icy_board_data,
-        arguments.sysop,
-    )
-    .unwrap();
-    disable_raw_mode().unwrap();
 }

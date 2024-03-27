@@ -7,7 +7,7 @@ edition.workspace = true
 [dependencies]
 icy_ppe = { path = "../icy_ppe" }
 icy_board_engine = { path = "../icy_board_engine" }
-argh = "0.1.12"
+clap = { version = "4.5.4", features = ["derive"] }
 semver = "1.0.20"
 thiserror = "1.0.57"
 lazy_static = "1.4.0"

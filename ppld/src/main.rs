@@ -1,4 +1,4 @@
-use argh::FromArgs;
+use clap::Parser;
 use crossterm::execute;
 use crossterm::style::Attribute;
 use crossterm::style::Color;
@@ -21,28 +21,27 @@ use std::path::Path;
 #[cfg(test)]
 pub mod tests;
 
-#[derive(FromArgs)]
-#[argh(description = "PCBoard Programming Language Decompiler")]
-struct Args {
+#[derive(clap::Parser)]
+#[command(version="", about="PCBoard Programming Language Decompiler", long_about = None)]
+struct Cli {
     /// raw ppe without reconstruction control structures
-    #[argh(switch)]
+    #[arg(long)]
     raw: bool,
 
     /// output the disassembly instead of ppl
-    #[argh(switch, short = 'd')]
+    #[arg(long, short)]
     disassemble: bool,
 
     /// output to console instead of writing to file
-    #[argh(switch)]
+    #[arg(long)]
     output: bool,
 
-    #[argh(option)]
+    #[arg(long)]
     /// keyword casing style, valid values are u=upper (default), l=lower, c=camel
     style: Option<char>,
 
     /// file[.ppe] to decompile
-    #[argh(positional)]
-    input: String,
+    file: String,
 }
 
 lazy_static::lazy_static! {
@@ -50,7 +49,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
-    let mut arguments: Args = argh::from_env();
+    let arguments = Cli::parse();
     let mut output_func = OutputFunc::Upper;
     match arguments.style {
         Some('u') => output_func = OutputFunc::Upper,
@@ -60,7 +59,7 @@ fn main() {
         None => {}
     }
 
-    let file_name = &mut arguments.input;
+    let mut file_name = arguments.file;
 
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
@@ -68,7 +67,7 @@ fn main() {
     }
 
     let out_file_name = Path::new(&file_name).with_extension("ppd");
-    match Executable::read_file(file_name, !arguments.output) {
+    match Executable::read_file(&file_name, !arguments.output) {
         Ok(mut executable) => {
             if arguments.disassemble {
                 executable.print_script_buffer_dump();
@@ -175,6 +174,7 @@ fn main() {
                 SetAttribute(Attribute::Reset),
             )
             .unwrap();
+            println!();
             println!();
         }
     }

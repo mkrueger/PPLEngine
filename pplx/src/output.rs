@@ -10,7 +10,7 @@ use crossterm::{
 };
 use icy_ppe::Res;
 
-use crate::vm::{ExecutionContext, HangupType};
+use icy_board_engine::vm::{ExecutionContext, HangupType};
 
 #[derive(Default)]
 pub struct Output {

@@ -146,12 +146,51 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         execute!(
             stdout(),
             Print("["),
+            SetForegroundColor(Color::Magenta),
+            Print(format!("{} ", self.ppe_file.variable_table.get_var_entry(id).name)),
             SetForegroundColor(Color::Green),
             Print(format!("{id:04X}")),
             SetAttribute(Attribute::Reset),
             Print("]"),
         )
         .unwrap();
+    }
+
+    fn visit_proc_call(&mut self, id: usize, args: &[PPEExpr]) {
+        Self::output_op_code(OpCode::PCALL);
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Magenta),
+            Print(format!(" {}", self.ppe_file.variable_table.get_var_entry(id).name)),
+            SetAttribute(Attribute::Reset),
+            Print("["),
+            SetForegroundColor(Color::Green),
+            Print(format!("{id:04X}")),
+            SetAttribute(Attribute::Reset),
+            Print("] ("),
+        )
+        .unwrap();
+
+        self.print_arguments(args);
+        print!(")");
+    }
+
+    fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) {
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Magenta),
+            Print(format!(" {}", self.ppe_file.variable_table.get_var_entry(id).name)),
+            SetAttribute(Attribute::Reset),
+            Print("["),
+            SetForegroundColor(Color::Green),
+            Print(format!("{id:04X}")),
+            SetAttribute(Attribute::Reset),
+            Print("] ("),
+        )
+        .unwrap();
+
+        self.print_arguments(arguments);
+        print!(")");
     }
 
     fn visit_unary_expression(&mut self, op: crate::ast::UnaryOp, expr: &PPEExpr) {
@@ -214,12 +253,7 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         print!(")");
     }
 
-    fn visit_function_call(&mut self, id: usize, arguments: &[PPEExpr]) {
-        print!("FUNC[{id}](");
-        self.print_arguments(arguments);
-        print!(")");
-    }
-
+    
     fn visit_end(&mut self) {
         Self::output_op_code(OpCode::END);
     }
@@ -249,12 +283,6 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
             SetAttribute(Attribute::Reset),
         )
         .unwrap();
-    }
-
-    fn visit_proc_call(&mut self, id: &usize, args: &[PPEExpr]) {
-        Self::output_op_code(OpCode::PCALL);
-        print!(" PROC[{id:04X}]: ");
-        self.print_arguments(args);
     }
 
     fn visit_predefined_call(&mut self, def: &StatementDefinition, args: &[PPEExpr]) {

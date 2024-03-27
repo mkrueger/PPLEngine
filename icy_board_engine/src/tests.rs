@@ -1,15 +1,14 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
-use crate::{
-    compiler, executable::{Executable, LAST_PPLC}, icy_board::state::IcyBoardState, parser::{parse_ast, Encoding}, vm::{HangupType, MemoryIO}, Res
-};
+use icy_ppe::{compiler::PPECompiler, executable::{Executable, LAST_PPLC}, parser::{parse_ast, Encoding}, semantic::SemanticVisitor, Res};
 
+use crate::{icy_board::state::IcyBoardState, vm::{run, ExecutionContext, HangupType, MemoryIO}};
 #[test]
 fn test_compiler() {
     use std::fs::{self};
 
     let mut data_path = env::current_dir().unwrap();
-    data_path.push("src/compiler/test_data");
+    data_path.push("src/test_data");
     //let mut success = 0;
     //let mut skipped = 0;
     for entry in fs::read_dir(data_path).expect("Error reading test_data directory.") {
@@ -47,12 +46,16 @@ fn test_compiler() {
 }
 
 fn run_test(data: &str, output: &str) {
-    let (prg, errors) = parse_ast(PathBuf::from("."), data, Encoding::Utf8, LAST_PPLC);
-    let mut exec = compiler::PPECompiler::new(LAST_PPLC, errors);
-    exec.compile(&prg);
-    if exec.errors.lock().unwrap().has_errors() {
+    let (ast, errors) = parse_ast(PathBuf::from("."), data, Encoding::Utf8, LAST_PPLC);
+
+    let mut sv = SemanticVisitor::new(LAST_PPLC, errors);
+    ast.visit(&mut sv);
+
+    let mut exec = PPECompiler::new(sv.generate_variable_table());
+    exec.compile(&ast);
+    if sv.errors.lock().unwrap().has_errors() {
         println!("Errors:");
-        for e in &exec.errors.lock().unwrap().errors {
+        for e in &sv.errors.lock().unwrap().errors {
             println!("{}", e.error);
         }
         panic!();

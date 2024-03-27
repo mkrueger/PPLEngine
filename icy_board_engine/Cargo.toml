@@ -1,5 +1,5 @@
 [package]
-name = "icy_ppe"
+name = "icy_board_engine"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -7,11 +7,19 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+icy_ppe = { path = "../icy_ppe" }
+icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 lazy_static = "1.4.0"
 thiserror = "1.0.57"
 log = "0.4.21"
 unicase = "2.7.0"
 crossterm = "0.27.0"
+rand = "0.8"
+radix_fmt = "1"
+qfile = "3.0.1"
+easy_reader = "0.5.2"
+substring = "1.4.5"
+byteorder = "1.5.0"
 
 # interpreter deps
 [dev-dependencies]

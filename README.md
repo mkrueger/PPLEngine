@@ -98,6 +98,54 @@ I think it improves the language and it's open for discussion. Note that some al
 * pplx is able to run several PPEs on command line still has many limits but it's usable
 * Feel free to request support for missing PPEs there are still bugs
 
+#### Runner differences
+
+Fixed an recursion bug:
+  
+```PPL
+DECLARE PROCEDURE FOO(VAR BYTE X)
+BYTE C
+FOO(C)
+PRINTLN "End value:", C
+
+PROCEDURE FOO(VAR BYTE X)
+  BYTE LOC
+  LOC = X + 1
+  if (X > 2) RETURN
+  X = X * 2
+  PRINTLN LOC ,":", X
+  FOO(LOC)
+  PRINTLN LOC ,":", X
+  X = LOC
+ENDPROC	
+```
+
+The value of LOC changes between prints but does not in PCBoard. 
+pcboard prints:
+```TEXT
+1:0
+2:2
+3:4
+3:4
+2:2
+1:0
+End value:1
+```
+
+Correct is:
+```TEXT
+1:0
+2:2
+3:4
+3:4
+3:2
+3:0
+End value:3
+```
+
+Would be easy to simulate the bug (just swap local write back & variable write back in endproc handling).
+But I don't assume that this bug affects any existing PPEs.
+
 ## TODO
 
 * Execution engine needs to be completed.

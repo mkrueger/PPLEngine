@@ -81,14 +81,16 @@ impl References {
     }
 
     fn create_table_entry(&self) -> TableEntry {
-        let header = self.header.as_ref().unwrap().clone();
-
-        TableEntry::new(
-            self.declaration.as_ref().unwrap().token.to_string(),
-            header,
-            self.variable_type.create_empty_value(),
-            EntryType::Variable,
-        )
+        if let Some(header) = &self.header {
+            TableEntry::new(
+                self.declaration.as_ref().unwrap().token.to_string(),
+                header.clone(),
+                self.variable_type.create_empty_value(),
+                EntryType::Variable,
+            )
+        } else { 
+            panic!("Header not set for {self:?}")
+        }
     }
 }
 
@@ -155,7 +157,6 @@ impl LookupVariabeleTable {
     /// Panics if .
     pub fn push(&mut self, mut entry: TableEntry) {
         entry.header.id = self.variable_table.len() + 1;
-
         let name = unicase::Ascii::new(entry.name.clone());
         if let Some(local) = &self.local_variable_lookup {
             self.local_lookups
@@ -303,10 +304,6 @@ impl SemanticVisitor {
         let start = variable_table.variable_table.len() + 1;
         for i in 0..self.variable_lookup.len() {
             let (rt, r) = &mut self.references[start + i];
-            if matches!(rt, ReferenceType::Function(_)) || matches!(rt, ReferenceType::Procedure(_))
-            {
-                break;
-            }
             if !matches!(rt, ReferenceType::Variable(_)) {
                 continue;
             }
@@ -316,12 +313,22 @@ impl SemanticVisitor {
             }
             variable_table.push(r.create_table_entry());
         }
-
         for f in &self.function_containers {
             let (_rt, r) = &mut self.references[f.id];
             if r.usages.is_empty() {
                 continue;
             }
+
+            let mut locals = 0;
+            for idx in f.local_variables.clone() {
+                let (rt, _r) = &mut self.references[idx];
+                if !matches!(rt, ReferenceType::Variable(_)) {
+                    continue;
+                }
+                locals  += 1;
+            }
+            
+
             let id = variable_table.variable_table.len() + 2;
 
             if let FunctionDeclaration::Function(func) = &f.functions {
@@ -336,9 +343,9 @@ impl SemanticVisitor {
                 };
                 let function_value = FunctionValue {
                     parameters: f.parameters.len() as u8,
-                    local_variables: f.local_variables.len() as u8 + 1,
+                    local_variables: locals + 1,
                     start_offset: 0,
-                    first_var_id: id as i16,
+                    first_var_id: id as i16 - 1,
                     return_var: (id + f.parameters.len() + f.local_variables.len()) as i16,
                 };
                 variable_table.push(TableEntry::new(
@@ -349,7 +356,7 @@ impl SemanticVisitor {
                         data: VariableData { function_value },
                         generic_data: GenericVariableData::None,
                     },
-                    EntryType::Variable,
+                    EntryType::Function,
                 ));
                 variable_table.start_define_function_body(func.get_identifier().clone());
             } else if let FunctionDeclaration::Procedure(proc) = &f.functions {
@@ -362,12 +369,11 @@ impl SemanticVisitor {
                     variable_type: VariableType::Procedure,
                     flags: 0,
                 };
-                let id = variable_table.variable_table.len() + 2;
                 let procedure_value = ProcedureValue {
                     parameters: f.parameters.len() as u8,
-                    local_variables: f.local_variables.len() as u8 + 1,
+                    local_variables: locals,
                     start_offset: 0,
-                    first_var_id: id as i16,
+                    first_var_id: id as i16 - 1,
                     pass_flags: proc.get_pass_flags(),
                 };
                 variable_table.push(TableEntry::new(
@@ -378,20 +384,27 @@ impl SemanticVisitor {
                         data: VariableData { procedure_value },
                         generic_data: GenericVariableData::None,
                     },
-                    EntryType::Variable,
+                    EntryType::Procedure,
                 ));
                 variable_table.start_define_function_body(proc.get_identifier().clone());
             }
-
-            for f in f.local_variables.clone() {
-                let (_rt, r) = &mut self.references[f];
-                variable_table.push(r.create_table_entry());
-            }
-            for f in f.parameters.clone() {
-                let (_rt, r) = &mut self.references[f];
+            println!("{:?} {:?}", f.parameters, f.local_variables);
+            for idx in f.parameters.clone() {
+                let (rt, r) = &mut self.references[idx];
+                if !matches!(rt, ReferenceType::Variable(_)) {
+                    continue;
+                }
                 let mut h = r.create_table_entry();
                 h.entry_type = EntryType::Parameter;
                 variable_table.push(h);
+            }
+
+            for idx in f.local_variables.clone() {
+                let (rt, r) = &mut self.references[idx];
+                if !matches!(rt, ReferenceType::Variable(_)) {
+                    continue;
+                }
+                variable_table.push(r.create_table_entry());
             }
 
             if let FunctionDeclaration::Function(f) = &f.functions {
@@ -1239,10 +1252,12 @@ impl AstVisitor<()> for SemanticVisitor {
         let start_parameter = self.references.len();
         self.add_parameters(procedure.get_parameters());
         let end_parameter = self.references.len();
+
         let start_locals = self.references.len();
         walk_procedure_implementation(self, procedure);
         let end_locals = self.references.len();
         self.end_parse_function_body();
+
 
         for f in &mut self.function_containers {
             if f.name == procedure.get_identifier() {
@@ -1273,7 +1288,6 @@ impl AstVisitor<()> for SemanticVisitor {
                 }
             }
         }
-
         for node in &program.nodes {
             match node {
                 crate::ast::AstNode::Function(_) | crate::ast::AstNode::Procedure(_) => {

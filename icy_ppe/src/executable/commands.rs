@@ -294,7 +294,7 @@ impl PPECommand {
             PPECommand::End => visitor.visit_end(),
             PPECommand::Return => visitor.visit_return(),
             PPECommand::IfNot(cond, label) => visitor.visit_if(cond, label),
-            PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(id, args),
+            PPECommand::ProcedureCall(id, args) => visitor.visit_proc_call(*id, args),
             PPECommand::PredefinedCall(def, args) => visitor.visit_predefined_call(def, args),
             PPECommand::Goto(label) => visitor.visit_goto(label),
             PPECommand::Gosub(label) => visitor.visit_gosub(label),
@@ -470,8 +470,8 @@ pub trait PPEVisitor<T>: Sized {
     fn visit_end(&mut self) -> T;
     fn visit_return(&mut self) -> T;
     fn visit_if(&mut self, cond: &PPEExpr, label: &usize) -> T;
-    fn visit_proc_call(&mut self, id: &usize, args: &[PPEExpr]) -> T;
-    fn visit_predefined_call(&mut self, def: &StatementDefinition, args: &[PPEExpr]) -> T;
+    fn visit_proc_call(&mut self, id: usize, arguments: &[PPEExpr]) -> T;
+    fn visit_predefined_call(&mut self, def: &StatementDefinition, arguments: &[PPEExpr]) -> T;
     fn visit_goto(&mut self, label: &usize) -> T;
     fn visit_gosub(&mut self, label: &usize) -> T;
     fn visit_end_func(&mut self) -> T;
@@ -660,7 +660,7 @@ impl<'a> PPEVisitor<Result<VariableValue, PPEError>> for PPEConstantValueVisitor
 
     fn visit_proc_call(
         &mut self,
-        _id: &usize,
+        _id: usize,
         _args: &[PPEExpr],
     ) -> Result<VariableValue, PPEError> {
         todo!()

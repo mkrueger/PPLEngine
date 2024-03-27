@@ -728,8 +728,15 @@ impl VariableTable {
             )
             .unwrap();
 
+
             print!("     {ts:<15}");
-            print!("{:<12}", var.get_name());
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Magenta),
+                Print(format!("{:<12}", var.get_name())),
+                SetAttribute(Attribute::Reset),
+            )
+            .unwrap();
 
             if var.header.variable_type == VariableType::Function {
                 unsafe {

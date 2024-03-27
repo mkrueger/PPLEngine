@@ -3,25 +3,23 @@ use crossterm::cursor::MoveTo;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use crossterm::ExecutableCommand;
-use icy_board::data::IcyBoardData;
-use icy_board::data::Node;
-use icy_board::state::IcyBoardState;
-use icy_board::users::UserRecord;
+use icy_board_engine::icy_board::data::IcyBoardData;
+use icy_board_engine::icy_board::data::Node;
+use icy_board_engine::icy_board::state::IcyBoardState;
+use icy_board_engine::icy_board::users::UserRecord;
 use icy_ppe::executable::Executable;
 use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
-use vm::run;
-use vm::DiskIO;
+use icy_board_engine::vm::run;
+use icy_board_engine::vm::DiskIO;
 
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::queue;
-pub mod icy_board;
 mod output;
-pub mod vm;
 
 #[derive(FromArgs)]
 #[argh(description = "PCBoard Programming Language Execution Environment")]

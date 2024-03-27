@@ -657,7 +657,9 @@ impl PartialOrd for VariableValue {
                 VariableType::DDate => Some(self.data.ddate_value.cmp(&other.data.ddate_value)),
                 VariableType::EDate => Some(self.data.edate_value.cmp(&other.data.edate_value)),
 
-                VariableType::Integer => Some(self.data.int_value.cmp(&other.data.int_value)),
+                VariableType::Integer => {
+                    Some(self.data.int_value.cmp(&other.data.int_value))
+                },
                 VariableType::Money => Some(self.data.money_value.cmp(&other.data.money_value)),
                 VariableType::String | VariableType::BigStr => {
                     Some(self.as_string().cmp(&other.as_string()))
@@ -727,47 +729,6 @@ impl Neg for VariableValue {
         }
     }
 }
-
-/*
-impl fmt::Display for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Variable::Money(i) => write!(f, "${i}"),
-            Variable::Integer(i) => write!(f, "{i}"),
-            Variable::Unsigned(i) | Variable::Time(i) => write!(f, "{i}"),
-            Variable::Byte(i) => write!(f, "{i}"),
-            Variable::SByte(i) => write!(f, "{i}"),
-            Variable::Date(i) | Variable::Word(i) | Variable::EDate(i) => {
-                write!(f, "{i}")
-            }
-            Variable::SWord(i) => write!(f, "{i}"),
-            Variable::String(str) => write!(f, "{str}"),
-            Variable::Real(i) => write!(f, "{i}"),
-            Variable::Boolean(b) => {
-                if *b {
-                    write!(f, "1")
-                } else {
-                    write!(f, "0")
-                }
-            }
-            Variable::Dim1(var_type, data) => {
-                write!(f, "{}({})", var_type, data.len())
-            }
-            Variable::Dim2(var_type, data) => {
-                write!(f, "{}({}, {})", var_type, data.len(), data[0].len())
-            }
-            Variable::Dim3(var_type, data) => write!(
-                f,
-                "{}({}, {}, {})",
-                var_type,
-                data.len(),
-                data[0].len(),
-                data[0][0].len()
-            ),
-        }
-    }
-}
-*/
 
 #[allow(clippy::needless_pass_by_value)]
 impl VariableValue {
@@ -1179,88 +1140,66 @@ impl VariableValue {
             return self;
         }
 
+        let mut data = VariableData::default();
+        
         match convert_to_type {
             VariableType::Boolean => {
                 if self.vtype == VariableType::String {
                     return VariableValue::new_bool(self.as_string() == "0");
                 }
-                VariableValue::new_bool(self.as_int() != 0)
+                data.bool_value = self.as_int() != 0;
             }
-            VariableType::Unsigned => VariableValue::new_unsigned(self.as_int() as u64),
-            VariableType::Date => VariableValue::new_date(self.as_int()),
-            VariableType::EDate => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    edate_value: self.as_int() as u32,
-                },
-            ),
-            VariableType::Integer => VariableValue::new_int(self.as_int()),
-            VariableType::Money => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    money_value: self.as_int(),
-                },
-            ),
-            VariableType::String => VariableValue::new_string(self.as_string()),
-            VariableType::Time => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    time_value: self.as_int(),
-                },
-            ),
-            VariableType::Byte => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    byte_value: self.as_int() as u8,
-                },
-            ),
-            VariableType::Word => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    word_value: self.as_int() as u16,
-                },
-            ),
-            VariableType::SByte => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    sbyte_value: self.as_int() as i8,
-                },
-            ),
-            VariableType::SWord => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    sword_value: self.as_int() as i16,
-                },
-            ),
-            VariableType::BigStr => VariableValue {
+            VariableType::Unsigned => {
+                data.unsigned_value = self.as_int() as u64;
+            },
+            VariableType::Date => {
+                data.date_value = self.as_int() as u32;
+            }
+            VariableType::EDate => {
+                data.edate_value = self.as_int() as u32;
+            },
+            VariableType::Integer => {
+                data.int_value = self.as_int();
+            },
+            VariableType::Money => {
+                data.money_value = self.as_int();
+            },
+            VariableType::String => return VariableValue::new_string(self.as_string()),
+            VariableType::BigStr => return VariableValue {
                 vtype: VariableType::BigStr,
-                data: VariableData::default(),
+                data,
                 generic_data: GenericVariableData::String(self.as_string()),
             },
-
-            VariableType::Float => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    float_value: self.as_string().parse().unwrap(),
-                },
-            ),
-            VariableType::Double => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    double_value: self.as_string().parse().unwrap(),
-                },
-            ),
-
-            VariableType::DDate => VariableValue::new(
-                convert_to_type,
-                VariableData {
-                    ddate_value: self.as_int(),
-                },
-            ),
+            VariableType::Time => {
+                data.time_value = self.as_int();
+            },
+            VariableType::Byte => {
+                data.byte_value = self.as_int() as u8;
+            },
+            VariableType::Word => {
+                data.word_value = self.as_int() as u16;
+            },
+            VariableType::SByte => {
+                data.sbyte_value = self.as_int() as i8;
+            },
+            VariableType::SWord => {
+                data.sword_value = self.as_int() as i16;
+            },
+            VariableType::Float => {
+                data.float_value = self.as_string().parse().unwrap();
+            },
+            VariableType::Double => {
+                data.double_value = self.as_string().parse().unwrap();
+            },
+            VariableType::DDate => {
+                data.ddate_value = self.as_int();
+            },
             VariableType::Function | VariableType::Procedure | VariableType::Unknown => {
                 panic!("Unknown variable type")
             }
         }
+
+        VariableValue::new(convert_to_type, data)
     }
 }
 

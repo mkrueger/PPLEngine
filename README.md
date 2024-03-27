@@ -25,24 +25,31 @@ Just for fun. Started this project initially to learn rust.
 Decompiler is completely rewritten and can disassemble now on top of recompilation.
 
 * PPE 3.40 Support
-* Reconstruction of control structures beside if…then is currently broken.
+* Reconstruction of control structures currently is broken due of a rewrite of the decompiler
+  if you want then/elseif/else, while…endwhile, for…next, break & continue, select case support
+  go back to b67e861a734c57c1a7b2fb891725260ae6d7f343
+  The new decompiler infrastructure is much better and the decompilation result should be 100% correct. (The old one may contain bugs)
+  And it supports 15.4 but the AST is a bit different so the reconstruction needs to be rewritten.
+
+  The old source could be used as starting point - but the new one has way better tools for AST analyzation that should be used instead of the old hacky approach.
+
 * It tries to do some name guessing based on variable usage.
 
 ```text
-Usage: ppld <input> [--raw] [-d] [--output] [--style <style>]
-
 PCBoard Programming Language Decompiler
 
-Positional Arguments:
-  input             file[.ppe] to decompile
+Usage: ppld [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  file[.ppe] to decompile
 
 Options:
-  --raw             raw ppe without reconstruction control structures
-  -d, --disassemble output the disassembly instead of ppl
-  --output          output to console instead of writing to file
-  --style           keyword casing style, valid values are u=upper (default),
-                    l=lower, c=camel
-  --help            display usage information
+      --raw            raw ppe without reconstruction control structures
+  -d, --disassemble    output the disassembly instead of ppl
+      --output         output to console instead of writing to file
+      --style <STYLE>  keyword casing style, valid values are u=upper (default), l=lower, c=camel
+  -h, --help           Print help
+  -V, --version        Print version
 ```
 
 The dissamble output can be used to see what the compilers are generating and for debugging purposes.
@@ -58,23 +65,22 @@ The compiler automatically generates user variables, if needed but behavior can 
 pplc has following options:
 
 ```text
-Usage: pplc <input> [-d] [--nouvar] [--forceuvar] [--nowarnings] [--ppl-version <ppl-version>] [--dos]
-
 PCBoard Programming Language Compiler
 
-Positional Arguments:
-  input             file[.pps] to compile (extension defaults to .pps if not
-                    specified)
+Usage: pplc [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  file[.pps] to compile (extension defaults to .pps if not specified)
 
 Options:
-  -d, --disassemble output the disassembly instead of compiling
-  --nouvar          force no user variables
-  --forceuvar       force user variables
-  --nowarnings      don't report any warnings
-  --ppl-version     version number for the compiler, valid: 100, 200, 300, 310,
-                    330 (default), 340
-  --dos             input file is CP437
-  --help            display usage information
+  -d, --disassemble                output the disassembly instead of compiling
+      --nouvar                     force no user variables
+      --forceuvar                  force user variables
+      --nowarnings                 don't report any warnings
+      --ppl-version <PPL_VERSION>  version number for the compiler, valid: 100, 200, 300, 310, 330 (default), 340
+      --dos                        input file is CP437
+  -h, --help                       Print help
+  -V, --version                    Print version
 
 As default the compiler takes UTF8 input - DOS special chars are translated to CP437 in the output.
 ```
@@ -98,6 +104,20 @@ I think it improves the language and it's open for discussion. Note that some al
 * pplx is able to run several PPEs on command line still has many limits but it's usable
 * Feel free to request support for missing PPEs there are still bugs
 
+```text
+PCBoard Programming Language Execution Environment
+
+Usage: pplx [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  file[.ppe] to run
+
+Options:
+  -s, --sysop    if set, the executable will run in sysop mode
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
 #### Runner differences
 
 Fixed an recursion bug:
@@ -117,11 +137,12 @@ PROCEDURE FOO(VAR BYTE X)
   FOO(LOC)
   PRINTLN LOC ,":", X
   X = LOC
-ENDPROC	
+ENDPROC
 ```
 
-The value of LOC changes between prints but does not in PCBoard. 
+The value of LOC changes between prints but does not in PCBoard.
 pcboard prints:
+
 ```TEXT
 1:0
 2:2
@@ -133,6 +154,7 @@ End value:1
 ```
 
 Correct is:
+
 ```TEXT
 1:0
 2:2

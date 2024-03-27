@@ -1,8 +1,17 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
-use icy_ppe::{compiler::PPECompiler, executable::{Executable, LAST_PPLC}, parser::{parse_ast, Encoding}, semantic::SemanticVisitor, Res};
+use icy_ppe::{
+    compiler::PPECompiler,
+    executable::{Executable, LAST_PPLC},
+    parser::{parse_ast, Encoding},
+    semantic::SemanticVisitor,
+    Res,
+};
 
-use crate::{icy_board::state::IcyBoardState, vm::{run, ExecutionContext, HangupType, MemoryIO}};
+use crate::{
+    icy_board::state::IcyBoardState,
+    vm::{run, ExecutionContext, HangupType, MemoryIO},
+};
 #[test]
 fn test_compiler() {
     use std::fs::{self};

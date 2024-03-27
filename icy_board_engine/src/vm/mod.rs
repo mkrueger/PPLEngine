@@ -709,9 +709,7 @@ impl<'a> VirtualMachine<'a> {
                     )),
                     BinOp::Lower => Ok(VariableValue::new_bool(left_value < right_value)),
                     BinOp::LowerEq => Ok(VariableValue::new_bool(left_value <= right_value)),
-                    BinOp::Greater => {
-                        Ok(VariableValue::new_bool(left_value > right_value))
-                    },
+                    BinOp::Greater => Ok(VariableValue::new_bool(left_value > right_value)),
                     BinOp::GreaterEq => Ok(VariableValue::new_bool(left_value >= right_value)),
                 }
             }
@@ -758,21 +756,9 @@ impl<'a> VirtualMachine<'a> {
                     parameters = proc.value.data.function_value.parameters as usize;
                     return_var_id = proc.value.data.function_value.return_var as usize;
                 }
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..(locals+parameters) {
-                    let id = first + i;
-                    if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0
-                        && id != return_var_id
-                    {
-                        let value = self.variable_table.get_value(id).clone();
-                        self.call_local_value_stack.push(value);
-                    }
 
-                    if i < parameters && id != return_var_id {
-                        let expr = self.eval_expr(&arguments[i])?;
-                        self.variable_table.set_value(id, expr);
-                    }
-                }
+                self.prepare_call(locals, parameters, first, arguments, 0)?;
+
                 self.return_addresses
                     .push(ReturnAddress::func_call(self.cur_ptr, *func_id));
                 self.goto(proc_offset)?;
@@ -855,14 +841,14 @@ impl<'a> VirtualMachine<'a> {
                             }
                         }
 
-                        // get write back values 
+                        // get write back values
                         let mut pass_values = Vec::new();
                         if pass_flags > 0 {
                             for i in 0..parameters {
                                 if (1 << i) & pass_flags != 0 {
                                     let id = first + i;
                                     let val = self.variable_table.get_value(id).clone();
-                                  // println!("push pass value {}", val);
+                                    // println!("push pass value {}", val);
                                     pass_values.push(val);
                                 }
                             }
@@ -873,7 +859,9 @@ impl<'a> VirtualMachine<'a> {
                             let id = first + i;
                             if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {
                                 let value = self.call_local_value_stack.pop().unwrap();
-                                self.variable_table.set_value(id, value);
+                                if id != return_var_id {
+                                    self.variable_table.set_value(id, value);
+                                }
                             }
                         }
 
@@ -920,44 +908,7 @@ impl<'a> VirtualMachine<'a> {
                     parameters = proc.value.data.procedure_value.parameters as usize;
                     pass_flags = proc.value.data.procedure_value.pass_flags;
                 }
-                #[allow(clippy::needless_range_loop)]
-                
-                // store locals + parameters
-                for i in 0..(locals + parameters) {
-                    let id = first + i;
-                    if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {
-                        let val = self.variable_table.get_value(id).clone();
-                        //println!("store {:02X} to {}", id, val);
-                        self.call_local_value_stack.push(val);
-                    }
-                }
-
-                // set parameters
-                for i in 0..parameters {
-                    let id = first + i;
-                    let value = self.eval_expr(&arguments[i])?;
-
-                  //  println!("set parameter {:02X} to {}", id, value);
-
-                    self.variable_table.set_value(id, value);
-
-                    if (1 << i) & pass_flags != 0 {
-                        self.write_back_stack.push(arguments[i].clone());
-                    }
-                }
-
-                // reset local variables
-                for i in 0..locals {
-                    let id = first + parameters + i;
-                    let (flags, vtype) = {
-                        let header = &self.variable_table.get_var_entry(id).header;
-                        (header.flags, header.variable_type)
-                    };
-                    if (flags & 0x1) == 0x0 {
-                       // println!("reset local {:02X}", id);
-                        self.variable_table.set_value(id, vtype.create_empty_value());
-                    }
-                }
+                self.prepare_call(locals, parameters, first, arguments, pass_flags)?;
 
                 self.return_addresses
                     .push(ReturnAddress::func_call(self.cur_ptr, *proc_id));
@@ -1015,6 +966,50 @@ impl<'a> VirtualMachine<'a> {
             PPECommand::Let(variable, expr) => {
                 let val = self.eval_expr(expr)?;
                 self.set_variable(variable, val)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    fn prepare_call(
+        &mut self,
+        locals: usize,
+        parameters: usize,
+        first: usize,
+        arguments: &[PPEExpr],
+        pass_flags: u16,
+    ) -> Result<(), VMError> {
+        // store locals + parameters
+        for i in 0..(locals + parameters) {
+            let id = first + i;
+            if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {
+                let val = self.variable_table.get_value(id).clone();
+                //println!("store {:02X} to {}", id, val);
+                self.call_local_value_stack.push(val);
+            }
+        }
+        for i in 0..parameters {
+            let id = first + i;
+            let value = self.eval_expr(&arguments[i])?;
+            //  println!("set parameter {:02X} to {}", id, value);
+            self.variable_table.set_value(id, value);
+
+            if (1 << i) & pass_flags != 0 {
+                self.write_back_stack.push(arguments[i].clone());
+            }
+        }
+        for i in 0..locals {
+            let id = first + parameters + i;
+            let (flags, vtype) = {
+                let header = &self.variable_table.get_var_entry(id).header;
+                (header.flags, header.variable_type)
+            };
+            if (flags & 0x1) == 0x0 {
+                // println!("reset local {:02X}", id);
+                self.variable_table
+                    .set_value(id, vtype.create_empty_value());
             }
         }
 

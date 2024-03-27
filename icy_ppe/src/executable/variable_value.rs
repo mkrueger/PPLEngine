@@ -657,9 +657,7 @@ impl PartialOrd for VariableValue {
                 VariableType::DDate => Some(self.data.ddate_value.cmp(&other.data.ddate_value)),
                 VariableType::EDate => Some(self.data.edate_value.cmp(&other.data.edate_value)),
 
-                VariableType::Integer => {
-                    Some(self.data.int_value.cmp(&other.data.int_value))
-                },
+                VariableType::Integer => Some(self.data.int_value.cmp(&other.data.int_value)),
                 VariableType::Money => Some(self.data.money_value.cmp(&other.data.money_value)),
                 VariableType::String | VariableType::BigStr => {
                     Some(self.as_string().cmp(&other.as_string()))
@@ -1141,7 +1139,7 @@ impl VariableValue {
         }
 
         let mut data = VariableData::default();
-        
+
         match convert_to_type {
             VariableType::Boolean => {
                 if self.vtype == VariableType::String {
@@ -1151,49 +1149,51 @@ impl VariableValue {
             }
             VariableType::Unsigned => {
                 data.unsigned_value = self.as_int() as u64;
-            },
+            }
             VariableType::Date => {
                 data.date_value = self.as_int() as u32;
             }
             VariableType::EDate => {
                 data.edate_value = self.as_int() as u32;
-            },
+            }
             VariableType::Integer => {
                 data.int_value = self.as_int();
-            },
+            }
             VariableType::Money => {
                 data.money_value = self.as_int();
-            },
+            }
             VariableType::String => return VariableValue::new_string(self.as_string()),
-            VariableType::BigStr => return VariableValue {
-                vtype: VariableType::BigStr,
-                data,
-                generic_data: GenericVariableData::String(self.as_string()),
-            },
+            VariableType::BigStr => {
+                return VariableValue {
+                    vtype: VariableType::BigStr,
+                    data,
+                    generic_data: GenericVariableData::String(self.as_string()),
+                }
+            }
             VariableType::Time => {
                 data.time_value = self.as_int();
-            },
+            }
             VariableType::Byte => {
                 data.byte_value = self.as_int() as u8;
-            },
+            }
             VariableType::Word => {
                 data.word_value = self.as_int() as u16;
-            },
+            }
             VariableType::SByte => {
                 data.sbyte_value = self.as_int() as i8;
-            },
+            }
             VariableType::SWord => {
                 data.sword_value = self.as_int() as i16;
-            },
+            }
             VariableType::Float => {
                 data.float_value = self.as_string().parse().unwrap();
-            },
+            }
             VariableType::Double => {
                 data.double_value = self.as_string().parse().unwrap();
-            },
+            }
             VariableType::DDate => {
                 data.ddate_value = self.as_int();
-            },
+            }
             VariableType::Function | VariableType::Procedure | VariableType::Unknown => {
                 panic!("Unknown variable type")
             }

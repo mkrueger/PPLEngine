@@ -728,7 +728,6 @@ impl VariableTable {
             )
             .unwrap();
 
-
             print!("     {ts:<15}");
             execute!(
                 stdout(),

@@ -147,7 +147,10 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
             stdout(),
             Print("["),
             SetForegroundColor(Color::Magenta),
-            Print(format!("{} ", self.ppe_file.variable_table.get_var_entry(id).name)),
+            Print(format!(
+                "{} ",
+                self.ppe_file.variable_table.get_var_entry(id).name
+            )),
             SetForegroundColor(Color::Green),
             Print(format!("{id:04X}")),
             SetAttribute(Attribute::Reset),
@@ -161,7 +164,10 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         execute!(
             stdout(),
             SetForegroundColor(Color::Magenta),
-            Print(format!(" {}", self.ppe_file.variable_table.get_var_entry(id).name)),
+            Print(format!(
+                " {}",
+                self.ppe_file.variable_table.get_var_entry(id).name
+            )),
             SetAttribute(Attribute::Reset),
             Print("["),
             SetForegroundColor(Color::Green),
@@ -179,7 +185,10 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         execute!(
             stdout(),
             SetForegroundColor(Color::Magenta),
-            Print(format!(" {}", self.ppe_file.variable_table.get_var_entry(id).name)),
+            Print(format!(
+                " {}",
+                self.ppe_file.variable_table.get_var_entry(id).name
+            )),
             SetAttribute(Attribute::Reset),
             Print("["),
             SetForegroundColor(Color::Green),
@@ -253,7 +262,6 @@ impl<'a> PPEVisitor<()> for DisassembleVisitor<'a> {
         print!(")");
     }
 
-    
     fn visit_end(&mut self) {
         Self::output_op_code(OpCode::END);
     }

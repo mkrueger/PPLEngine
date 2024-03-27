@@ -7,14 +7,14 @@ use icy_board_engine::icy_board::data::IcyBoardData;
 use icy_board_engine::icy_board::data::Node;
 use icy_board_engine::icy_board::state::IcyBoardState;
 use icy_board_engine::icy_board::users::UserRecord;
+use icy_board_engine::vm::run;
+use icy_board_engine::vm::DiskIO;
 use icy_ppe::executable::Executable;
 use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
-use icy_board_engine::vm::run;
-use icy_board_engine::vm::DiskIO;
 
 use crate::output::Output;
 use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};

@@ -88,7 +88,7 @@ impl References {
                 self.variable_type.create_empty_value(),
                 EntryType::Variable,
             )
-        } else { 
+        } else {
             panic!("Header not set for {self:?}")
         }
     }
@@ -325,9 +325,8 @@ impl SemanticVisitor {
                 if !matches!(rt, ReferenceType::Variable(_)) {
                     continue;
                 }
-                locals  += 1;
+                locals += 1;
             }
-            
 
             let id = variable_table.variable_table.len() + 2;
 
@@ -388,7 +387,7 @@ impl SemanticVisitor {
                 ));
                 variable_table.start_define_function_body(proc.get_identifier().clone());
             }
-            println!("{:?} {:?}", f.parameters, f.local_variables);
+
             for idx in f.parameters.clone() {
                 let (rt, r) = &mut self.references[idx];
                 if !matches!(rt, ReferenceType::Variable(_)) {
@@ -625,6 +624,7 @@ impl SemanticVisitor {
 
     fn start_parse_function_body(&mut self) {
         self.local_variable_lookup = Some(HashMap::new());
+        self.label_lookup_table.clear();
     }
 
     fn end_parse_function_body(&mut self) -> Option<NameTableLookup> {
@@ -1013,6 +1013,11 @@ impl AstVisitor<()> for SemanticVisitor {
                     let_stmt.get_identifier_token().span.clone(),
                     CompilationErrorType::InvalidLetVariable,
                 );
+            } else if self.references[idx].1.variable_type == VariableType::Function {
+                self.references[idx].1.return_types.push(Spanned::new(
+                    let_stmt.get_identifier().to_string(),
+                    let_stmt.get_identifier_token().span.clone(),
+                ));
             } else {
                 if let Some(header) = &self.references[idx].1.header {
                     self.check_arg_count(
@@ -1257,7 +1262,6 @@ impl AstVisitor<()> for SemanticVisitor {
         walk_procedure_implementation(self, procedure);
         let end_locals = self.references.len();
         self.end_parse_function_body();
-
 
         for f in &mut self.function_containers {
             if f.name == procedure.get_identifier() {

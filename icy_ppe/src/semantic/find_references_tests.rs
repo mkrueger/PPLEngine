@@ -26,11 +26,13 @@ fn find_local_references() {
         r#"declare procedure foo()
     :mylabel
 PRINT "Hello World"
+
 procedure foo()
 goto $mylabel$
 gosub $MyLabel$
 @:mylabel@
 endproc
+
 "#,
     );
 }
@@ -147,7 +149,7 @@ fn find_references(arg: &str) {
         panic!("parse error");
     }
     for (_rt, refs) in &visitor.references {
-        if refs.usages.len() == spans.len() {
+        if refs.usages.len() + refs.return_types.len() == spans.len() {
             if let Some(decl) = &refs.declaration {
                 if decl.span == declaration_span {
                     assert_eq!(declaration_span, decl.span);
@@ -174,9 +176,14 @@ fn find_references(arg: &str) {
     for (rt, refs) in visitor.references {
         println!("----->{:?} ({})", rt, refs.usages.len());
         println!("decl:{:?}", refs.declaration);
+        println!("impl:{:?}", refs.implementation);
         for r in &refs.usages {
             println!("ref:{r:?}");
         }
+        for r in &refs.return_types {
+            println!("ret:{r:?}");
+        }
+
         println!();
     }
 

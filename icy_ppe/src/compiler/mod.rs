@@ -17,7 +17,6 @@ use self::expr_compiler::ExpressionCompiler;
 
 pub mod expr_compiler;
 
-
 #[derive(Error, Debug)]
 pub enum CompilationErrorType {
     #[error("Label already used ({0})")]

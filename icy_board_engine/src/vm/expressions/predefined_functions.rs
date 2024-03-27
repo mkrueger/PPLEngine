@@ -451,7 +451,7 @@ pub fn timeap(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variable
     panic!("TODO")
 }
 pub fn ver(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_int(1540))
 }
 pub fn nochar(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
@@ -901,13 +901,19 @@ pub fn maxnode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     Ok(VariableValue::new_int(vm.icy_board_data.nodes.len() as i32))
 }
 pub fn slpath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_string(
+        vm.icy_board_data.data.path.sec_loc.clone(),
+    ))
 }
 pub fn helppath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_string(
+        vm.icy_board_data.data.path.help_loc.clone(),
+    ))
 }
 pub fn temppath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_string(
+        vm.icy_board_data.data.path.tmp_loc.clone(),
+    ))
 }
 pub fn modem(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -954,46 +960,46 @@ pub fn pagestat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     panic!("TODO")
 }
 pub fn tobigstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::BigStr))
 }
 pub fn toboolean(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Boolean))
 }
 pub fn tobyte(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Byte))
 }
 pub fn todate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Date))
 }
 pub fn todreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Double))
 }
 pub fn toedate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::EDate))
 }
 pub fn tointeger(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Integer))
 }
 pub fn tomoney(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Money))
 }
 pub fn toreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Float))
 }
 pub fn tosbyte(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::SByte))
 }
 pub fn tosword(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::SWord))
 }
 pub fn totime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Time))
 }
 pub fn tounsigned(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Unsigned))
 }
 pub fn toword(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(params[0].clone().convert_to(VariableType::Word))
 }
 pub fn mixed(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1050,7 +1056,10 @@ pub fn evttimeadj(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Vari
     panic!("TODO")
 }
 pub fn isbitset(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    let var = params[0].as_int();
+    let bit = params[1].as_int();
+
+    Ok(VariableValue::new_bool(var & (1 << bit) != 0))
 }
 pub fn fmtreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1081,7 +1090,7 @@ pub fn outbytes(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     Ok(VariableValue::new_int(0))
 }
 pub fn hiconfnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_int(vm.icy_board_data.data.num_conf))
 }
 
 pub fn inbytes(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {

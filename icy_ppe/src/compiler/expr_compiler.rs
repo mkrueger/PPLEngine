@@ -14,7 +14,11 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
         &mut self,
         identifier: &crate::ast::IdentifierExpression,
     ) -> PPEExpr {
-        if let Some(decl) = self.compiler.lookup_variable(identifier.get_identifier()) {
+        if let Some(decl) = self
+            .compiler
+            .lookup_table
+            .lookup_variable(identifier.get_identifier())
+        {
             return PPEExpr::Value(decl.header.id);
         }
         log::error!("Variable not found: {}", identifier.get_identifier());
@@ -22,7 +26,10 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
     }
 
     fn visit_constant_expression(&mut self, constant: &crate::ast::ConstantExpression) -> PPEExpr {
-        let table_id = self.compiler.lookup_constant(constant.get_constant_value());
+        let table_id = self
+            .compiler
+            .lookup_table
+            .lookup_constant(constant.get_constant_value());
         PPEExpr::Value(table_id)
     }
 
@@ -58,7 +65,11 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             .map(|e| e.visit(self))
             .collect();
 
-        if self.compiler.has_variable(func_call.get_identifier()) {
+        if self
+            .compiler
+            .lookup_table
+            .has_variable(func_call.get_identifier())
+        {
             let Some(table_idx) = self
                 .compiler
                 .lookup_variable_index(func_call.get_identifier())
@@ -70,7 +81,11 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
                 return PPEExpr::Value(0);
             };
 
-            let var = self.compiler.variable_table.get_var_entry(table_idx);
+            let var = self
+                .compiler
+                .lookup_table
+                .variable_table
+                .get_var_entry(table_idx);
 
             if var.value.get_type() == VariableType::Function {
                 return PPEExpr::FunctionCall(var.header.id, arguments);
@@ -96,7 +111,11 @@ impl<'a> AstVisitor<PPEExpr> for ExpressionCompiler<'a> {
             );
             return PPEExpr::Value(0);
         };
-        let var = &self.compiler.variable_table.get_var_entry(table_idx);
+        let var = &self
+            .compiler
+            .lookup_table
+            .variable_table
+            .get_var_entry(table_idx);
         if var.header.dim as usize != arguments.len() {
             log::error!(
                 "Invalid dimensions for function call: {}",

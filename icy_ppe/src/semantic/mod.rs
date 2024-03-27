@@ -139,7 +139,7 @@ pub struct LookupVariabeleTable {
     pub variable_table: VariableTable,
     variable_lookup: NameTableLookup,
 
-    local_variable_lookup: Option<NameTableLookup>,
+    local_variable_lookup: Option<unicase::Ascii<String>>,
     local_lookups: HashMap<unicase::Ascii<String>, NameTableLookup>,
 
     const_start: usize,
@@ -148,31 +148,92 @@ pub struct LookupVariabeleTable {
 }
 
 impl LookupVariabeleTable {
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
     pub fn push(&mut self, mut entry: TableEntry) {
         entry.header.id = self.variable_table.len() + 1;
 
         let name = unicase::Ascii::new(entry.name.clone());
-        self.variable_lookup.insert(name, self.variable_table.len());
+        if let Some(local) = &self.local_variable_lookup {
+            self.local_lookups
+                .get_mut(local)
+                .unwrap()
+                .insert(name, entry.header.id);
+        } else {
+            self.variable_lookup.insert(name, entry.header.id);
+        }
         self.variable_table.push(entry);
     }
 
-    pub fn start_constants(
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    pub fn lookup_variable_index(&self, identifier: &unicase::Ascii<String>) -> Option<usize> {
+        if let Some(local) = &self.local_variable_lookup {
+            if let Some(c) = self.local_lookups.get(local).unwrap().get(identifier) {
+                return Some(*c);
+            }
+        }
+        self.variable_lookup.get(identifier).copied()
+    }
+
+    pub fn has_variable(&self, identifier: &unicase::Ascii<String>) -> bool {
+        self.lookup_variable_index(identifier).is_some()
+    }
+
+    pub(crate) fn start_compile_function_body(&mut self, identifier: &unicase::Ascii<String>) {
+        self.local_variable_lookup = Some(identifier.clone());
+    }
+
+    pub(crate) fn end_compile_function_body(&mut self) {
+        self.local_variable_lookup = None;
+    }
+
+    pub fn lookup_variable(&self, identifier: &unicase::Ascii<String>) -> Option<&TableEntry> {
+        if let Some(local) = self.lookup_variable_index(identifier) {
+            self.variable_table.try_get_entry(local)
+        } else {
+            None
+        }
+    }
+
+    pub fn lookup_constant(&mut self, constant: &Constant) -> usize {
+        let value = constant.get_value();
+
+        if let GenericVariableData::String(str) = &value.generic_data {
+            if let Some(id) = self.string_lookup_table.get(str) {
+                return self.const_start + *id;
+            }
+        } else {
+            unsafe {
+                let key = (constant.get_var_type(), value.data.u64_value);
+                if let Some(id) = self.const_lookup_table.get(&key) {
+                    return self.const_start + *id;
+                }
+            }
+        }
+        log::error!("Constant not found {:?}", constant);
+        0
+    }
+
+    fn start_constants(
         &mut self,
         const_lookup_table: HashMap<(VariableType, u64), usize>,
         string_lookup_table: HashMap<String, usize>,
     ) {
-        self.const_start = self.variable_table.len();
+        self.const_start = self.variable_table.len() + 1;
         self.const_lookup_table = const_lookup_table;
         self.string_lookup_table = string_lookup_table;
     }
 
-    fn start_define_function_body(&mut self) {
-        self.local_variable_lookup = Some(HashMap::new());
-    }
-
-    fn end_define_function_body(&mut self, function: unicase::Ascii<String>) {
-        self.local_lookups
-            .insert(function, self.local_variable_lookup.take().unwrap());
+    fn start_define_function_body(&mut self, identifer: unicase::Ascii<String>) {
+        self.local_variable_lookup = Some(identifer.clone());
+        self.local_lookups.insert(identifer, NameTableLookup::new());
     }
 }
 
@@ -246,6 +307,9 @@ impl SemanticVisitor {
             {
                 break;
             }
+            if !matches!(rt, ReferenceType::Variable(_)) {
+                continue;
+            }
 
             if r.usages.is_empty() {
                 continue;
@@ -260,7 +324,7 @@ impl SemanticVisitor {
             }
             let id = variable_table.variable_table.len() + 2;
 
-            if let FunctionDeclaration::Function(_func) = &f.functions {
+            if let FunctionDeclaration::Function(func) = &f.functions {
                 let header = VarHeader {
                     id: 0,
                     dim: 0,
@@ -287,6 +351,7 @@ impl SemanticVisitor {
                     },
                     EntryType::Variable,
                 ));
+                variable_table.start_define_function_body(func.get_identifier().clone());
             } else if let FunctionDeclaration::Procedure(proc) = &f.functions {
                 let header = VarHeader {
                     id: 0,
@@ -315,9 +380,8 @@ impl SemanticVisitor {
                     },
                     EntryType::Variable,
                 ));
+                variable_table.start_define_function_body(proc.get_identifier().clone());
             }
-
-            variable_table.start_define_function_body();
 
             for f in f.local_variables.clone() {
                 let (_rt, r) = &mut self.references[f];
@@ -347,10 +411,8 @@ impl SemanticVisitor {
                     return_type.create_empty_value(),
                     EntryType::Variable,
                 ));
-                variable_table.end_define_function_body(f.get_identifier().clone());
-            } else if let FunctionDeclaration::Procedure(proc) = &f.functions {
-                variable_table.end_define_function_body(proc.get_identifier().clone());
             }
+            variable_table.end_compile_function_body();
         }
 
         variable_table.start_constants(

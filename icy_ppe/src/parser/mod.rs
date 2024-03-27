@@ -403,8 +403,18 @@ impl Parser {
                     }
                     if !self.got_statement && !matches!(stmt, Statement::VariableDeclaration(_)) {
                         let mut main_block = vec![stmt];
-                        while let Some(stmt) = self.parse_statement() {
-                            main_block.push(stmt);
+                        loop {
+                            let Some(cur_token) = &self.cur_token else {
+                                break;
+                            };
+                            if cur_token.token == Token::Function
+                                || cur_token.token == Token::Procedure
+                            {
+                                break;
+                            }
+                            if let Some(stmt) = self.parse_statement() {
+                                main_block.push(stmt);
+                            }
                         }
                         self.got_statement = true;
                         return Some(AstNode::Main(BlockStatement::empty(main_block)));

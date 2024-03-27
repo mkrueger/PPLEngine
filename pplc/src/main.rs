@@ -134,10 +134,8 @@ fn main() {
         }
     }
     println!();
-
-    // sv.generate_variable_table().print_variable_table();
-    // println!("------------------------");
-    let mut compiler = PPECompiler::new(version);
+    let table = sv.generate_variable_table();
+    let mut compiler = PPECompiler::new(table);
     compiler.compile(&ast);
 
     match compiler.create_executable(version) {

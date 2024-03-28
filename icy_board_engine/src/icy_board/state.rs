@@ -8,6 +8,57 @@ use super::{
     User,
 };
 
+#[derive(Clone, Default)]
+pub struct DisplayOptions {
+    /// If true, the more prompt is automatically answered after 10 seconds.
+    pub auto_more: bool,
+
+    /// If true, the @ color codes are disabled.
+    pub disable_color: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct TransferStatistics {
+    pub downloaded_files: usize,
+    pub downloaded_bytes: usize,
+    pub uploaded_files: usize,
+    pub uploaded_bytes: usize,
+
+    pub dl_transfer_time: usize,
+    pub ul_transfer_time: usize,
+}
+
+impl TransferStatistics {
+    pub fn get_cps_download(&self) -> usize {
+        if self.dl_transfer_time == 0 {
+            return 0;
+        }
+        self.downloaded_bytes / self.dl_transfer_time
+    }
+
+    pub fn get_cps_upload(&self) -> usize {
+        if self.ul_transfer_time == 0 {
+            return 0;
+        }
+        self.uploaded_bytes / self.ul_transfer_time
+    }
+
+    pub fn get_cps_both(&self) -> usize {
+        let total_time = self.dl_transfer_time + self.ul_transfer_time;
+        if total_time == 0 {
+            return 0;
+        }
+        // actually correct - it's not the average, but the accumlated csp
+        (self.downloaded_bytes + self.uploaded_bytes) / total_time
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct ConferenceType {
+    pub name: String,
+    pub number: u16,
+}
+
 #[derive(Clone)]
 pub struct IcyBoardState {
     pub users: Vec<User>,
@@ -15,6 +66,12 @@ pub struct IcyBoardState {
     pub data: IcyBoardData,
 
     pub icy_display_text: DisplayText,
+
+    pub disp_options: DisplayOptions,
+    pub transfer_statistics: TransferStatistics,
+    pub current_conference: ConferenceType,
+
+    pub login_date: u16,
 
     pub yes_char: char,
     pub no_char: char,
@@ -42,7 +99,14 @@ impl Default for IcyBoardState {
             yes_char: 'Y',
             no_char: 'N',
             keyboard_check: false,
+            login_date: 0,
             op_text: String::new(),
+            disp_options: DisplayOptions::default(),
+            transfer_statistics: TransferStatistics::default(),
+            current_conference: ConferenceType {
+                name: String::new(),
+                number: 0,
+            },
             debug_level: 0,
             use_alias: false,
             display_text: true,
@@ -78,5 +142,10 @@ impl IcyBoardState {
 
     pub fn remove_env(&mut self, env: &str) {
         self.env_vars.remove(env);
+    }
+
+    pub fn country_date(&self, date: u16) -> String {
+        // todo date format.
+        icy_ppe::datetime::juilian_to_date(date)
     }
 }

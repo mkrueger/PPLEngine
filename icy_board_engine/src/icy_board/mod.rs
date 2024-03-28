@@ -19,3 +19,19 @@ pub struct User {
     pub user: UserRecord,
     pub inf: UserInf,
 }
+impl User {
+    pub fn get_first_name(&self) -> String {
+        if let Some(idx) = self.user.name.find(' ') {
+            self.user.name[..idx].to_string()
+        } else {
+            self.user.name.clone()
+        }
+    }
+    pub fn get_last_name(&self) -> String {
+        if let Some(idx) = self.user.name.find(' ') {
+            self.user.name[idx + 1..].to_string()
+        } else {
+            String::new()
+        }
+    }
+}

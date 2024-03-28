@@ -27,6 +27,8 @@ pub mod expressions;
 pub mod statements;
 use crate::icy_board::data::Node;
 use crate::icy_board::state::IcyBoardState;
+use crate::icy_board::text_messages::MOREPROMPT;
+use crate::icy_board::text_messages::UNLIMITED;
 use crate::icy_board::User;
 
 use self::expressions::FUNCTION_TABLE;
@@ -274,12 +276,11 @@ impl<'a> VirtualMachine<'a> {
                                     )?;
                                 }
                                 str => {
-                                    self.write_string(
-                                        self.translate_variable(str)
-                                            .chars()
-                                            .collect::<Vec<char>>()
-                                            .as_slice(),
-                                    )?;
+                                    if let Some(s) = self.translate_variable(str) {
+                                        self.write_string(
+                                            s.chars().collect::<Vec<char>>().as_slice(),
+                                        )?;
+                                    }
                                 }
                             }
                         } else {
@@ -313,114 +314,287 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    fn translate_variable(&self, s: &str) -> String {
+    fn translate_variable(&mut self, s: &str) -> Option<String> {
         match s {
-            "ALIAS" => "1".to_string(),
-            "AUTOMORE" => "1".to_string(),
-            "BEEP" => "1".to_string(),
-            "BICPS" => "1".to_string(),
-            "BOARDNAME" => self.icy_board_data.data.board_name.to_string(),
-            "BPS" => self.get_bps().to_string(),
-            "BYTECREDIT" => "1".to_string(),
-            "BYTELIMIT" => "1".to_string(),
-            "BYTERATIO" => "1".to_string(),
-            "BYTESLEFT" => "1".to_string(),
-            "CARRIER" => "1".to_string(),
-            "CITY" => "1".to_string(),
-            "CLREOL" => "1".to_string(),
-            "CLS" => "1".to_string(),
-            "CONFNAME" => "1".to_string(),
-            "CONFNUM" => "1".to_string(),
-            "CREDLEFT" => "1".to_string(),
-            "CREDNOW" => "1".to_string(),
-            "CREDSTART" => "1".to_string(),
-            "CREDUSED" => "1".to_string(),
-            "CURMSGNUM" => "1".to_string(),
-            "DATAPHONE" => "1".to_string(),
-            "DAYBYTES" => "1".to_string(),
-            "DELAY" => "1".to_string(),
-            "DIRNAME" => "1".to_string(),
-            "DIRNUM" => "1".to_string(),
-            "DLBYTES" => "1".to_string(),
-            "DLFILES" => "1".to_string(),
-            "ENV=" => "1".to_string(),
-            "EVENT" => "1".to_string(),
-            "EXPDATE" => "1".to_string(),
-            "EXPDAYS" => "1".to_string(),
-            "FBYTES" => "1".to_string(),
-            "FFILES" => "1".to_string(),
-            "FILECREDIT" => "1".to_string(),
-            "FILERATIO" => "1".to_string(),
-            "FIRSTU" => "1".to_string(),
-            "FIRST" => "1".to_string(),
-            "FNUM" => "1".to_string(),
-            "FREESPACE" => "1".to_string(),
-            "HOMEPHONE" => "1".to_string(),
-            "HIGHMSGNUM" => "1".to_string(),
-            "INAME" => "1".to_string(),
-            "INCONF" => "1".to_string(),
-            "KBLEFT" => "1".to_string(),
-            "KBLIMIT" => "1".to_string(),
-            "LASTCALLERNODE" => "1".to_string(),
-            "LASTCALLERSYSTEM" => "1".to_string(),
-            "LASTDATEON" => "1".to_string(),
-            "LASTTIMEON" => "1".to_string(),
-            "LMR" => "1".to_string(),
-            "LOGDATE" => "1".to_string(),
-            "LOGTIME" => "1".to_string(),
-            "LOWMSGNUM" => "1".to_string(),
-            "MAXBYTES" => "1".to_string(),
-            "MAXFILES" => "1".to_string(),
-            "MINLEFT" => "1000".to_string(),
-            "MORE" => "1".to_string(),
-            "MSGLEFT" => "1".to_string(),
-            "MSGREAD" => "1".to_string(),
-            "NOCHAR" => self.icy_board_data.no_char.to_string(),
-            "NODE" => "1".to_string(),
-            "NUMBLT" => "1".to_string(),
-            "NUMCALLS" => "1".to_string(),
-            "NUMCONF" => "1".to_string(),
-            "NUMDIR" => "1".to_string(),
-            "NUMTIMESON" => "1".to_string(),
-            "OFFHOURS" => "1".to_string(),
-            "OPTEXT" => self.icy_board_data.op_text.to_string(),
-            "PAUSE" => "1".to_string(),
-            "POFF" => "1".to_string(),
-            "PON" => "1".to_string(),
-            "POS" => "1".to_string(),
-            "PROLTR" => "1".to_string(),
-            "PRODESC" => "1".to_string(),
-            "PWXDATE" => "1".to_string(),
-            "PWXDAYS" => "1".to_string(),
-            "QOFF" => "1".to_string(),
-            "QON" => "1".to_string(),
-            "RATIOBYTES" => "1".to_string(),
-            "RATIOFILES" => "1".to_string(),
-            "RBYTES" => "1".to_string(),
-            "RCPS" => "1".to_string(),
-            "REAL" => "1".to_string(),
-            "RFILES" => "1".to_string(),
-            "SBYTES" => "1".to_string(),
-            "SCPS" => "1".to_string(),
-            "SECURITY" => "1".to_string(),
-            "SFILES" => "1".to_string(),
-            "SYSDATE" => "1".to_string(),
-            "SYSOPIN" => "1".to_string(),
-            "SYSOPOUT" => "1".to_string(),
-            "SYSTIME" => "1".to_string(),
-            "TIMELIMIT" => "1000".to_string(),
-            "TIMELEFT" => "1000".to_string(),
-            "TIMEUSED" => "1".to_string(),
-            "TOTALTIME" => "1".to_string(),
-            "UPBYTES" => "1".to_string(),
-            "UPFILES" => "1".to_string(),
-            "USER" => "1".to_string(),
-            "WAIT" => "1".to_string(),
-            "WHO" => "1".to_string(),
-            "XOFF" => "1".to_string(),
-            "XON" => "1".to_string(),
-            "YESCHAR" => self.icy_board_data.yes_char.to_string(),
-            _ => "UNKNOWN".to_string(),
+            "ALIAS" => {
+                if let Some(user) = &self.current_user {
+                    if let Some(alias) = &user.inf.alias {
+                        return Some(alias.alias.clone());
+                    }
+                }
+                None
+            }
+            "AUTOMORE" => {
+                self.icy_board_data.disp_options.auto_more = true;
+                None
+            }
+            "BEEP" => Some("\x07".to_string()),
+            "BICPS" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .get_cps_both()
+                    .to_string(),
+            ),
+            "BOARDNAME" => Some(self.icy_board_data.data.board_name.to_string()),
+            "BPS" => Some(self.get_bps().to_string()),
+
+            // TODO
+            "BYTECREDIT" => None,
+            "BYTELIMIT" => None,
+            "BYTERATIO" => None,
+            "BYTESLEFT" => None,
+            "CARRIER" => None,
+
+            "CITY" => self
+                .current_user
+                .as_ref()
+                .map(|user| user.user.city.clone()),
+            "CLREOL" => {
+                if self.use_ansi() {
+                    Some("\x1B[K".to_string())
+                } else {
+                    None
+                }
+            }
+            "CLS" => {
+                if self.use_ansi() {
+                    Some("\x1B[2J\x1B[H".to_string())
+                } else {
+                    // form feed character
+                    Some("\x0C".to_string())
+                }
+            }
+            "CONFNAME" => Some(self.icy_board_data.current_conference.name.clone()),
+            "CONFNUM" => Some(self.icy_board_data.current_conference.number.to_string()),
+
+            // TODO
+            "CREDLEFT" => None,
+            "CREDNOW" => None,
+            "CREDSTART" => None,
+            "CREDUSED" => None,
+            "CURMSGNUM" => None,
+
+            "DATAPHONE" => self
+                .current_user
+                .as_ref()
+                .map(|user| user.user.bus_data_phone.clone()),
+            "DAYBYTES" => None,
+            "DELAY" => None,
+            "DIRNAME" => None,
+            "DIRNUM" => None,
+            "DLBYTES" => None,
+            "DLFILES" => None,
+            "EVENT" => None,
+            "EXPDATE" => {
+                if self.icy_board_data.data.subscript_mode {
+                    if let Some(user) = &self.current_user {
+                        return Some(self.icy_board_data.country_date(user.user.reg_exp_date));
+                    }
+                }
+                Some(self.icy_board_data.country_date(0))
+            }
+            "EXPDAYS" => {
+                if self.icy_board_data.data.subscript_mode {
+                    if let Some(user) = &self.current_user {
+                        if user.user.reg_exp_date != 0 {
+                            return Some(
+                                (self.icy_board_data.login_date - user.user.reg_exp_date)
+                                    .to_string(),
+                            );
+                        }
+                    }
+                }
+                let color = self
+                    .icy_board_data
+                    .icy_display_text
+                    .get_display_color(UNLIMITED)
+                    .unwrap();
+                let _ = self.set_color(color);
+                Some(
+                    self.icy_board_data
+                        .icy_display_text
+                        .get_display_text(UNLIMITED)
+                        .unwrap(),
+                )
+            }
+            "FBYTES" => None,
+            "FFILES" => None,
+            "FILECREDIT" => None,
+            "FILERATIO" => None,
+            "FIRSTU" => self
+                .current_user
+                .as_ref()
+                .map(|user| user.get_first_name().to_uppercase()),
+            "FNUM" => None,
+            "FREESPACE" => None,
+            "HOMEPHONE" => self
+                .current_user
+                .as_ref()
+                .map(|user| user.user.home_voice_phone.clone()),
+            "HIGHMSGNUM" => None,
+            "INAME" => None,
+            "INCONF" => None,
+            "KBLEFT" => None,
+            "KBLIMIT" => None,
+            "LASTCALLERNODE" => None,
+            "LASTCALLERSYSTEM" => None,
+            "LASTDATEON" => None,
+            "LASTTIMEON" => None,
+            "LMR" => None,
+            "LOGDATE" => None,
+            "LOGTIME" => None,
+            "LOWMSGNUM" => None,
+            "MAXBYTES" => None,
+            "MAXFILES" => None,
+            "MINLEFT" => Some("1000".to_string()),
+            "MORE" => {
+                let _ = self.more_promt(MOREPROMPT);
+                None
+            }
+            "MSGLEFT" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.inf.messages_left.to_string())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "MSGREAD" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.inf.messages_read.to_string())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "NOCHAR" => Some(self.icy_board_data.no_char.to_string()),
+            "NODE" => Some(self.icy_board_data.data.node_num.to_string()),
+            "NUMBLT" => None,
+            "NUMCALLS" => None,
+            "NUMCONF" => Some(self.icy_board_data.data.num_conf.to_string()),
+            "NUMDIR" => None,
+            "NUMTIMESON" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.user.num_times_on.to_string())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "OFFHOURS" => None,
+            "OPTEXT" => Some(self.icy_board_data.op_text.to_string()),
+            "PAUSE" => {
+                self.icy_board_data.disp_options.auto_more = true;
+                let _ = self.more_promt(MOREPROMPT);
+                self.icy_board_data.disp_options.auto_more = false;
+                None
+            }
+            "POFF" => None,
+            "PON" => None,
+            "POS" => None,
+            "PROLTR" => None,
+            "PRODESC" => None,
+            "PWXDATE" => None,
+            "PWXDAYS" => None,
+            "QOFF" => None,
+            "QON" => None,
+            "RATIOBYTES" => None,
+            "RATIOFILES" => None,
+            "RCPS" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .get_cps_upload()
+                    .to_string(),
+            ),
+            "RBYTES" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .uploaded_bytes
+                    .to_string(),
+            ),
+            "RFILES" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .uploaded_files
+                    .to_string(),
+            ),
+            "REAL" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.user.name.clone())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "SECURITY" => None,
+            "SCPS" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .get_cps_download()
+                    .to_string(),
+            ),
+            "SBYTES" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .downloaded_bytes
+                    .to_string(),
+            ),
+            "SFILES" => Some(
+                self.icy_board_data
+                    .transfer_statistics
+                    .downloaded_files
+                    .to_string(),
+            ),
+            "SYSDATE" => None,
+            "SYSOPIN" => Some(self.icy_board_data.data.sysop_start.clone()),
+            "SYSOPOUT" => Some(self.icy_board_data.data.sysop_stop.clone()),
+            "SYSTIME" => None,
+            "TIMELIMIT" => None,
+            "TIMELEFT" => None,
+            "TIMEUSED" => None,
+            "TOTALTIME" => None,
+            "UPBYTES" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.user.ul_tot_upld_bytes.to_string())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "UPFILES" => {
+                if let Some(user) = &self.current_user {
+                    Some(user.user.num_uploads.to_string())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "USER" => {
+                if let Some(user) = &self.current_user {
+                    if self.icy_board_data.use_alias {
+                        if let Some(alias) = &user.inf.alias {
+                            return Some(alias.alias.clone());
+                        }
+                    }
+                    Some(user.user.name.clone())
+                } else {
+                    Some("0".to_string())
+                }
+            }
+            "WAIT" => None,
+            "WHO" => None,
+            "XOFF" => {
+                self.icy_board_data.disp_options.disable_color = true;
+                None
+            }
+            "XON" => {
+                self.icy_board_data.disp_options.disable_color = false;
+                None
+            }
+            "YESCHAR" => Some(self.icy_board_data.yes_char.to_string()),
+            _ => {
+                if s.to_ascii_uppercase().starts_with("ENV=") {
+                    let key = &s[4..];
+                    if let Some(value) = self.icy_board_data.get_env(key) {
+                        return Some(value.clone());
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -439,6 +613,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn set_color(&mut self, color: u8) -> Res<()> {
+        if self.icy_board_data.disp_options.disable_color {
+            return Ok(());
+        }
         if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
             return Ok(());
         }
@@ -507,6 +684,29 @@ impl<'a> VirtualMachine<'a> {
     pub fn bell(&mut self) -> Res<()> {
         self.write_raw(TerminalTarget::Both, &['\x07'])
     }
+
+    fn more_promt(&mut self, moreprompt: usize) -> Res<()> {
+        self.print(
+            TerminalTarget::Both,
+            &self
+                .icy_board_data
+                .icy_display_text
+                .get_display_text(moreprompt)?,
+        )?;
+        loop {
+            if let Some(ch) = self.get_char()? {
+                let ch = ch.to_uppercase().to_string();
+
+                if ch == self.icy_board_data.yes_char.to_string()
+                    || ch == self.icy_board_data.no_char.to_string()
+                {
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -522,7 +722,7 @@ impl<'a> VirtualMachine<'a> {
 
         self.variable_table.set_value(
             U_EXPDATE,
-            VariableValue::new_date(cur_user.user.reg_exp_date),
+            VariableValue::new_date(cur_user.user.reg_exp_date as i32),
         );
         self.variable_table.set_value(
             U_SEC,
@@ -666,7 +866,7 @@ impl<'a> VirtualMachine<'a> {
         cur_user.user.dont_ask_fse = self.variable_table.get_value(U_FSEP).as_bool();
         cur_user.user.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
 
-        cur_user.user.reg_exp_date = self.variable_table.get_value(U_EXPDATE).as_int();
+        cur_user.user.reg_exp_date = self.variable_table.get_value(U_EXPDATE).as_int() as u16;
         cur_user.user.security_level = self.variable_table.get_value(U_SEC).as_int() as u8;
         cur_user.user.page_len = self.variable_table.get_value(U_PAGELEN).as_int();
         cur_user.user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int();

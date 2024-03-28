@@ -43,24 +43,7 @@ pub fn clreol(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn more(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.print(
-        TerminalTarget::Both,
-        &vm.icy_board_data
-            .icy_display_text
-            .get_display_text(text_messages::MOREPROMPT)?,
-    )?;
-    loop {
-        if let Some(ch) = vm.get_char()? {
-            let ch = ch.to_uppercase().to_string();
-
-            if ch == vm.icy_board_data.yes_char.to_string()
-                || ch == vm.icy_board_data.no_char.to_string()
-            {
-                break;
-            }
-        }
-    }
-    Ok(())
+    vm.more_promt(text_messages::MOREPROMPT)
 }
 
 pub fn wait(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {

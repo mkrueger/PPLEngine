@@ -58,7 +58,7 @@ pub struct UserRecord {
     pub elapsed_time_on: i32,
 
     /// Julian date for Registration Expiration Date
-    pub reg_exp_date: i32,
+    pub reg_exp_date: u16,
     // unsigned short LastConference;     ///  Number of the conference the caller was in
     pub delete_flag: bool,
     pub rec_num: usize,
@@ -135,7 +135,7 @@ impl UserRecord {
 
             let elapsed_time_on = cursor.read_u16::<LittleEndian>()? as i32;
 
-            let reg_exp_date = cursor.read_u16::<LittleEndian>()? as i32;
+            let reg_exp_date = cursor.read_u16::<LittleEndian>()?;
             let exp_security_level = cursor.read_u16::<LittleEndian>()? as i32;
             let last_conference = cursor.read_u16::<LittleEndian>()?;
             let ul_tot_dnld_bytes = cursor.read_u32::<LittleEndian>()?;

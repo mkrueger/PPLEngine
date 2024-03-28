@@ -8,7 +8,7 @@ use crate::vm::VirtualMachine;
 use easy_reader::EasyReader;
 use icy_engine::update_crc32;
 use icy_ppe::ast::constant::STACK_LIMIT;
-use icy_ppe::executable::{VariableData, VariableType, VariableValue};
+use icy_ppe::executable::{PPEExpr, VariableData, VariableType, VariableValue};
 use icy_ppe::Res;
 use radix_fmt::radix;
 use rand::Rng; // 0.8.5
@@ -20,7 +20,7 @@ use substring::Substring;
 /// # Panics
 ///
 /// Always
-pub fn invalid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn invalid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("Invalid function call")
 }
 
@@ -32,8 +32,8 @@ pub fn invalid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
 /// # Remarks
 /// 0 means empty string
 /// According to specs 256 is the maximum returned
-pub fn len(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
+pub fn len(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
     Ok(VariableValue::new_int(str.len() as i32))
 }
 
@@ -42,8 +42,8 @@ pub fn len(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
 ///  * `str` - A string value
 /// # Returns
 ///  `VariableValue::String` - lowercase equivalent of `str`
-pub fn lower(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
+pub fn lower(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
     Ok(VariableValue::new_string(str.to_lowercase()))
 }
 
@@ -52,8 +52,8 @@ pub fn lower(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `str` - A string value
 /// # Returns
 ///  `VariableValue::String` - uppercase equivalent of `str`
-pub fn upper(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
+pub fn upper(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
     Ok(VariableValue::new_string(str.to_uppercase()))
 }
 
@@ -64,10 +64,10 @@ pub fn upper(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `chars` - An integer value with the number of chars to take from `str`
 /// # Returns
 ///  the substring of `str`, "" if chars <= 0, Will add padding up to the full length specified
-pub fn mid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
-    let mut pos = params[1].as_int() - 1; // 1 based
-    let mut chars = params[2].as_int();
+pub fn mid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
+    let mut pos = vm.eval_expr(&args[1])?.as_int() - 1; // 1 based
+    let mut chars = vm.eval_expr(&args[2])?.as_int();
     if chars <= 0 {
         return Ok(VariableValue::new_string(String::new()));
     }
@@ -85,12 +85,12 @@ pub fn mid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
     Ok(VariableValue::new_string(res))
 }
 
-pub fn left(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let mut chars = params[1].as_int();
+pub fn left(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let mut chars = vm.eval_expr(&args[1])?.as_int();
     if chars <= 0 {
         return Ok(VariableValue::new_string(String::new()));
     }
-    let str = params[0].as_string();
+    let str = vm.eval_expr(&args[0])?.as_string();
     let mut res = String::new();
     if chars > 0 {
         if chars < str.len() as i32 {
@@ -107,15 +107,15 @@ pub fn left(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVa
     Ok(VariableValue::new_string(res))
 }
 
-pub fn right(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let chars = params[1].as_int();
+pub fn right(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let chars = vm.eval_expr(&args[1])?.as_int();
     if chars <= 0 {
         return Ok(VariableValue::new_string(String::new()));
     }
     let mut chars = chars as usize;
 
     let mut res = String::new();
-    let str: String = params[0].as_string();
+    let str: String = vm.eval_expr(&args[0])?.as_string();
     if chars > 0 {
         while chars > str.len() {
             res.push(' ');
@@ -126,8 +126,8 @@ pub fn right(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
     Ok(VariableValue::new_string(res))
 }
 
-pub fn space(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let mut chars = params[0].as_int();
+pub fn space(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let mut chars = vm.eval_expr(&args[0])?.as_int();
     if chars <= 0 {
         return Ok(VariableValue::new_string(String::new()));
     }
@@ -139,13 +139,13 @@ pub fn space(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
     Ok(VariableValue::new_string(res))
 }
 
-pub fn ferr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let channel = params[0].as_int();
+pub fn ferr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let channel = vm.eval_expr(&args[0])?.as_int();
     Ok(VariableValue::new_bool(vm.io.ferr(channel as usize)))
 }
 
-pub fn chr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let c = params[0].as_int();
+pub fn chr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let c = vm.eval_expr(&args[0])?.as_int();
     if c <= 0 {
         return Ok(VariableValue::new_string(String::new()));
     }
@@ -160,8 +160,8 @@ pub fn chr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
     Ok(VariableValue::new_string(res))
 }
 
-pub fn asc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let c = params[0].as_string();
+pub fn asc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let c = vm.eval_expr(&args[0])?.as_string();
     if c.is_empty() {
         return Ok(VariableValue::new_int(0));
     }
@@ -174,9 +174,9 @@ pub fn asc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
 ///  * `sub` - A string expression to search for
 /// # Returns
 ///  A 1 based integer of the position of sub or 0 if sub is not found.
-pub fn instr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
-    let sub = params[1].as_string();
+pub fn instr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
+    let sub = vm.eval_expr(&args[1])?.as_string();
     if sub.is_empty() {
         return Ok(VariableValue::new_int(0));
     }
@@ -188,7 +188,7 @@ pub fn instr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 }
 
 /// Returns a flag indicating if the user has aborted the display of information.
-pub fn abort(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn abort(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO ABORT") // TODO
 }
 
@@ -198,12 +198,12 @@ pub fn abort(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `ch` - A string with the character to strip from the beginning of `str`
 /// # Returns
 ///  The trimmed `str`
-pub fn ltrim(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let mut ch = params[1].as_string();
+pub fn ltrim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let mut ch = vm.eval_expr(&args[1])?.as_string();
     if ch.is_empty() {
-        return Ok(params[0].clone());
+        return Ok(vm.eval_expr(&args[0])?.clone());
     }
-    let str = params[0].as_string();
+    let str = vm.eval_expr(&args[0])?.as_string();
     let pat = ch.remove(0);
     Ok(VariableValue::new_string(
         str.trim_start_matches(pat).to_string(),
@@ -215,10 +215,10 @@ pub fn ltrim(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `str` - A string value
 ///  * `old` - A string with the old character
 ///  * `new` - A string with the new character
-pub fn replace(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
-    let old = params[1].as_string();
-    let new = params[2].as_string();
+pub fn replace(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
+    let old = vm.eval_expr(&args[1])?.as_string();
+    let new = vm.eval_expr(&args[2])?.as_string();
     if old.is_empty() {
         return Ok(VariableValue::new_string(str));
     }
@@ -240,9 +240,9 @@ pub fn replace(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
 /// # Arguments
 ///  * `str` - A string value
 ///  * `ch` - A string with the character to remove
-pub fn strip(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
-    let ch: String = params[1].as_string();
+pub fn strip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
+    let ch: String = vm.eval_expr(&args[1])?.as_string();
     let mut res = String::new();
     let ch = ch.chars().next().unwrap();
     for c in str.chars() {
@@ -258,8 +258,8 @@ pub fn strip(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `str` - A string value
 /// # Returns
 /// A string without any @X codes
-pub fn stripatx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let str = params[0].as_string();
+pub fn stripatx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let str = vm.eval_expr(&args[0])?.as_string();
     let mut res = String::new();
     let mut state = 0;
     let mut ch1 = 'A';
@@ -307,11 +307,11 @@ pub fn stripatx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     Ok(VariableValue::new_string(res))
 }
 
-pub fn replacestr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn replacestr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn stripstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn stripstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
@@ -321,12 +321,12 @@ pub fn stripstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
 ///  * `ch` - A string with the character to strip from the end of `str`
 /// # Returns
 ///  The trimmed `str`
-pub fn rtrim(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let mut ch = params[1].as_string();
+pub fn rtrim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let mut ch = vm.eval_expr(&args[1])?.as_string();
     if ch.is_empty() {
-        return Ok(params[0].clone());
+        return Ok(vm.eval_expr(&args[0])?.clone());
     }
-    let str = params[0].as_string();
+    let str = vm.eval_expr(&args[0])?.as_string();
 
     let pat = ch.remove(0);
     Ok(VariableValue::new_string(
@@ -340,19 +340,19 @@ pub fn rtrim(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `ch` - A string with the character to strip from the beginning and end of `str`
 /// # Returns
 ///  The trimmed `str`
-pub fn trim(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let mut ch = params[1].as_string();
+pub fn trim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let mut ch = vm.eval_expr(&args[1])?.as_string();
     if ch.is_empty() {
-        return Ok(params[0].clone());
+        return Ok(vm.eval_expr(&args[0])?.clone());
     }
-    let str = params[0].as_string();
+    let str = vm.eval_expr(&args[0])?.as_string();
 
     let pat = ch.remove(0);
     Ok(VariableValue::new_string(str.trim_matches(pat).to_string()))
 }
 
-pub fn random(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let upper = params[0].as_int();
+pub fn random(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let upper = vm.eval_expr(&args[0])?.as_int();
     if upper <= 0 {
         return Ok(VariableValue::new_int(0));
     }
@@ -361,21 +361,21 @@ pub fn random(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variable
     Ok(VariableValue::new_int(rng.gen_range(0..upper)))
 }
 
-pub fn date(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn date(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn time(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn u_name(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.users[vm.cur_user].name.clone(),
     ))
 }
 
-pub fn u_ldate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_ldate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     // vm.pcb_data.users[vm.cur_user].last_date_on
     // TODO
     Ok(VariableValue::new(
@@ -384,7 +384,7 @@ pub fn u_ldate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     ))
 }
 
-pub fn u_ltime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_ltime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     // TODO
     Ok(VariableValue::new(
         VariableType::Time,
@@ -392,79 +392,79 @@ pub fn u_ltime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     ))
 }
 
-pub fn u_ldir(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_ldir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_lmr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_lmr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_logons(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_logons(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_ful(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_ful(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_fdl(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_fdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_bdlday(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_bdlday(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_timeon(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_timeon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_bdl(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_bdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_bul(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_bul(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_msgrd(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_msgrd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
-pub fn u_msgwr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_msgwr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO") // TODO
 }
 
-pub fn year(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn year(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn month(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn month(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn day(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn day(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dow(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dow(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn hour(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn hour(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn min(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn min(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn sec(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn sec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn timeap(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn timeap(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ver(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ver(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(1540))
 }
-pub fn nochar(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn nochar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.no_char.to_string(),
     ))
 }
-pub fn yeschar(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn yeschar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.yes_char.to_string(),
     ))
 }
 
-pub fn inkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn inkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if let Some(ch) = vm.get_char()? {
         if ch as u8 == 127 {
             return Ok(VariableValue::new_string("DEL".to_string()));
@@ -500,29 +500,31 @@ pub fn inkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
     }
 }
 
-pub fn tostring(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(params[0].as_string()))
+pub fn tostring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(VariableValue::new_string(
+        vm.eval_expr(&args[0])?.as_string(),
+    ))
 }
 
-pub fn mask_pwd(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_pwd(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string((' '..='~').collect::<String>()))
 }
-pub fn mask_alpha(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_alpha(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str(),
     ))
 }
-pub fn mask_num(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_num(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(('0'..='9').collect::<String>()))
 }
-pub fn mask_alnum(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_alnum(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         ('A'..='Z').collect::<String>()
             + ('a'..='z').collect::<String>().as_str()
             + ('0'..='9').collect::<String>().as_str(),
     ))
 }
-pub fn mask_file(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_file(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         ('A'..='Z').collect::<String>()
             + ('a'..='z').collect::<String>().as_str()
@@ -530,7 +532,7 @@ pub fn mask_file(_vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Vari
             + "!#$%&'()-.:[\\]^_`~",
     ))
 }
-pub fn mask_path(_vm: &mut VirtualMachine, _params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_path(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         ('A'..='Z').collect::<String>()
             + ('a'..='z').collect::<String>().as_str()
@@ -538,17 +540,17 @@ pub fn mask_path(_vm: &mut VirtualMachine, _params: &[VariableValue]) -> Res<Var
             + "!#$%&'()-.:[\\]^_`~",
     ))
 }
-pub fn mask_ascii(_vm: &mut VirtualMachine, _params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mask_ascii(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string((' '..='~').collect::<String>()))
 }
 
-pub fn curconf(_vm: &mut VirtualMachine, _params: &[VariableValue]) -> Res<VariableValue> {
+pub fn curconf(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn pcbdat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pcbdat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ppepath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ppepath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let Some(dir) = vm.file_name.parent() else {
         return Ok(VariableValue::new_string(String::new()));
     };
@@ -557,19 +559,19 @@ pub fn ppepath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     Ok(VariableValue::new_string(res))
 }
 
-pub fn valdate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn valdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn valtime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn valtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn pcbnode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.icy_board_data.data.node_num))
 }
 
-pub fn readline(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let file_name = params[0].as_string();
-    let line = params[1].as_int();
+pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let file_name = vm.eval_expr(&args[0])?.as_string();
+    let line = vm.eval_expr(&args[1])?.as_int();
     let file_name = vm.io.resolve_file(&file_name);
 
     let file = File::open(file_name)?;
@@ -581,17 +583,17 @@ pub fn readline(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     Ok(VariableValue::new_string(line_text))
 }
 
-pub fn sysopsec(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
         vm.icy_board_data.data.sysop_security.sysop,
     ))
 }
-pub fn onlocal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn onlocal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     // TODO: OnLocal should return true if the user is local, false otherwise
     Ok(VariableValue::new_bool(true))
 }
 
-pub fn un_stat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn un_stat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if let Some(node) = &vm.pcb_node {
         Ok(VariableValue::new_int(node.status as i32))
     } else {
@@ -599,122 +601,123 @@ pub fn un_stat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     }
 }
 
-pub fn un_name(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn un_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if let Some(node) = &vm.pcb_node {
         Ok(VariableValue::new_string(node.name.clone()))
     } else {
         Ok(VariableValue::new_string(String::new()))
     }
 }
-pub fn un_city(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn un_city(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if let Some(node) = &vm.pcb_node {
         Ok(VariableValue::new_string(node.city.clone()))
     } else {
         Ok(VariableValue::new_string(String::new()))
     }
 }
-pub fn un_oper(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn un_oper(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if let Some(node) = &vm.pcb_node {
         Ok(VariableValue::new_string(node.operation.clone()))
     } else {
         Ok(VariableValue::new_string(String::new()))
     }
 }
-pub fn cursec(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn cursec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn gettoken(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn gettoken(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     if vm.cur_tokens.is_empty() {
         Ok(VariableValue::new_string(String::new()))
     } else {
         Ok(VariableValue::new_string(vm.cur_tokens.remove(0)))
     }
 }
-pub fn minleft(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn minleft(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn minon(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn minon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn getenv(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    if let Some(var) = vm.icy_board_data.get_env(&params[0].as_string()) {
+pub fn getenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let var = &vm.eval_expr(&args[0])?.as_string();
+    if let Some(var) = vm.icy_board_data.get_env(var) {
         Ok(VariableValue::new_string(var.to_string()))
     } else {
         Ok(VariableValue::new_string(String::new()))
     }
 }
-pub fn callid(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn callid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regah(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regah(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regbl(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regbl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regbh(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regbh(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regcl(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regcl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regch(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regch(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regdl(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regdh(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regdh(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regax(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regax(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regbx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regbx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regcx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regcx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regdx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regdx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regsi(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regsi(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regdi(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regdi(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regcf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regcf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn regds(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn regds(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn reges(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn reges(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn b2w(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn b2w(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn peekb(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn peekb(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn peekw(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn peekw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn mkaddr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mkaddr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn exist(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let file_name = params[0].as_string();
+pub fn exist(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let file_name = vm.eval_expr(&args[0])?.as_string();
     Ok(VariableValue::new_bool(vm.io.file_exists(&file_name)))
 }
 
@@ -724,9 +727,9 @@ pub fn exist(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableV
 ///  * `base` - The base to use for the conversion. 2 <= base <= 36
 /// # Returns
 ///  A string representation of `int` in the specified base.
-pub fn i2s(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let int = params[0].as_int();
-    let base = params[1].as_int();
+pub fn i2s(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let int = vm.eval_expr(&args[0])?.as_int();
+    let base = vm.eval_expr(&args[1])?.as_int();
     let s = radix(int, base as u8).to_string();
     Ok(VariableValue::new_string(s))
 }
@@ -737,101 +740,101 @@ pub fn i2s(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableVal
 ///  * `base` - The base to use for the conversion. 2 <= base <= 36
 /// # Returns
 ///  An integer representation of `s` in the specified base.
-pub fn s2i(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let src = params[0].as_string();
-    let base = params[1].as_int();
+pub fn s2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let src = vm.eval_expr(&args[0])?.as_string();
+    let base = vm.eval_expr(&args[1])?.as_int();
     let i = i32::from_str_radix(&src, base as u32)?;
     Ok(VariableValue::new_int(i))
 }
-pub fn carrier(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn carrier(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.get_bps()))
 }
-pub fn tokenstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn tokenstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn cdon(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn cdon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn langext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn langext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ansion(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ansion(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn valcc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn valcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fmtcc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fmtcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn cctype(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn cctype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn getx(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn getx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.get_caret_position().0 + 1))
 }
 
-pub fn gety(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn gety(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let y = vm.get_caret_position().1;
     Ok(VariableValue::new_int(y + 1))
 }
 
-pub fn band(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let left = params[0].as_int();
-    let right = params[1].as_int();
+pub fn band(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let left = vm.eval_expr(&args[0])?.as_int();
+    let right = vm.eval_expr(&args[1])?.as_int();
     Ok(VariableValue::new_int(left & right))
 }
 
-pub fn bor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let left = params[0].as_int();
-    let right = params[1].as_int();
+pub fn bor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let left = vm.eval_expr(&args[0])?.as_int();
+    let right = vm.eval_expr(&args[1])?.as_int();
     Ok(VariableValue::new_int(left | right))
 }
 
-pub fn bxor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let left = params[0].as_int();
-    let right = params[1].as_int();
+pub fn bxor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let left = vm.eval_expr(&args[0])?.as_int();
+    let right = vm.eval_expr(&args[1])?.as_int();
     Ok(VariableValue::new_int(left ^ right))
 }
 
-pub fn bnot(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let val = params[0].as_int();
+pub fn bnot(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let val = vm.eval_expr(&args[0])?.as_int();
     Ok(VariableValue::new_int(!val))
 }
 
-pub fn u_pwdhist(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_pwdhist(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn u_pwdlc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_pwdlc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn u_pwdtc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_pwdtc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn u_stat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_stat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn defcolor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn abs(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let val = params[0].as_int();
+pub fn abs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let val = vm.eval_expr(&args[0])?.as_int();
     Ok(VariableValue::new_int(val.abs()))
 }
 
-pub fn grafmode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn grafmode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn psa(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn psa(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
 #[allow(clippy::unnecessary_wraps)]
-pub fn fileinf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let file = params[0].as_string();
-    let item = params[1].as_int();
+pub fn fileinf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let file = vm.eval_expr(&args[0])?.as_string();
+    let item = vm.eval_expr(&args[1])?.as_int();
     match item {
         1 => Ok(VariableValue::new_bool(vm.io.file_exists(&file))),
         2 => Ok(VariableValue::new(
@@ -876,7 +879,7 @@ pub fn fileinf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     }
 }
 
-pub fn ppename(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ppename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let p = vm.file_name.with_extension("");
     let Some(dir) = p.file_name() else {
         return Ok(VariableValue::new_string(String::new()));
@@ -885,54 +888,54 @@ pub fn ppename(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variabl
     Ok(VariableValue::new_string(res))
 }
 
-pub fn mkdate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mkdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn curcolor(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn curcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn kinkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    inkey(vm, params)
+pub fn kinkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    inkey(vm, args)
 }
-pub fn minkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    inkey(vm, params)
+pub fn minkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    inkey(vm, args)
 }
-pub fn maxnode(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn maxnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.icy_board_data.nodes.len() as i32))
 }
-pub fn slpath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.data.path.sec_loc.clone(),
     ))
 }
-pub fn helppath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.data.path.help_loc.clone(),
     ))
 }
-pub fn temppath(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
         vm.icy_board_data.data.path.tmp_loc.clone(),
     ))
 }
-pub fn modem(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn modem(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn loggedon(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn loggedon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn callnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn callnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn mgetbyte(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mgetbyte(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn tokcount(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.cur_tokens.len() as i32))
 }
 
-pub fn u_recnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let user_name = params[0].as_string().to_uppercase();
+pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let user_name = vm.eval_expr(&args[0])?.as_string().to_uppercase();
     for (i, user) in vm.icy_board_data.users.iter().enumerate() {
         if user.name.to_uppercase() == user_name {
             return Ok(VariableValue::new_int(i as i32));
@@ -941,165 +944,207 @@ pub fn u_recnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Variab
     Ok(VariableValue::new_int(-1))
 }
 
-pub fn u_inconf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn u_inconf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn peekdw(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn peekdw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dbglevel(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.icy_board_data.debug_level))
 }
-pub fn scrtext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn scrtext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn showstat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn showstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn pagestat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pagestat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn tobigstr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::BigStr))
+pub fn tobigstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::BigStr))
 }
-pub fn toboolean(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Boolean))
+pub fn toboolean(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Boolean))
 }
-pub fn tobyte(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Byte))
+pub fn tobyte(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Byte))
 }
-pub fn todate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Date))
+pub fn todate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Date))
 }
-pub fn todreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Double))
+pub fn todreal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Double))
 }
-pub fn toedate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::EDate))
+pub fn toedate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::EDate))
 }
-pub fn tointeger(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Integer))
+pub fn tointeger(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Integer))
 }
-pub fn tomoney(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Money))
+pub fn tomoney(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Money))
 }
-pub fn toreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Float))
+pub fn toreal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Float))
 }
-pub fn tosbyte(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::SByte))
+pub fn tosbyte(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::SByte))
 }
-pub fn tosword(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::SWord))
+pub fn tosword(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::SWord))
 }
-pub fn totime(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Time))
+pub fn totime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Time))
 }
-pub fn tounsigned(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Unsigned))
+pub fn tounsigned(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Unsigned))
 }
-pub fn toword(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    Ok(params[0].clone().convert_to(VariableType::Word))
+pub fn toword(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(vm
+        .eval_expr(&args[0])?
+        .clone()
+        .convert_to(VariableType::Word))
 }
-pub fn mixed(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn mixed(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn alias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_bool(vm.icy_board_data.use_alias))
 }
-pub fn confreg(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confreg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confexp(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confexp(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confsel(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confsel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confsys(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confsys(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confmw(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confmw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn lprinted(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn lprinted(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn isnonstop(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn isnonstop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn errcorrect(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn errcorrect(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confalias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn useralias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn useralias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn curuser(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn curuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn chatstat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn chatstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn defans(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn defans(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn lastans(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn lastans(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn meganum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn meganum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn evttimeadj(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn evttimeadj(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn isbitset(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let var = params[0].as_int();
-    let bit = params[1].as_int();
+pub fn isbitset(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let var = vm.eval_expr(&args[0])?.as_int();
+    let bit = vm.eval_expr(&args[1])?.as_int();
 
     Ok(VariableValue::new_bool(var & (1 << bit) != 0))
 }
-pub fn fmtreal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fmtreal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn flagcnt(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn flagcnt(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn kbdbufsize(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn kbdbufsize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn pplbufsize(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pplbufsize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn kbdfilusued(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn kbdfilusued(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn lomsgnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn lomsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn himsgnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn himsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn drivespace(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn drivespace(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn outbytes(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(0))
 }
-pub fn hiconfnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn hiconfnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.icy_board_data.data.num_conf))
 }
 
-pub fn inbytes(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn inbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.inbytes()))
 }
 
-pub fn crc32(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    let use_file = params[0].as_bool();
-    let param = params[1].as_string();
+pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let use_file = vm.eval_expr(&args[0])?.as_bool();
+    let param = vm.eval_expr(&args[1])?.as_string();
 
     if use_file {
         let file = vm.io.resolve_file(&param);
@@ -1120,16 +1165,16 @@ fn calc_crc32(buffer: &[u8]) -> u32 {
     !crc
 }
 
-pub fn pcbmac(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pcbmac(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn actmsgnum(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn actmsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
 /// Usage: `STACKLEFT()`
 //  Val: Returns the number of bytes left on the *system* stack.
-pub fn stackleft(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn stackleft(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
         STACK_LIMIT - vm.return_addresses.len() as i32,
     ))
@@ -1137,241 +1182,241 @@ pub fn stackleft(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<Varia
 
 /// `STACKERR()`
 /// Returns a boolean value which indicates a stack error has occured
-pub fn stackerr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn stackerr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_bool(
         STACK_LIMIT > vm.return_addresses.len() as i32,
     ))
 }
 
-pub fn dgetalias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dgetalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dbof(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dbof(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dchanged(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dchanged(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ddecimals(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ddecimals(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ddeleted(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ddeleted(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn deof(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn deof(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn derr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn derr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dfields(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dfields(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dlength(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dlength(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dname(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dname(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dreccount(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dreccount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn drecno(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn drecno(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dtype(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dtype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fnext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dnext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn toddate(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn toddate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dcloseall(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dcloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dopen(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dclose(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dsetalias(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dsetalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dpack(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dpack(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dlockf(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dlockf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dlock(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dlockr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dlockr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dunlock(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dunlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dnopen(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dnopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dnclose(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dnclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dncloseall(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dncloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dnew(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dnew(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dadd(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dadd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dappend(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dtop(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dtop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dgo(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dgo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dbottom(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dbottom(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dskip(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dskip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dblank(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ddelete(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ddelete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn drecall(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn drecall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dtag(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dtag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dseek(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dseek(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dfblank(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dfblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dget(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dput(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dfcopy(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dfcopy(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dselect(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dselect(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn dchkstat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn dchkstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 
-pub fn pcbaccount(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pcbaccount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn pcbaccstat(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn pcbaccstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn derrmsg(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn derrmsg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn account(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn account(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn scanmsghdr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn scanmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn checkrip(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn checkrip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ripver(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ripver(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn qwklimits(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn qwklimits(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn findfirst(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn findfirst(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn findnext(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn findnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn uselmrs(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn uselmrs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn confinfo(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn confinfo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn tinkey(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
-    inkey(vm, params)
+pub fn tinkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    inkey(vm, args)
 }
-pub fn cwd(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn cwd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn instrr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn instrr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fdordaka(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fdordaka(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fdordorg(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fdordorg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fdordarea(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fdordarea(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn fdoqrd(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn fdoqrd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn getdrive(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn getdrive(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn setdrive(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn setdrive(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn bs2i(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn bs2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn bd2i(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn bd2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn i2bs(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn i2bs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn i2bd(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn i2bd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn ftell(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn ftell(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn os(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn os(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn shortdesc(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn shortdesc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn getbankbal(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn getbankbal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn getmsghdr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn getmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
-pub fn setmsghdr(vm: &mut VirtualMachine, params: &[VariableValue]) -> Res<VariableValue> {
+pub fn setmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }

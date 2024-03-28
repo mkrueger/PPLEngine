@@ -2,11 +2,14 @@
 #[allow(clippy::missing_errors_doc)]
 #[allow(clippy::missing_panics_doc)]
 pub mod predefined_functions;
-use icy_ppe::{executable::VariableValue, Res};
+use icy_ppe::{
+    executable::{PPEExpr, VariableValue},
+    Res,
+};
 pub use predefined_functions::*;
 
 type PredefFunc =
-    fn(vm: &mut crate::vm::VirtualMachine, params: &[VariableValue]) -> Res<VariableValue>;
+    fn(vm: &mut crate::vm::VirtualMachine, arguments: &[PPEExpr]) -> Res<VariableValue>;
 
 pub static FUNCTION_TABLE: [PredefFunc; 294] = [
     predefined_functions::invalid,

@@ -742,16 +742,11 @@ impl<'a> VirtualMachine<'a> {
                     .get_value(*id)
                     .get_array_value(dim_1, dim_2, dim_3))
             }
-            PPEExpr::PredefinedFunctionCall(func, arguments) => {
-                let mut args = Vec::new();
-                for arg in arguments {
-                    args.push(self.eval_expr(arg)?);
-                }
-                Ok(
-                    (FUNCTION_TABLE[(func.opcode as i16).unsigned_abs() as usize])(self, &args)
-                        .unwrap(),
-                )
-            }
+            PPEExpr::PredefinedFunctionCall(func, arguments) => Ok((FUNCTION_TABLE
+                [(func.opcode as i16).unsigned_abs() as usize])(
+                self, arguments
+            )
+            .unwrap()),
 
             PPEExpr::FunctionCall(func_id, arguments) => {
                 let proc_offset;

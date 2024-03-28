@@ -9,7 +9,6 @@ use icy_ppe::ast::BinOp;
 use icy_ppe::ast::Statement;
 use icy_ppe::ast::UnaryOp;
 use icy_ppe::executable::Executable;
-use icy_ppe::executable::OpCode;
 use icy_ppe::executable::PPECommand;
 use icy_ppe::executable::PPEExpr;
 use icy_ppe::executable::PPEScript;
@@ -448,7 +447,7 @@ impl<'a> VirtualMachine<'a> {
 
         let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
 
-        let was_bold = self.caret.get_attribute().get_foreground() > 7;
+        //  let was_bold = self.caret.get_attribute().get_foreground() > 7;
         let new_bold = new_color.get_foreground() > 7;
 
         /*/
@@ -458,34 +457,35 @@ impl<'a> VirtualMachine<'a> {
             } else  {
                 color_change += "0;";
             }
-        
+
             }*/
 
-          color_change += "0;";
+        color_change += "0;";
 
         if new_bold {
             color_change += "1;";
         }
 
-         
-        if /* !self.caret.get_attribute().is_blinking() && */ new_color.is_blinking() {
+        if
+        /* !self.caret.get_attribute().is_blinking() && */
+        new_color.is_blinking() {
             color_change += "5;";
         }
         //if self.caret.get_attribute().get_foreground() != new_color.get_foreground() {
-            color_change += format!(
-                "{};",
-                COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
-            )
-            .as_str();
+        color_change += format!(
+            "{};",
+            COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
+        )
+        .as_str();
         //}
 
-//        if self.caret.get_attribute().get_background() != new_color.get_background() {
-            color_change += format!(
-                "{};",
-                COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
-            )
-            .as_str();
-  //      }
+        //        if self.caret.get_attribute().get_background() != new_color.get_background() {
+        color_change += format!(
+            "{};",
+            COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
+        )
+        .as_str();
+        //      }
         color_change.pop();
         color_change += "m";
         // println!("color_change: {}", &color_change[1..]);
@@ -925,47 +925,11 @@ impl<'a> VirtualMachine<'a> {
                     .push(ReturnAddress::func_call(self.cur_ptr, *proc_id));
                 self.goto(proc_offset)?;
             }
+
             PPECommand::PredefinedCall(proc, arguments) => {
-                if proc.opcode == OpCode::SORT {
-                    let PPEExpr::Value(array_idx) = arguments[0] else {
-                        return Err(VMError::InternalVMError);
-                    };
-                    let PPEExpr::Value(indices_idx) = arguments[1] else {
-                        return Err(VMError::InternalVMError);
-                    };
-                    let _ = sort_impl(&mut self.variable_table, array_idx, indices_idx);
-                    return Ok(());
-                }
-                if proc.opcode == OpCode::POP {
-                    for arg in arguments {
-                        if let Some(val) = self.push_pop_stack.pop() {
-                            self.set_variable(arg, val)?;
-                        } else {
-                            return Err(VMError::PushPopStackEmpty);
-                        }
-                    }
-                    return Ok(());
-                }
-
-                let mut args = Vec::new();
-                for arg in arguments {
-                    let expr = self.eval_expr(arg)?;
-                    args.push(expr);
-                }
-                (STATEMENT_TABLE[proc.opcode as usize])(self, &mut args).unwrap();
-
-                match proc.sig {
-                    icy_ppe::executable::StatementSignature::ArgumentsWithVariable(var, _)
-                    | icy_ppe::executable::StatementSignature::VariableArguments(var) => {
-                        if var > 0 {
-                            self.set_variable(&arguments[var - 1], args[var - 1].clone())?;
-                        }
-                    }
-                    icy_ppe::executable::StatementSignature::SpecialCaseDlockg => {}
-                    icy_ppe::executable::StatementSignature::SpecialCaseDcreate => {}
-                    _ => {}
-                }
+                (STATEMENT_TABLE[proc.opcode as usize])(self, arguments).unwrap();
             }
+
             PPECommand::Goto(label) => {
                 self.goto(*label)?;
             }

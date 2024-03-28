@@ -371,7 +371,7 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.users[vm.cur_user].name.clone(),
+        vm.icy_board_data.users[vm.cur_user].user.name.clone(),
     ))
 }
 
@@ -937,7 +937,7 @@ pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let user_name = vm.eval_expr(&args[0])?.as_string().to_uppercase();
     for (i, user) in vm.icy_board_data.users.iter().enumerate() {
-        if user.name.to_uppercase() == user_name {
+        if user.user.name.to_uppercase() == user_name {
             return Ok(VariableValue::new_int(i as i32));
         }
     }

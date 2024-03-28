@@ -5,7 +5,7 @@ use super::{
     Expression, Statement,
 };
 
-pub fn reconstruct_block(_statements: &mut Vec<Statement>) {
+pub fn reconstruct_block(_statements: &[Statement]) {
     // optimize_block(statements);
 }
 

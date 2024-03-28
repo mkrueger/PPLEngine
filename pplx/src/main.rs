@@ -13,6 +13,7 @@ use icy_board_engine::icy_board::data::IcyBoardData;
 use icy_board_engine::icy_board::data::Node;
 use icy_board_engine::icy_board::state::IcyBoardState;
 use icy_board_engine::icy_board::users::UserRecord;
+use icy_board_engine::icy_board::User;
 use icy_board_engine::vm::run;
 use icy_board_engine::vm::DiskIO;
 use icy_ppe::executable::Executable;
@@ -50,17 +51,23 @@ fn main() {
         file_name.push_str(".ppe");
     }
     let users = vec![
-        UserRecord {
-            name: "sysop".to_string(),
-            password: "sysop".to_string(),
-            security_level: 110,
-            ..Default::default()
+        User {
+            user: UserRecord {
+                name: "sysop".to_string(),
+                password: "sysop".to_string(),
+                security_level: 110,
+                ..Default::default()
+            },
+            inf: Default::default(),
         },
-        UserRecord {
-            name: "guest".to_string(),
-            password: "guest".to_string(),
-            security_level: 10,
-            ..Default::default()
+        User {
+            user: UserRecord {
+                name: "guest".to_string(),
+                password: "guest".to_string(),
+                security_level: 10,
+                ..Default::default()
+            },
+            inf: Default::default(),
         },
     ];
 

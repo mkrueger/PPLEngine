@@ -10,6 +10,7 @@ use icy_ppe::Res;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UserRecord {
     pub name: String,
+    pub city: String,
     pub password: String,
 
     pub bus_data_phone: String,
@@ -23,6 +24,7 @@ pub struct UserRecord {
     /// Protocol (A->Z)
     pub protocol: char,
 
+    pub is_dirty: bool,
     pub msg_clear: bool,
     pub has_mail: bool,
     pub dont_ask_fse: bool,
@@ -31,8 +33,10 @@ pub struct UserRecord {
     pub short_header: bool,
     pub wide_editor: bool,
 
-    // datetype       DateLastDirRead;    ///  Date for Last DIR Scan (most recent file)
-    pub security_level: i32,
+    ///  Date for Last DIR Scan (most recent file)
+    pub date_last_dir_read: u16,
+    pub security_level: u8,
+
     /// Expired security level
     pub exp_security_level: i32,
 
@@ -53,61 +57,19 @@ pub struct UserRecord {
     /// Number of minutes online
     pub elapsed_time_on: i32,
 
-    pub scroll_flag: bool,
-
     /// Julian date for Registration Expiration Date
     pub reg_exp_date: i32,
     // unsigned short LastConference;     ///  Number of the conference the caller was in
-    pub total_dl_bytes: usize,
-    pub total_ul_bytes: usize,
-    // bool           DeleteFlag;         ///  1=delete this record, 0=keep
-    // long           RecNum;             ///  Record Number in USERS.INF file
-    // packedbyte2    Flags;
-    // char           Reserved[8];        ///  Bytes 390-397 from the USERS file
-    // unsigned long  MsgsRead;           ///  Number of messages the user has read in PCB
-    // unsigned long  MsgsLeft;           ///  Number of messages the user has left in PCB
-    pub alias_support: bool,
-    pub alias: String,
+    pub delete_flag: bool,
+    pub rec_num: usize,
 
-    pub address_support: bool,
-
-    pub street1: String,
-    pub street2: String,
-    pub city: String,
-    pub state: String,
-    pub zip: String,
-    pub country: String,
-
-    pub notes: [String; 5],
-
-    // bool           PasswordSupport;
-    pub pwd_prev_pwd: [String; 3],
-    pub pwd_last_change: i32,
-    pub pwd_times_changed: usize,
-    pub pwd_expire_date: i32,
-
-    pub verify_support: bool,
-    pub verify: String,
-    // bool           StatsSupport;
-    // callerstattype Stats;
-    // bool           NotesSupport;
-    // notestypez     Notes;
-    // bool           AccountSupport;
-    // accounttype    Account;
-    // bool           QwkSupport;
-    // qwkconfigtype  QwkConfig;
-
-    // 3.40 vars
-    pub short_descr: bool,
-    pub gender: String,
-    pub birth_date: i32,
-    pub email: String,
-    pub web: String,
+    pub last_conference: u16,
+    pub ul_tot_dnld_bytes: u32,
+    pub ul_tot_upld_bytes: u32,
 }
 
 impl UserRecord {
     /// # Errors
-    /// evelv
     pub fn read_users(path: &Path) -> Res<Vec<UserRecord>> {
         const RECORD_SIZE: u64 = 0x190;
         let mut users = Vec::new();
@@ -130,20 +92,26 @@ impl UserRecord {
             let mut voice_phone = [0u8; 13];
             cursor.read_exact(&mut voice_phone)?;
 
-            let mut last_date_on = [0u8; 6];
-            cursor.read_exact(&mut last_date_on)?;
+            let last_date_on = cursor.read_u16::<LittleEndian>()?;
 
-            let mut last_time_on = [0u8; 5];
+            let mut last_time_on = [0u8; 6];
             cursor.read_exact(&mut last_time_on)?;
 
             let expert_mode = cursor.read_u8()?;
             let protocol = cursor.read_u8()?;
 
-            // reserved byte
-            cursor.read_u8()?;
+            let packet_flags = cursor.read_u8()?;
 
-            let mut date_last_dir_read = [0u8; 6];
-            cursor.read_exact(&mut date_last_dir_read)?;
+            let is_dirty = (packet_flags & (1 << 0)) != 0;
+            let msg_clear = (packet_flags & (1 << 1)) != 0;
+            let has_mail = (packet_flags & (1 << 2)) != 0;
+            let dont_ask_fse = (packet_flags & (1 << 3)) != 0;
+            let use_fsedefault = (packet_flags & (1 << 4)) != 0;
+            let scroll_msg_body = (packet_flags & (1 << 5)) != 0;
+            let short_header = (packet_flags & (1 << 6)) != 0;
+            let wide_editor = (packet_flags & (1 << 7)) != 0;
+
+            let date_last_dir_read = cursor.read_u16::<LittleEndian>()?;
 
             let security_level = cursor.read_u8()?;
             let num_times_on = cursor.read_u16::<LittleEndian>()?;
@@ -167,8 +135,13 @@ impl UserRecord {
 
             let elapsed_time_on = cursor.read_u16::<LittleEndian>()? as i32;
 
-            let mut reg_exp_date = [0u8; 6];
-            cursor.read_exact(&mut reg_exp_date)?;
+            let reg_exp_date = cursor.read_u16::<LittleEndian>()? as i32;
+            let exp_security_level = cursor.read_u16::<LittleEndian>()? as i32;
+            let last_conference = cursor.read_u16::<LittleEndian>()?;
+            let ul_tot_dnld_bytes = cursor.read_u32::<LittleEndian>()?;
+            let ul_tot_upld_bytes = cursor.read_u32::<LittleEndian>()?;
+            let delete_flag = cursor.read_u8()? != 0;
+            let rec_num = cursor.read_u32::<LittleEndian>()? as usize;
 
             // unknown data
             for _ in 0..0xCF {
@@ -181,9 +154,22 @@ impl UserRecord {
                 password: String::from_utf8_lossy(&password).trim().to_string(),
                 bus_data_phone: String::from_utf8_lossy(&data_phone).trim().to_string(),
                 home_voice_phone: String::from_utf8_lossy(&voice_phone).trim().to_string(),
+                last_date_on,
+                last_time_on: String::from_utf8_lossy(&last_time_on).trim().to_string(),
                 expert_mode: expert_mode == b'Y',
                 protocol: protocol as char,
-                security_level: security_level as i32,
+
+                is_dirty,
+                msg_clear,
+                has_mail,
+                dont_ask_fse,
+                use_fsedefault,
+                scroll_msg_body,
+                short_header,
+                wide_editor,
+
+                date_last_dir_read,
+                security_level,
                 num_times_on: num_times_on as usize,
                 page_len: page_len as i32,
                 num_uploads: num_uploads as i32,
@@ -192,8 +178,13 @@ impl UserRecord {
                 user_comment: String::from_utf8_lossy(&cmt1).trim().to_string(),
                 sysop_comment: String::from_utf8_lossy(&cmt2).trim().to_string(),
                 elapsed_time_on,
-
-                ..Default::default()
+                reg_exp_date,
+                exp_security_level,
+                last_conference,
+                ul_tot_dnld_bytes,
+                ul_tot_upld_bytes,
+                delete_flag,
+                rec_num,
             };
 
             users.push(user);

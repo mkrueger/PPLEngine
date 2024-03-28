@@ -5,12 +5,12 @@ use icy_ppe::Res;
 use super::{
     data::{IcyBoardData, Node},
     text_messages::DisplayText,
-    users::UserRecord,
+    User,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct IcyBoardState {
-    pub users: Vec<UserRecord>,
+    pub users: Vec<User>,
     pub nodes: Vec<Node>,
     pub data: IcyBoardData,
 

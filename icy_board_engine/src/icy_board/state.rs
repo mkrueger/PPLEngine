@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use icy_ppe::Res;
+use icy_ppe::{datetime::IcbDate, Res};
 
 use super::{
     data::{IcyBoardData, Node},
@@ -71,7 +71,7 @@ pub struct IcyBoardState {
     pub transfer_statistics: TransferStatistics,
     pub current_conference: ConferenceType,
 
-    pub login_date: u16,
+    pub login_date: IcbDate,
 
     pub yes_char: char,
     pub no_char: char,
@@ -99,7 +99,7 @@ impl Default for IcyBoardState {
             yes_char: 'Y',
             no_char: 'N',
             keyboard_check: false,
-            login_date: 0,
+            login_date: IcbDate::default(),
             op_text: String::new(),
             disp_options: DisplayOptions::default(),
             transfer_statistics: TransferStatistics::default(),
@@ -142,10 +142,5 @@ impl IcyBoardState {
 
     pub fn remove_env(&mut self, env: &str) {
         self.env_vars.remove(env);
-    }
-
-    pub fn country_date(&self, date: u16) -> String {
-        // todo date format.
-        icy_ppe::datetime::juilian_to_date(date)
     }
 }

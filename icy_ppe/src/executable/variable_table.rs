@@ -868,7 +868,7 @@ lazy_static::lazy_static! {
 
         UserVariable { name: "U_SHORTDESC", version:340, value:VariableValue::new_bool(false) },
         UserVariable { name: "U_GENDER", version:340, value:VariableValue::new_string(String::new()) },
-        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_date(0) },
+        UserVariable { name: "U_BIRTHDATE", version:340, value:VariableValue::new_string(String::new()) },
         UserVariable { name: "U_EMAIL", version:340, value:VariableValue::new_string(String::new()) },
         UserVariable { name: "U_WEB", version:340, value:VariableValue::new_string(String::new()) },
     ];

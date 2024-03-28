@@ -5,7 +5,7 @@ use std::{
 };
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use icy_ppe::Res;
+use icy_ppe::{datetime::IcbDate, Res};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UserRecord {
@@ -58,7 +58,7 @@ pub struct UserRecord {
     pub elapsed_time_on: i32,
 
     /// Julian date for Registration Expiration Date
-    pub reg_exp_date: u16,
+    pub reg_exp_date: IcbDate,
     // unsigned short LastConference;     ///  Number of the conference the caller was in
     pub delete_flag: bool,
     pub rec_num: usize,
@@ -178,7 +178,7 @@ impl UserRecord {
                 user_comment: String::from_utf8_lossy(&cmt1).trim().to_string(),
                 sysop_comment: String::from_utf8_lossy(&cmt2).trim().to_string(),
                 elapsed_time_on,
-                reg_exp_date,
+                reg_exp_date: IcbDate::from_pcboard(reg_exp_date as i32),
                 exp_security_level,
                 last_conference,
                 ul_tot_dnld_bytes,

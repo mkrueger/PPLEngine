@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use icy_ppe::{tables::CP437_TO_UNICODE, Res};
+use icy_ppe::{datetime::IcbDate, tables::CP437_TO_UNICODE, Res};
 use std::{
     fs,
     io::{Cursor, Read},
@@ -268,7 +268,7 @@ pub struct PasswordUserInf {
     pub prev_pwd: [String; 3],
     pub last_change: i32,
     pub times_changed: usize,
-    pub expire_date: i32,
+    pub expire_date: IcbDate,
 }
 
 impl PasswordUserInf {
@@ -304,7 +304,7 @@ impl PasswordUserInf {
             prev_pwd: [pwd1, pwd2, pwd3],
             last_change,
             times_changed,
-            expire_date,
+            expire_date: IcbDate::from_pcboard(expire_date),
         })
     }
 }
@@ -312,7 +312,7 @@ impl PasswordUserInf {
 #[derive(Default, Debug, Clone)]
 pub struct CallStatsUserInf {
     /// First date on
-    pub first_date_on: i32,
+    pub first_date_on: IcbDate,
     /// Times of paged sysop
     pub num_sysop_pages: usize,
     /// Times of group chat
@@ -375,7 +375,7 @@ impl CallStatsUserInf {
         let num_verify_errors = cursor.read_u16::<LittleEndian>()? as usize;
 
         Ok(Self {
-            first_date_on,
+            first_date_on: IcbDate::from_pcboard(first_date_on),
             num_sysop_pages,
             num_group_chats,
             num_comments,
@@ -551,7 +551,7 @@ impl AccountUserInf {
 #[derive(Default, Debug, Clone)]
 pub struct PersonalUserInf {
     pub gender: String,
-    pub birth_date: String,
+    pub birth_date: IcbDate,
     pub email: String,
     pub web: String,
 }
@@ -584,7 +584,7 @@ impl PersonalUserInf {
         // i += 61;
         Ok(Self {
             gender,
-            birth_date,
+            birth_date: IcbDate::parse(&birth_date),
             email,
             web,
         })
@@ -593,8 +593,8 @@ impl PersonalUserInf {
 
 #[derive(Default, Debug, Clone)]
 pub struct BankInfo {
-    pub last_deposite_date: u32,
-    pub last_withdraw_date: u32,
+    pub last_deposite_date: IcbDate,
+    pub last_withdraw_date: IcbDate,
     pub last_transaction_amount: u32,
     pub amount_saved: u32,
     pub max_withdrawl_per_day: u32,
@@ -610,8 +610,8 @@ impl BankInfo {
         let max_stored_amount = cursor.read_u32::<LittleEndian>()?;
 
         Ok(Self {
-            last_deposite_date,
-            last_withdraw_date,
+            last_deposite_date: IcbDate::from_pcboard(last_deposite_date as i32),
+            last_withdraw_date: IcbDate::from_pcboard(last_withdraw_date as i32),
             last_transaction_amount,
             amount_saved,
             max_withdrawl_per_day,

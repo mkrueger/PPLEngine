@@ -8,6 +8,7 @@ use icy_engine::TextAttribute;
 use icy_ppe::ast::BinOp;
 use icy_ppe::ast::Statement;
 use icy_ppe::ast::UnaryOp;
+use icy_ppe::datetime::IcbDate;
 use icy_ppe::executable::Executable;
 use icy_ppe::executable::PPECommand;
 use icy_ppe::executable::PPEExpr;
@@ -388,18 +389,19 @@ impl<'a> VirtualMachine<'a> {
             "EXPDATE" => {
                 if self.icy_board_data.data.subscript_mode {
                     if let Some(user) = &self.current_user {
-                        return Some(self.icy_board_data.country_date(user.user.reg_exp_date));
+                        return Some(user.user.reg_exp_date.to_country_date());
                     }
                 }
-                Some(self.icy_board_data.country_date(0))
+                Some(IcbDate::default().to_country_date())
             }
             "EXPDAYS" => {
                 if self.icy_board_data.data.subscript_mode {
                     if let Some(user) = &self.current_user {
-                        if user.user.reg_exp_date != 0 {
+                        if user.user.reg_exp_date.get_year() != 0 {
                             return Some(
-                                (self.icy_board_data.login_date - user.user.reg_exp_date)
-                                    .to_string(),
+                                (self.icy_board_data.login_date.to_julian_date()
+                                    - user.user.reg_exp_date.to_julian_date())
+                                .to_string(),
                             );
                         }
                     }
@@ -722,7 +724,7 @@ impl<'a> VirtualMachine<'a> {
 
         self.variable_table.set_value(
             U_EXPDATE,
-            VariableValue::new_date(cur_user.user.reg_exp_date as i32),
+            VariableValue::new_date(cur_user.user.reg_exp_date.to_pcboard_date()),
         );
         self.variable_table.set_value(
             U_SEC,
@@ -832,8 +834,10 @@ impl<'a> VirtualMachine<'a> {
             }
         }
         if let Some(pwd) = &cur_user.inf.password {
-            self.variable_table
-                .set_value(U_PWDEXP, VariableValue::new_date(pwd.expire_date));
+            self.variable_table.set_value(
+                U_PWDEXP,
+                VariableValue::new_date(pwd.expire_date.to_pcboard_date()),
+            );
         }
         if self.variable_table.get_version() >= 300 {
             // PCBoard seems not to set this variable ever.
@@ -850,8 +854,10 @@ impl<'a> VirtualMachine<'a> {
                     U_GENDER,
                     VariableValue::new_string(pers_info.gender.clone()),
                 );
-                self.variable_table
-                    .set_value(U_BIRTHDATE, VariableValue::new_date(0)); // TODO: pers_info.birth_date
+                self.variable_table.set_value(
+                    U_BIRTHDATE,
+                    VariableValue::new_string(pers_info.birth_date.to_string()),
+                );
                 self.variable_table
                     .set_value(U_EMAIL, VariableValue::new_string(pers_info.email.clone()));
                 self.variable_table
@@ -866,7 +872,8 @@ impl<'a> VirtualMachine<'a> {
         cur_user.user.dont_ask_fse = self.variable_table.get_value(U_FSEP).as_bool();
         cur_user.user.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
 
-        cur_user.user.reg_exp_date = self.variable_table.get_value(U_EXPDATE).as_int() as u16;
+        cur_user.user.reg_exp_date =
+            IcbDate::from_pcboard(self.variable_table.get_value(U_EXPDATE).as_int());
         cur_user.user.security_level = self.variable_table.get_value(U_SEC).as_int() as u8;
         cur_user.user.page_len = self.variable_table.get_value(U_PAGELEN).as_int();
         cur_user.user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int();
@@ -938,7 +945,8 @@ impl<'a> VirtualMachine<'a> {
             }
         }
         if let Some(pwd) = &mut cur_user.inf.password {
-            pwd.expire_date = self.variable_table.get_value(U_PWDEXP).as_int();
+            pwd.expire_date =
+                IcbDate::from_pcboard(self.variable_table.get_value(U_PWDEXP).as_int());
         }
 
         if self.variable_table.get_version() >= 300 {
@@ -951,7 +959,8 @@ impl<'a> VirtualMachine<'a> {
 
             if let Some(pers_info) = &mut cur_user.inf.personal {
                 pers_info.gender = self.variable_table.get_value(U_GENDER).as_string();
-                pers_info.birth_date = self.variable_table.get_value(U_BIRTHDATE).as_string();
+                pers_info.birth_date =
+                    IcbDate::parse(&self.variable_table.get_value(U_BIRTHDATE).as_string());
                 pers_info.email = self.variable_table.get_value(U_EMAIL).as_string();
                 pers_info.web = self.variable_table.get_value(U_WEB).as_string();
             }

@@ -1,6 +1,8 @@
 use clap::Parser;
 use crossterm::cursor::MoveTo;
+use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::execute;
+use crossterm::queue;
 use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::Print;
@@ -9,8 +11,6 @@ use crossterm::style::SetForegroundColor;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use crossterm::ExecutableCommand;
-use icy_board_engine::icy_board::data::IcyBoardData;
-use icy_board_engine::icy_board::data::Node;
 use icy_board_engine::icy_board::state::IcyBoardState;
 use icy_board_engine::icy_board::users::UserRecord;
 use icy_board_engine::icy_board::User;
@@ -22,11 +22,6 @@ use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
-
-use crate::output::Output;
-use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::queue;
-mod output;
 
 #[derive(clap::Parser)]
 #[command(version="", about="PCBoard Programming Language Execution Environment", long_about = None)]
@@ -71,23 +66,15 @@ fn main() {
         },
     ];
 
-    let pcb_data = IcyBoardData::default();
-    let icy_board_data = IcyBoardState {
-        users,
-        nodes: vec![Node::default()],
-        data: pcb_data,
-        yes_char: 'Y',
-        no_char: 'N',
-        display_text: true,
-        ..Default::default()
-    };
+    let mut icy_board_data = IcyBoardState::default();
+    icy_board_data.is_sysop = arguments.sysop;
+
+    icy_board_data.board.lock().unwrap().users = users;
 
     match Executable::read_file(&file_name, false) {
         Ok(exe) => {
             let mut io = DiskIO::new(".");
-            let mut output = Output::default();
 
-            output.is_sysop = arguments.sysop;
             enable_raw_mode().unwrap();
             let supports_keyboard_enhancement = matches!(
                 crossterm::terminal::supports_keyboard_enhancement(),
@@ -117,7 +104,6 @@ fn main() {
             run(
                 PathBuf::from(file_name),
                 &exe,
-                &mut output,
                 &mut io,
                 icy_board_data,
                 arguments.sysop,

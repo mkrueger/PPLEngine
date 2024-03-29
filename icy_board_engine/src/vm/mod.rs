@@ -1,10 +1,3 @@
-use icy_engine::ansi;
-use icy_engine::ansi::constants::COLOR_OFFSETS;
-use icy_engine::Buffer;
-use icy_engine::BufferParser;
-use icy_engine::Caret;
-use icy_engine::Position;
-use icy_engine::TextAttribute;
 use icy_ppe::ast::BinOp;
 use icy_ppe::ast::Statement;
 use icy_ppe::ast::UnaryOp;
@@ -28,8 +21,6 @@ pub mod expressions;
 pub mod statements;
 use crate::icy_board::data::Node;
 use crate::icy_board::state::IcyBoardState;
-use crate::icy_board::text_messages::MOREPROMPT;
-use crate::icy_board::text_messages::UNLIMITED;
 use crate::icy_board::User;
 
 use self::expressions::FUNCTION_TABLE;
@@ -147,7 +138,6 @@ impl ReturnAddress {
 }
 
 pub struct VirtualMachine<'a> {
-    ctx2: &'a mut dyn ExecutionContext,
     io: &'a mut dyn PCBoardIO,
     pub file_name: PathBuf,
     pub variable_table: VariableTable,
@@ -156,10 +146,9 @@ pub struct VirtualMachine<'a> {
     pub cur_ptr: usize,
     pub is_running: bool,
     pub fpclear: bool,
-    pub is_sysop: bool,
 
     pub icy_board_data: IcyBoardState,
-    pub cur_user: usize,
+
     pub current_user: Option<User>,
     pub pcb_node: Option<Node>,
 
@@ -171,544 +160,6 @@ pub struct VirtualMachine<'a> {
 
     pub label_table: HashMap<usize, usize>,
     pub push_pop_stack: Vec<VariableValue>,
-
-    parser: ansi::Parser,
-    caret: Caret,
-    buffer: Buffer,
-}
-
-enum PcbState {
-    Default,
-    GotAt,
-    ReadColor1,
-    ReadColor2(char),
-    ReadAtSequence(String),
-}
-
-impl<'a> VirtualMachine<'a> {
-    pub fn use_ansi(&self) -> bool {
-        true
-    }
-
-    pub fn has_sysop(&self) -> bool {
-        self.is_sysop
-    }
-
-    pub fn get_bps(&self) -> i32 {
-        115_200
-    }
-
-    /// # Errors
-    pub fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()> {
-        if self.icy_board_data.display_text {
-            self.write_raw(
-                target,
-                format!("\x1B[{};{}H", y, x)
-                    .chars()
-                    .collect::<Vec<char>>()
-                    .as_slice(),
-            )
-        } else {
-            Ok(())
-        }
-    }
-
-    /// # Errors
-    pub fn print(&mut self, target: TerminalTarget, str: &str) -> Res<()> {
-        self.write_raw(target, str.chars().collect::<Vec<char>>().as_slice())
-    }
-
-    fn no_terminal(&self, terminal_target: TerminalTarget) -> bool {
-        match terminal_target {
-            TerminalTarget::Sysop => !self.has_sysop(),
-            _ => false,
-        }
-    }
-
-    fn write_char(&mut self, c: char) -> Res<()> {
-        self.parser
-            .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
-        self.ctx2.write_raw(&[c])
-        //   Ok(())
-    }
-    fn write_string(&mut self, data: &[char]) -> Res<()> {
-        for c in data {
-            self.parser
-                .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
-        }
-        self.ctx2.write_raw(data)
-        //    Ok(())
-    }
-
-    /// # Errors
-    pub fn write_raw(&mut self, target: TerminalTarget, data: &[char]) -> Res<()> {
-        if self.no_terminal(target) {
-            return Ok(());
-        }
-        if self.icy_board_data.display_text {
-            let mut state = PcbState::Default;
-
-            for c in data {
-                if *c == '\x1A' {
-                    break;
-                }
-                match state {
-                    PcbState::Default => {
-                        if *c == '@' {
-                            state = PcbState::GotAt;
-                        } else {
-                            self.write_char(*c)?;
-                        }
-                    }
-                    PcbState::GotAt => {
-                        if *c == 'X' || *c == 'x' {
-                            state = PcbState::ReadColor1;
-                        } else {
-                            state = PcbState::ReadAtSequence(c.to_string());
-                        }
-                    }
-                    PcbState::ReadAtSequence(s) => {
-                        if *c == '@' {
-                            state = PcbState::Default;
-                            match s.as_str() {
-                                "CLS" => {
-                                    self.write_string(
-                                        "\x1B[2J".chars().collect::<Vec<char>>().as_slice(),
-                                    )?;
-                                }
-                                str => {
-                                    if let Some(s) = self.translate_variable(str) {
-                                        self.write_string(
-                                            s.chars().collect::<Vec<char>>().as_slice(),
-                                        )?;
-                                    }
-                                }
-                            }
-                        } else {
-                            state = PcbState::ReadAtSequence(s + &c.to_string());
-                        }
-                    }
-                    PcbState::ReadColor1 => {
-                        if c.is_ascii_hexdigit() {
-                            state = PcbState::ReadColor2(*c);
-                        } else {
-                            self.write_char('@')?;
-                            self.write_char(*c)?;
-                            state = PcbState::Default;
-                        }
-                    }
-                    PcbState::ReadColor2(ch1) => {
-                        state = PcbState::Default;
-                        if !c.is_ascii_hexdigit() {
-                            self.write_char('@')?;
-                            self.write_char(ch1)?;
-                            self.write_char(*c)?;
-                        } else {
-                            let color =
-                                (c.to_digit(16).unwrap() | (ch1.to_digit(16).unwrap() << 4)) as u8;
-                            self.set_color(color)?;
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn translate_variable(&mut self, s: &str) -> Option<String> {
-        match s {
-            "ALIAS" => {
-                if let Some(user) = &self.current_user {
-                    if let Some(alias) = &user.inf.alias {
-                        return Some(alias.alias.clone());
-                    }
-                }
-                None
-            }
-            "AUTOMORE" => {
-                self.icy_board_data.disp_options.auto_more = true;
-                None
-            }
-            "BEEP" => Some("\x07".to_string()),
-            "BICPS" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .get_cps_both()
-                    .to_string(),
-            ),
-            "BOARDNAME" => Some(self.icy_board_data.data.board_name.to_string()),
-            "BPS" => Some(self.get_bps().to_string()),
-
-            // TODO
-            "BYTECREDIT" => None,
-            "BYTELIMIT" => None,
-            "BYTERATIO" => None,
-            "BYTESLEFT" => None,
-            "CARRIER" => None,
-
-            "CITY" => self
-                .current_user
-                .as_ref()
-                .map(|user| user.user.city.clone()),
-            "CLREOL" => {
-                if self.use_ansi() {
-                    Some("\x1B[K".to_string())
-                } else {
-                    None
-                }
-            }
-            "CLS" => {
-                if self.use_ansi() {
-                    Some("\x1B[2J\x1B[H".to_string())
-                } else {
-                    // form feed character
-                    Some("\x0C".to_string())
-                }
-            }
-            "CONFNAME" => Some(self.icy_board_data.current_conference.name.clone()),
-            "CONFNUM" => Some(self.icy_board_data.current_conference.number.to_string()),
-
-            // TODO
-            "CREDLEFT" => None,
-            "CREDNOW" => None,
-            "CREDSTART" => None,
-            "CREDUSED" => None,
-            "CURMSGNUM" => None,
-
-            "DATAPHONE" => self
-                .current_user
-                .as_ref()
-                .map(|user| user.user.bus_data_phone.clone()),
-            "DAYBYTES" => None,
-            "DELAY" => None,
-            "DIRNAME" => None,
-            "DIRNUM" => None,
-            "DLBYTES" => None,
-            "DLFILES" => None,
-            "EVENT" => None,
-            "EXPDATE" => {
-                if self.icy_board_data.data.subscript_mode {
-                    if let Some(user) = &self.current_user {
-                        return Some(user.user.reg_exp_date.to_country_date());
-                    }
-                }
-                Some(IcbDate::default().to_country_date())
-            }
-            "EXPDAYS" => {
-                if self.icy_board_data.data.subscript_mode {
-                    if let Some(user) = &self.current_user {
-                        if user.user.reg_exp_date.get_year() != 0 {
-                            return Some(
-                                (self.icy_board_data.login_date.to_julian_date()
-                                    - user.user.reg_exp_date.to_julian_date())
-                                .to_string(),
-                            );
-                        }
-                    }
-                }
-                let color = self
-                    .icy_board_data
-                    .icy_display_text
-                    .get_display_color(UNLIMITED)
-                    .unwrap();
-                let _ = self.set_color(color);
-                Some(
-                    self.icy_board_data
-                        .icy_display_text
-                        .get_display_text(UNLIMITED)
-                        .unwrap(),
-                )
-            }
-            "FBYTES" => None,
-            "FFILES" => None,
-            "FILECREDIT" => None,
-            "FILERATIO" => None,
-            "FIRSTU" => self
-                .current_user
-                .as_ref()
-                .map(|user| user.get_first_name().to_uppercase()),
-            "FNUM" => None,
-            "FREESPACE" => None,
-            "HOMEPHONE" => self
-                .current_user
-                .as_ref()
-                .map(|user| user.user.home_voice_phone.clone()),
-            "HIGHMSGNUM" => None,
-            "INAME" => None,
-            "INCONF" => None,
-            "KBLEFT" => None,
-            "KBLIMIT" => None,
-            "LASTCALLERNODE" => None,
-            "LASTCALLERSYSTEM" => None,
-            "LASTDATEON" => None,
-            "LASTTIMEON" => None,
-            "LMR" => None,
-            "LOGDATE" => None,
-            "LOGTIME" => None,
-            "LOWMSGNUM" => None,
-            "MAXBYTES" => None,
-            "MAXFILES" => None,
-            "MINLEFT" => Some("1000".to_string()),
-            "MORE" => {
-                let _ = self.more_promt(MOREPROMPT);
-                None
-            }
-            "MSGLEFT" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.inf.messages_left.to_string())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "MSGREAD" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.inf.messages_read.to_string())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "NOCHAR" => Some(self.icy_board_data.no_char.to_string()),
-            "NODE" => Some(self.icy_board_data.data.node_num.to_string()),
-            "NUMBLT" => None,
-            "NUMCALLS" => None,
-            "NUMCONF" => Some(self.icy_board_data.data.num_conf.to_string()),
-            "NUMDIR" => None,
-            "NUMTIMESON" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.user.num_times_on.to_string())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "OFFHOURS" => None,
-            "OPTEXT" => Some(self.icy_board_data.op_text.to_string()),
-            "PAUSE" => {
-                self.icy_board_data.disp_options.auto_more = true;
-                let _ = self.more_promt(MOREPROMPT);
-                self.icy_board_data.disp_options.auto_more = false;
-                None
-            }
-            "POFF" => None,
-            "PON" => None,
-            "POS" => None,
-            "PROLTR" => None,
-            "PRODESC" => None,
-            "PWXDATE" => None,
-            "PWXDAYS" => None,
-            "QOFF" => None,
-            "QON" => None,
-            "RATIOBYTES" => None,
-            "RATIOFILES" => None,
-            "RCPS" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .get_cps_upload()
-                    .to_string(),
-            ),
-            "RBYTES" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .uploaded_bytes
-                    .to_string(),
-            ),
-            "RFILES" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .uploaded_files
-                    .to_string(),
-            ),
-            "REAL" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.user.name.clone())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "SECURITY" => None,
-            "SCPS" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .get_cps_download()
-                    .to_string(),
-            ),
-            "SBYTES" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .downloaded_bytes
-                    .to_string(),
-            ),
-            "SFILES" => Some(
-                self.icy_board_data
-                    .transfer_statistics
-                    .downloaded_files
-                    .to_string(),
-            ),
-            "SYSDATE" => None,
-            "SYSOPIN" => Some(self.icy_board_data.data.sysop_start.clone()),
-            "SYSOPOUT" => Some(self.icy_board_data.data.sysop_stop.clone()),
-            "SYSTIME" => None,
-            "TIMELIMIT" => None,
-            "TIMELEFT" => None,
-            "TIMEUSED" => None,
-            "TOTALTIME" => None,
-            "UPBYTES" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.user.ul_tot_upld_bytes.to_string())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "UPFILES" => {
-                if let Some(user) = &self.current_user {
-                    Some(user.user.num_uploads.to_string())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "USER" => {
-                if let Some(user) = &self.current_user {
-                    if self.icy_board_data.use_alias {
-                        if let Some(alias) = &user.inf.alias {
-                            return Some(alias.alias.clone());
-                        }
-                    }
-                    Some(user.user.name.clone())
-                } else {
-                    Some("0".to_string())
-                }
-            }
-            "WAIT" => None,
-            "WHO" => None,
-            "XOFF" => {
-                self.icy_board_data.disp_options.disable_color = true;
-                None
-            }
-            "XON" => {
-                self.icy_board_data.disp_options.disable_color = false;
-                None
-            }
-            "YESCHAR" => Some(self.icy_board_data.yes_char.to_string()),
-            _ => {
-                if s.to_ascii_uppercase().starts_with("ENV=") {
-                    let key = &s[4..];
-                    if let Some(value) = self.icy_board_data.get_env(key) {
-                        return Some(value.clone());
-                    }
-                }
-                None
-            }
-        }
-    }
-
-    /// # Errors
-    pub fn read(&mut self) -> Res<String> {
-        self.ctx2.read()
-    }
-
-    /// # Errors
-    pub fn get_char(&mut self) -> Res<Option<char>> {
-        self.ctx2.get_char()
-    }
-
-    pub fn inbytes(&mut self) -> i32 {
-        self.ctx2.inbytes()
-    }
-
-    pub fn set_color(&mut self, color: u8) -> Res<()> {
-        if self.icy_board_data.disp_options.disable_color {
-            return Ok(());
-        }
-        if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
-            return Ok(());
-        }
-
-        let mut color_change = "\x1B[".to_string();
-
-        let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
-
-        //  let was_bold = self.caret.get_attribute().get_foreground() > 7;
-        let new_bold = new_color.get_foreground() > 7;
-
-        /*/
-        if was_bold != new_bold  {
-            if new_bold {
-                color_change += "1;";
-            } else  {
-                color_change += "0;";
-            }
-
-            }*/
-
-        color_change += "0;";
-
-        if new_bold {
-            color_change += "1;";
-        }
-
-        if
-        /* !self.caret.get_attribute().is_blinking() && */
-        new_color.is_blinking() {
-            color_change += "5;";
-        }
-        //if self.caret.get_attribute().get_foreground() != new_color.get_foreground() {
-        color_change += format!(
-            "{};",
-            COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
-        )
-        .as_str();
-        //}
-
-        //        if self.caret.get_attribute().get_background() != new_color.get_background() {
-        color_change += format!(
-            "{};",
-            COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
-        )
-        .as_str();
-        //      }
-        color_change.pop();
-        color_change += "m";
-        // println!("color_change: {}", &color_change[1..]);
-        self.write_raw(
-            TerminalTarget::Both,
-            color_change.chars().collect::<Vec<char>>().as_slice(),
-        )
-    }
-
-    pub fn get_caret_position(&mut self) -> (i32, i32) {
-        (self.caret.get_position().x, self.caret.get_position().y)
-    }
-
-    /// # Errors
-    pub fn hangup(&mut self, hangup_type: HangupType) -> Res<()> {
-        self.ctx2.hangup(hangup_type)
-    }
-
-    pub fn bell(&mut self) -> Res<()> {
-        self.write_raw(TerminalTarget::Both, &['\x07'])
-    }
-
-    fn more_promt(&mut self, moreprompt: usize) -> Res<()> {
-        self.print(
-            TerminalTarget::Both,
-            &self
-                .icy_board_data
-                .icy_display_text
-                .get_display_text(moreprompt)?,
-        )?;
-        loop {
-            if let Some(ch) = self.get_char()? {
-                let ch = ch.to_uppercase().to_string();
-
-                if ch == self.icy_board_data.yes_char.to_string()
-                    || ch == self.icy_board_data.no_char.to_string()
-                {
-                    break;
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -1280,9 +731,8 @@ impl<'a> VirtualMachine<'a> {
 pub fn run(
     file_name: PathBuf,
     prg: &Executable,
-    ctx: &mut dyn ExecutionContext,
     io: &mut dyn PCBoardIO,
-    icy_board_data: IcyBoardState,
+    mut icy_board_data: IcyBoardState,
     is_sysop: bool,
 ) -> Res<bool> {
     let Ok(script) = PPEScript::from_ppe_file(prg) else {
@@ -1293,12 +743,9 @@ pub fn run(
     for (i, stmt) in script.statements.iter().enumerate() {
         label_table.insert(stmt.span.start * 2, i);
     }
-
-    let buffer = Buffer::new((80, 25));
-    let caret = Caret::new(Position::default());
+    icy_board_data.is_sysop = is_sysop;
     let mut vm = VirtualMachine {
         file_name,
-        ctx2: ctx,
         return_addresses: Vec::new(),
         script,
         io,
@@ -1306,7 +753,6 @@ pub fn run(
         fpclear: false,
         cur_tokens: Vec::new(),
         icy_board_data,
-        cur_user: 0,
         current_user: None,
         pcb_node: None,
         variable_table: prg.variable_table.clone(),
@@ -1315,10 +761,6 @@ pub fn run(
         call_local_value_stack: Vec::new(),
         write_back_stack: Vec::new(),
         push_pop_stack: Vec::new(),
-        is_sysop,
-        parser: ansi::Parser::default(),
-        buffer,
-        caret,
     };
 
     vm.run()?;

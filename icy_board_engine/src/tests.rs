@@ -73,11 +73,10 @@ fn run_test(data: &str, output: &str) {
     let mut buffer: Vec<u8> = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();
     let mut io = MemoryIO::new();
-    let mut ctx = TestContext::new();
+    let ctx = TestContext::new();
     run(
         PathBuf::from("."),
         &exe,
-        &mut ctx,
         &mut io,
         IcyBoardState::default(),
         false,

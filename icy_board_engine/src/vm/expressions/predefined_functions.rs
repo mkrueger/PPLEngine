@@ -1,5 +1,6 @@
 #![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 
+use std::borrow::Borrow;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -370,8 +371,20 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    let cur_user = vm.icy_board_data.cur_user as usize;
+
     Ok(VariableValue::new_string(
-        vm.icy_board_data.users[vm.cur_user].user.name.clone(),
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .borrow()
+            .users
+            .get(cur_user)
+            .unwrap()
+            .user
+            .name
+            .clone(),
     ))
 }
 
@@ -465,14 +478,14 @@ pub fn yeschar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 
 pub fn inkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    if let Some(ch) = vm.get_char()? {
+    if let Some(ch) = vm.icy_board_data.get_char()? {
         if ch as u8 == 127 {
             return Ok(VariableValue::new_string("DEL".to_string()));
         }
         if ch == '\x1B' {
-            if let Some(ch) = vm.get_char()? {
+            if let Some(ch) = vm.icy_board_data.get_char()? {
                 if ch == '[' {
-                    if let Some(ch) = vm.get_char()? {
+                    if let Some(ch) = vm.icy_board_data.get_char()? {
                         match ch {
                             'A' => return Ok(VariableValue::new_string("UP".to_string())),
                             'B' => return Ok(VariableValue::new_string("DOWN".to_string())),
@@ -566,7 +579,15 @@ pub fn valtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     panic!("TODO")
 }
 pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.data.node_num))
+    Ok(VariableValue::new_int(
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .borrow()
+            .data
+            .node_num,
+    ))
 }
 
 pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -585,7 +606,13 @@ pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 
 pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data.data.sysop_security.sysop,
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .data
+            .sysop_security
+            .sysop,
     ))
 }
 pub fn onlocal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -747,7 +774,7 @@ pub fn s2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(i))
 }
 pub fn carrier(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.get_bps()))
+    Ok(VariableValue::new_int(vm.icy_board_data.get_bps()))
 }
 pub fn tokenstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
@@ -772,11 +799,13 @@ pub fn cctype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn getx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.get_caret_position().0 + 1))
+    Ok(VariableValue::new_int(
+        vm.icy_board_data.get_caret_position().0 + 1,
+    ))
 }
 
 pub fn gety(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    let y = vm.get_caret_position().1;
+    let y = vm.icy_board_data.get_caret_position().1;
     Ok(VariableValue::new_int(y + 1))
 }
 
@@ -905,17 +934,38 @@ pub fn maxnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.data.path.sec_loc.clone(),
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .data
+            .path
+            .sec_loc
+            .clone(),
     ))
 }
 pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.data.path.help_loc.clone(),
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .data
+            .path
+            .help_loc
+            .clone(),
     ))
 }
 pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.data.path.tmp_loc.clone(),
+        vm.icy_board_data
+            .board
+            .lock()
+            .unwrap()
+            .data
+            .path
+            .tmp_loc
+            .clone(),
     ))
 }
 pub fn modem(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -936,7 +986,15 @@ pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 
 pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let user_name = vm.eval_expr(&args[0])?.as_string().to_uppercase();
-    for (i, user) in vm.icy_board_data.users.iter().enumerate() {
+    for (i, user) in vm
+        .icy_board_data
+        .board
+        .lock()
+        .unwrap()
+        .users
+        .iter()
+        .enumerate()
+    {
         if user.user.name.to_uppercase() == user_name {
             return Ok(VariableValue::new_int(i as i32));
         }
@@ -1135,11 +1193,13 @@ pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     Ok(VariableValue::new_int(0))
 }
 pub fn hiconfnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.data.num_conf))
+    Ok(VariableValue::new_int(
+        vm.icy_board_data.board.lock().unwrap().data.num_conf,
+    ))
 }
 
 pub fn inbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.inbytes()))
+    Ok(VariableValue::new_int(vm.icy_board_data.inbytes()))
 }
 
 pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {

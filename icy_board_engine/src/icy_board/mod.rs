@@ -21,6 +21,7 @@ pub struct User {
     pub user: UserRecord,
     pub inf: UserInf,
 }
+
 impl User {
     pub fn get_first_name(&self) -> String {
         if let Some(idx) = self.user.name.find(' ') {

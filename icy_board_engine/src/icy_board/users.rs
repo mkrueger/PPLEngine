@@ -143,11 +143,6 @@ impl UserRecord {
             let delete_flag = cursor.read_u8()? != 0;
             let rec_num = cursor.read_u32::<LittleEndian>()? as usize;
 
-            // unknown data
-            for _ in 0..0xCF {
-                cursor.read_u8()?;
-            }
-
             let user = UserRecord {
                 name: String::from_utf8_lossy(&name).trim().to_string(),
                 city: String::from_utf8_lossy(&city).trim().to_string(),

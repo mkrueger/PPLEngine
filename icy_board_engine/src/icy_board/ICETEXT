@@ -7,7 +7,7 @@
 1,Access Denied - You are Locked Out of this System!
 1,Access Denied - Excessive Password Failures!
 1,Access Denied - Refused to Complete Registration!
-1,Access Denied - Remote DOS Password Failure!
+1,Access Denied - Remote OS Password Failure!
 1,Access Denied - @USER@ is in use on another Node!
 1,Sorry, @FIRST@, this is a `Closed' Board ...
 1,Security Violation(s) - Disconnecting ...
@@ -44,7 +44,7 @@
 0,~(R/O)
 1,Error reading Script Questionnaire
 1,Error reading Message base in use!
-1,Unable to exit to DOS - no REMOTE.SYS file found!
+1,Unable to exit to OS - no REMOTE.SYS file found!
 1,No record available to update!
 6,Messages Successfully Packed & Purified!
 1,Enter `handle' to be used for Node Chat
@@ -88,7 +88,7 @@
 1,(@OPTEXT@) already exists.  Remove it (Y=Yes, N=No, C=Continue)
 2,View other Conference members (Enter)=no
 2,Purge RECEIVED+PRIVATE Msgs (Enter)=no
-2,Exit to DOS (Enter)=no
+2,Exit to OS (Enter)=no
 2,Reference Message number purification proceeding ...
 1,Wrong password entered, @FIRST@ ...
 1,There is no such line, @FIRST@ ...
@@ -129,8 +129,8 @@
 1,Sorry, the Sysop is not currently available for CHAT!
 0,Sysop - Busy
 0,User - Busy
-0,DOS - Busy
-0,DOS - Not Busy
+0,OS - Busy
+0,OS - Not Busy
 0,Printer is Off
 0,Alarm is Off
 0,Page Bell is Off
@@ -140,7 +140,7 @@
 1,Insufficient disk space for complete upload!
 1,Sorry, @FIRST@, uploads are currently disabled!
 1,7-E-1 Operation in Effect.
-3,DOS function to execute (Enter)=none
+3,OS function to execute (Enter)=none
 3,Enter your logon password below to continue ...
 1,Excessive Main Command Line Errors!
 1,(Ctrl-K) or (Ctrl-X) Aborts, (Ctrl-S) Suspends.
@@ -182,7 +182,7 @@
 1,That channel is private.  You cannot join it at this time.
 1,7-E-1 Operation Not Available!  Call using 8-N-1 Modem Settings!
 1,PCBPACK Security Level Fail!
-7,Reloading PCBoard.  Please wait ...
+7,Reloading IcyBoard.  Please wait ...
 1,User Record Number Bad!
 7,Press ESC to enter command mode.
 0,~Aborted using~
@@ -200,7 +200,7 @@
 3,~~~~~To (Enter)=`ALL'
 3,Subject (Enter)=abort
 1,Error in filename request!
-6,Welcome back to PCBoard~
+6,Welcome back to IcyBoard~
 1,Creating New Message Index File .
 7,Online update of user's record completed.
 1,Only ASCII and Kermit Protocols supported at 7-E-1!
@@ -237,7 +237,7 @@
 7,Monitor Mode is now on.
 1,There are no channels in use at this time.
 2,Enter your text. (Enter) alone to end.~
-6,Out to DOS
+6,Out to OS
 3,Filename to View (Enter)=none
 1,Error executing View of file (@OPTEXT@)
 2,View executed on file (@OPTEXT@)
@@ -272,7 +272,7 @@
 1,@OPTEXT@ bps is supported from @OFFHOURS@.
 1,System is currently unavailable ...
 1,@FIRST@, your record has been updated with changes made.
-3,Node # to Drop to DOS (Enter)=none
+3,Node # to Drop to OS (Enter)=none
 1,Sorry, @FIRST@, no Bulletins are presently available.
 1,Sorry, @FIRST@, no DOORS are presently available.
 1,Sorry, @FIRST@, no Directories are presently available.
@@ -292,7 +292,7 @@
 1,Sorry, @FIRST@, you entered an invalid Bulletin #!
 1,Sorry, @FIRST@, you entered an invalid Directory #!
 0,Event @OPTEXT@ ran at~
-0,Caller Exited to DOS at @OPTEXT@
+0,Caller Exited to OS at @OPTEXT@
 0,Viewed Text file (@OPTEXT@)
 3,Scan Message Base Since `Last Read' (Enter)=yes
 2,New Info
@@ -305,12 +305,12 @@
 6,Available for CHAT
 6,Out of Code in DOOR
 6,Auto Logoff Pending
-6,DOS Recycle Pending
+6,OS Recycle Pending
 6,Unavailable for CHAT
 6,Transferring a File
 6,Entering a Message
 6,CHATTING with Group
-6,Drop to DOS Pending
+6,Drop to OS Pending
 0,@OPTEXT@ has made the discussion public.
 1,Channel 1 cannot be made private.
 1,Incorrect Download Password for File (@OPTEXT@)
@@ -330,7 +330,7 @@
 3,Local password
 2,Enter the Message # to Kill (Enter)=none
 1,Punctuation Error:  Quotes may be necessary around the search criteria.
-0,Back from DOS at @OPTEXT@
+0,Back from OS at @OPTEXT@
 2,Hello, this is @OPTEXT@.~~
 7,Message Restored:~
 1,Message Killed:~
@@ -342,17 +342,17 @@
 0,~~~~(Y) yes, continue with display
 0,~~~~(N) no, stop displaying this text
 0,~~~~(NS) continue reading in non-stop mode
-6,Drop to DOS - Urgent
-1,Force logoff now (`N'=wait until caller logs off, then drop to DOS)
+6,Drop to OS - Urgent
+1,Force logoff now (`N'=wait until caller logs off, then drop to OS)
 0,~~~~(V) View a file, then continue displaying files
 2,~~# Msgs Found:
-3,Node # to Recycle through DOS (Enter)=none
+3,Node # to Recycle through OS (Enter)=none
 0,Password Failure (@OPTEXT@)
 7,Expert mode is now on, @FIRST@ ...
 7,Expert mode is now off, @FIRST@ ...
 3,Files: (1-@NUMDIR@), (A), (U), (Enter)=none
 3,Files: (1-@NUMDIR@), (A)ll, (U)ploads, (Enter)=none
-0,Alt-> F=Out I=In N=Next X=DOS P=Printer T=FmFeed F1/F2=Time F9/F10=Security
+0,Alt-> F=Out I=In N=Next X=OS P=Printer T=FmFeed F1/F2=Time F9/F10=Security
 0,1=SyPrv 2=LkOut 3=Print 4=Bell 5=SHELL 6=Reg 7=Alarm 8=HngUp 9=Screen 10=Chat
 1,Network Delay - Please Wait, @FIRST@ ...
 3,Download Time:~
@@ -434,7 +434,7 @@
 7,This system is set to test uploaded files.  This can be a lengthy process.
 1,(H)ang up now, or press any other key to remain online...
 7,Hanging up now.  Thank you for the upload(s).
-7,~has exited to DOS.  Please wait ...
+7,~has exited to OS.  Please wait ...
 1,Upload aborted ...
 3,~~Enter (Oldtext;Newtext) or (Enter) alone for `no change'.
 7,Date:                               Number:
@@ -522,17 +522,17 @@
 0,Log in as a regular user.  Callers will get a busy signal.
 0,Log in as a regular user.  RING Alert will be activated.
 0,Toggle printer off or on.  When on, caller log is echoed to printer.
-0,Run PCBoard System Manager for User File maintenance.
+0,Run IcyBoard System Manager for User File maintenance.
 0,Choose between System-Wide and Node-Specific Statistics Display
 0,Log in as the Sysop.  Callers will get a busy signal.
 0,Log in as the Sysop.  RING Alert will be activated.
 0,Toggle `Page Bell' on or off.  System will BEEP when caller pages you.
 0,Run PCBFiler for File Directory maintenance.
 0,Run PCBMoni to monitor NODE activity
-0,Drop to DOS.  Callers will get a busy signal.
-0,Drop to DOS.  Callers will NOT get a busy signal.  Phone will ring!
+0,Drop to OS.  Callers will get a busy signal.
+0,Drop to OS.  Callers will NOT get a busy signal.  Phone will ring!
 0,Toggle `Caller Alarm' on or off.  System BEEPs as caller logs on, etc.
-0,Run PCBSetup to change PCBoard configuration.
+0,Run ICBSETUP to change IcyBoard configuration.
 0,Reset Node/System Statistics to Zero
 0,No Modem Selected
 0,Last Caller:

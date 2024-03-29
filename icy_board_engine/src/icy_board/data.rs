@@ -237,8 +237,6 @@ pub struct IcyBoardData {
     pub no_ansi: String,
     ///  drive letters for slow drives (v15.0)
     pub slow_drives: String,
-    ///  path to swap file (v15.0)
-    pub swap_path: String,
     ///  swap out during normal shell (v15.0)
     pub swap: bool,
     ///  don't allow batch uploads / force first name (v15.0)
@@ -652,6 +650,9 @@ pub struct PcbPaths {
     pub group_chat: String,
     /// name and loc of PCBFILER.DEF file
     pub color_file: String,
+
+    ///  path to swap file (v15.0)
+    pub swap_path: String,
 }
 
 /// # Errors
@@ -949,7 +950,7 @@ impl IcyBoardData {
         ret.chat_menu = read_line(&mut reader, encoding)?;
         ret.no_ansi = read_line(&mut reader, encoding)?;
         ret.slow_drives = read_line(&mut reader, encoding)?;
-        ret.swap_path = read_line(&mut reader, encoding)?;
+        ret.path.swap_path = read_line(&mut reader, encoding)?;
 
         ret.swap = read_bool(&mut reader, encoding)?;
         ret.no_batch_up = read_bool(&mut reader, encoding)?;
@@ -1338,7 +1339,7 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.chat_menu);
         append_line(&mut res, encoding, &self.no_ansi);
         append_line(&mut res, encoding, &self.slow_drives);
-        append_line(&mut res, encoding, &self.swap_path);
+        append_line(&mut res, encoding, &self.path.swap_path);
 
         append_bool(&mut res, encoding, self.swap);
         append_bool(&mut res, encoding, self.no_batch_up);

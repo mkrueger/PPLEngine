@@ -697,7 +697,7 @@ pub fn append_line(writer: &mut Vec<u8>, encoding: Encoding, s: &str) {
     } else {
         writer.extend_from_slice(s.as_bytes());
     };
-    writer.push(b'\n');
+    writer.extend(b"\r\n");
 }
 
 pub fn append_bool(writer: &mut Vec<u8>, encoding: Encoding, b: bool) {

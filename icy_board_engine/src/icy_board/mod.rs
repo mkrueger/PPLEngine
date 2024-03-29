@@ -2,7 +2,9 @@ use thiserror::Error;
 
 use self::{user_inf::UserInf, users::UserRecord};
 
+pub mod conferences;
 pub mod data;
+pub mod messages;
 pub mod state;
 pub mod text_messages;
 pub mod user_inf;

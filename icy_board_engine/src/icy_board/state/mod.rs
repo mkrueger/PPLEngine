@@ -22,7 +22,7 @@ use super::{
     IcyBoard,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct DisplayOptions {
     /// If true, the more prompt is automatically answered after 10 seconds.
     pub auto_more: bool,
@@ -31,6 +31,16 @@ pub struct DisplayOptions {
     pub disable_color: bool,
 
     pub display_text: bool,
+}
+
+impl Default for DisplayOptions {
+    fn default() -> Self {
+        Self {
+            auto_more: false,
+            disable_color: false,
+            display_text: true,
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -72,7 +82,8 @@ impl TransferStatistics {
 #[derive(Default, Clone)]
 pub struct ConferenceType {
     pub name: String,
-    pub number: u16,
+    pub number: i32,
+    pub conf_security: i32,
 }
 
 #[derive(Clone)]
@@ -82,6 +93,8 @@ pub struct Session {
     pub login_date: Instant,
 
     pub cur_user: i32,
+    pub cur_security: u8,
+
     pub is_sysop: bool,
     pub op_text: String,
     pub use_alias: bool,
@@ -98,6 +111,7 @@ impl Session {
             current_conference: ConferenceType::default(),
             login_date: Instant::now(),
             cur_user: -1,
+            cur_security: 0,
             is_sysop: false,
             op_text: String::new(),
             use_alias: false,
@@ -208,6 +222,35 @@ impl IcyBoardState {
             self.print(TerminalTarget::Both, "\x1B[K")
         } else {
             Ok(())
+        }
+    }
+
+    pub fn set_current_user(&mut self, user: i32) {
+        self.session.cur_user = user;
+        if user >= 0 {
+            let last_conference = if let Ok(board) = self.board.lock() {
+                self.session.cur_security = board.users[user as usize].user.security_level;
+                board.users[user as usize].user.last_conference as i32
+            } else {
+                return;
+            };
+            self.switch_conference(last_conference);
+        }
+    }
+
+    fn switch_conference(&mut self, last_conference: i32) {
+        if last_conference > 0
+            && last_conference < self.board.lock().unwrap().conferences.len() as i32
+        {
+            self.session.current_conference.number = last_conference;
+            if let Ok(board) = self.board.lock() {
+                self.session.current_conference.name =
+                    board.conferences[last_conference as usize].name.clone();
+                self.session.current_conference.conf_security =
+                    board.conferences[last_conference as usize].add_conference_security;
+            }
+        } else {
+            return;
         }
     }
 }

@@ -47,8 +47,12 @@ impl IcyBoardState {
             .unwrap()
             .display_text
             .get_display_text(message_number)?;
+        self.display_string(&txt_entry.text, txt_entry.color, display_flags)
+    }
 
-        if display_flags & display_flags::NOTBLANK != 0 && txt_entry.text.is_empty() {
+    pub fn display_string(&mut self, txt: &str, color: u8, display_flags: i32) -> Res<()> {
+
+        if display_flags & display_flags::NOTBLANK != 0 && txt.is_empty() {
             return Ok(());
         }
 
@@ -59,12 +63,47 @@ impl IcyBoardState {
             self.bell()?;
         }
         if self.use_graphics() {
-            self.set_color(txt_entry.color)?;
+            self.set_color(color)?;
         }
-        // TODO '!' start script
-        // TODO '%' display file
-        // TODO '$' display menu ???
-        self.print(TerminalTarget::Both, &txt_entry.text)?;
+
+        if !txt.is_empty() {
+            match txt.chars().next().unwrap() {
+                '!' => {
+                    let mut script = String::new();
+                    for ch in txt.chars().skip(1) {
+                        if ch == '_' {
+                            break;
+                        }
+                        script.push(ch);
+                    }
+                    let splitted_cmd: Vec<&str> = script.split(' ').collect();
+                    if !splitted_cmd.is_empty() {
+                        let ppe =  splitted_cmd[0];
+                        let file = self.board.lock().unwrap().resolve_file(ppe);
+                        self.run_ppe(file, &splitted_cmd[1..]);
+                    }
+                }
+                '%' => {
+                    let mut file_name = String::new();
+                    for ch in txt.chars().skip(1) {
+                        if ch == '_' {
+                            break;
+                        }
+                        file_name.push(ch);
+                    }
+                    let file = self.board.lock().unwrap().resolve_file(&file_name);
+                    return self.display_file(&file);
+                }
+
+                '$' => {
+                    // TODO: Menu ?
+                }
+                _ => {
+                    // display text
+                    self.print(TerminalTarget::Both, txt)?;
+                }
+            }
+        }
 
         // up to 2 new lines are correct
         if display_flags & display_flags::NEWLINE != 0 {
@@ -139,8 +178,7 @@ impl IcyBoardState {
             if display_flags & display_flags::LFBEFORE != 0 {
                 self.new_line()?;
             }
-            self.set_color(color as u8)?;
-            self.print(TerminalTarget::Both, &prompt)?;
+            self.display_string(&prompt, color as u8, display_flags::DEFAULT)?;
 
             let mut output = String::new();
             loop {
@@ -163,6 +201,11 @@ impl IcyBoardState {
                 }
             }
             if !output.is_empty() {
+                self.session.num_lines_printed = 0;
+
+                if display_flags & display_flags::UPCASE != 0 {
+                    return Ok(output.to_uppercase());
+                }
                 return Ok(output);
             }
         }

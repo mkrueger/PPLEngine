@@ -371,18 +371,10 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    let cur_user = vm.icy_board_state.session.cur_user as usize;
 
     Ok(VariableValue::new_string(
         vm.icy_board_state
-            .board
-            .lock()
-            .unwrap()
-            .borrow()
-            .users
-            .get(cur_user)
-            .unwrap()
-            .user
+        .current_user.as_ref().unwrap().user
             .name
             .clone(),
     ))

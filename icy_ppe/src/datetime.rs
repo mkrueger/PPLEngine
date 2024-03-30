@@ -6,7 +6,7 @@ pub struct IcbDate {
     year: u16,
 }
 
-const DAYS: [[u64; 12]; 2] = [
+const DAYS: [[i64; 12]; 2] = [
     [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334],
     [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],
 ];
@@ -63,36 +63,36 @@ impl IcbDate {
     }
 
     pub fn from_pcboard(jd: i32) -> Self {
-        juilian_to_date(jd as u64)
+        juilian_to_date(jd as i64)
     }
 
     pub fn to_pcboard_date(&self) -> i32 {
-        let mut year = self.year as u64;
+        let mut year = self.year as i64;
         // correct pcboard design decision
         if (1900..1979).contains(&year) {
-            year += 100;
+            year = year.saturating_add(100);
         }
 
         let mut res = 36525 * year;
         if res % 100 == 0 && self.month < 3 {
-            res -= 1;
+            res = res.saturating_sub(1);
         }
-        res = (res - (1900 * 36525)) / 100;
-        res += self.day as u64 + DAYS[0][self.month as usize - 1];
+        res = (res.saturating_sub(1900 * 36525)) / 100;
+        res += self.day as i64 + DAYS[0][(self.month as usize).saturating_sub(1)];
 
         res as i32
     }
 
     pub fn to_julian_date(&self) -> u64 {
-        let year = self.year as u64;
+        let year = self.year as i64;
         let mut res = 36525 * year;
         if res % 100 == 0 && self.month < 3 {
             res -= 1;
         }
         res = (res - (1900 * 36525)) / 100;
-        res += self.day as u64 + DAYS[0][self.month as usize - 1];
+        res += self.day as i64 + DAYS[0][self.month as usize - 1];
 
-        res
+        res as u64
     }
 
     pub fn to_country_date(&self) -> String {
@@ -106,7 +106,7 @@ impl fmt::Display for IcbDate {
     }
 }
 
-fn juilian_to_date(jd: u64) -> IcbDate {
+fn juilian_to_date(jd: i64) -> IcbDate {
     if jd == 0 {
         return IcbDate::new(0, 0, 0);
     }

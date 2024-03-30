@@ -182,48 +182,26 @@ pub fn hangup(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_state.session.cur_user as usize;
-    let user = if let Some(user) = vm
+
+    let user = if let Some(user) = &mut vm
         .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .borrow()
-        .users
-        .get(cur_user)
+        .current_user
     {
         user.clone()
     } else {
         return Err(Box::new(IcyError::UserNotFound(String::new())));
     };
-
     vm.set_user_variables(&user);
-    vm.current_user = Some(user);
+
     Ok(())
 }
 
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_state.session.cur_user as usize;
-    let mut user = if let Some(user) = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .borrow()
-        .users
-        .get(cur_user)
-    {
-        user.clone()
-    } else {
-        return Err(Box::new(IcyError::UserNotFound(String::new())));
-    };
+    let mut user = vm.icy_board_state.current_user.take().unwrap() ;
     vm.put_user_variables(&mut user);
-    vm.current_user = Some(user.clone());
-
-    // TODO!!!
-    // vm.icy_board_data.users.insert(vm.cur_user, user);
+    vm.icy_board_state.current_user = Some(user);
     Ok(())
 }
 

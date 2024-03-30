@@ -78,8 +78,7 @@ fn run_test(data: &str, output: &str) {
         PathBuf::from("."),
         &exe,
         &mut io,
-        IcyBoardState::default(),
-        false,
+        &mut IcyBoardState::default(),
     )
     .unwrap();
 

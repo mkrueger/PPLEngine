@@ -147,9 +147,8 @@ pub struct VirtualMachine<'a> {
     pub is_running: bool,
     pub fpclear: bool,
 
-    pub icy_board_state: IcyBoardState,
+    pub icy_board_state: &'a mut IcyBoardState,
 
-    pub current_user: Option<User>,
     pub pcb_node: Option<Node>,
 
     pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
@@ -164,6 +163,7 @@ pub struct VirtualMachine<'a> {
 
 impl<'a> VirtualMachine<'a> {
     fn set_user_variables(&mut self, cur_user: &User) {
+
         self.variable_table
             .set_value(U_EXPERT, VariableValue::new_bool(cur_user.user.expert_mode));
         self.variable_table
@@ -177,6 +177,7 @@ impl<'a> VirtualMachine<'a> {
             U_EXPDATE,
             VariableValue::new_date(cur_user.user.reg_exp_date.to_pcboard_date()),
         );
+
         self.variable_table.set_value(
             U_SEC,
             VariableValue::new_int(cur_user.user.security_level as i32),
@@ -199,6 +200,7 @@ impl<'a> VirtualMachine<'a> {
             U_HVPHONE,
             VariableValue::new_string(cur_user.user.home_voice_phone.clone()),
         );
+
         self.variable_table.set_value(
             U_TRANS,
             VariableValue::new_string(cur_user.user.protocol.to_string()),
@@ -224,6 +226,7 @@ impl<'a> VirtualMachine<'a> {
             U_LONGHDR,
             VariableValue::new_bool(!cur_user.user.short_header),
         );
+
         self.variable_table
             .set_value(U_DEF79, VariableValue::new_bool(cur_user.user.wide_editor));
         let alias = if let Some(alias) = &cur_user.inf.alias {
@@ -511,7 +514,6 @@ impl<'a> VirtualMachine<'a> {
             let p = self.cur_ptr;
             self.cur_ptr += 1;
             let c = self.script.statements[p].command.clone();
-            // println!("{}: {:?}", p, &c);
             self.execute_statement(&c)?;
         }
         Ok(())
@@ -732,8 +734,7 @@ pub fn run(
     file_name: PathBuf,
     prg: &Executable,
     io: &mut dyn PCBoardIO,
-    mut icy_board_data: IcyBoardState,
-    is_sysop: bool,
+    icy_board_state: &mut IcyBoardState,
 ) -> Res<bool> {
     let Ok(script) = PPEScript::from_ppe_file(prg) else {
         return Ok(false);
@@ -743,7 +744,6 @@ pub fn run(
     for (i, stmt) in script.statements.iter().enumerate() {
         label_table.insert(stmt.span.start * 2, i);
     }
-    icy_board_data.session.is_sysop = is_sysop;
     let mut vm = VirtualMachine {
         file_name,
         return_addresses: Vec::new(),
@@ -752,8 +752,7 @@ pub fn run(
         is_running: true,
         fpclear: false,
         cur_tokens: Vec::new(),
-        icy_board_state: icy_board_data,
-        current_user: None,
+        icy_board_state,
         pcb_node: None,
         variable_table: prg.variable_table.clone(),
         cur_ptr: 0,
@@ -762,7 +761,6 @@ pub fn run(
         write_back_stack: Vec::new(),
         push_pop_stack: Vec::new(),
     };
-
     vm.run()?;
     Ok(true)
 }

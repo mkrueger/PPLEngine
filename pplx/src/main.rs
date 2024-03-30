@@ -101,14 +101,15 @@ fn main() {
                 .unwrap()
                 .execute(MoveTo(0, 0))
                 .unwrap();
+            
             run(
                 PathBuf::from(file_name),
                 &exe,
                 &mut io,
-                icy_board_data,
-                arguments.sysop,
+                &mut icy_board_data,
             )
             .unwrap();
+
             disable_raw_mode().unwrap();
         }
         Err(err) => {

@@ -1,16 +1,14 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Instant,
+    borrow::BorrowMut, collections::HashMap, path::PathBuf, sync::{Arc, Mutex}, time::Instant
 };
 
 use chrono::{Datelike, Local, Timelike};
 use icy_engine::ansi::constants::COLOR_OFFSETS;
 use icy_engine::TextAttribute;
 use icy_engine::{ansi, Buffer, BufferParser, Caret};
-use icy_ppe::{datetime::IcbDate, Res};
+use icy_ppe::{datetime::IcbDate, executable::Executable, Res};
 
-use crate::vm::{BoardIO, HangupType, TerminalTarget};
+use crate::vm::{run, BoardIO, DiskIO, HangupType, TerminalTarget};
 pub mod functions;
 
 use self::functions::display_flags;
@@ -19,7 +17,7 @@ use super::{
     data::Node,
     output::Output,
     text_messages::{MOREPROMPT, THANKSFORCALLING, UNLIMITED},
-    IcyBoard,
+    IcyBoard, User,
 };
 
 #[derive(Clone)]
@@ -99,6 +97,11 @@ pub struct Session {
     pub op_text: String,
     pub use_alias: bool,
 
+    pub num_lines_printed: usize,
+    pub page_len: usize,
+
+    pub request_logoff: bool,
+
     /// If true, the keyboard timer is checked.
     /// After it's elapsed logoff the user for inactivity.
     pub keyboard_timer_check: bool,
@@ -112,10 +115,13 @@ impl Session {
             login_date: Instant::now(),
             cur_user: -1,
             cur_security: 0,
+            num_lines_printed: 0,
+            page_len: 24,
             is_sysop: false,
             op_text: String::new(),
             use_alias: false,
             keyboard_timer_check: false,
+            request_logoff: false,
         }
     }
 }
@@ -137,6 +143,8 @@ pub struct IcyBoardState {
     pub yes_char: char,
     pub no_char: char,
 
+    pub current_user: Option<User>,
+
     pub session: Session,
 
     /// 0 = no debug, 1 - errors, 2 - errors and warnings, 3 - all
@@ -157,6 +165,7 @@ impl Default for IcyBoardState {
             board: Arc::new(Mutex::new(IcyBoard::new())),
             ctx,
             nodes: Vec::new(),
+            current_user: None,
             yes_char: 'Y',
             no_char: 'N',
             debug_level: 0,
@@ -209,6 +218,7 @@ impl IcyBoardState {
     }
 
     pub fn clear_screen(&mut self) -> Res<()> {
+        self.session.num_lines_printed = 0;
         if self.use_ansi() {
             self.print(TerminalTarget::Both, "\x1B[2J\x1B[H")
         } else {
@@ -229,7 +239,9 @@ impl IcyBoardState {
         self.session.cur_user = user;
         if user >= 0 {
             let last_conference = if let Ok(board) = self.board.lock() {
+                self.current_user = Some(board.users[user as usize].clone());
                 self.session.cur_security = board.users[user as usize].user.security_level;
+                self.session.page_len = board.users[user as usize].user.page_len as usize;
                 board.users[user as usize].user.last_conference as i32
             } else {
                 return;
@@ -252,6 +264,29 @@ impl IcyBoardState {
         } else {
             return;
         }
+    }
+    
+    fn next_line(&mut self)  {
+        self.session.num_lines_printed += 1;
+        if (self.session.num_lines_printed > self.session.page_len) {
+            self.more_promt(MOREPROMPT);
+        }
+
+    }
+    
+    fn run_ppe(&mut self, file_name: String, splitted_cmd: &[&str]) -> Res<()> {
+        let exe = Executable::read_file(&file_name, false)?;
+
+        let mut io = DiskIO::new(".");
+        
+        run(
+            PathBuf::from(file_name),
+            &exe,
+            &mut io,
+            self
+        )?;
+
+        Ok(())
     }
 }
 
@@ -304,6 +339,9 @@ impl IcyBoardState {
     }
 
     fn write_char(&mut self, c: char) -> Res<()> {
+        if c == '\n' {
+            self.next_line();
+        }
         self.parser
             .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
         self.ctx.lock().unwrap().write_raw(&[c])
@@ -311,6 +349,9 @@ impl IcyBoardState {
 
     fn write_string(&mut self, data: &[char]) -> Res<()> {
         for c in data {
+            if *c == '\n' {
+                self.next_line();
+            }
             self.parser
                 .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
         }
@@ -384,8 +425,7 @@ impl IcyBoardState {
     fn translate_variable(&mut self, s: &str) -> Option<String> {
         match s {
             "ALIAS" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = &self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     if let Some(alias) = &user.inf.alias {
                         return Some(alias.alias.clone());
                     }
@@ -409,13 +449,7 @@ impl IcyBoardState {
             "CARRIER" => None,
 
             "CITY" => {
-                let cu = self.session.cur_user as usize;
-                self.board
-                    .lock()
-                    .unwrap()
-                    .users
-                    .get(cu)
-                    .map(|user| user.user.city.clone())
+                self.current_user.as_ref().map(|user| user.user.city.clone())
             }
             "CLREOL" => {
                 let _ = self.clear_eol();
@@ -436,8 +470,7 @@ impl IcyBoardState {
             "CURMSGNUM" => None,
 
             "DATAPHONE" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.bus_data_phone.clone());
                 }
                 None
@@ -450,16 +483,14 @@ impl IcyBoardState {
             "DLFILES" => None,
             "EVENT" => None,
             "EXPDATE" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.reg_exp_date.to_string());
                 }
                 Some(IcbDate::default().to_country_date())
             }
             "EXPDAYS" => {
                 if self.board.lock().unwrap().data.subscript_mode {
-                    let cu = self.session.cur_user as usize;
-                    if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                    if let Some(user) = &self.current_user {
                         if user.user.reg_exp_date.get_year() != 0 {
                             return Some(
                                 0.to_string(), // TODO
@@ -486,8 +517,7 @@ impl IcyBoardState {
             "FILECREDIT" => None,
             "FILERATIO" => None,
             "FIRSTU" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.get_first_name().to_uppercase());
                 }
                 None
@@ -495,8 +525,7 @@ impl IcyBoardState {
             "FNUM" => None,
             "FREESPACE" => None,
             "HOMEPHONE" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.home_voice_phone.clone());
                 }
                 None
@@ -522,15 +551,13 @@ impl IcyBoardState {
                 None
             }
             "MSGLEFT" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.inf.messages_left.to_string());
                 }
                 None
             }
             "MSGREAD" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.inf.messages_read.to_string());
                 }
                 None
@@ -542,8 +569,7 @@ impl IcyBoardState {
             "NUMCONF" => Some(self.board.lock().unwrap().data.num_conf.to_string()),
             "NUMDIR" => None,
             "NUMTIMESON" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.num_times_on.to_string());
                 }
                 None
@@ -571,8 +597,7 @@ impl IcyBoardState {
             "RBYTES" => Some(self.transfer_statistics.uploaded_bytes.to_string()),
             "RFILES" => Some(self.transfer_statistics.uploaded_files.to_string()),
             "REAL" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.name.to_string());
                 }
                 None
@@ -603,22 +628,19 @@ impl IcyBoardState {
             "TIMEUSED" => None,
             "TOTALTIME" => None,
             "UPBYTES" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.ul_tot_upld_bytes.to_string());
                 }
                 None
             }
             "UPFILES" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     return Some(user.user.num_uploads.to_string());
                 }
                 None
             }
             "USER" => {
-                let cu = self.session.cur_user as usize;
-                if let Some(user) = self.board.lock().unwrap().users.get(cu) {
+                if let Some(user) = &self.current_user {
                     if self.session.use_alias {
                         if let Some(alias) = &user.inf.alias {
                             return Some(alias.alias.clone());
@@ -751,7 +773,9 @@ impl IcyBoardState {
             )?;
         }
         self.reset_color()?;
-        self.ctx.lock().unwrap().hangup()
+        self.session.request_logoff = true;
+        self.ctx.lock().unwrap().hangup()?;
+        Ok(())
     }
 
     pub fn bell(&mut self) -> Res<()> {
@@ -776,6 +800,7 @@ impl IcyBoardState {
                 }
             }
         }
+        self.session.num_lines_printed = 0;
 
         Ok(())
     }

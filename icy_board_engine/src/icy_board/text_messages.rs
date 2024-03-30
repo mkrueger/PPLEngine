@@ -764,32 +764,18 @@ impl DisplayText {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn get_display_text(&self, message_number: usize) -> Result<String, TextError> {
+    pub fn get_display_text(&self, message_number: usize) -> Result<TextEntry, TextError> {
         if message_number > DEFAULT_DISPLAY_TEXT.entries.len() {
             return Err(TextError::InvalidMessageNumber(message_number));
         }
 
         if let Some(entry) = self.entries.get(message_number) {
-            Ok(entry.text.replace('~', " "))
+            Ok(TextEntry {
+                color: entry.color,
+                text: entry.text.replace('~', " "),
+            })
         } else {
             DEFAULT_DISPLAY_TEXT.get_display_text(message_number)
-        }
-    }
-
-    /// .
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if .
-    pub fn get_display_color(&self, message_number: usize) -> Result<u8, TextError> {
-        if message_number > DEFAULT_DISPLAY_TEXT.entries.len() {
-            return Err(TextError::InvalidMessageNumber(message_number));
-        }
-
-        if let Some(entry) = self.entries.get(message_number) {
-            Ok(entry.color)
-        } else {
-            DEFAULT_DISPLAY_TEXT.get_display_color(message_number)
         }
     }
 

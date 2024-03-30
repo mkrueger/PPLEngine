@@ -147,7 +147,7 @@ pub struct VirtualMachine<'a> {
     pub is_running: bool,
     pub fpclear: bool,
 
-    pub icy_board_data: IcyBoardState,
+    pub icy_board_state: IcyBoardState,
 
     pub current_user: Option<User>,
     pub pcb_node: Option<Node>,
@@ -752,7 +752,7 @@ pub fn run(
         is_running: true,
         fpclear: false,
         cur_tokens: Vec::new(),
-        icy_board_data,
+        icy_board_state: icy_board_data,
         current_user: None,
         pcb_node: None,
         variable_table: prg.variable_table.clone(),

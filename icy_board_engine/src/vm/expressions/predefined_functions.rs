@@ -371,10 +371,10 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    let cur_user = vm.icy_board_data.cur_user as usize;
+    let cur_user = vm.icy_board_state.cur_user as usize;
 
     Ok(VariableValue::new_string(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -468,24 +468,24 @@ pub fn ver(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 pub fn nochar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.no_char.to_string(),
+        vm.icy_board_state.no_char.to_string(),
     ))
 }
 pub fn yeschar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data.yes_char.to_string(),
+        vm.icy_board_state.yes_char.to_string(),
     ))
 }
 
 pub fn inkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    if let Some(ch) = vm.icy_board_data.get_char()? {
+    if let Some(ch) = vm.icy_board_state.get_char()? {
         if ch as u8 == 127 {
             return Ok(VariableValue::new_string("DEL".to_string()));
         }
         if ch == '\x1B' {
-            if let Some(ch) = vm.icy_board_data.get_char()? {
+            if let Some(ch) = vm.icy_board_state.get_char()? {
                 if ch == '[' {
-                    if let Some(ch) = vm.icy_board_data.get_char()? {
+                    if let Some(ch) = vm.icy_board_state.get_char()? {
                         match ch {
                             'A' => return Ok(VariableValue::new_string("UP".to_string())),
                             'B' => return Ok(VariableValue::new_string("DOWN".to_string())),
@@ -580,7 +580,7 @@ pub fn valtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -606,7 +606,7 @@ pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 
 pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -668,7 +668,7 @@ pub fn minon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 pub fn getenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let var = &vm.eval_expr(&args[0])?.as_string();
-    if let Some(var) = vm.icy_board_data.get_env(var) {
+    if let Some(var) = vm.icy_board_state.get_env(var) {
         Ok(VariableValue::new_string(var.to_string()))
     } else {
         Ok(VariableValue::new_string(String::new()))
@@ -774,7 +774,7 @@ pub fn s2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(i))
 }
 pub fn carrier(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.get_bps()))
+    Ok(VariableValue::new_int(vm.icy_board_state.get_bps()))
 }
 pub fn tokenstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
@@ -800,12 +800,12 @@ pub fn cctype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 
 pub fn getx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data.get_caret_position().0 + 1,
+        vm.icy_board_state.get_caret_position().0 + 1,
     ))
 }
 
 pub fn gety(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    let y = vm.icy_board_data.get_caret_position().1;
+    let y = vm.icy_board_state.get_caret_position().1;
     Ok(VariableValue::new_int(y + 1))
 }
 
@@ -930,11 +930,11 @@ pub fn minkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     inkey(vm, args)
 }
 pub fn maxnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.nodes.len() as i32))
+    Ok(VariableValue::new_int(vm.icy_board_state.nodes.len() as i32))
 }
 pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -946,7 +946,7 @@ pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -958,7 +958,7 @@ pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_data
+        vm.icy_board_state
             .board
             .lock()
             .unwrap()
@@ -987,7 +987,7 @@ pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let user_name = vm.eval_expr(&args[0])?.as_string().to_uppercase();
     for (i, user) in vm
-        .icy_board_data
+        .icy_board_state
         .board
         .lock()
         .unwrap()
@@ -1009,7 +1009,7 @@ pub fn peekdw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.debug_level))
+    Ok(VariableValue::new_int(vm.icy_board_state.debug_level))
 }
 pub fn scrtext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1108,7 +1108,7 @@ pub fn mixed(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_bool(vm.icy_board_data.use_alias))
+    Ok(VariableValue::new_bool(vm.icy_board_state.use_alias))
 }
 pub fn confreg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1194,12 +1194,12 @@ pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 pub fn hiconfnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_data.board.lock().unwrap().data.num_conf,
+        vm.icy_board_state.board.lock().unwrap().data.num_conf,
     ))
 }
 
 pub fn inbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.icy_board_data.inbytes()))
+    Ok(VariableValue::new_int(vm.icy_board_state.inbytes()))
 }
 
 pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {

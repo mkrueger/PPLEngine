@@ -9,6 +9,7 @@ use icy_engine::{ansi, Buffer, BufferParser, Caret};
 use icy_ppe::{datetime::IcbDate, Res};
 
 use crate::vm::{ExecutionContext, HangupType, TerminalTarget};
+pub mod functions;
 
 use super::{
     data::Node,
@@ -159,6 +160,14 @@ impl IcyBoardState {
 
     pub fn remove_env(&mut self, env: &str) {
         self.env_vars.remove(env);
+    }
+
+    fn use_graphics(&self) -> bool {
+        !self.disp_options.disable_color
+    }
+
+    fn check_time_left(&self) {
+        // TODO: Check time left.
     }
 }
 
@@ -396,22 +405,15 @@ impl IcyBoardState {
                         }
                     }
                 }
-                let color = self
+                let entry = self
                     .board
                     .lock()
                     .unwrap()
                     .display_text
-                    .get_display_color(UNLIMITED)
+                    .get_display_text(UNLIMITED)
                     .unwrap();
-                let _ = self.set_color(color);
-                Some(
-                    self.board
-                        .lock()
-                        .unwrap()
-                        .display_text
-                        .get_display_text(UNLIMITED)
-                        .unwrap(),
-                )
+                let _ = self.set_color(entry.color);
+                Some(entry.text)
             }
             "FBYTES" => None,
             "FFILES" => None,
@@ -666,7 +668,7 @@ impl IcyBoardState {
             .display_text
             .get_display_text(moreprompt)?;
 
-        self.print(TerminalTarget::Both, &txt)?;
+        self.print(TerminalTarget::Both, &txt.text)?;
         loop {
             if let Some(ch) = self.get_char()? {
                 let ch = ch.to_uppercase().to_string();
@@ -678,5 +680,9 @@ impl IcyBoardState {
         }
 
         Ok(())
+    }
+
+    pub fn new_line(&mut self) -> Res<()> {
+        self.write_raw(TerminalTarget::Both, &['\r', '\n'])
     }
 }

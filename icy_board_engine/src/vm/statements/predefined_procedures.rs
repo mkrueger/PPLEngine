@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, fs, thread, time::Duration};
+use std::{borrow::Borrow, thread, time::Duration};
 
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
@@ -11,13 +11,6 @@ use crate::{
 };
 
 use super::super::errors::IcyError;
-
-const BELL: i32 = 0x00800;
-const LFAFTER: i32 = 0x00100;
-const LFBEFORE: i32 = 0x00080;
-const _LOGIT: i32 = 0x08000;
-const _LOGITLEFT: i32 = 0x10000;
-const _NEWLINE: i32 = 0x00040;
 
 /// Should never be called. But some op codes are invalid as statement call (like if or return)
 /// and are handled by it's own `PPECommands` and will point to this function.
@@ -35,28 +28,28 @@ pub fn end(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn cls(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.print(TerminalTarget::Both, "\x1B[2J")
+    vm.icy_board_state.print(TerminalTarget::Both, "\x1B[2J")
 }
 
 pub fn clreol(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.print(TerminalTarget::Both, "\x1B[K")
+    vm.icy_board_state.print(TerminalTarget::Both, "\x1B[K")
 }
 
 pub fn more(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.more_promt(text_messages::MOREPROMPT)
+    vm.icy_board_state.more_promt(text_messages::MOREPROMPT)
 }
 
 pub fn wait(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
     let txt = vm
-        .icy_board_data
+        .icy_board_state
         .board
         .lock()
         .unwrap()
         .display_text
         .get_display_text(text_messages::PRESSENTER)?;
-    vm.icy_board_data.print(TerminalTarget::Both, &txt)?;
+    vm.icy_board_state.print(TerminalTarget::Both, &txt.text)?;
     loop {
-        if let Some(ch) = vm.icy_board_data.get_char()? {
+        if let Some(ch) = vm.icy_board_state.get_char()? {
             if ch == '\n' || ch == '\r' {
                 break;
             }
@@ -67,7 +60,7 @@ pub fn wait(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 
 pub fn color(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[0])?.as_int();
-    vm.icy_board_data.set_color(color as u8)?;
+    vm.icy_board_state.set_color(color as u8)?;
     Ok(())
 }
 
@@ -82,15 +75,8 @@ pub fn confunflag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 /// Errors if
 pub fn dispfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file_name = &vm.eval_expr(&args[0])?.as_string();
-    let file = vm.io.resolve_file(file_name);
 
-    let content = fs::read(file)?;
-    let mut converted_content = Vec::new();
-    for byte in content {
-        converted_content.push(icy_ppe::tables::CP437_TO_UNICODE[byte as usize]);
-    }
-    vm.icy_board_data
-        .write_raw(TerminalTarget::Both, &converted_content)
+    vm.icy_board_state.display_file(file_name)
 }
 
 pub fn input(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -188,7 +174,7 @@ pub fn fputpad(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn hangup(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.hangup(crate::vm::HangupType::Hangup)?;
+    vm.icy_board_state.hangup(crate::vm::HangupType::Hangup)?;
     vm.is_running = false;
     Ok(())
 }
@@ -196,9 +182,9 @@ pub fn hangup(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_data.cur_user as usize;
+    let cur_user = vm.icy_board_state.cur_user as usize;
     let user = if let Some(user) = vm
-        .icy_board_data
+        .icy_board_state
         .board
         .lock()
         .unwrap()
@@ -219,9 +205,9 @@ pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_data.cur_user as usize;
+    let cur_user = vm.icy_board_state.cur_user as usize;
     let mut user = if let Some(user) = vm
-        .icy_board_data
+        .icy_board_state
         .board
         .lock()
         .unwrap()
@@ -276,45 +262,11 @@ pub fn inputstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let len = vm.eval_expr(&args[3])?.as_int();
     let valid = vm.eval_expr(&args[4])?.as_string();
     let flags = vm.eval_expr(&args[5])?.as_int();
-    let output = internal_input_string(vm, color, prompt, len, &valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, &valid, flags)?;
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
-}
-
-fn internal_input_string(
-    vm: &mut VirtualMachine,
-    color: i32,
-    prompt: String,
-    len: i32,
-    valid: &str,
-) -> Res<String> {
-    let mut prompt = prompt;
-    if prompt.ends_with(TXT_STOPCHAR) {
-        prompt.pop();
-    }
-    vm.icy_board_data.set_color(color as u8)?;
-    vm.icy_board_data.print(TerminalTarget::Both, &prompt)?;
-    let mut output = String::new();
-    loop {
-        let Some(ch) = vm.icy_board_data.get_char()? else {
-            continue;
-        };
-        if ch == '\n' || ch == '\r' {
-            break;
-        }
-        if ch == '\x08' && !output.is_empty() {
-            output.pop();
-            vm.icy_board_data.print(TerminalTarget::Both, "\x08 \x08")?;
-            continue;
-        }
-
-        if (output.len() as i32) < len && valid.contains(ch) {
-            output.push(ch);
-            vm.icy_board_data
-                .print(TerminalTarget::Both, &ch.to_string())?;
-        }
-    }
-    Ok(output)
 }
 
 pub fn inputyn(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -326,7 +278,9 @@ pub fn inputyn(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 1;
     let valid = "YyNn";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
 
     vm.set_variable(
         &args[1],
@@ -344,7 +298,9 @@ pub fn inputmoney(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 13;
     let valid = "01234567890+-$.";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
     // TODO: Money conversion.
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -359,7 +315,9 @@ pub fn inputint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 11;
     let valid = "01234567890+-";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
     vm.set_variable(
         &args[1],
         VariableValue::new_int(output.parse::<i32>().unwrap()),
@@ -375,7 +333,9 @@ pub fn inputcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 16;
     let valid = "01234567890";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
 }
@@ -388,7 +348,9 @@ pub fn inputdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 8;
     let valid = "01234567890-/";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
     // TODO: Date conversion
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -403,7 +365,9 @@ pub fn inputtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let color = vm.eval_expr(&args[2])?.as_int();
     let len = 8;
     let valid = "01234567890:";
-    let output = internal_input_string(vm, color, prompt, len, valid)?;
+    let output = vm
+        .icy_board_state
+        .input_string(color, prompt, len, valid, 0)?;
     // TODO: Time conversion
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -417,7 +381,7 @@ pub fn dtron(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn dtroff(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.hangup(crate::vm::HangupType::Hangup)?;
+    vm.icy_board_state.hangup(crate::vm::HangupType::Hangup)?;
     Ok(())
 }
 
@@ -454,7 +418,7 @@ pub fn dec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn newline(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.write_raw(TerminalTarget::Both, &['\n'])
+    vm.icy_board_state.write_raw(TerminalTarget::Both, &['\n'])
 }
 
 pub fn newlines(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -487,38 +451,7 @@ pub fn shell(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn disptext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let rec = vm.eval_expr(&args[0])?.as_int();
     let flags = vm.eval_expr(&args[1])?.as_int();
-
-    if (flags & LFBEFORE) == LFBEFORE {
-        vm.icy_board_data.print(TerminalTarget::Both, "\n")?;
-    }
-
-    let color = vm
-        .icy_board_data
-        .board
-        .lock()
-        .unwrap()
-        .display_text
-        .get_display_color(rec as usize)?;
-    vm.icy_board_data.set_color(color)?;
-
-    let text = vm
-        .icy_board_data
-        .board
-        .lock()
-        .unwrap()
-        .display_text
-        .get_display_text(rec as usize)?;
-    vm.icy_board_data.print(TerminalTarget::Both, &text)?;
-
-    if (flags & LFAFTER) == LFAFTER {
-        vm.icy_board_data.print(TerminalTarget::Both, "\n")?;
-    }
-
-    if (flags & BELL) == BELL {
-        vm.icy_board_data.bell()?;
-    }
-
-    Ok(())
+    vm.icy_board_state.display_text(rec as usize, flags)
 }
 
 pub fn stop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -531,7 +464,7 @@ pub fn inputtext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn beep(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.bell()
+    vm.icy_board_state.bell()
 }
 
 pub fn push(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -555,7 +488,7 @@ pub fn pop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn kbdstuff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let value = vm.eval_expr(&args[0])?.as_string();
-    vm.icy_board_data.print(TerminalTarget::Both, &value)
+    vm.icy_board_state.print(TerminalTarget::Both, &value)
 }
 pub fn call(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
@@ -576,13 +509,13 @@ pub fn kbdfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
 pub fn bye(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.hangup(crate::vm::HangupType::Bye)?;
+    vm.icy_board_state.hangup(crate::vm::HangupType::Bye)?;
     vm.is_running = false;
     Ok(())
 }
 
 pub fn goodbye(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.hangup(crate::vm::HangupType::Goodbye)?;
+    vm.icy_board_state.hangup(crate::vm::HangupType::Goodbye)?;
     vm.is_running = false;
     Ok(())
 }
@@ -610,28 +543,28 @@ pub fn waitfor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn kbdchkon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.reset_keyboard_check_timer();
+    vm.icy_board_state.reset_keyboard_check_timer();
     Ok(())
 }
 
 pub fn kbdchkoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.keyboard_check = false;
+    vm.icy_board_state.keyboard_check = false;
     Ok(())
 }
 
 pub fn optext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.op_text = vm.eval_expr(&args[0])?.as_string();
+    vm.icy_board_state.op_text = vm.eval_expr(&args[0])?.as_string();
     Ok(())
 }
 pub fn dispstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let value = vm.eval_expr(&args[0])?.as_string();
-    vm.icy_board_data.print(TerminalTarget::Both, &value)
+    vm.icy_board_state.print(TerminalTarget::Both, &value)
 }
 
 pub fn rdunet(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let value = vm.eval_expr(&args[0])?.as_int();
 
-    if let Some(node) = vm.icy_board_data.nodes.get(value as usize) {
+    if let Some(node) = vm.icy_board_state.nodes.get(value as usize) {
         vm.pcb_node = Some(node.clone());
     }
     Ok(())
@@ -648,11 +581,11 @@ pub fn wrunet(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     // Todo: Broadcast
 
     if !stat.is_empty() {
-        vm.icy_board_data.nodes[node as usize].status = stat.as_bytes()[0] as char;
+        vm.icy_board_state.nodes[node as usize].status = stat.as_bytes()[0] as char;
     }
-    vm.icy_board_data.nodes[node as usize].name = name;
-    vm.icy_board_data.nodes[node as usize].city = city;
-    vm.icy_board_data.nodes[node as usize].operation = operation;
+    vm.icy_board_state.nodes[node as usize].name = name;
+    vm.icy_board_state.nodes[node as usize].city = city;
+    vm.icy_board_state.nodes[node as usize].operation = operation;
 
     Ok(())
 }
@@ -679,33 +612,33 @@ pub fn varaddr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn ansipos(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let x = vm.eval_expr(&args[0])?.as_int();
     let y = vm.eval_expr(&args[1])?.as_int();
-    vm.icy_board_data.gotoxy(TerminalTarget::Both, x, y)
+    vm.icy_board_state.gotoxy(TerminalTarget::Both, x, y)
 }
 
 pub fn backup(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let numcols = vm.eval_expr(&args[0])?.as_int();
-    if vm.icy_board_data.use_ansi() {
-        vm.icy_board_data
+    if vm.icy_board_state.use_ansi() {
+        vm.icy_board_state
             .print(TerminalTarget::Both, &format!("\x1B[{numcols}D"))
     } else {
-        vm.icy_board_data
+        vm.icy_board_state
             .print(TerminalTarget::Both, &"\x08".repeat(numcols as usize))
     }
 }
 
 pub fn forward(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let numcols = vm.eval_expr(&args[0])?.as_int();
-    if vm.icy_board_data.use_ansi() {
-        vm.icy_board_data
+    if vm.icy_board_state.use_ansi() {
+        vm.icy_board_state
             .print(TerminalTarget::Both, &format!("\x1B[{numcols}C"))?;
     } else {
-        vm.icy_board_data
+        vm.icy_board_state
             .print(TerminalTarget::Both, &" ".repeat(numcols as usize))?;
     }
     Ok(())
 }
 pub fn freshline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.print(TerminalTarget::Both, "\r\n")?;
+    vm.icy_board_state.print(TerminalTarget::Both, "\r\n")?;
     Ok(())
 }
 pub fn wrusys(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -742,7 +675,7 @@ pub fn chat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn sprint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::Sysop, txt)?;
+        vm.icy_board_state.print(TerminalTarget::Sysop, txt)?;
     }
     Ok(())
 }
@@ -750,16 +683,16 @@ pub fn sprint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn sprintln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::Sysop, txt)?;
+        vm.icy_board_state.print(TerminalTarget::Sysop, txt)?;
     }
-    vm.icy_board_data.print(TerminalTarget::Sysop, "\n")?;
+    vm.icy_board_state.print(TerminalTarget::Sysop, "\n")?;
     Ok(())
 }
 
 pub fn print(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::Both, txt)?;
+        vm.icy_board_state.print(TerminalTarget::Both, txt)?;
     }
     Ok(())
 }
@@ -767,16 +700,16 @@ pub fn print(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn println(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::Both, txt)?;
+        vm.icy_board_state.print(TerminalTarget::Both, txt)?;
     }
-    vm.icy_board_data.print(TerminalTarget::User, "\n")?;
+    vm.icy_board_state.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 
 pub fn mprint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::User, txt)?;
+        vm.icy_board_state.print(TerminalTarget::User, txt)?;
     }
     Ok(())
 }
@@ -784,9 +717,9 @@ pub fn mprint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn mprintln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     for value in args {
         let txt = &vm.eval_expr(value)?.as_string();
-        vm.icy_board_data.print(TerminalTarget::User, txt)?;
+        vm.icy_board_state.print(TerminalTarget::User, txt)?;
     }
-    vm.icy_board_data.print(TerminalTarget::User, "\n")?;
+    vm.icy_board_state.print(TerminalTarget::User, "\n")?;
     Ok(())
 }
 
@@ -805,15 +738,15 @@ pub fn pokedw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.debug_level = vm.eval_expr(&args[0])?.as_int();
+    vm.icy_board_state.debug_level = vm.eval_expr(&args[0])?.as_int();
     Ok(())
 }
 pub fn showon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.display_text = true;
+    vm.icy_board_state.display_text = true;
     Ok(())
 }
 pub fn showoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.display_text = false;
+    vm.icy_board_state.display_text = false;
     Ok(())
 }
 
@@ -868,7 +801,7 @@ pub fn kbdstring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_data.use_alias = vm.eval_expr(&args[0])?.as_bool();
+    vm.icy_board_state.use_alias = vm.eval_expr(&args[0])?.as_bool();
     Ok(())
 }
 pub fn redim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -921,7 +854,7 @@ pub fn wrusysdoor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn getaltuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let user_record = vm.eval_expr(&args[0])?.as_int() as usize;
-    let user = vm.icy_board_data.board.lock().unwrap().borrow().users[user_record].clone();
+    let user = vm.icy_board_state.board.lock().unwrap().borrow().users[user_record].clone();
     vm.set_user_variables(&user);
     Ok(())
 }
@@ -1042,9 +975,9 @@ pub fn setenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let env = vm.eval_expr(&args[0])?.as_string();
     let v: Vec<&str> = env.split('=').collect();
     if v.len() == 2 {
-        vm.icy_board_data.set_env(v[0], v[1]);
+        vm.icy_board_state.set_env(v[0], v[1]);
     } else {
-        vm.icy_board_data.remove_env(&env);
+        vm.icy_board_state.remove_env(&env);
     }
     Ok(())
 }

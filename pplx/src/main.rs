@@ -67,7 +67,7 @@ fn main() {
     ];
 
     let mut icy_board_data = IcyBoardState::default();
-    icy_board_data.is_sysop = arguments.sysop;
+    icy_board_data.session.is_sysop = arguments.sysop;
 
     icy_board_data.board.lock().unwrap().users = users;
 

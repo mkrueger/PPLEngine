@@ -1,20 +1,24 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
+use chrono::{Datelike, Local, Timelike};
 use icy_engine::ansi::constants::COLOR_OFFSETS;
 use icy_engine::TextAttribute;
 use icy_engine::{ansi, Buffer, BufferParser, Caret};
 use icy_ppe::{datetime::IcbDate, Res};
 
-use crate::vm::{ExecutionContext, HangupType, TerminalTarget};
+use crate::vm::{BoardIO, HangupType, TerminalTarget};
 pub mod functions;
+
+use self::functions::display_flags;
 
 use super::{
     data::Node,
     output::Output,
-    text_messages::{MOREPROMPT, UNLIMITED},
+    text_messages::{MOREPROMPT, THANKSFORCALLING, UNLIMITED},
     IcyBoard,
 };
 
@@ -25,6 +29,8 @@ pub struct DisplayOptions {
 
     /// If true, the @ color codes are disabled.
     pub disable_color: bool,
+
+    pub display_text: bool,
 }
 
 #[derive(Clone, Default)]
@@ -69,33 +75,58 @@ pub struct ConferenceType {
     pub number: u16,
 }
 
+#[derive(Clone)]
+pub struct Session {
+    pub disp_options: DisplayOptions,
+    pub current_conference: ConferenceType,
+    pub login_date: Instant,
+
+    pub cur_user: i32,
+    pub is_sysop: bool,
+    pub op_text: String,
+    pub use_alias: bool,
+
+    /// If true, the keyboard timer is checked.
+    /// After it's elapsed logoff the user for inactivity.
+    pub keyboard_timer_check: bool,
+}
+
+impl Session {
+    pub fn new() -> Self {
+        Self {
+            disp_options: DisplayOptions::default(),
+            current_conference: ConferenceType::default(),
+            login_date: Instant::now(),
+            cur_user: -1,
+            is_sysop: false,
+            op_text: String::new(),
+            use_alias: false,
+            keyboard_timer_check: false,
+        }
+    }
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct IcyBoardState {
-    pub ctx: Arc<Mutex<dyn ExecutionContext>>,
+    pub ctx: Arc<Mutex<dyn BoardIO>>,
     pub board: Arc<Mutex<IcyBoard>>,
 
     pub nodes: Vec<Node>,
 
-    pub disp_options: DisplayOptions,
     pub transfer_statistics: TransferStatistics,
-    pub current_conference: ConferenceType,
-
-    pub login_date: IcbDate,
-    pub cur_user: i32,
 
     pub yes_char: char,
     pub no_char: char,
-    pub is_sysop: bool,
 
-    /// If true, the keyboard timer is checked.
-    /// After it's elapsed logoff the user for inactivity.
-    pub keyboard_check: bool,
-    /// The text displayed by the @OPTEXT@ macro
-    pub op_text: String,
+    pub session: Session,
 
     /// 0 = no debug, 1 - errors, 2 - errors and warnings, 3 - all
     pub debug_level: i32,
-    pub use_alias: bool,
-    pub display_text: bool,
     pub env_vars: HashMap<String, String>,
 
     parser: ansi::Parser,
@@ -114,22 +145,10 @@ impl Default for IcyBoardState {
             nodes: Vec::new(),
             yes_char: 'Y',
             no_char: 'N',
-            keyboard_check: false,
-            login_date: IcbDate::default(),
-            op_text: String::new(),
-            disp_options: DisplayOptions::default(),
-            transfer_statistics: TransferStatistics::default(),
-            current_conference: ConferenceType {
-                name: String::new(),
-                number: 0,
-            },
-            cur_user: -1,
-            is_sysop: false,
             debug_level: 0,
-            use_alias: false,
-            display_text: true,
             env_vars: HashMap::new(),
-
+            session: Session::new(),
+            transfer_statistics: TransferStatistics::default(),
             parser: ansi::Parser::default(),
             buffer,
             caret,
@@ -138,16 +157,17 @@ impl Default for IcyBoardState {
 }
 
 impl IcyBoardState {
-    pub fn new(board: Arc<Mutex<IcyBoard>>) -> Self {
+    pub fn new(board: Arc<Mutex<IcyBoard>>, ctx: Arc<Mutex<dyn BoardIO>>) -> Self {
         Self {
             board,
+            ctx,
             ..Default::default()
         }
     }
 
     /// Turns on keyboard check & resets the keyboard check timer.
     pub fn reset_keyboard_check_timer(&mut self) {
-        self.keyboard_check = true;
+        self.session.keyboard_timer_check = true;
     }
 
     pub fn get_env(&self, key: &str) -> Option<&String> {
@@ -163,11 +183,32 @@ impl IcyBoardState {
     }
 
     fn use_graphics(&self) -> bool {
-        !self.disp_options.disable_color
+        !self.session.disp_options.disable_color
     }
 
     fn check_time_left(&self) {
         // TODO: Check time left.
+    }
+
+    pub fn reset_color(&mut self) -> Res<()> {
+        self.set_color(7)
+    }
+
+    pub fn clear_screen(&mut self) -> Res<()> {
+        if self.use_ansi() {
+            self.print(TerminalTarget::Both, "\x1B[2J\x1B[H")
+        } else {
+            // form feed character
+            self.print(TerminalTarget::Both, "\x0C")
+        }
+    }
+
+    pub fn clear_eol(&mut self) -> Res<()> {
+        if self.use_ansi() {
+            self.print(TerminalTarget::Both, "\x1B[K")
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -184,8 +225,8 @@ impl IcyBoardState {
         true
     }
 
-    pub fn has_sysop(&self) -> bool {
-        self.is_sysop
+    pub fn is_sysop(&self) -> bool {
+        self.session.is_sysop
     }
 
     pub fn get_bps(&self) -> i32 {
@@ -194,7 +235,7 @@ impl IcyBoardState {
 
     /// # Errors
     pub fn gotoxy(&mut self, target: TerminalTarget, x: i32, y: i32) -> Res<()> {
-        if self.display_text {
+        if self.use_ansi() {
             self.write_raw(
                 target,
                 format!("\x1B[{};{}H", y, x)
@@ -214,7 +255,7 @@ impl IcyBoardState {
 
     fn no_terminal(&self, terminal_target: TerminalTarget) -> bool {
         match terminal_target {
-            TerminalTarget::Sysop => !self.has_sysop(),
+            TerminalTarget::Sysop => !self.is_sysop(),
             _ => false,
         }
     }
@@ -222,8 +263,7 @@ impl IcyBoardState {
     fn write_char(&mut self, c: char) -> Res<()> {
         self.parser
             .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
-        //self.ctx2.write_raw(&[c])
-        Ok(())
+        self.ctx.lock().unwrap().write_raw(&[c])
     }
 
     fn write_string(&mut self, data: &[char]) -> Res<()> {
@@ -231,8 +271,7 @@ impl IcyBoardState {
             self.parser
                 .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
         }
-        //self.ctx2.write_raw(data)
-        Ok(())
+        self.ctx.lock().unwrap().write_raw(data)
     }
 
     /// # Errors
@@ -240,7 +279,7 @@ impl IcyBoardState {
         if self.no_terminal(target) {
             return Ok(());
         }
-        if self.display_text {
+        if self.session.disp_options.display_text {
             let mut state = PcbState::Default;
 
             for c in data {
@@ -265,19 +304,8 @@ impl IcyBoardState {
                     PcbState::ReadAtSequence(s) => {
                         if *c == '@' {
                             state = PcbState::Default;
-                            match s.as_str() {
-                                "CLS" => {
-                                    self.write_string(
-                                        "\x1B[2J".chars().collect::<Vec<char>>().as_slice(),
-                                    )?;
-                                }
-                                str => {
-                                    if let Some(s) = self.translate_variable(str) {
-                                        self.write_string(
-                                            s.chars().collect::<Vec<char>>().as_slice(),
-                                        )?;
-                                    }
-                                }
+                            if let Some(s) = self.translate_variable(&s) {
+                                self.write_string(s.chars().collect::<Vec<char>>().as_slice())?;
                             }
                         } else {
                             state = PcbState::ReadAtSequence(s + &c.to_string());
@@ -313,7 +341,7 @@ impl IcyBoardState {
     fn translate_variable(&mut self, s: &str) -> Option<String> {
         match s {
             "ALIAS" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = &self.board.lock().unwrap().users.get(cu) {
                     if let Some(alias) = &user.inf.alias {
                         return Some(alias.alias.clone());
@@ -322,7 +350,7 @@ impl IcyBoardState {
                 None
             }
             "AUTOMORE" => {
-                self.disp_options.auto_more = true;
+                self.session.disp_options.auto_more = true;
                 None
             }
             "BEEP" => Some("\x07".to_string()),
@@ -338,7 +366,7 @@ impl IcyBoardState {
             "CARRIER" => None,
 
             "CITY" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 self.board
                     .lock()
                     .unwrap()
@@ -347,22 +375,15 @@ impl IcyBoardState {
                     .map(|user| user.user.city.clone())
             }
             "CLREOL" => {
-                if self.use_ansi() {
-                    Some("\x1B[K".to_string())
-                } else {
-                    None
-                }
+                let _ = self.clear_eol();
+                None
             }
             "CLS" => {
-                if self.use_ansi() {
-                    Some("\x1B[2J\x1B[H".to_string())
-                } else {
-                    // form feed character
-                    Some("\x0C".to_string())
-                }
+                let _ = self.clear_screen();
+                None
             }
-            "CONFNAME" => Some(self.current_conference.name.clone()),
-            "CONFNUM" => Some(self.current_conference.number.to_string()),
+            "CONFNAME" => Some(self.session.current_conference.name.clone()),
+            "CONFNUM" => Some(self.session.current_conference.number.to_string()),
 
             // TODO
             "CREDLEFT" => None,
@@ -372,7 +393,7 @@ impl IcyBoardState {
             "CURMSGNUM" => None,
 
             "DATAPHONE" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.bus_data_phone.clone());
                 }
@@ -386,7 +407,7 @@ impl IcyBoardState {
             "DLFILES" => None,
             "EVENT" => None,
             "EXPDATE" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.reg_exp_date.to_string());
                 }
@@ -394,13 +415,15 @@ impl IcyBoardState {
             }
             "EXPDAYS" => {
                 if self.board.lock().unwrap().data.subscript_mode {
-                    let cu = self.cur_user as usize;
+                    let cu = self.session.cur_user as usize;
                     if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                         if user.user.reg_exp_date.get_year() != 0 {
                             return Some(
-                                (self.login_date.to_julian_date()
-                                    - user.user.reg_exp_date.to_julian_date())
-                                .to_string(),
+                                0.to_string(), // TODO
+                                               /*
+                                               (self.session.login_date.to_julian_date()
+                                                   - user.user.reg_exp_date.to_julian_date())
+                                               .to_string(),*/
                             );
                         }
                     }
@@ -420,7 +443,7 @@ impl IcyBoardState {
             "FILECREDIT" => None,
             "FILERATIO" => None,
             "FIRSTU" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.get_first_name().to_uppercase());
                 }
@@ -429,7 +452,7 @@ impl IcyBoardState {
             "FNUM" => None,
             "FREESPACE" => None,
             "HOMEPHONE" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.home_voice_phone.clone());
                 }
@@ -456,14 +479,14 @@ impl IcyBoardState {
                 None
             }
             "MSGLEFT" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.inf.messages_left.to_string());
                 }
                 None
             }
             "MSGREAD" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.inf.messages_read.to_string());
                 }
@@ -476,18 +499,18 @@ impl IcyBoardState {
             "NUMCONF" => Some(self.board.lock().unwrap().data.num_conf.to_string()),
             "NUMDIR" => None,
             "NUMTIMESON" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.num_times_on.to_string());
                 }
                 None
             }
             "OFFHOURS" => None,
-            "OPTEXT" => Some(self.op_text.to_string()),
+            "OPTEXT" => Some(self.session.op_text.to_string()),
             "PAUSE" => {
-                self.disp_options.auto_more = true;
+                self.session.disp_options.auto_more = true;
                 let _ = self.more_promt(MOREPROMPT);
-                self.disp_options.auto_more = false;
+                self.session.disp_options.auto_more = false;
                 None
             }
             "POFF" => None,
@@ -505,7 +528,7 @@ impl IcyBoardState {
             "RBYTES" => Some(self.transfer_statistics.uploaded_bytes.to_string()),
             "RFILES" => Some(self.transfer_statistics.uploaded_files.to_string()),
             "REAL" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.name.to_string());
                 }
@@ -515,32 +538,45 @@ impl IcyBoardState {
             "SCPS" => Some(self.transfer_statistics.get_cps_download().to_string()),
             "SBYTES" => Some(self.transfer_statistics.downloaded_bytes.to_string()),
             "SFILES" => Some(self.transfer_statistics.downloaded_files.to_string()),
-            "SYSDATE" => None,
+            "SYSDATE" => {
+                let now = Local::now();
+                let d = now.date_naive();
+                Some(format!(
+                    "{:02}/{:02}/{:02}",
+                    d.month0() + 1,
+                    d.day(),
+                    d.year_ce().1 % 100
+                ))
+            }
             "SYSOPIN" => Some(self.board.lock().unwrap().data.sysop_start.clone()),
             "SYSOPOUT" => Some(self.board.lock().unwrap().data.sysop_stop.clone()),
-            "SYSTIME" => None,
+            "SYSTIME" => {
+                let now = Local::now();
+                let t = now.time();
+                Some(format!("{:02}:{:02}", t.hour(), t.minute()))
+            }
             "TIMELIMIT" => None,
             "TIMELEFT" => None,
             "TIMEUSED" => None,
             "TOTALTIME" => None,
             "UPBYTES" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.ul_tot_upld_bytes.to_string());
                 }
                 None
             }
             "UPFILES" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
                     return Some(user.user.num_uploads.to_string());
                 }
                 None
             }
             "USER" => {
-                let cu = self.cur_user as usize;
+                let cu = self.session.cur_user as usize;
                 if let Some(user) = self.board.lock().unwrap().users.get(cu) {
-                    if self.use_alias {
+                    if self.session.use_alias {
                         if let Some(alias) = &user.inf.alias {
                             return Some(alias.alias.clone());
                         }
@@ -553,11 +589,11 @@ impl IcyBoardState {
             "WAIT" => None,
             "WHO" => None,
             "XOFF" => {
-                self.disp_options.disable_color = true;
+                self.session.disp_options.disable_color = true;
                 None
             }
             "XON" => {
-                self.disp_options.disable_color = false;
+                self.session.disp_options.disable_color = false;
                 None
             }
             "YESCHAR" => Some(self.yes_char.to_string()),
@@ -588,7 +624,7 @@ impl IcyBoardState {
     }
 
     pub fn set_color(&mut self, color: u8) -> Res<()> {
-        if self.disp_options.disable_color {
+        if !self.use_graphics() {
             return Ok(());
         }
         if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
@@ -653,7 +689,26 @@ impl IcyBoardState {
 
     /// # Errors
     pub fn hangup(&mut self, hangup_type: HangupType) -> Res<()> {
-        self.ctx.lock().unwrap().hangup(hangup_type)
+        if HangupType::Hangup != hangup_type {
+            if HangupType::Goodbye == hangup_type {
+                let logoff_script = self
+                    .board
+                    .lock()
+                    .as_ref()
+                    .unwrap()
+                    .data
+                    .path
+                    .logoff_script
+                    .clone();
+                self.display_file(&logoff_script)?;
+            }
+            self.display_text(
+                THANKSFORCALLING,
+                display_flags::LFBEFORE | display_flags::NEWLINE,
+            )?;
+        }
+        self.reset_color()?;
+        self.ctx.lock().unwrap().hangup()
     }
 
     pub fn bell(&mut self) -> Res<()> {

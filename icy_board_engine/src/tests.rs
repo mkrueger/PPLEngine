@@ -10,7 +10,7 @@ use icy_ppe::{
 
 use crate::{
     icy_board::state::IcyBoardState,
-    vm::{run, ExecutionContext, HangupType, MemoryIO},
+    vm::{run, BoardIO, MemoryIO},
 };
 #[test]
 fn test_compiler() {
@@ -103,7 +103,7 @@ impl TestContext {
     }
 }
 
-impl ExecutionContext for TestContext {
+impl BoardIO for TestContext {
     fn get_char(&mut self) -> Res<Option<char>> {
         todo!()
     }
@@ -116,11 +116,12 @@ impl ExecutionContext for TestContext {
     fn read(&mut self) -> Res<String> {
         Ok(String::new())
     }
+
     fn inbytes(&mut self) -> i32 {
         0
     }
 
-    fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
+    fn hangup(&mut self) -> Res<()> {
         Ok(())
     }
 }

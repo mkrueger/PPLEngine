@@ -182,7 +182,7 @@ pub fn hangup(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_state.cur_user as usize;
+    let cur_user = vm.icy_board_state.session.cur_user as usize;
     let user = if let Some(user) = vm
         .icy_board_state
         .board
@@ -205,7 +205,7 @@ pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let cur_user = vm.icy_board_state.cur_user as usize;
+    let cur_user = vm.icy_board_state.session.cur_user as usize;
     let mut user = if let Some(user) = vm
         .icy_board_state
         .board
@@ -548,12 +548,12 @@ pub fn kbdchkon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn kbdchkoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.keyboard_check = false;
+    vm.icy_board_state.session.keyboard_timer_check = false;
     Ok(())
 }
 
 pub fn optext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.op_text = vm.eval_expr(&args[0])?.as_string();
+    vm.icy_board_state.session.op_text = vm.eval_expr(&args[0])?.as_string();
     Ok(())
 }
 pub fn dispstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -742,11 +742,11 @@ pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn showon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.display_text = true;
+    vm.icy_board_state.session.disp_options.display_text = true;
     Ok(())
 }
 pub fn showoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.display_text = false;
+    vm.icy_board_state.session.disp_options.display_text = false;
     Ok(())
 }
 
@@ -801,7 +801,7 @@ pub fn kbdstring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.use_alias = vm.eval_expr(&args[0])?.as_bool();
+    vm.icy_board_state.session.use_alias = vm.eval_expr(&args[0])?.as_bool();
     Ok(())
 }
 pub fn redim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {

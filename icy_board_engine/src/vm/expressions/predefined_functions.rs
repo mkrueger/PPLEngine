@@ -371,7 +371,7 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    let cur_user = vm.icy_board_state.cur_user as usize;
+    let cur_user = vm.icy_board_state.session.cur_user as usize;
 
     Ok(VariableValue::new_string(
         vm.icy_board_state
@@ -1108,7 +1108,9 @@ pub fn mixed(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_bool(vm.icy_board_state.use_alias))
+    Ok(VariableValue::new_bool(
+        vm.icy_board_state.session.use_alias,
+    ))
 }
 pub fn confreg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")

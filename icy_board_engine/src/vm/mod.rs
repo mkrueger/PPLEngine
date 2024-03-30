@@ -51,14 +51,14 @@ pub enum TerminalTarget {
     Sysop,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum HangupType {
     Hangup,
     Bye,
     Goodbye,
 }
 
-pub trait ExecutionContext {
+pub trait BoardIO: Send {
     fn get_bps(&self) -> i32 {
         115_200
     }
@@ -86,7 +86,7 @@ pub trait ExecutionContext {
     /// .
     /// # Errors
     /// Errors if the variable is not found.
-    fn hangup(&mut self, hangup_type: HangupType) -> Res<()>;
+    fn hangup(&mut self) -> Res<()>;
 }
 
 pub struct StackFrame {
@@ -743,7 +743,7 @@ pub fn run(
     for (i, stmt) in script.statements.iter().enumerate() {
         label_table.insert(stmt.span.start * 2, i);
     }
-    icy_board_data.is_sysop = is_sysop;
+    icy_board_data.session.is_sysop = is_sysop;
     let mut vm = VirtualMachine {
         file_name,
         return_addresses: Vec::new(),

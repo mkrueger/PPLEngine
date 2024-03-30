@@ -10,12 +10,11 @@ use crossterm::{
 };
 use icy_ppe::Res;
 
-use crate::vm::{ExecutionContext, HangupType};
+use crate::vm::BoardIO;
 
 #[derive(Default)]
 pub struct Output {
     char_buffer: VecDeque<char>,
-    pub is_sysop: bool,
 }
 
 impl Output {
@@ -57,7 +56,7 @@ impl Output {
     }
 }
 
-impl ExecutionContext for Output {
+impl BoardIO for Output {
     fn write_raw(&mut self, data: &[char]) -> Res<()> {
         disable_raw_mode().unwrap();
         for c in data {
@@ -96,7 +95,7 @@ impl ExecutionContext for Output {
         self.char_buffer.len() as i32
     }
 
-    fn hangup(&mut self, _hangup_type: HangupType) -> Res<()> {
+    fn hangup(&mut self) -> Res<()> {
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use std::{borrow::Borrow, fs, thread, time::Duration};
 
+use chrono::format;
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
     tables::CP437_TO_UNICODE,
@@ -797,11 +798,12 @@ pub fn fread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         let mut vs = String::new();
 
         for c in result {
+            if c == 0 {
+                break;
+            }
             vs.push(CP437_TO_UNICODE[c as usize]);
         }
-
         vm.set_variable(&args[1], VariableValue::new_string(vs))?;
-
         return Ok(());
     }
 

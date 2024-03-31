@@ -278,7 +278,26 @@ impl PCBoardIO for DiskIO {
                 _ => return Err(Box::new(VMError::InvalidSeekPosition(seek_pos))),
             },
             _ => {
-                self.channels[channel].err = true;
+                if let Some(reader) = &mut self.channels[channel].reader {
+                    match seek_pos {
+                        0 => {
+                            reader
+                                .seek(SeekFrom::Start(pos as u64))
+                                .expect("seek error");
+                        }
+                        1 => {
+                            reader
+                                .seek(SeekFrom::Current(pos as i64))
+                                .expect("seek error");
+                        }
+                        2 => {
+                            reader.seek(SeekFrom::End(-pos as i64)).expect("seek error");
+                        }
+                        _ => return Err(Box::new(VMError::InvalidSeekPosition(seek_pos))),
+                    }
+                } else {
+                    return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+                }
             }
         }
 

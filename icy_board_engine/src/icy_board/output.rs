@@ -6,7 +6,7 @@ use std::{
 
 use crossterm::{
     event::{poll, read, Event, KeyCode, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::disable_raw_mode,
 };
 use icy_ppe::Res;
 

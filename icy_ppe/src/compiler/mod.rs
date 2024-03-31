@@ -1,16 +1,23 @@
 pub use ast_transform::*;
 pub mod ast_transform;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use thiserror::Error;
 
 use crate::{
     ast::{Ast, AstNode, Expression, Statement},
     executable::{
         Executable, ExpressionNegator, OpCode, PPECommand, PPEExpr, PPEScript, VariableType,
+        LAST_PPLC,
     },
-    parser::lexer::{Spanned, Token},
-    semantic::LookupVariabeleTable,
+    parser::{
+        lexer::{Spanned, Token},
+        ErrorRepoter,
+    },
+    semantic::{LookupVariabeleTable, SemanticVisitor},
 };
 
 use self::expr_compiler::ExpressionCompiler;
@@ -68,6 +75,7 @@ pub enum CompilationWarningType {
     UnusedLabel(String),
 }
 
+#[derive(Default)]
 pub struct PPECompiler {
     lookup_table: LookupVariabeleTable,
     cur_offset: usize,
@@ -79,16 +87,6 @@ pub struct PPECompiler {
 }
 
 impl PPECompiler {
-    pub fn new(variable_table: LookupVariabeleTable) -> Self {
-        Self {
-            lookup_table: variable_table,
-            label_table: Vec::new(),
-            label_lookup_table: HashMap::new(),
-            commands: PPEScript::default(),
-            cur_offset: 0,
-        }
-    }
-
     pub fn get_script(&self) -> &PPEScript {
         &self.commands
     }
@@ -100,6 +98,10 @@ impl PPECompiler {
     /// Panics if .
     pub fn compile(&mut self, prg: &Ast) {
         let prg = prg.visit_mut(&mut AstTransformationVisitor::default());
+
+        let mut sv = SemanticVisitor::new(LAST_PPLC, Arc::new(Mutex::new(ErrorRepoter::default())));
+        prg.visit(&mut sv);
+        self.lookup_table = sv.generate_variable_table();
 
         for d in &prg.nodes {
             match d {

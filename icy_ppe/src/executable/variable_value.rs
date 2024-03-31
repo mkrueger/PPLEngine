@@ -657,7 +657,7 @@ impl PartialOrd for VariableValue {
                 VariableType::DDate => Some(self.data.ddate_value.cmp(&other.data.ddate_value)),
                 VariableType::EDate => Some(self.data.edate_value.cmp(&other.data.edate_value)),
 
-                VariableType::Integer => Some(self.data.int_value.cmp(&other.data.int_value)),
+                VariableType::Integer => Some(self.as_int().cmp(&other.as_int())),
                 VariableType::Money => Some(self.data.money_value.cmp(&other.data.money_value)),
                 VariableType::String | VariableType::BigStr => {
                     Some(self.as_string().cmp(&other.as_string()))

@@ -64,9 +64,6 @@ fn run_test(data: &str, output: &str) {
 
     let mut sv = SemanticVisitor::new(LAST_PPLC, errors);
     ast.visit(&mut sv);
-
-    let mut exec = PPECompiler::new(sv.generate_variable_table());
-    exec.compile(&ast);
     if sv.errors.lock().unwrap().has_errors() {
         println!("Errors:");
         for e in &sv.errors.lock().unwrap().errors {
@@ -74,6 +71,9 @@ fn run_test(data: &str, output: &str) {
         }
         panic!();
     }
+
+    let mut exec = PPECompiler::default();
+    exec.compile(&ast);
     let binary = exec.create_executable(330).unwrap();
     let mut buffer: Vec<u8> = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();

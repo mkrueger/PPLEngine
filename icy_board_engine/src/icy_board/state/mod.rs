@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
+    ops::Index,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -284,16 +285,14 @@ impl IcyBoardState {
         }
     }
 
-    fn switch_conference(&mut self, last_conference: i32) {
-        if last_conference > 0
-            && last_conference < self.board.lock().unwrap().conferences.len() as i32
-        {
-            self.session.current_conference.number = last_conference;
+    fn switch_conference(&mut self, conference: i32) {
+        if conference >= 0 && conference < self.board.lock().unwrap().conferences.len() as i32 {
+            self.session.current_conference.number = conference;
             if let Ok(board) = self.board.lock() {
                 self.session.current_conference.name =
-                    board.conferences[last_conference as usize].name.clone();
+                    board.conferences[conference as usize].name.clone();
                 self.session.current_conference.conf_security =
-                    board.conferences[last_conference as usize].add_conference_security;
+                    board.conferences[conference as usize].add_conference_security;
             }
         }
     }
@@ -508,270 +507,250 @@ impl IcyBoardState {
         Ok(())
     }
 
-    fn translate_variable(&mut self, s: &str) -> Option<String> {
-        match s {
+    fn translate_variable(&mut self, input: &str) -> Option<String> {
+        let mut split = input.split(':');
+        let id = split.next().unwrap();
+        let param = split.next();
+        let mut result = String::new();
+        match id {
             "ALIAS" => {
                 if let Some(user) = &self.current_user {
                     if let Some(alias) = &user.inf.alias {
-                        return Some(alias.alias.clone());
+                        result = alias.alias.clone();
                     }
                 }
-                None
             }
             "AUTOMORE" => {
                 self.session.disp_options.auto_more = true;
-                None
+                return None;
             }
-            "BEEP" => Some("\x07".to_string()),
-            "BICPS" => Some(self.transfer_statistics.get_cps_both().to_string()),
-            "BOARDNAME" => Some(self.board.lock().unwrap().data.board_name.to_string()),
-            "BPS" => Some(self.get_bps().to_string()),
+            "BEEP" => {
+                let _ = self.bell();
+                return None;
+            }
+            "BICPS" => result = self.transfer_statistics.get_cps_both().to_string(),
+            "BOARDNAME" => result = self.board.lock().unwrap().data.board_name.to_string(),
+            "BPS" => result = self.get_bps().to_string(),
 
             // TODO
-            "BYTECREDIT" => None,
-            "BYTELIMIT" => None,
-            "BYTERATIO" => None,
-            "BYTESLEFT" => None,
-            "CARRIER" => None,
+            "BYTECREDIT" | "BYTELIMIT" | "BYTERATIO" | "BYTESLEFT" | "CARRIER" => {
+                // todo
+            }
 
-            "CITY" => self
-                .current_user
-                .as_ref()
-                .map(|user| user.user.city.clone()),
+            "CITY" => {
+                if let Some(user) = &self.current_user {
+                    result = user.user.city.clone();
+                }
+            }
             "CLREOL" => {
                 let _ = self.clear_eol();
-                None
+                return None;
             }
             "CLS" => {
                 let _ = self.clear_screen();
-                None
+                return None;
             }
-            "CONFNAME" => Some(self.session.current_conference.name.clone()),
-            "CONFNUM" => Some(self.session.current_conference.number.to_string()),
+            "CONFNAME" => result = self.session.current_conference.name.clone(),
+            "CONFNUM" => result = self.session.current_conference.number.to_string(),
 
             // TODO
-            "CREDLEFT" => None,
-            "CREDNOW" => None,
-            "CREDSTART" => None,
-            "CREDUSED" => None,
-            "CURMSGNUM" => None,
+            "CREDLEFT" | "CREDNOW" | "CREDSTART" | "CREDUSED" | "CURMSGNUM" => {}
 
             "DATAPHONE" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.bus_data_phone.clone());
+                    result = user.user.bus_data_phone.clone();
                 }
-                None
             }
-            "DAYBYTES" => None,
-            "DELAY" => None,
-            "DIRNAME" => None,
-            "DIRNUM" => None,
-            "DLBYTES" => None,
-            "DLFILES" => None,
-            "EVENT" => None,
+            "DAYBYTES" | "DELAY" | "DIRNAME" | "DIRNUM" | "DLBYTES" | "DLFILES" | "EVENT" => {}
             "EXPDATE" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.reg_exp_date.to_string());
+                    result = user.user.reg_exp_date.to_string();
+                } else {
+                    result = IcbDate::default().to_country_date();
                 }
-                Some(IcbDate::default().to_country_date())
             }
             "EXPDAYS" => {
                 if self.board.lock().unwrap().data.subscript_mode {
                     if let Some(user) = &self.current_user {
                         if user.user.reg_exp_date.get_year() != 0 {
-                            return Some(
-                                0.to_string(), // TODO
+                            result  =
+                                0.to_string() // TODO
                                                /*
                                                (self.session.login_date.to_julian_date()
                                                    - user.user.reg_exp_date.to_julian_date())
                                                .to_string(),*/
-                            );
+                            ;
                         }
                     }
                 }
-                let entry = self
-                    .board
-                    .lock()
-                    .unwrap()
-                    .display_text
-                    .get_display_text(UNLIMITED)
-                    .unwrap();
-                let _ = self.set_color(entry.color);
-                Some(entry.text)
+                if result.is_empty() {
+                    let entry = self
+                        .board
+                        .lock()
+                        .unwrap()
+                        .display_text
+                        .get_display_text(UNLIMITED)
+                        .unwrap();
+                    let _ = self.set_color(entry.color);
+                    result = entry.text;
+                }
             }
-            "FBYTES" => None,
-            "FFILES" => None,
-            "FILECREDIT" => None,
-            "FILERATIO" => None,
+            "FBYTES" | "FFILES" | "FILECREDIT" | "FILERATIO" => {}
             "FIRST" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.get_first_name());
+                    result = user.get_first_name();
                 }
-                None
             }
             "FIRSTU" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.get_first_name().to_uppercase());
+                    result = user.get_first_name().to_uppercase();
                 }
-                None
             }
-            "FNUM" => None,
-            "FREESPACE" => None,
+            "FNUM" => {}
+            "FREESPACE" => {}
             "HOMEPHONE" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.home_voice_phone.clone());
+                    result = user.user.home_voice_phone.clone();
                 }
-                None
             }
-            "HIGHMSGNUM" => None,
-            "INAME" => None,
-            "INCONF" => Some(self.session.current_conference.name.to_string()),
-            "KBLEFT" => None,
-            "KBLIMIT" => None,
-            "LASTCALLERNODE" => None,
-            "LASTCALLERSYSTEM" => None,
-            "LASTDATEON" => None,
-            "LASTTIMEON" => None,
-            "LMR" => None,
-            "LOGDATE" => None,
-            "LOGTIME" => None,
-            "LOWMSGNUM" => None,
-            "MAXBYTES" => None,
-            "MAXFILES" => None,
-            "MINLEFT" => Some("1000".to_string()),
+            "HIGHMSGNUM" => {}
+            "INAME" => {}
+            "INCONF" => result = self.session.current_conference.name.to_string(),
+            "KBLEFT" | "KBLIMIT" | "LASTCALLERNODE" | "LASTCALLERSYSTEM" | "LASTDATEON"
+            | "LASTTIMEON" | "LMR" | "LOGDATE" | "LOGTIME" | "LOWMSGNUM" | "MAXBYTES"
+            | "MAXFILES" => {}
+            "MINLEFT" => result = "1000".to_string(),
             "MORE" => {
                 let _ = self.more_promt();
-                None
+                return None;
             }
             "MSGLEFT" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.inf.messages_left.to_string());
+                    result = user.inf.messages_left.to_string();
                 }
-                None
             }
             "MSGREAD" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.inf.messages_read.to_string());
+                    result = user.inf.messages_read.to_string();
                 }
-                None
             }
-            "NOCHAR" => Some(self.no_char.to_string()),
-            "NODE" => Some(self.board.lock().unwrap().data.node_num.to_string()),
-            "NUMBLT" => None,
-            "NUMCALLS" => None,
-            "NUMCONF" => Some(self.board.lock().unwrap().data.num_conf.to_string()),
-            "NUMDIR" => None,
+            "NOCHAR" => result = self.no_char.to_string(),
+            "NODE" => result = self.board.lock().unwrap().data.node_num.to_string(),
+            "NUMBLT" => {}
+            "NUMCALLS" => {}
+            "NUMCONF" => result = self.board.lock().unwrap().data.num_conf.to_string(),
+            "NUMDIR" => {}
             "NUMTIMESON" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.num_times_on.to_string());
+                    result = user.user.num_times_on.to_string();
                 }
-                None
             }
-            "OFFHOURS" => None,
-            "OPTEXT" => Some(self.session.op_text.to_string()),
+            "OFFHOURS" => {}
+            "OPTEXT" => result = self.session.op_text.to_string(),
             "PAUSE" => {
                 self.session.disp_options.auto_more = true;
                 let _ = self.press_enter();
                 self.session.disp_options.auto_more = false;
-                None
+                return None;
             }
-            "POFF" => None,
-            "PON" => None,
-            "POS" => None,
-            "PROLTR" => None,
-            "PRODESC" => None,
-            "PWXDATE" => None,
-            "PWXDAYS" => None,
-            "QOFF" => None,
-            "QON" => None,
-            "RATIOBYTES" => None,
-            "RATIOFILES" => None,
-            "RCPS" => Some(self.transfer_statistics.get_cps_upload().to_string()),
-            "RBYTES" => Some(self.transfer_statistics.uploaded_bytes.to_string()),
-            "RFILES" => Some(self.transfer_statistics.uploaded_files.to_string()),
+            "POFF" | "PON" | "POS" | "PROLTR" | "PRODESC" | "PWXDATE" | "PWXDAYS" | "QOFF"
+            | "QON" | "RATIOBYTES" | "RATIOFILES" => {}
+            "RCPS" => result = self.transfer_statistics.get_cps_upload().to_string(),
+            "RBYTES" => result = self.transfer_statistics.uploaded_bytes.to_string(),
+            "RFILES" => result = self.transfer_statistics.uploaded_files.to_string(),
             "REAL" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.name.to_string());
+                    result = user.user.name.to_string();
                 }
-                None
             }
-            "SECURITY" => None,
-            "SCPS" => Some(self.transfer_statistics.get_cps_download().to_string()),
-            "SBYTES" => Some(self.transfer_statistics.downloaded_bytes.to_string()),
-            "SFILES" => Some(self.transfer_statistics.downloaded_files.to_string()),
+            "SECURITY" => {}
+            "SCPS" => result = self.transfer_statistics.get_cps_download().to_string(),
+            "SBYTES" => result = self.transfer_statistics.downloaded_bytes.to_string(),
+            "SFILES" => result = self.transfer_statistics.downloaded_files.to_string(),
             "SYSDATE" => {
                 let now = Local::now();
                 let d = now.date_naive();
-                Some(format!(
+                result = format!(
                     "{:02}/{:02}/{:02}",
                     d.month0() + 1,
                     d.day(),
                     d.year_ce().1 % 100
-                ))
+                );
             }
-            "SYSOPIN" => Some(self.board.lock().unwrap().data.sysop_start.clone()),
-            "SYSOPOUT" => Some(self.board.lock().unwrap().data.sysop_stop.clone()),
+            "SYSOPIN" => result = self.board.lock().unwrap().data.sysop_start.clone(),
+            "SYSOPOUT" => result = self.board.lock().unwrap().data.sysop_stop.clone(),
             "SYSTIME" => {
                 let now = Local::now();
                 let t = now.time();
-                Some(format!("{:02}:{:02}", t.hour(), t.minute()))
+                result = format!("{:02}:{:02}", t.hour(), t.minute());
             }
-            "TIMELIMIT" => Some(self.session.time_limit.to_string()),
+            "TIMELIMIT" => result = self.session.time_limit.to_string(),
             "TIMELEFT" => {
                 let now = Local::now();
                 let time_on = now - self.session.login_date;
                 if self.session.time_limit == 0 {
-                    return Some("UNLIMITED".to_string());
+                    result = "UNLIMITED".to_string();
+                } else {
+                    result = (self.session.time_limit as i64 - time_on.num_minutes()).to_string();
                 }
-                Some((self.session.time_limit as i64 - time_on.num_minutes()).to_string())
             }
-            "TIMEUSED" => None,
-            "TOTALTIME" => None,
+            "TIMEUSED" => {}
+            "TOTALTIME" => {}
             "UPBYTES" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.ul_tot_upld_bytes.to_string());
+                    result = user.user.ul_tot_upld_bytes.to_string();
                 }
-                None
             }
             "UPFILES" => {
                 if let Some(user) = &self.current_user {
-                    return Some(user.user.num_uploads.to_string());
+                    result = user.user.num_uploads.to_string();
                 }
-                None
             }
             "USER" => {
                 if let Some(user) = &self.current_user {
                     if self.session.use_alias {
                         if let Some(alias) = &user.inf.alias {
-                            return Some(alias.alias.clone());
+                            result = alias.alias.clone();
+                        } else {
+                            result = user.user.name.clone();
                         }
+                    } else {
+                        result = user.user.name.clone();
                     }
-                    Some(user.user.name.clone())
                 } else {
-                    Some("0".to_string())
+                    result = "0".to_string();
                 }
             }
-            "WAIT" => None,
-            "WHO" => None,
+            "WAIT" => {}
+            "WHO" => {}
             "XOFF" => {
                 self.session.disp_options.disable_color = true;
-                None
+                return None;
             }
             "XON" => {
                 self.session.disp_options.disable_color = false;
-                None
+                return None;
             }
-            "YESCHAR" => Some(self.yes_char.to_string()),
+            "YESCHAR" => result = self.yes_char.to_string(),
             _ => {
-                if s.to_ascii_uppercase().starts_with("ENV=") {
-                    let key = &s[4..];
+                if id.to_ascii_uppercase().starts_with("ENV=") {
+                    let key = &id[4..];
                     if let Some(value) = self.get_env(key) {
-                        return Some(value.clone());
+                        result = value.clone();
                     }
                 }
-                None
             }
         }
+
+        if let Some(param) = param {
+            if let Ok(i) = param.parse::<usize>() {
+                while result.len() < i {
+                    result.push(' ');
+                }
+            }
+        }
+
+        Some(result)
     }
 
     /// # Errors

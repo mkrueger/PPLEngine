@@ -207,7 +207,9 @@ impl IcyBoardState {
             }
             if ch == '\x08' && !output.is_empty() {
                 output.pop();
-                self.print(TerminalTarget::Both, "\x08 \x08")?;
+                if echo {
+                    self.print(TerminalTarget::Both, "\x08 \x08")?;
+                }
                 continue;
             }
 

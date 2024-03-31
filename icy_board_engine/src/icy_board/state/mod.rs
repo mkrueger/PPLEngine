@@ -173,6 +173,9 @@ impl Default for IcyBoardState {
     fn default() -> Self {
         let buffer = Buffer::new((80, 25));
         let caret = Caret::default();
+        let mut parser = ansi::Parser::default();
+        parser.bs_is_ctrl_char = true;
+
         let ctx = Arc::new(Mutex::new(Output::default()));
         Self {
             board: Arc::new(Mutex::new(IcyBoard::new())),
@@ -185,7 +188,7 @@ impl Default for IcyBoardState {
             env_vars: HashMap::new(),
             session: Session::new(),
             transfer_statistics: TransferStatistics::default(),
-            parser: ansi::Parser::default(),
+            parser,
             buffer,
             caret,
         }

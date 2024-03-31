@@ -268,7 +268,7 @@ impl PartialEq for VariableValue {
                 VariableType::DDate => self.data.ddate_value == other.data.ddate_value,
                 VariableType::EDate => self.data.edate_value == other.data.edate_value,
 
-                VariableType::Integer => self.data.int_value == other.data.int_value,
+                VariableType::Integer => self.as_int() == other.as_int(),
                 VariableType::Money => self.data.money_value == other.data.money_value,
                 VariableType::String | VariableType::BigStr => {
                     self.as_string() == other.as_string()

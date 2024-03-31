@@ -103,7 +103,7 @@ impl TestContext {
 }
 
 impl BoardIO for TestContext {
-    fn get_char(&mut self) -> Res<Option<char>> {
+    fn get_char(&mut self) -> Res<Option<(bool, char)>> {
         todo!()
     }
 
@@ -121,6 +121,10 @@ impl BoardIO for TestContext {
     }
 
     fn hangup(&mut self) -> Res<()> {
+        Ok(())
+    }
+
+    fn put_keyboard_buffer(&mut self, _value: &[char]) -> Res<()> {
         Ok(())
     }
 }

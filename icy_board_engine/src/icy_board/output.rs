@@ -70,7 +70,7 @@ impl BoardIO for Output {
     fn read(&mut self) -> Res<String> {
         let mut result = String::new();
         loop {
-            let Ok(Some(ch)) = self.get_char() else {
+            let Ok(Some((_echo, ch))) = self.get_char() else {
                 continue;
             };
             if ch == '\r' || ch == '\n' {
@@ -81,10 +81,10 @@ impl BoardIO for Output {
         Ok(result)
     }
 
-    fn get_char(&mut self) -> Res<Option<char>> {
+    fn get_char(&mut self) -> Res<Option<(bool, char)>> {
         self.fill_buffer()?;
         if let Some(c) = self.char_buffer.pop_front() {
-            Ok(Some(c))
+            Ok(Some((true, c)))
         } else {
             Ok(None)
         }
@@ -96,6 +96,11 @@ impl BoardIO for Output {
     }
 
     fn hangup(&mut self) -> Res<()> {
+        Ok(())
+    }
+
+    fn put_keyboard_buffer(&mut self, value: &[char]) -> Res<()> {
+        self.char_buffer.extend(value);
         Ok(())
     }
 }

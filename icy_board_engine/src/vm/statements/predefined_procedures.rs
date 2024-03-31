@@ -1,14 +1,11 @@
-use std::{borrow::Borrow, thread, time::Duration};
+use std::{borrow::Borrow, fs, thread, time::Duration};
 
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
     Res,
 };
 
-use crate::{
-    icy_board::text_messages,
-    vm::{TerminalTarget, VMError, VirtualMachine},
-};
+use crate::vm::{TerminalTarget, VMError, VirtualMachine};
 
 use super::super::errors::IcyError;
 
@@ -36,25 +33,12 @@ pub fn clreol(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn more(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    vm.icy_board_state.more_promt(text_messages::MOREPROMPT)
+    vm.icy_board_state.more_promt()?;
+    Ok(())
 }
 
 pub fn wait(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let txt = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .display_text
-        .get_display_text(text_messages::PRESSENTER)?;
-    vm.icy_board_state.print(TerminalTarget::Both, &txt.text)?;
-    loop {
-        if let Some(ch) = vm.icy_board_state.get_char()? {
-            if ch == '\n' || ch == '\r' {
-                break;
-            }
-        }
-    }
+    vm.icy_board_state.press_enter()?;
     Ok(())
 }
 
@@ -76,7 +60,8 @@ pub fn confunflag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn dispfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file_name = &vm.eval_expr(&args[0])?.as_string();
 
-    vm.icy_board_state.display_file(file_name)
+    vm.icy_board_state.display_file(file_name)?;
+    Ok(())
 }
 
 pub fn input(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -182,11 +167,7 @@ pub fn hangup(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-
-    let user = if let Some(user) = &mut vm
-        .icy_board_state
-        .current_user
-    {
+    let user = if let Some(user) = &mut vm.icy_board_state.current_user {
         user.clone()
     } else {
         return Err(Box::new(IcyError::UserNotFound(String::new())));
@@ -199,7 +180,7 @@ pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let mut user = vm.icy_board_state.current_user.take().unwrap() ;
+    let mut user = vm.icy_board_state.current_user.take().unwrap();
     vm.put_user_variables(&mut user);
     vm.icy_board_state.current_user = Some(user);
     Ok(())
@@ -414,7 +395,7 @@ pub fn tokenize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let split = str
         .split(&[' ', ';'][..])
         .map(std::string::ToString::to_string);
-    vm.cur_tokens = split.collect();
+    vm.icy_board_state.session.tokens.extend(split);
     Ok(())
 }
 
@@ -464,10 +445,6 @@ pub fn pop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 
-pub fn kbdstuff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    let value = vm.eval_expr(&args[0])?.as_string();
-    vm.icy_board_state.print(TerminalTarget::Both, &value)
-}
 pub fn call(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
@@ -483,9 +460,32 @@ pub fn blt(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn dir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    panic!("TODO")
+
+pub fn kbdstuff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    let value = vm.eval_expr(&args[0])?.as_string();
+    vm.icy_board_state.put_keyboard_buffer(&value)?;
+    Ok(())
 }
+pub fn kbdstring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    let value = vm.eval_expr(&args[0])?.as_string();
+    vm.icy_board_state.print(TerminalTarget::Both, &value)?;
+    vm.icy_board_state.put_keyboard_buffer(&value)?;
+    Ok(())
+}
+pub fn kbdfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    let file_name = vm.eval_expr(&args[0])?.as_string();
+    let fil_name = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file_name.as_str());
+    let contents = fs::read_to_string(file_name)?;
+    vm.icy_board_state.put_keyboard_buffer(&contents)?;
+
+    Ok(())
+}
+
 pub fn bye(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
     vm.icy_board_state.hangup(crate::vm::HangupType::Bye)?;
     vm.is_running = false;
@@ -775,9 +775,7 @@ pub fn fdwrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn adjbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
-pub fn kbdstring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    panic!("TODO")
-}
+
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     vm.icy_board_state.session.use_alias = vm.eval_expr(&args[0])?.as_bool();
     Ok(())

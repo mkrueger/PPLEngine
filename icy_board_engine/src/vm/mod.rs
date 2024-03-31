@@ -79,9 +79,13 @@ pub trait BoardIO: Send {
     ///
     /// # Errors
     /// Errors if the variable is not found.
-    fn get_char(&mut self) -> Res<Option<char>>;
+    fn get_char(&mut self) -> Res<Option<(bool, char)>>;
 
+    /// Number of chars in the keyboard buffer
     fn inbytes(&mut self) -> i32;
+
+    /// Put a string into the keyboard buffer
+    fn put_keyboard_buffer(&mut self, value: &[char]) -> Res<()>;
 
     /// .
     /// # Errors
@@ -151,8 +155,6 @@ pub struct VirtualMachine<'a> {
 
     pub pcb_node: Option<Node>,
 
-    pub cur_tokens: Vec<String>, //  stack_frames: Vec<StackFrame>
-
     pub return_addresses: Vec<ReturnAddress>,
     call_local_value_stack: Vec<VariableValue>,
     write_back_stack: Vec<PPEExpr>,
@@ -163,7 +165,6 @@ pub struct VirtualMachine<'a> {
 
 impl<'a> VirtualMachine<'a> {
     fn set_user_variables(&mut self, cur_user: &User) {
-
         self.variable_table
             .set_value(U_EXPERT, VariableValue::new_bool(cur_user.user.expert_mode));
         self.variable_table
@@ -436,6 +437,7 @@ impl<'a> VirtualMachine<'a> {
             PPEExpr::BinaryExpression(op, left, right) => {
                 let left_value = self.eval_expr(left)?;
                 let right_value = self.eval_expr(right)?;
+
                 match op {
                     BinOp::Add => Ok(left_value + right_value),
                     BinOp::Sub => Ok(left_value - right_value),
@@ -751,7 +753,6 @@ pub fn run(
         io,
         is_running: true,
         fpclear: false,
-        cur_tokens: Vec::new(),
         icy_board_state,
         pcb_node: None,
         variable_table: prg.variable_table.clone(),

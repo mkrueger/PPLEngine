@@ -371,10 +371,12 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-
     Ok(VariableValue::new_string(
         vm.icy_board_state
-        .current_user.as_ref().unwrap().user
+            .current_user
+            .as_ref()
+            .unwrap()
+            .user
             .name
             .clone(),
     ))
@@ -470,14 +472,14 @@ pub fn yeschar(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 
 pub fn inkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    if let Some(ch) = vm.icy_board_state.get_char()? {
+    if let Some((echo, ch)) = vm.icy_board_state.get_char()? {
         if ch as u8 == 127 {
             return Ok(VariableValue::new_string("DEL".to_string()));
         }
         if ch == '\x1B' {
-            if let Some(ch) = vm.icy_board_state.get_char()? {
+            if let Some((echo, ch)) = vm.icy_board_state.get_char()? {
                 if ch == '[' {
-                    if let Some(ch) = vm.icy_board_state.get_char()? {
+                    if let Some((echo, ch)) = vm.icy_board_state.get_char()? {
                         match ch {
                             'A' => return Ok(VariableValue::new_string("UP".to_string())),
                             'B' => return Ok(VariableValue::new_string("DOWN".to_string())),
@@ -646,10 +648,10 @@ pub fn cursec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn gettoken(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    if vm.cur_tokens.is_empty() {
-        Ok(VariableValue::new_string(String::new()))
+    if let Some(tok) = vm.icy_board_state.session.tokens.pop_front() {
+        Ok(VariableValue::new_string(tok))
     } else {
-        Ok(VariableValue::new_string(vm.cur_tokens.remove(0)))
+        Ok(VariableValue::new_string(String::new()))
     }
 }
 pub fn minleft(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -973,7 +975,9 @@ pub fn mgetbyte(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     panic!("TODO")
 }
 pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(vm.cur_tokens.len() as i32))
+    Ok(VariableValue::new_int(
+        vm.icy_board_state.session.tokens.len() as i32,
+    ))
 }
 
 pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {

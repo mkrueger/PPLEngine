@@ -51,7 +51,6 @@ impl IcyBoardState {
     }
 
     pub fn display_string(&mut self, txt: &str, color: u8, display_flags: i32) -> Res<()> {
-
         if display_flags & display_flags::NOTBLANK != 0 && txt.is_empty() {
             return Ok(());
         }
@@ -66,44 +65,7 @@ impl IcyBoardState {
             self.set_color(color)?;
         }
 
-        if !txt.is_empty() {
-            match txt.chars().next().unwrap() {
-                '!' => {
-                    let mut script = String::new();
-                    for ch in txt.chars().skip(1) {
-                        if ch == '_' {
-                            break;
-                        }
-                        script.push(ch);
-                    }
-                    let splitted_cmd: Vec<&str> = script.split(' ').collect();
-                    if !splitted_cmd.is_empty() {
-                        let ppe =  splitted_cmd[0];
-                        let file = self.board.lock().unwrap().resolve_file(ppe);
-                        self.run_ppe(file, &splitted_cmd[1..]);
-                    }
-                }
-                '%' => {
-                    let mut file_name = String::new();
-                    for ch in txt.chars().skip(1) {
-                        if ch == '_' {
-                            break;
-                        }
-                        file_name.push(ch);
-                    }
-                    let file = self.board.lock().unwrap().resolve_file(&file_name);
-                    return self.display_file(&file);
-                }
-
-                '$' => {
-                    // TODO: Menu ?
-                }
-                _ => {
-                    // display text
-                    self.print(TerminalTarget::Both, txt)?;
-                }
-            }
-        }
+        self.display_line(txt)?;
 
         // up to 2 new lines are correct
         if display_flags & display_flags::NEWLINE != 0 {
@@ -116,7 +78,50 @@ impl IcyBoardState {
         Ok(())
     }
 
-    pub fn display_file(&mut self, file_name: &str) -> Res<()> {
+    fn display_line(&mut self, txt: &str) -> Res<()> {
+        if !txt.is_empty() {
+            match txt.chars().next().unwrap() {
+                '!' => {
+                    let mut script = String::new();
+                    for ch in txt.chars().skip(1) {
+                        if ch == '_' {
+                            break;
+                        }
+                        script.push(ch);
+                    }
+                    let splitted_cmd: Vec<&str> = script.split(' ').collect();
+                    if !splitted_cmd.is_empty() {
+                        let ppe = splitted_cmd[0];
+                        let file = self.board.lock().unwrap().resolve_file(ppe);
+                        self.run_ppe(file, &splitted_cmd[1..])?;
+                    }
+                }
+                '%' => {
+                    let mut file_name = String::new();
+                    for ch in txt.chars().skip(1) {
+                        if ch == '_' {
+                            break;
+                        }
+                        file_name.push(ch);
+                    }
+                    let file = self.board.lock().unwrap().resolve_file(&file_name);
+                    self.display_file(&file)?;
+                    return Ok(());
+                }
+
+                '$' => {
+                    // TODO: Menu ?
+                }
+                _ => {
+                    // display text
+                    self.print(TerminalTarget::Both, txt)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn display_file(&mut self, file_name: &str) -> Res<bool> {
         let resolved_name = self.board.lock().unwrap().resolve_file(file_name);
 
         let Ok(content) = fs::read(resolved_name) else {
@@ -126,15 +131,25 @@ impl IcyBoardState {
                 TerminalTarget::Both,
                 &format!("File not found: {}", file_name),
             )?;
-            return Ok(());
+            return Ok(true);
         };
-        let mut converted_content = Vec::new();
+        let mut converted_content = String::new();
         for byte in content {
             converted_content.push(icy_ppe::tables::CP437_TO_UNICODE[byte as usize]);
         }
-        self.write_raw(TerminalTarget::Both, &converted_content)?;
-
-        Ok(())
+        self.session.disp_options.non_stop = true;
+        for line in converted_content.lines() {
+            self.display_line(line)?;
+            self.write_raw(TerminalTarget::Both, &['\r', '\n'])?;
+            self.session.disp_options.non_stop = false;
+            let next = self.next_line()?;
+            self.session.disp_options.non_stop = true;
+            if !next {
+                return Ok(false);
+            }
+        }
+        self.session.disp_options.non_stop = false;
+        Ok(true)
     }
 
     pub fn input_field(
@@ -168,46 +183,51 @@ impl IcyBoardState {
         valid: &str,
         display_flags: i32,
     ) -> Res<String> {
+        self.session.num_lines_printed = 0;
+
         let mut prompt = prompt;
         if prompt.ends_with(TXT_STOPCHAR) {
             prompt.pop();
         }
         self.check_time_left();
-
+        if display_flags & display_flags::LFBEFORE != 0 {
+            self.new_line()?;
+        }
+        self.display_string(&prompt, color as u8, display_flags::DEFAULT)?;
+        let mut output = String::new();
         loop {
-            if display_flags & display_flags::LFBEFORE != 0 {
-                self.new_line()?;
+            let Some((echo, ch)) = self.get_char()? else {
+                continue;
+            };
+            if ch == '\n' || ch == '\r' {
+                if display_flags & display_flags::ERASELINE != 0 {
+                    self.clear_line()?;
+                }
+                break;
             }
-            self.display_string(&prompt, color as u8, display_flags::DEFAULT)?;
+            if ch == '\x08' && !output.is_empty() {
+                output.pop();
+                self.print(TerminalTarget::Both, "\x08 \x08")?;
+                continue;
+            }
 
-            let mut output = String::new();
-            loop {
-                let Some(ch) = self.get_char()? else {
-                    continue;
-                };
-                if ch == '\n' || ch == '\r' {
-                    self.new_line()?;
-                    break;
-                }
-                if ch == '\x08' && !output.is_empty() {
-                    output.pop();
-                    self.print(TerminalTarget::Both, "\x08 \x08")?;
-                    continue;
-                }
-
-                if (output.len() as i32) < len && valid.contains(ch) {
-                    output.push(ch);
+            if (output.len() as i32) < len && valid.contains(ch) {
+                output.push(ch);
+                if echo {
                     self.print(TerminalTarget::Both, &ch.to_string())?;
                 }
             }
-            if !output.is_empty() {
-                self.session.num_lines_printed = 0;
-
-                if display_flags & display_flags::UPCASE != 0 {
-                    return Ok(output.to_uppercase());
-                }
-                return Ok(output);
-            }
         }
+        if display_flags & display_flags::NEWLINE != 0 {
+            self.new_line()?;
+        }
+        if display_flags & display_flags::LFAFTER != 0 {
+            self.new_line()?;
+        }
+        self.session.num_lines_printed = 0;
+        if display_flags & display_flags::UPCASE != 0 {
+            return Ok(output.to_uppercase());
+        }
+        Ok(output)
     }
 }

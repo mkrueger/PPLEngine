@@ -1,8 +1,11 @@
 use std::{
-    borrow::BorrowMut, collections::HashMap, path::PathBuf, sync::{Arc, Mutex}, time::Instant
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 
-use chrono::{Datelike, Local, Timelike};
+use chrono::{DateTime, Datelike, Local, Timelike};
 use icy_engine::ansi::constants::COLOR_OFFSETS;
 use icy_engine::TextAttribute;
 use icy_engine::{ansi, Buffer, BufferParser, Caret};
@@ -16,7 +19,7 @@ use self::functions::display_flags;
 use super::{
     data::Node,
     output::Output,
-    text_messages::{MOREPROMPT, THANKSFORCALLING, UNLIMITED},
+    text_messages::{self, THANKSFORCALLING, UNLIMITED},
     IcyBoard, User,
 };
 
@@ -24,6 +27,9 @@ use super::{
 pub struct DisplayOptions {
     /// If true, the more prompt is automatically answered after 10 seconds.
     pub auto_more: bool,
+
+    /// If true, the output is not paused by the more prompt.
+    pub non_stop: bool,
 
     /// If true, the @ color codes are disabled.
     pub disable_color: bool,
@@ -36,6 +42,7 @@ impl Default for DisplayOptions {
         Self {
             auto_more: false,
             disable_color: false,
+            non_stop: false,
             display_text: true,
         }
     }
@@ -88,7 +95,7 @@ pub struct ConferenceType {
 pub struct Session {
     pub disp_options: DisplayOptions,
     pub current_conference: ConferenceType,
-    pub login_date: Instant,
+    pub login_date: DateTime<Local>,
 
     pub cur_user: i32,
     pub cur_security: u8,
@@ -102,9 +109,13 @@ pub struct Session {
 
     pub request_logoff: bool,
 
+    pub time_limit: i32,
+
     /// If true, the keyboard timer is checked.
     /// After it's elapsed logoff the user for inactivity.
     pub keyboard_timer_check: bool,
+
+    pub tokens: VecDeque<String>,
 }
 
 impl Session {
@@ -112,7 +123,7 @@ impl Session {
         Self {
             disp_options: DisplayOptions::default(),
             current_conference: ConferenceType::default(),
-            login_date: Instant::now(),
+            login_date: Local::now(),
             cur_user: -1,
             cur_security: 0,
             num_lines_printed: 0,
@@ -120,8 +131,10 @@ impl Session {
             is_sysop: false,
             op_text: String::new(),
             use_alias: false,
+            time_limit: 1000,
             keyboard_timer_check: false,
             request_logoff: false,
+            tokens: VecDeque::new(),
         }
     }
 }
@@ -227,6 +240,15 @@ impl IcyBoardState {
         }
     }
 
+    pub fn clear_line(&mut self) -> Res<()> {
+        if self.use_ansi() {
+            self.print(TerminalTarget::Both, "\r\x1B[K")
+        } else {
+            // TODO
+            Ok(())
+        }
+    }
+
     pub fn clear_eol(&mut self) -> Res<()> {
         if self.use_ansi() {
             self.print(TerminalTarget::Both, "\x1B[K")
@@ -261,32 +283,51 @@ impl IcyBoardState {
                 self.session.current_conference.conf_security =
                     board.conferences[last_conference as usize].add_conference_security;
             }
-        } else {
-            return;
         }
     }
-    
-    fn next_line(&mut self)  {
+
+    fn next_line(&mut self) -> Res<bool> {
         self.session.num_lines_printed += 1;
-        if (self.session.num_lines_printed > self.session.page_len) {
-            self.more_promt(MOREPROMPT);
+        if !self.session.disp_options.non_stop
+            && self.session.num_lines_printed > self.session.page_len
+        {
+            self.more_promt()
+        } else {
+            Ok(true)
+        }
+    }
+
+    fn run_ppe(&mut self, file_name: String, splitted_cmd: &[&str]) -> Res<()> {
+        for sc in splitted_cmd {
+            if !sc.is_empty() {
+                self.session.tokens.push_back(sc.to_string());
+            }
         }
 
-    }
-    
-    fn run_ppe(&mut self, file_name: String, splitted_cmd: &[&str]) -> Res<()> {
         let exe = Executable::read_file(&file_name, false)?;
-
         let mut io = DiskIO::new(".");
-        
-        run(
-            PathBuf::from(file_name),
-            &exe,
-            &mut io,
-            self
-        )?;
+        run(PathBuf::from(file_name), &exe, &mut io, self)?;
 
         Ok(())
+    }
+
+    pub fn put_keyboard_buffer(&mut self, value: &str) -> Res<()> {
+        let mut chars = Vec::new();
+        let in_chars: Vec<char> = value.chars().collect();
+
+        for (i, c) in in_chars.iter().enumerate() {
+            if *c == '^'
+                && i + 1 < in_chars.len()
+                && in_chars[i + 1] >= 'A'
+                && in_chars[i + 1] <= '['
+            {
+                let c = in_chars[i + 1] as u8 - b'@';
+                chars.push(c as char);
+            } else {
+                chars.push(*c);
+            }
+        }
+        self.ctx.lock().unwrap().put_keyboard_buffer(&chars)
     }
 }
 
@@ -340,7 +381,7 @@ impl IcyBoardState {
 
     fn write_char(&mut self, c: char) -> Res<()> {
         if c == '\n' {
-            self.next_line();
+            self.next_line()?;
         }
         self.parser
             .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
@@ -350,7 +391,7 @@ impl IcyBoardState {
     fn write_string(&mut self, data: &[char]) -> Res<()> {
         for c in data {
             if *c == '\n' {
-                self.next_line();
+                self.next_line()?;
             }
             self.parser
                 .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
@@ -448,9 +489,10 @@ impl IcyBoardState {
             "BYTESLEFT" => None,
             "CARRIER" => None,
 
-            "CITY" => {
-                self.current_user.as_ref().map(|user| user.user.city.clone())
-            }
+            "CITY" => self
+                .current_user
+                .as_ref()
+                .map(|user| user.user.city.clone()),
             "CLREOL" => {
                 let _ = self.clear_eol();
                 None
@@ -547,7 +589,7 @@ impl IcyBoardState {
             "MAXFILES" => None,
             "MINLEFT" => Some("1000".to_string()),
             "MORE" => {
-                let _ = self.more_promt(MOREPROMPT);
+                let _ = self.more_promt();
                 None
             }
             "MSGLEFT" => {
@@ -578,7 +620,7 @@ impl IcyBoardState {
             "OPTEXT" => Some(self.session.op_text.to_string()),
             "PAUSE" => {
                 self.session.disp_options.auto_more = true;
-                let _ = self.more_promt(MOREPROMPT);
+                let _ = self.press_enter();
                 self.session.disp_options.auto_more = false;
                 None
             }
@@ -623,8 +665,15 @@ impl IcyBoardState {
                 let t = now.time();
                 Some(format!("{:02}:{:02}", t.hour(), t.minute()))
             }
-            "TIMELIMIT" => None,
-            "TIMELEFT" => None,
+            "TIMELIMIT" => Some(self.session.time_limit.to_string()),
+            "TIMELEFT" => {
+                let now = Local::now();
+                let time_on = now - self.session.login_date;
+                if self.session.time_limit == 0 {
+                    return Some("UNLIMITED".to_string());
+                }
+                Some((self.session.time_limit as i64 - time_on.num_minutes()).to_string())
+            }
             "TIMEUSED" => None,
             "TOTALTIME" => None,
             "UPBYTES" => {
@@ -680,7 +729,7 @@ impl IcyBoardState {
     }
 
     /// # Errors
-    pub fn get_char(&mut self) -> Res<Option<char>> {
+    pub fn get_char(&mut self) -> Res<Option<(bool, char)>> {
         self.ctx.lock().unwrap().get_char()
     }
 
@@ -782,26 +831,21 @@ impl IcyBoardState {
         self.write_raw(TerminalTarget::Both, &['\x07'])
     }
 
-    pub fn more_promt(&mut self, moreprompt: usize) -> Res<()> {
-        let txt = self
-            .board
-            .lock()
-            .unwrap()
-            .display_text
-            .get_display_text(moreprompt)?;
+    pub fn more_promt(&mut self) -> Res<bool> {
+        let result = self.input_field(
+            text_messages::MOREPROMPT,
+            12,
+            "YyNn",
+            display_flags::YESNO
+                | display_flags::UPCASE
+                | display_flags::STACKED
+                | display_flags::ERASELINE,
+        )?;
+        Ok(result != "N")
+    }
 
-        self.print(TerminalTarget::Both, &txt.text)?;
-        loop {
-            if let Some(ch) = self.get_char()? {
-                let ch = ch.to_uppercase().to_string();
-
-                if ch == self.yes_char.to_string() || ch == self.no_char.to_string() {
-                    break;
-                }
-            }
-        }
-        self.session.num_lines_printed = 0;
-
+    pub fn press_enter(&mut self) -> Res<()> {
+        self.input_field(text_messages::PRESSENTER, 0, "", display_flags::ERASELINE)?;
         Ok(())
     }
 

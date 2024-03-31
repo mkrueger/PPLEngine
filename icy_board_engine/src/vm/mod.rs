@@ -524,7 +524,6 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(proc_offset)?;
                 self.run()?;
                 self.fpclear = false;
-                println!("return_var_id {:02x}", return_var_id);
                 Ok(self.variable_table.get_value(return_var_id).clone())
             }
         }
@@ -544,8 +543,6 @@ impl<'a> VirtualMachine<'a> {
     fn set_variable(&mut self, variable: &PPEExpr, value: VariableValue) -> Result<(), VMError> {
         match variable {
             PPEExpr::Value(id) => {
-                println!("set {:02x} to {:?}", *id, value);
-
                 self.variable_table.set_value(*id, value);
             }
             PPEExpr::Dim(id, dims) => {
@@ -589,15 +586,18 @@ impl<'a> VirtualMachine<'a> {
                         let parameters;
                         let return_var_id;
                         let pass_flags;
+                        let is_func;
                         unsafe {
                             let proc = &self.variable_table.get_var_entry(proc_id);
                             first = (proc.value.data.procedure_value.first_var_id + 1) as usize;
                             locals = proc.value.data.procedure_value.local_variables as usize;
                             parameters = proc.value.data.procedure_value.parameters as usize;
                             if proc.header.variable_type == VariableType::Function {
+                                is_func = true;
                                 return_var_id = proc.value.data.function_value.return_var as usize;
                                 pass_flags = 0;
                             } else {
+                                is_func = false;
                                 return_var_id = 0;
                                 pass_flags = proc.value.data.procedure_value.pass_flags;
                             }
@@ -639,7 +639,7 @@ impl<'a> VirtualMachine<'a> {
                             }
                         }
 
-                        if stmt == &PPECommand::EndFunc {
+                        if is_func {
                             self.fpclear = true;
                         }
                     }
@@ -650,8 +650,6 @@ impl<'a> VirtualMachine<'a> {
 
             PPECommand::IfNot(expr, label) => {
                 let value = self.eval_expr(expr)?.as_bool();
-                println!("eval : {} - {:?}", value, expr);
-
                 if !value {
                     self.goto(*label)?;
                 }

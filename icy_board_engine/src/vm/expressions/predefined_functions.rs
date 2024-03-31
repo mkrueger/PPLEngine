@@ -1,15 +1,15 @@
 #![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 
 use std::borrow::Borrow;
-use std::fs::{self, File};
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::vm::VirtualMachine;
-use easy_reader::EasyReader;
 use icy_engine::update_crc32;
 use icy_ppe::ast::constant::STACK_LIMIT;
 use icy_ppe::executable::{PPEExpr, VariableData, VariableType, VariableValue};
+use icy_ppe::tables::CP437_TO_UNICODE;
 use icy_ppe::Res;
 use radix_fmt::radix;
 use rand::Rng; // 0.8.5
@@ -190,7 +190,9 @@ pub fn instr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 
 /// Returns a flag indicating if the user has aborted the display of information.
 pub fn abort(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    panic!("TODO ABORT") // TODO
+    Ok(VariableValue::new_bool(
+        vm.icy_board_state.session.disp_options.abort_printout,
+    ))
 }
 
 /// Trim specified characters from the beginning of a string
@@ -551,12 +553,18 @@ pub fn mask_ascii(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableVa
     Ok(VariableValue::new_string((' '..='~').collect::<String>()))
 }
 
-pub fn curconf(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
-    panic!("TODO")
+pub fn curconf(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
+    Ok(VariableValue::new_int(
+        vm.icy_board_state.session.current_conference.number,
+    ))
 }
+
 pub fn pcbdat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    panic!("TODO")
+    Ok(VariableValue::new_string(
+        vm.icy_board_state.board.lock().unwrap().file_name.clone(),
+    ))
 }
+
 pub fn ppepath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let Some(dir) = vm.file_name.parent() else {
         return Ok(VariableValue::new_string(String::new()));
@@ -587,15 +595,22 @@ pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let file_name = vm.eval_expr(&args[0])?.as_string();
     let line = vm.eval_expr(&args[1])?.as_int();
-    let file_name = vm.io.resolve_file(&file_name);
+    let file_name = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file_name.as_str());
 
-    let file = File::open(file_name)?;
-    let mut reader = EasyReader::new(file)?;
-    for _ in 1..line {
-        reader.next_line()?;
-    }
-    let line_text = reader.next_line()?.unwrap_or_default();
-    Ok(VariableValue::new_string(line_text))
+    let file = fs::read(file_name)?;
+
+    let file = file
+        .iter()
+        .map(|x| CP437_TO_UNICODE[*x as usize])
+        .collect::<String>();
+
+    let line_text = file.lines().nth(line as usize - 1).unwrap_or_default();
+    Ok(VariableValue::new_string(line_text.to_string()))
 }
 
 pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1109,7 +1124,11 @@ pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     ))
 }
 pub fn confreg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    panic!("TODO")
+    let conf_num = vm.eval_expr(&args[0])?.as_int() as usize;
+
+    // TODO: What is that ?
+    // vm.icy_board_state.board.lock().unwrap().conferences[conf_num].
+    Ok(VariableValue::new_bool(true))
 }
 pub fn confexp(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     panic!("TODO")
@@ -1205,7 +1224,12 @@ pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let param = vm.eval_expr(&args[1])?.as_string();
 
     if use_file {
-        let file = vm.io.resolve_file(&param);
+        let file = vm
+            .icy_board_state
+            .board
+            .lock()
+            .unwrap()
+            .resolve_file(param.as_str());
         let buffer = fs::read(file)?;
         let crc = calc_crc32(&buffer);
         Ok(VariableValue::new_unsigned(crc as u64))

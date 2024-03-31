@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Result, Seek, SeekFrom, Write},
+    io::{BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
     time::SystemTime,
 };
 
 use icy_ppe::Res;
-use qfile::{QFilePath, QTraitSync};
-use substring::Substring;
+
+use crate::vm::VMError;
 
 const O_RD: i32 = 0;
 const O_RW: i32 = 2;
@@ -68,6 +68,10 @@ pub trait PCBoardIO {
     /// FCLOSE 1
     fn fget(&mut self, channel: usize) -> String;
 
+    fn fread(&mut self, channel: usize, size: usize) -> Res<Vec<u8>>;
+
+    fn fseek(&mut self, channel: usize, pos: i32, seek_pos: i32) -> Res<()>;
+
     /// channel - integer expression with the channel to use for the file
     /// #Example
     /// STRING s
@@ -106,10 +110,6 @@ pub trait PCBoardIO {
     /// This function will return an error if .
     fn copy(&mut self, from: &str, to: &str) -> std::io::Result<()>;
 
-    fn resolve_file(&self, file: &str) -> String {
-        file.to_string()
-    }
-
     /// .
     ///
     /// # Examples
@@ -144,7 +144,7 @@ impl FileChannel {
 }
 
 pub struct DiskIO {
-    path: String, // use that as root
+    _path: String, // use that as root
     channels: [FileChannel; 8],
 }
 
@@ -152,7 +152,7 @@ impl DiskIO {
     #[must_use]
     pub fn new(path: &str) -> Self {
         DiskIO {
-            path: path.to_string(),
+            _path: path.to_string(),
             channels: [
                 FileChannel::new(),
                 FileChannel::new(),
@@ -168,32 +168,6 @@ impl DiskIO {
 }
 
 impl PCBoardIO for DiskIO {
-    fn resolve_file(&self, file: &str) -> String {
-        let s: String = file
-            .chars()
-            .map(|x| match x {
-                '\\' => '/',
-                _ => x,
-            })
-            .collect();
-
-        let s = if file.starts_with("C:\\") {
-            let mut result = self.path.to_string();
-            result.push('/');
-            result.push_str(s.substring(2, file.len() - 2));
-            result
-        } else {
-            s
-        };
-
-        if let Ok(mut file_path) = QFilePath::add_path(s.clone()) {
-            if let Ok(file) = file_path.get_path_buf() {
-                return file.to_string_lossy().to_string();
-            }
-        }
-        s
-    }
-
     fn fappend(&mut self, channel: usize, file: &str, _am: i32, sm: i32) {
         let _ = self.fopen(channel, file, O_APPEND, sm);
     }
@@ -203,30 +177,23 @@ impl PCBoardIO for DiskIO {
     }
 
     fn delete(&mut self, file: &str) -> std::io::Result<()> {
-        let file = self.resolve_file(file);
         fs::remove_file(file)
     }
 
     fn rename(&mut self, old: &str, new: &str) -> std::io::Result<()> {
-        let old = self.resolve_file(old);
-        let new = self.resolve_file(new);
         fs::rename(old, new)
     }
     fn copy(&mut self, from: &str, to: &str) -> std::io::Result<()> {
-        let old = self.resolve_file(from);
-        let new = self.resolve_file(to);
-        fs::copy(old, new)?;
+        fs::copy(from, to)?;
         Ok(())
     }
 
-    fn fopen(&mut self, channel: usize, file: &str, mode: i32, _sm: i32) -> Res<()> {
-        let file = self.resolve_file(file);
-
+    fn fopen(&mut self, channel: usize, file_name: &str, mode: i32, _sm: i32) -> Res<()> {
         let file = match mode {
-            O_RD => File::open(file),
-            O_WR => File::create(file),
-            O_RW => OpenOptions::new().read(true).write(true).open(file),
-            O_APPEND => OpenOptions::new().append(true).open(file),
+            O_RD => File::open(file_name),
+            O_WR => File::create(file_name),
+            O_RW => OpenOptions::new().read(true).write(true).open(file_name),
+            O_APPEND => OpenOptions::new().append(true).open(file_name),
             _ => panic!("unsupported mode {mode}"),
         };
         match file {
@@ -240,12 +207,7 @@ impl PCBoardIO for DiskIO {
             }
             Err(err) => {
                 log::error!("error opening file: {}", err);
-                self.channels[channel] = FileChannel {
-                    file: None,
-                    reader: None,
-                    _content: Vec::new(),
-                    err: true,
-                };
+                return Err(Box::new(VMError::FileNotFound(file_name.to_string())));
             }
         }
 
@@ -287,6 +249,42 @@ impl PCBoardIO for DiskIO {
         }
     }
 
+    fn fread(&mut self, channel: usize, size: usize) -> Res<Vec<u8>> {
+        if let Some(f) = self.channels[channel].file.take() {
+            self.channels[channel].reader = Some(BufReader::new(*f));
+        }
+        if let Some(reader) = &mut self.channels[channel].reader {
+            let mut buf = vec![0; size];
+            reader.read_exact(&mut buf)?;
+            Ok(buf)
+        } else {
+            log::error!("no file!");
+            self.channels[channel].err = true;
+            Ok(Vec::new())
+        }
+    }
+    fn fseek(&mut self, channel: usize, pos: i32, seek_pos: i32) -> Res<()> {
+        match &mut self.channels[channel].file {
+            Some(f) => match seek_pos {
+                0 => {
+                    f.seek(SeekFrom::Start(pos as u64)).expect("seek error");
+                }
+                1 => {
+                    f.seek(SeekFrom::Current(pos as i64)).expect("seek error");
+                }
+                2 => {
+                    f.seek(SeekFrom::End(-pos as i64)).expect("seek error");
+                }
+                _ => return Err(Box::new(VMError::InvalidSeekPosition(seek_pos))),
+            },
+            _ => {
+                self.channels[channel].err = true;
+            }
+        }
+
+        Ok(())
+    }
+
     fn frewind(&mut self, channel: usize) {
         match &mut self.channels[channel].file {
             Some(f) => {
@@ -316,17 +314,16 @@ impl PCBoardIO for DiskIO {
     }
 
     fn file_exists(&self, file: &str) -> bool {
-        let file = self.resolve_file(file);
         fs::metadata(file).is_ok()
     }
 
     fn get_file_date(&self, file: &str) -> Result<SystemTime> {
-        let metadata = fs::metadata(self.resolve_file(file))?;
+        let metadata = fs::metadata(file)?;
         metadata.accessed()
     }
 
     fn get_file_size(&self, file: &str) -> u64 {
-        if let Ok(metadata) = fs::metadata(self.resolve_file(file)) {
+        if let Ok(metadata) = fs::metadata(file) {
             metadata.len()
         } else {
             0
@@ -428,6 +425,9 @@ impl PCBoardIO for MemoryIO {
         };
         Ok(())
     }
+    fn fseek(&mut self, _channel: usize, _pos: i32, _seek_pos: i32) -> Res<()> {
+        Ok(())
+    }
 
     fn delete(&mut self, file: &str) -> std::io::Result<()> {
         let f = file.to_string();
@@ -485,6 +485,11 @@ impl PCBoardIO for MemoryIO {
             self.channels[channel].err = true;
             String::new()
         }
+    }
+
+    fn fread(&mut self, _channel: usize, _size: usize) -> Res<Vec<u8>> {
+        // TOOD: test implementation.
+        Ok(Vec::new())
     }
 
     fn frewind(&mut self, channel: usize) {

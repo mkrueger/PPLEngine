@@ -2,6 +2,7 @@ use std::{borrow::Borrow, fs, thread, time::Duration};
 
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
+    tables::CP437_TO_UNICODE,
     Res,
 };
 
@@ -73,6 +74,12 @@ pub fn fcreate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
+    let file = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file.as_str());
     vm.io.fcreate(channel, &file, am, sm);
     Ok(())
 }
@@ -82,6 +89,12 @@ pub fn fopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
+    let file = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file.as_str());
     vm.io.fopen(channel, &file, am, sm)?;
     Ok(())
 }
@@ -91,6 +104,12 @@ pub fn fappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
+    let file = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file.as_str());
     vm.io.fappend(channel, &file, am, sm);
     Ok(())
 }
@@ -192,7 +211,13 @@ pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn delete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = &vm.eval_expr(&args[0])?.as_string();
-    if let Err(err) = vm.io.delete(file) {
+    let file = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(file.as_str());
+    if let Err(err) = vm.io.delete(&file) {
         log::error!("Error deleting file: {}", err);
     }
     Ok(())
@@ -704,7 +729,20 @@ pub fn mprintln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn rename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let old = &vm.eval_expr(&args[0])?.as_string();
     let new = &vm.eval_expr(&args[1])?.as_string();
-    if let Err(err) = vm.io.rename(old, new) {
+    let old = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(old.as_str());
+    let new = vm
+        .icy_board_state
+        .board
+        .lock()
+        .unwrap()
+        .resolve_file(new.as_str());
+
+    if let Err(err) = vm.io.rename(&old, &new) {
         log::error!("Error renaming file: {}", err);
     }
     Ok(())
@@ -737,13 +775,58 @@ pub fn pageoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn fseek(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    panic!("TODO")
+    let channel = vm.eval_expr(&args[0])?.as_int() as usize;
+    let pos = vm.eval_expr(&args[1])?.as_int();
+    let position = vm.eval_expr(&args[2])?.as_int();
+    vm.io.fseek(channel, pos, position)?;
+
+    Ok(())
 }
+
 pub fn fflush(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")
 }
 pub fn fread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    panic!("TODO")
+    let channel = vm.eval_expr(&args[0])?.as_int() as usize;
+    let val = vm.eval_expr(&args[1])?;
+    let size = vm.eval_expr(&args[2])?.as_int() as usize;
+
+    let result = vm.io.fread(channel, size)?;
+
+    if val.get_type() == VariableType::String || val.get_type() == VariableType::BigStr {
+        let mut vs = String::new();
+
+        for c in result {
+            vs.push(CP437_TO_UNICODE[c as usize]);
+        }
+
+        vm.set_variable(&args[1], VariableValue::new_string(vs))?;
+
+        return Ok(());
+    }
+
+    match result.len() {
+        1 => {
+            vm.set_variable(&args[1], VariableValue::new_byte(result[0]))?;
+        }
+        2 => {
+            let i = u16::from_le_bytes([result[0], result[1]]);
+            vm.set_variable(&args[1], VariableValue::new_word(i))?;
+        }
+        4 => {
+            let i = i32::from_le_bytes([result[0], result[1], result[2], result[3]]);
+            vm.set_variable(&args[1], VariableValue::new_int(i))?;
+        }
+        _ => {
+            return Err(Box::new(VMError::FReadError(
+                val.get_type(),
+                result.len(),
+                size,
+            )));
+        }
+    }
+
+    Ok(())
 }
 pub fn fwrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     panic!("TODO")

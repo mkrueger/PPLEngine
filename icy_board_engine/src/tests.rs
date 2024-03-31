@@ -1,4 +1,9 @@
-use std::{env, fs::read_to_string, path::PathBuf};
+use std::{
+    env,
+    fs::read_to_string,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use icy_ppe::{
     compiler::PPECompiler,
@@ -73,32 +78,27 @@ fn run_test(data: &str, output: &str) {
     let mut buffer: Vec<u8> = binary.to_buffer().unwrap();
     let exe = Executable::from_buffer(&mut buffer, false).unwrap();
     let mut io = MemoryIO::new();
-    let ctx = TestContext::new();
-    run(
-        PathBuf::from("."),
-        &exe,
-        &mut io,
-        &mut IcyBoardState::default(),
-    )
-    .unwrap();
+    let output_str = Arc::new(Mutex::new(String::new()));
 
-    let error = output != ctx.output.trim_end();
+    let mut state = IcyBoardState::default();
+    state.ctx = Arc::new(Mutex::new(TestContext::new(output_str.clone())));
+    run(&".", &exe, &mut io, &mut state).unwrap();
+
+    let error = output != output_str.lock().unwrap().to_string().trim_end();
     if error {
         println!("{output}");
         println!("------------Was:");
-        println!("{}", ctx.output);
+        println!("{}", output_str.lock().unwrap());
         assert!(!error);
     }
 }
 
 struct TestContext {
-    output: String,
+    output: Arc<Mutex<String>>,
 }
 impl TestContext {
-    pub fn new() -> Self {
-        Self {
-            output: String::new(),
-        }
+    pub fn new(output: Arc<Mutex<String>>) -> Self {
+        Self { output }
     }
 }
 
@@ -108,7 +108,7 @@ impl BoardIO for TestContext {
     }
 
     fn write_raw(&mut self, data: &[char]) -> Res<()> {
-        self.output.extend(data);
+        self.output.lock().unwrap().extend(data);
         Ok(())
     }
 

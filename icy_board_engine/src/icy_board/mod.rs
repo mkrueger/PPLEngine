@@ -34,6 +34,7 @@ pub enum IcyBoardError {
 }
 
 pub struct IcyBoard {
+    pub file_name: String,
     pub users: Vec<User>,
     pub data: IcyBoardData,
     pub conferences: Vec<ConferenceHeader>,
@@ -50,6 +51,7 @@ impl IcyBoard {
         let display_text = DisplayText::default();
         let paths = HashMap::new();
         IcyBoard {
+            file_name: String::new(),
             users,
             data,
             conferences,
@@ -114,6 +116,7 @@ impl IcyBoard {
             .to_string();
         paths.insert(k, v);
         let mut res = IcyBoard {
+            file_name: file.to_string(),
             users,
             data,
             conferences,

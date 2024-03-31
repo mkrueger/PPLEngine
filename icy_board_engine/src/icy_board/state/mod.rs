@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -33,6 +33,9 @@ pub struct DisplayOptions {
     /// If true, the @ color codes are disabled.
     pub disable_color: bool,
 
+    ///  flag indicating whether or not the user aborted the display of data via ^K / ^X or answering no to a MORE? prompt
+    pub abort_printout: bool,
+
     pub display_text: bool,
 }
 
@@ -40,6 +43,7 @@ impl Default for DisplayOptions {
     fn default() -> Self {
         Self {
             auto_more: false,
+            abort_printout: false,
             disable_color: false,
             non_stop: false,
             display_text: true,
@@ -299,16 +303,14 @@ impl IcyBoardState {
             return Ok(true);
         }
         self.session.num_lines_printed += 1;
-        if self.session.page_len > 0
-            && self.session.num_lines_printed >= self.session.page_len
-        {
+        if self.session.page_len > 0 && self.session.num_lines_printed >= self.session.page_len {
             self.more_promt()
         } else {
             Ok(true)
         }
     }
 
-    fn run_ppe(&mut self, file_name: String, splitted_cmd: &[&str]) -> Res<()> {
+    fn run_ppe<P: AsRef<Path>>(&mut self, file_name: &P, splitted_cmd: &[&str]) -> Res<()> {
         for sc in splitted_cmd {
             if !sc.is_empty() {
                 self.session.tokens.push_back(sc.to_string());
@@ -316,8 +318,12 @@ impl IcyBoardState {
         }
 
         let exe = Executable::read_file(&file_name, false)?;
-        let mut io = DiskIO::new(".");
-        run(PathBuf::from(file_name), &exe, &mut io, self)?;
+
+        let path = PathBuf::from(file_name.as_ref());
+        let parent = path.parent().unwrap().to_str().unwrap().to_string();
+
+        let mut io = DiskIO::new(&parent);
+        run(file_name, &exe, &mut io, self)?;
 
         Ok(())
     }
@@ -619,7 +625,7 @@ impl IcyBoardState {
             }
             "HIGHMSGNUM" => None,
             "INAME" => None,
-            "INCONF" => None,
+            "INCONF" => Some(self.session.current_conference.name.to_string()),
             "KBLEFT" => None,
             "KBLIMIT" => None,
             "LASTCALLERNODE" => None,

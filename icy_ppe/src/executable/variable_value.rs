@@ -754,6 +754,26 @@ impl VariableValue {
         }
     }
 
+    pub fn new_word(i: u16) -> Self {
+        let mut data = VariableData::default();
+        data.word_value = i;
+        Self {
+            vtype: VariableType::Word,
+            data,
+            generic_data: GenericVariableData::None,
+        }
+    }
+
+    pub fn new_byte(i: u8) -> Self {
+        let mut data = VariableData::default();
+        data.byte_value = i;
+        Self {
+            vtype: VariableType::Byte,
+            data,
+            generic_data: GenericVariableData::None,
+        }
+    }
+
     pub fn new_bool(b: bool) -> Self {
         Self {
             vtype: VariableType::Boolean,

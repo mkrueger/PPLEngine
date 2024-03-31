@@ -49,6 +49,7 @@ impl AstVisitorMut for AstTransformationVisitor {
         }
         let mut statements = Vec::new();
         let if_exit_label = self.next_label();
+
         statements.push(IfStatement::create_empty_statement(
             if_stmt.get_condition().negate_expression(),
             GotoStatement::create_empty_statement(if_exit_label.clone()),
@@ -65,8 +66,9 @@ impl AstVisitorMut for AstTransformationVisitor {
 
         let last_exit_label = self.next_label();
         let mut if_exit_label = self.next_label();
+
         statements.push(IfStatement::create_empty_statement(
-            if_then.get_condition().clone(),
+            if_then.get_condition().negate_expression().clone(),
             GotoStatement::create_empty_statement(if_exit_label.clone()),
         ));
         statements.extend(if_then.get_statements().iter().map(|s| s.visit_mut(self)));

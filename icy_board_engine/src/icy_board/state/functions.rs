@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use icy_ppe::Res;
 
@@ -96,7 +96,7 @@ impl IcyBoardState {
                     if !splitted_cmd.is_empty() {
                         let ppe = splitted_cmd[0];
                         let file = self.board.lock().unwrap().resolve_file(ppe);
-                        self.run_ppe(file, &splitted_cmd[1..])?;
+                        self.run_ppe(&file, &splitted_cmd[1..])?;
                     }
                 }
                 '%' => {
@@ -122,6 +122,20 @@ impl IcyBoardState {
             }
         }
         Ok(())
+    }
+
+    pub fn display_menu(&mut self, file_name: &str) -> Res<bool> {
+        let resolved_name_ppe = self
+            .board
+            .lock()
+            .unwrap()
+            .resolve_file(&(file_name.to_string() + ".PPE"));
+        let path = PathBuf::from(resolved_name_ppe);
+        if path.exists() {
+            self.run_ppe(&path, &[])?;
+            return Ok(true);
+        }
+        self.display_file(file_name)
     }
 
     pub fn display_file(&mut self, file_name: &str) -> Res<bool> {
@@ -234,7 +248,7 @@ impl IcyBoardState {
             if display_flags & display_flags::UPCASE != 0 {
                 ch = ch.to_ascii_uppercase();
             }
-    
+
             if ch == '\n' || ch == '\r' {
                 if display_flags & display_flags::ERASELINE != 0 {
                     self.clear_line()?;

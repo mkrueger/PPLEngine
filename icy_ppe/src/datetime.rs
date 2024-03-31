@@ -29,7 +29,6 @@ impl IcbDate {
     }
 
     pub fn parse(str: &str) -> Self {
-        println!("Parsing date: {}- {}", str, str.len());
         let (month, day, year) = if str.len() == 8 {
             let month = str[0..2].parse::<i32>().unwrap_or_default();
             let day = str[2..4].parse::<i32>().unwrap_or_default();
@@ -38,7 +37,7 @@ impl IcbDate {
         } else if str.len() == 6 {
             let month = str[0..2].parse::<i32>().unwrap_or_default();
             let day = str[2..4].parse::<i32>().unwrap_or_default();
-            let year = str[4..].parse::<i32>().unwrap_or_default();
+            let year = 1900 + str[4..].parse::<i32>().unwrap_or_default();
             (month, day, year)
         } else {
             let parts = str

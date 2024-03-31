@@ -21,7 +21,6 @@ use semver::Version;
 use std::ffi::OsStr;
 use std::io::stdout;
 use std::path::Path;
-use std::path::PathBuf;
 
 #[derive(clap::Parser)]
 #[command(version="", about="PCBoard Programming Language Execution Environment", long_about = None)]
@@ -102,7 +101,7 @@ fn main() {
                 .execute(MoveTo(0, 0))
                 .unwrap();
 
-            run(PathBuf::from(file_name), &exe, &mut io, &mut icy_board_data).unwrap();
+            run(&file_name, &exe, &mut io, &mut icy_board_data).unwrap();
 
             disable_raw_mode().unwrap();
         }

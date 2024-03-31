@@ -12,6 +12,7 @@ use icy_ppe::executable::VariableType;
 use icy_ppe::executable::VariableValue;
 use icy_ppe::Res;
 use std::collections::HashMap;
+use std::path::Path;
 use std::path::PathBuf;
 use std::string::String;
 use thiserror::Error;
@@ -32,7 +33,7 @@ pub use self::io::*;
 pub mod errors;
 mod tests;
 
-#[derive(Error, Debug, Clone, Copy)]
+#[derive(Error, Debug, Clone)]
 pub enum VMError {
     #[error("Internal VM error")]
     InternalVMError,
@@ -42,6 +43,18 @@ pub enum VMError {
 
     #[error("Tried to pop from empty value stack.")]
     PushPopStackEmpty,
+
+    #[error("Can't fread variable ({0}) with size {1} requested size:{2}")]
+    FReadError(VariableType, usize, usize),
+
+    #[error("File not found ({0})")]
+    FileNotFound(String),
+
+    #[error("Error in function call ({0}): {1}")]
+    ErrorInFunctionCall(String, String),
+
+    #[error("Invalid seek position ({0})")]
+    InvalidSeekPosition(i32),
 }
 
 #[derive(Clone, Copy)]
@@ -437,7 +450,6 @@ impl<'a> VirtualMachine<'a> {
             PPEExpr::BinaryExpression(op, left, right) => {
                 let left_value = self.eval_expr(left)?;
                 let right_value = self.eval_expr(right)?;
-
                 match op {
                     BinOp::Add => Ok(left_value + right_value),
                     BinOp::Sub => Ok(left_value - right_value),
@@ -477,11 +489,18 @@ impl<'a> VirtualMachine<'a> {
                     .get_value(*id)
                     .get_array_value(dim_1, dim_2, dim_3))
             }
-            PPEExpr::PredefinedFunctionCall(func, arguments) => Ok((FUNCTION_TABLE
-                [(func.opcode as i16).unsigned_abs() as usize])(
-                self, arguments
-            )
-            .unwrap()),
+
+            PPEExpr::PredefinedFunctionCall(func, arguments) => {
+                match (FUNCTION_TABLE[(func.opcode as i16).unsigned_abs() as usize])(
+                    self, arguments,
+                ) {
+                    Ok(val) => Ok(val),
+                    Err(e) => Err(VMError::ErrorInFunctionCall(
+                        func.name.to_string(),
+                        e.to_string(),
+                    )),
+                }
+            }
 
             PPEExpr::FunctionCall(func_id, arguments) => {
                 let proc_offset;
@@ -505,6 +524,7 @@ impl<'a> VirtualMachine<'a> {
                 self.goto(proc_offset)?;
                 self.run()?;
                 self.fpclear = false;
+                println!("return_var_id {:02x}", return_var_id);
                 Ok(self.variable_table.get_value(return_var_id).clone())
             }
         }
@@ -524,6 +544,8 @@ impl<'a> VirtualMachine<'a> {
     fn set_variable(&mut self, variable: &PPEExpr, value: VariableValue) -> Result<(), VMError> {
         match variable {
             PPEExpr::Value(id) => {
+                println!("set {:02x} to {:?}", *id, value);
+
                 self.variable_table.set_value(*id, value);
             }
             PPEExpr::Dim(id, dims) => {
@@ -628,6 +650,8 @@ impl<'a> VirtualMachine<'a> {
 
             PPECommand::IfNot(expr, label) => {
                 let value = self.eval_expr(expr)?.as_bool();
+                println!("eval : {} - {:?}", value, expr);
+
                 if !value {
                     self.goto(*label)?;
                 }
@@ -732,8 +756,8 @@ impl<'a> VirtualMachine<'a> {
 
 /// .
 /// # Errors
-pub fn run(
-    file_name: PathBuf,
+pub fn run<P: AsRef<Path>>(
+    file_name: &P,
     prg: &Executable,
     io: &mut dyn PCBoardIO,
     icy_board_state: &mut IcyBoardState,
@@ -746,6 +770,7 @@ pub fn run(
     for (i, stmt) in script.statements.iter().enumerate() {
         label_table.insert(stmt.span.start * 2, i);
     }
+    let file_name = file_name.as_ref().to_path_buf();
     let mut vm = VirtualMachine {
         file_name,
         return_addresses: Vec::new(),

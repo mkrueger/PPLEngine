@@ -58,12 +58,10 @@ impl Output {
 
 impl BoardIO for Output {
     fn write_raw(&mut self, data: &[char]) -> Res<()> {
-        disable_raw_mode().unwrap();
         for c in data {
             print!("{}", *c);
         }
         stdout().flush().unwrap();
-        enable_raw_mode().unwrap();
         Ok(())
     }
 

@@ -132,7 +132,7 @@ impl IcyBoardState {
             self.set_color(pcb_colors::RED)?;
             self.print(
                 TerminalTarget::Both,
-                &format!("File not found: {}", file_name),
+                &format!("\r\n({}) is missing!\r\n\r\n", file_name),
             )?;
             return Ok(true);
         };
@@ -216,16 +216,25 @@ impl IcyBoardState {
         if display_question {
             self.print(TerminalTarget::Both, "? ")?;
         }
-
+        if display_flags & display_flags::FIELDLEN != 0 {
+            self.print(TerminalTarget::Both, " (")?;
+            self.forward(len)?;
+            self.print(TerminalTarget::Both, ")")?;
+            self.backward(len + 1)?;
+        }
         if self.use_graphics() {
             self.set_color(old_color)?;
         }
 
         let mut output = String::new();
         loop {
-            let Some((echo, ch)) = self.get_char()? else {
+            let Some((echo, mut ch)) = self.get_char()? else {
                 continue;
             };
+            if display_flags & display_flags::UPCASE != 0 {
+                ch = ch.to_ascii_uppercase();
+            }
+    
             if ch == '\n' || ch == '\r' {
                 if display_flags & display_flags::ERASELINE != 0 {
                     self.clear_line()?;
@@ -254,9 +263,6 @@ impl IcyBoardState {
             self.new_line()?;
         }
         self.session.num_lines_printed = 0;
-        if display_flags & display_flags::UPCASE != 0 {
-            return Ok(output.to_uppercase());
-        }
         Ok(output)
     }
 }

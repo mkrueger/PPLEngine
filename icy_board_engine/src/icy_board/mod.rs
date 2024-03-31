@@ -127,7 +127,7 @@ impl IcyBoard {
         let r = res.resolve_file(&res.data.path.inf_file);
         let user_inf = UserInf::read_users(&PathBuf::from(&r))?;
         for user in users {
-            let inf = user_inf[user.rec_num].clone();
+            let inf = user_inf[user.rec_num - 1].clone();
             res.users.push(User { user, inf });
         }
 

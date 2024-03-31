@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use chrono::{DateTime, Datelike, Local, Timelike};
@@ -109,6 +108,8 @@ pub struct Session {
 
     pub request_logoff: bool,
 
+    pub expert_mode: bool,
+
     pub time_limit: i32,
     pub security_violations: i32,
 
@@ -132,6 +133,7 @@ impl Session {
             page_len: 24,
             is_sysop: false,
             op_text: String::new(),
+            expert_mode: false,
             use_alias: false,
             time_limit: 1000,
             keyboard_timer_check: false,
@@ -269,6 +271,7 @@ impl IcyBoardState {
                 self.current_user = Some(board.users[user as usize].clone());
                 self.session.cur_security = board.users[user as usize].user.security_level;
                 self.session.page_len = board.users[user as usize].user.page_len as usize;
+                self.session.expert_mode = board.users[user as usize].user.expert_mode;
                 board.users[user as usize].user.last_conference as i32
             } else {
                 return;
@@ -292,10 +295,12 @@ impl IcyBoardState {
     }
 
     fn next_line(&mut self) -> Res<bool> {
+        if self.session.disp_options.non_stop {
+            return Ok(true);
+        }
         self.session.num_lines_printed += 1;
-        if !self.session.disp_options.non_stop
-            && self.session.page_len > 0
-            && self.session.num_lines_printed + 2 >= self.session.page_len
+        if self.session.page_len > 0
+            && self.session.num_lines_printed >= self.session.page_len
         {
             self.more_promt()
         } else {
@@ -364,6 +369,34 @@ impl IcyBoardState {
             self.write_raw(
                 target,
                 format!("\x1B[{};{}H", y, x)
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .as_slice(),
+            )
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn backward(&mut self, chars: i32) -> Res<()> {
+        if self.use_ansi() {
+            self.write_raw(
+                TerminalTarget::Both,
+                format!("\x1B[{}D", chars)
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .as_slice(),
+            )
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn forward(&mut self, chars: i32) -> Res<()> {
+        if self.use_ansi() {
+            self.write_raw(
+                TerminalTarget::Both,
+                format!("\x1B[{}C", chars)
                     .chars()
                     .collect::<Vec<char>>()
                     .as_slice(),

@@ -16,7 +16,7 @@ pub struct UserRecord {
     pub bus_data_phone: String,
     pub home_voice_phone: String,
 
-    pub last_date_on: u16,
+    pub last_date_on: IcbDate,
     pub last_time_on: String,
 
     pub expert_mode: bool,
@@ -34,7 +34,7 @@ pub struct UserRecord {
     pub wide_editor: bool,
 
     ///  Date for Last DIR Scan (most recent file)
-    pub date_last_dir_read: u16,
+    pub date_last_dir_read: IcbDate,
     pub security_level: u8,
 
     /// Expired security level
@@ -64,8 +64,8 @@ pub struct UserRecord {
     pub rec_num: usize,
 
     pub last_conference: u16,
-    pub ul_tot_dnld_bytes: u32,
-    pub ul_tot_upld_bytes: u32,
+    pub ul_tot_dnld_bytes: u64,
+    pub ul_tot_upld_bytes: u64,
 }
 
 impl UserRecord {
@@ -92,9 +92,12 @@ impl UserRecord {
             let mut voice_phone = [0u8; 13];
             cursor.read_exact(&mut voice_phone)?;
 
-            let last_date_on = cursor.read_u16::<LittleEndian>()?;
+            let mut last_date_on = [0u8; 6];
+            cursor.read_exact(&mut last_date_on)?;
 
-            let mut last_time_on = [0u8; 6];
+            let last_date_on = IcbDate::parse(&String::from_utf8_lossy(&last_date_on));
+            let mut last_time_on = [0u8; 5];
+
             cursor.read_exact(&mut last_time_on)?;
 
             let expert_mode = cursor.read_u8()?;
@@ -111,7 +114,9 @@ impl UserRecord {
             let short_header = (packet_flags & (1 << 6)) != 0;
             let wide_editor = (packet_flags & (1 << 7)) != 0;
 
-            let date_last_dir_read = cursor.read_u16::<LittleEndian>()?;
+            let mut date_last_dir_read = [0u8; 6];
+            cursor.read_exact(&mut date_last_dir_read)?;
+            let date_last_dir_read = IcbDate::parse(&String::from_utf8_lossy(&date_last_dir_read));
 
             let security_level = cursor.read_u8()?;
             let num_times_on = cursor.read_u16::<LittleEndian>()?;
@@ -119,29 +124,35 @@ impl UserRecord {
             let num_uploads = cursor.read_u16::<LittleEndian>()?;
             let num_downloads = cursor.read_u16::<LittleEndian>()?;
 
-            // unknown
-            cursor.read_u8()?;
-            cursor.read_u8()?;
-            cursor.read_u8()?;
-            let daily_downloaded_bytes = cursor.read_u32::<LittleEndian>()?;
+            let daily_downloaded_bytes = cursor.read_u64::<LittleEndian>()?;
 
-            // unknown
-            cursor.read_u8()?;
-
-            let mut cmt1 = [0u8; 31];
+            let mut cmt1 = [0u8; 30];
             cursor.read_exact(&mut cmt1)?;
-            let mut cmt2 = [0u8; 31];
+            let mut cmt2 = [0u8; 30];
             cursor.read_exact(&mut cmt2)?;
 
             let elapsed_time_on = cursor.read_u16::<LittleEndian>()? as i32;
 
-            let reg_exp_date = cursor.read_u16::<LittleEndian>()?;
-            let exp_security_level = cursor.read_u16::<LittleEndian>()? as i32;
-            let last_conference = cursor.read_u16::<LittleEndian>()?;
-            let ul_tot_dnld_bytes = cursor.read_u32::<LittleEndian>()?;
-            let ul_tot_upld_bytes = cursor.read_u32::<LittleEndian>()?;
+            let mut reg_exp_date = [0u8; 6];
+            cursor.read_exact(&mut reg_exp_date)?;
+            let reg_exp_date = IcbDate::parse(&String::from_utf8_lossy(&reg_exp_date));
+
+            let exp_security_level = cursor.read_u8()? as i32;
+            let last_conference = cursor.read_u8()? as u16;
+
+            cursor.set_position(cursor.position() + 15);
+
+            let ul_tot_dnld_bytes = cursor.read_u64::<LittleEndian>()?;
+            let ul_tot_upld_bytes = cursor.read_u64::<LittleEndian>()?;
             let delete_flag = cursor.read_u8()? != 0;
+            cursor.set_position(cursor.position() + 40 * 4);
+
             let rec_num = cursor.read_u32::<LittleEndian>()? as usize;
+            // flags byte ?
+            cursor.read_u8()?;
+            // reseved bytes 2
+            cursor.set_position(cursor.position() + 8);
+            let _last_conference2 = cursor.read_u16::<LittleEndian>()? as i32;
 
             let user = UserRecord {
                 name: String::from_utf8_lossy(&name).trim().to_string(),
@@ -173,7 +184,7 @@ impl UserRecord {
                 user_comment: String::from_utf8_lossy(&cmt1).trim().to_string(),
                 sysop_comment: String::from_utf8_lossy(&cmt2).trim().to_string(),
                 elapsed_time_on,
-                reg_exp_date: IcbDate::from_pcboard(reg_exp_date as i32),
+                reg_exp_date,
                 exp_security_level,
                 last_conference,
                 ul_tot_dnld_bytes,

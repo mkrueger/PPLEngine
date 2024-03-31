@@ -552,40 +552,40 @@ pub struct UserSecurityLevels {
     pub edit: i32,
     pub test: i32,
 
-    pub unused0: i32,
-    pub unused1: i32,
-    pub unused2: i32,
-    pub unused3: i32,
-    pub unused4: i32,
-    pub unused5: i32,
-    pub unused6: i32,
-    pub unused7: i32,
-    pub unused8: i32,
-    pub unused9: i32,
-    pub unused10: i32,
-    pub unused11: i32,
-    pub unused12: i32,
-    pub unused13: i32,
-    pub unused14: i32,
+    pub cmd_a: i32,
+    pub cmd_b: i32,
+    pub cmd_c: i32,
+    pub cmd_d: i32,
+    pub cmd_e: i32,
+    pub cmd_f: i32,
+    pub cmd_g: i32,
+    pub cmd_h: i32,
+    pub cmd_i: i32,
+    pub cmd_j: i32,
+    pub cmd_k: i32,
+    pub cmd_l: i32,
+    pub cmd_m: i32,
+    pub cmd_o: i32,
+    pub cmd_p: i32,
 
-    pub unused15: i32,
-    pub unused16: i32,
-    pub unused17: i32,
-    pub unused18: i32,
-    pub unused19: i32,
-    pub unused20: i32,
-    pub unused21: i32,
-    pub unused22: i32,
-    pub unused23: i32,
-    pub unused24: i32,
-    pub unused25: i32,
-    pub unused26: i32,
-    pub unused27: i32,
-    pub unused28: i32,
-    pub unused29: i32,
-    pub unused30: i32,
-    pub unused31: i32,
-    pub unused32: i32,
+    pub cmd_q: i32,
+    pub cmd_r: i32,
+    pub cmd_s: i32,
+    pub cmd_t: i32,
+    pub cmd_u: i32,
+    pub cmd_v: i32,
+    pub cmd_w: i32,
+    pub cmd_x: i32,
+    pub cmd_y: i32,
+    pub cmd_z: i32,
+    pub cmd_open: i32,
+    pub cmd_chat: i32,
+    pub cmd_reg: i32,
+    pub cmd_nonreg: i32,
+    pub cmd_user: i32,
+    pub cmd_who: i32,
+    pub cmd_batch: i32,
+    pub cmd_edit: i32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -855,39 +855,39 @@ impl IcyBoardData {
         ret.parallel_port_num = read_int(&mut reader, encoding)?;
         ret.stop_free_space = read_int(&mut reader, encoding)?;
 
-        ret.user_levels.unused0 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused1 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused2 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused3 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused4 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused5 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused6 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused7 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused8 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused9 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused10 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused11 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused12 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused13 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused14 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused15 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused16 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused17 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused18 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused19 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused20 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused21 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused22 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused23 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused24 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused25 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused26 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused27 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused28 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused29 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused30 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused31 = read_int(&mut reader, encoding)?;
-        ret.user_levels.unused32 = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_a = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_b = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_c = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_d = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_e = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_f = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_g = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_h = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_i = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_j = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_k = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_l = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_m = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_o = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_p = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_q = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_r = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_s = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_t = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_u = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_v = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_w = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_x = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_y = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_z = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_open = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_chat = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_reg = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_nonreg = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_user = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_who = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_batch = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_edit = read_int(&mut reader, encoding)?;
 
         ret.path.color_file = read_line(&mut reader, encoding)?;
         ret.low_baud_limit = read_int(&mut reader, encoding)?;
@@ -1251,39 +1251,39 @@ impl IcyBoardData {
 
         append_int(&mut res, encoding, self.stop_free_space);
 
-        append_int(&mut res, encoding, self.user_levels.unused0);
-        append_int(&mut res, encoding, self.user_levels.unused1);
-        append_int(&mut res, encoding, self.user_levels.unused2);
-        append_int(&mut res, encoding, self.user_levels.unused3);
-        append_int(&mut res, encoding, self.user_levels.unused4);
-        append_int(&mut res, encoding, self.user_levels.unused5);
-        append_int(&mut res, encoding, self.user_levels.unused6);
-        append_int(&mut res, encoding, self.user_levels.unused7);
-        append_int(&mut res, encoding, self.user_levels.unused8);
-        append_int(&mut res, encoding, self.user_levels.unused9);
-        append_int(&mut res, encoding, self.user_levels.unused10);
-        append_int(&mut res, encoding, self.user_levels.unused11);
-        append_int(&mut res, encoding, self.user_levels.unused12);
-        append_int(&mut res, encoding, self.user_levels.unused13);
-        append_int(&mut res, encoding, self.user_levels.unused14);
-        append_int(&mut res, encoding, self.user_levels.unused15);
-        append_int(&mut res, encoding, self.user_levels.unused16);
-        append_int(&mut res, encoding, self.user_levels.unused17);
-        append_int(&mut res, encoding, self.user_levels.unused18);
-        append_int(&mut res, encoding, self.user_levels.unused19);
-        append_int(&mut res, encoding, self.user_levels.unused20);
-        append_int(&mut res, encoding, self.user_levels.unused21);
-        append_int(&mut res, encoding, self.user_levels.unused22);
-        append_int(&mut res, encoding, self.user_levels.unused23);
-        append_int(&mut res, encoding, self.user_levels.unused24);
-        append_int(&mut res, encoding, self.user_levels.unused25);
-        append_int(&mut res, encoding, self.user_levels.unused26);
-        append_int(&mut res, encoding, self.user_levels.unused27);
-        append_int(&mut res, encoding, self.user_levels.unused28);
-        append_int(&mut res, encoding, self.user_levels.unused29);
-        append_int(&mut res, encoding, self.user_levels.unused30);
-        append_int(&mut res, encoding, self.user_levels.unused31);
-        append_int(&mut res, encoding, self.user_levels.unused32);
+        append_int(&mut res, encoding, self.user_levels.cmd_a);
+        append_int(&mut res, encoding, self.user_levels.cmd_b);
+        append_int(&mut res, encoding, self.user_levels.cmd_c);
+        append_int(&mut res, encoding, self.user_levels.cmd_d);
+        append_int(&mut res, encoding, self.user_levels.cmd_e);
+        append_int(&mut res, encoding, self.user_levels.cmd_f);
+        append_int(&mut res, encoding, self.user_levels.cmd_g);
+        append_int(&mut res, encoding, self.user_levels.cmd_h);
+        append_int(&mut res, encoding, self.user_levels.cmd_i);
+        append_int(&mut res, encoding, self.user_levels.cmd_j);
+        append_int(&mut res, encoding, self.user_levels.cmd_k);
+        append_int(&mut res, encoding, self.user_levels.cmd_l);
+        append_int(&mut res, encoding, self.user_levels.cmd_m);
+        append_int(&mut res, encoding, self.user_levels.cmd_o);
+        append_int(&mut res, encoding, self.user_levels.cmd_p);
+        append_int(&mut res, encoding, self.user_levels.cmd_q);
+        append_int(&mut res, encoding, self.user_levels.cmd_r);
+        append_int(&mut res, encoding, self.user_levels.cmd_s);
+        append_int(&mut res, encoding, self.user_levels.cmd_t);
+        append_int(&mut res, encoding, self.user_levels.cmd_u);
+        append_int(&mut res, encoding, self.user_levels.cmd_v);
+        append_int(&mut res, encoding, self.user_levels.cmd_w);
+        append_int(&mut res, encoding, self.user_levels.cmd_x);
+        append_int(&mut res, encoding, self.user_levels.cmd_y);
+        append_int(&mut res, encoding, self.user_levels.cmd_z);
+        append_int(&mut res, encoding, self.user_levels.cmd_open);
+        append_int(&mut res, encoding, self.user_levels.cmd_chat);
+        append_int(&mut res, encoding, self.user_levels.cmd_reg);
+        append_int(&mut res, encoding, self.user_levels.cmd_nonreg);
+        append_int(&mut res, encoding, self.user_levels.cmd_user);
+        append_int(&mut res, encoding, self.user_levels.cmd_who);
+        append_int(&mut res, encoding, self.user_levels.cmd_batch);
+        append_int(&mut res, encoding, self.user_levels.cmd_edit);
 
         append_line(&mut res, encoding, &self.path.color_file);
         append_int(&mut res, encoding, self.low_baud_limit);

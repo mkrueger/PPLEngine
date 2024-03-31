@@ -770,8 +770,20 @@ impl DisplayText {
         }
 
         if let Some(entry) = self.entries.get(message_number) {
+            let color = match entry.color {
+                0 => 0,
+                1 => 12,
+                2 => 10,
+                3 => 14,
+                4 => 9,
+                5 => 13,
+                6 => 11,
+                7 => 15,
+                _ => 7,
+            };
+
             Ok(TextEntry {
-                color: entry.color,
+                color,
                 text: entry.text.replace('~', " "),
             })
         } else {

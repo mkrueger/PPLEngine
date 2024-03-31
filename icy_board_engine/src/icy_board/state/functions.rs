@@ -55,6 +55,7 @@ impl IcyBoardState {
             return Ok(());
         }
 
+        let old_color = self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink);
         if display_flags & display_flags::LFBEFORE != 0 {
             self.new_line()?;
         }
@@ -74,7 +75,9 @@ impl IcyBoardState {
         if display_flags & display_flags::LFAFTER != 0 {
             self.new_line()?;
         }
-
+        if self.use_graphics() {
+            self.set_color(old_color)?;
+        }
         Ok(())
     }
 
@@ -186,14 +189,38 @@ impl IcyBoardState {
         self.session.num_lines_printed = 0;
 
         let mut prompt = prompt;
-        if prompt.ends_with(TXT_STOPCHAR) {
+        let display_question = if prompt.ends_with(TXT_STOPCHAR) {
             prompt.pop();
-        }
+            false
+        } else {
+            true
+        };
         self.check_time_left();
         if display_flags & display_flags::LFBEFORE != 0 {
             self.new_line()?;
         }
-        self.display_string(&prompt, color as u8, display_flags::DEFAULT)?;
+
+        let old_color = self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink);
+        if display_flags & display_flags::LFBEFORE != 0 {
+            self.new_line()?;
+        }
+        if display_flags & display_flags::BELL != 0 {
+            self.bell()?;
+        }
+        if self.use_graphics() {
+            self.set_color(color as u8)?;
+        }
+
+        self.display_line(&prompt)?;
+
+        if display_question {
+            self.print(TerminalTarget::Both, "? ")?;
+        }
+
+        if self.use_graphics() {
+            self.set_color(old_color)?;
+        }
+
         let mut output = String::new();
         loop {
             let Some((echo, ch)) = self.get_char()? else {

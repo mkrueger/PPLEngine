@@ -110,6 +110,7 @@ pub struct Session {
     pub request_logoff: bool,
 
     pub time_limit: i32,
+    pub security_violations: i32,
 
     /// If true, the keyboard timer is checked.
     /// After it's elapsed logoff the user for inactivity.
@@ -127,6 +128,7 @@ impl Session {
             cur_user: -1,
             cur_security: 0,
             num_lines_printed: 0,
+            security_violations: 0,
             page_len: 24,
             is_sysop: false,
             op_text: String::new(),
@@ -292,7 +294,8 @@ impl IcyBoardState {
     fn next_line(&mut self) -> Res<bool> {
         self.session.num_lines_printed += 1;
         if !self.session.disp_options.non_stop
-            && self.session.num_lines_printed > self.session.page_len
+            && self.session.page_len > 0
+            && self.session.num_lines_printed + 2 >= self.session.page_len
         {
             self.more_promt()
         } else {
@@ -796,10 +799,7 @@ impl IcyBoardState {
         color_change.pop();
         color_change += "m";
 
-        self.write_raw(
-            TerminalTarget::Both,
-            color_change.chars().collect::<Vec<char>>().as_slice(),
-        )
+        self.write_string(color_change.chars().collect::<Vec<char>>().as_slice())
     }
 
     pub fn get_caret_position(&mut self) -> (i32, i32) {

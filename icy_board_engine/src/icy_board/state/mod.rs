@@ -561,6 +561,12 @@ impl IcyBoardState {
             "FFILES" => None,
             "FILECREDIT" => None,
             "FILERATIO" => None,
+            "FIRST" => {
+                if let Some(user) = &self.current_user {
+                    return Some(user.get_first_name());
+                }
+                None
+            }
             "FIRSTU" => {
                 if let Some(user) = &self.current_user {
                     return Some(user.get_first_name().to_uppercase());
@@ -752,48 +758,44 @@ impl IcyBoardState {
 
         let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
 
-        //  let was_bold = self.caret.get_attribute().get_foreground() > 7;
-        let new_bold = new_color.get_foreground() > 7;
+        let was_bold = self.caret.get_attribute().is_bold();
 
-        /*/
-        if was_bold != new_bold  {
+        let new_bold = new_color.is_bold() || new_color.get_foreground() > 7;
+        let mut bg = self.caret.get_attribute().get_background();
+        let mut fg = self.caret.get_attribute().get_foreground();
+        if was_bold != new_bold {
             if new_bold {
                 color_change += "1;";
-            } else  {
+            } else {
                 color_change += "0;";
+                fg = 7;
+                bg = 0;
             }
-
-            }*/
-
-        color_change += "0;";
-
-        if new_bold {
-            color_change += "1;";
         }
 
-        if
-        /* !self.caret.get_attribute().is_blinking() && */
-        new_color.is_blinking() {
+        if !self.caret.get_attribute().is_blinking() && new_color.is_blinking() {
             color_change += "5;";
         }
-        //if self.caret.get_attribute().get_foreground() != new_color.get_foreground() {
-        color_change += format!(
-            "{};",
-            COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
-        )
-        .as_str();
-        //}
 
-        //        if self.caret.get_attribute().get_background() != new_color.get_background() {
-        color_change += format!(
-            "{};",
-            COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
-        )
-        .as_str();
-        //      }
+        if fg != new_color.get_foreground() {
+            color_change += format!(
+                "{};",
+                COLOR_OFFSETS[new_color.get_foreground() as usize % 8] + 30
+            )
+            .as_str();
+        }
+
+        if bg != new_color.get_background() {
+            color_change += format!(
+                "{};",
+                COLOR_OFFSETS[new_color.get_background() as usize % 8] + 40
+            )
+            .as_str();
+        }
+
         color_change.pop();
         color_change += "m";
-        // println!("color_change: {}", &color_change[1..]);
+
         self.write_raw(
             TerminalTarget::Both,
             color_change.chars().collect::<Vec<char>>().as_slice(),

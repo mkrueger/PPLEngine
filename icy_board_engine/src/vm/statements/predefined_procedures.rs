@@ -1,6 +1,5 @@
 use std::{borrow::Borrow, fs, thread, time::Duration};
 
-use chrono::format;
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
     tables::CP437_TO_UNICODE,

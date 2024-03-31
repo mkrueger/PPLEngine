@@ -552,7 +552,7 @@ pub struct UserSecurityLevels {
     pub edit: i32,
     pub test: i32,
 
-    pub cmd_a: i32,
+    pub cmd_abandon_conf: i32,
     pub cmd_b: i32,
     pub cmd_c: i32,
     pub cmd_d: i32,
@@ -561,12 +561,12 @@ pub struct UserSecurityLevels {
     pub cmd_g: i32,
     pub cmd_h: i32,
     pub cmd_i: i32,
-    pub cmd_j: i32,
+    pub cmd_join_conf: i32,
     pub cmd_k: i32,
     pub cmd_l: i32,
-    pub cmd_m: i32,
+    pub cmd_toggle_graphics: i32,
     pub cmd_o: i32,
-    pub cmd_p: i32,
+    pub cmd_set_page_length: i32,
 
     pub cmd_q: i32,
     pub cmd_r: i32,
@@ -575,14 +575,14 @@ pub struct UserSecurityLevels {
     pub cmd_u: i32,
     pub cmd_v: i32,
     pub cmd_w: i32,
-    pub cmd_x: i32,
+    pub cmd_xpert_mode: i32,
     pub cmd_y: i32,
     pub cmd_z: i32,
     pub cmd_open: i32,
     pub cmd_chat: i32,
     pub cmd_reg: i32,
     pub cmd_nonreg: i32,
-    pub cmd_user: i32,
+    pub cmd_show_user_list: i32,
     pub cmd_who: i32,
     pub cmd_batch: i32,
     pub cmd_edit: i32,
@@ -855,7 +855,7 @@ impl IcyBoardData {
         ret.parallel_port_num = read_int(&mut reader, encoding)?;
         ret.stop_free_space = read_int(&mut reader, encoding)?;
 
-        ret.user_levels.cmd_a = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_abandon_conf = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_b = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_c = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_d = read_int(&mut reader, encoding)?;
@@ -864,12 +864,12 @@ impl IcyBoardData {
         ret.user_levels.cmd_g = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_h = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_i = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_j = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_join_conf = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_k = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_l = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_m = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_toggle_graphics = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_o = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_p = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_set_page_length = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_q = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_r = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_s = read_int(&mut reader, encoding)?;
@@ -877,14 +877,14 @@ impl IcyBoardData {
         ret.user_levels.cmd_u = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_v = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_w = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_x = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_xpert_mode = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_y = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_z = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_open = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_chat = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_reg = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_nonreg = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_user = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_show_user_list = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_who = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_batch = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_edit = read_int(&mut reader, encoding)?;
@@ -1251,7 +1251,7 @@ impl IcyBoardData {
 
         append_int(&mut res, encoding, self.stop_free_space);
 
-        append_int(&mut res, encoding, self.user_levels.cmd_a);
+        append_int(&mut res, encoding, self.user_levels.cmd_abandon_conf);
         append_int(&mut res, encoding, self.user_levels.cmd_b);
         append_int(&mut res, encoding, self.user_levels.cmd_c);
         append_int(&mut res, encoding, self.user_levels.cmd_d);
@@ -1260,12 +1260,12 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_g);
         append_int(&mut res, encoding, self.user_levels.cmd_h);
         append_int(&mut res, encoding, self.user_levels.cmd_i);
-        append_int(&mut res, encoding, self.user_levels.cmd_j);
+        append_int(&mut res, encoding, self.user_levels.cmd_join_conf);
         append_int(&mut res, encoding, self.user_levels.cmd_k);
         append_int(&mut res, encoding, self.user_levels.cmd_l);
-        append_int(&mut res, encoding, self.user_levels.cmd_m);
+        append_int(&mut res, encoding, self.user_levels.cmd_toggle_graphics);
         append_int(&mut res, encoding, self.user_levels.cmd_o);
-        append_int(&mut res, encoding, self.user_levels.cmd_p);
+        append_int(&mut res, encoding, self.user_levels.cmd_set_page_length);
         append_int(&mut res, encoding, self.user_levels.cmd_q);
         append_int(&mut res, encoding, self.user_levels.cmd_r);
         append_int(&mut res, encoding, self.user_levels.cmd_s);
@@ -1273,14 +1273,14 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_u);
         append_int(&mut res, encoding, self.user_levels.cmd_v);
         append_int(&mut res, encoding, self.user_levels.cmd_w);
-        append_int(&mut res, encoding, self.user_levels.cmd_x);
+        append_int(&mut res, encoding, self.user_levels.cmd_xpert_mode);
         append_int(&mut res, encoding, self.user_levels.cmd_y);
         append_int(&mut res, encoding, self.user_levels.cmd_z);
         append_int(&mut res, encoding, self.user_levels.cmd_open);
         append_int(&mut res, encoding, self.user_levels.cmd_chat);
         append_int(&mut res, encoding, self.user_levels.cmd_reg);
         append_int(&mut res, encoding, self.user_levels.cmd_nonreg);
-        append_int(&mut res, encoding, self.user_levels.cmd_user);
+        append_int(&mut res, encoding, self.user_levels.cmd_show_user_list);
         append_int(&mut res, encoding, self.user_levels.cmd_who);
         append_int(&mut res, encoding, self.user_levels.cmd_batch);
         append_int(&mut res, encoding, self.user_levels.cmd_edit);

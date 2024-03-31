@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, VecDeque},
-    ops::Index,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -281,11 +280,11 @@ impl IcyBoardState {
             } else {
                 return;
             };
-            self.switch_conference(last_conference);
+            self.join_conference(last_conference);
         }
     }
 
-    fn switch_conference(&mut self, conference: i32) {
+    pub fn join_conference(&mut self, conference: i32) {
         if conference >= 0 && conference < self.board.lock().unwrap().conferences.len() as i32 {
             self.session.current_conference.number = conference;
             if let Ok(board) = self.board.lock() {

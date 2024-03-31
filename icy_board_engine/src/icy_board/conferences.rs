@@ -91,7 +91,7 @@ impl ConferenceHeader {
     pub fn load(file_name: &String, len: usize) -> Res<Vec<Self>> {
         let mut reader = BufReader::new(File::open(file_name)?);
         let mut ret = Vec::new();
-        for _ in 0..len {
+        for _ in 0..=len {
             ret.push(Self::deserialize(&mut reader)?);
         }
 

@@ -24,54 +24,10 @@ pub struct IcyBoardData {
     /// Sysop function security levels
     pub sysop_security: SysopSecurityLevels,
     /// paths
-    pub path: PcbPaths,
+    pub path: FileLocations,
 
-    /// Seconds to wait for connect
-    pub seconds: i32,
-    /// Device of serial port (COM1, /dev/ttyS0, etc.)
-    pub modem_serial_device: String,
-    /// Modem bps speed
-    pub modem_speed: i32,
-    /// Lock modem speed
-    pub lock_speed: bool,
-    /// Modem initialization string
-    pub modem_init: String,
-    /// Modem initialization string 2
-    pub modem_init2: String,
-    /// Modem off hook string
-    pub modem_off_hook: String,
-    /// Modem answer string
-    pub modem_answer: String,
-    /// Modem dial string
-    pub modem_dial: String,
-    /// Numer of redials before abortingi dial sequence
-    pub num_redials: i32,
-    /// Maximum number of tries to connect
-    pub max_tries: i32,
-    /// Disable CTS/RTS check
-    pub disable_cts: bool,
-    pub use_hayes_9600: bool,
-    pub use_fast_comm: bool,
-    /// Reset modem during recycle
-    pub reset_modem: bool,
-    /// Take modem off hook during recycle
-    pub take_modem_off_hook: bool,
-    /// Runing under a packet switch network (???)
-    pub packed: bool,
-
-    pub answer_ring: bool,
-    pub allow_7e1: bool,
-    pub allow_low_baud: bool,
-    pub allow_low_start_time: String,
-    pub allow_low_stop_time: String,
-    pub low_baud_limit: i32,
-    pub modem_delay: i32,
-    pub rings_require: i32,
-    pub irq_num: i32,
-    pub base_address: i32,
-    /// leave DTR up on exit to DOS
-    pub leave_dtr_up: bool,
-    pub share_irqs: bool,
+    pub colors: ColorConfiguration,
+    pub modem: ModemInformation,
 
     ///  disable message base scan prompt
     pub disable_scan: bool,
@@ -226,15 +182,7 @@ pub struct IcyBoardData {
     pub num_desc_lines: i32,
     ///  user security levels (v15.0)
     pub user_levels: UserSecurityLevels,
-    ///  name and location of chat.dat (v15.0) Levels
-    pub chat_file: String,
-    ///  name and location of pcbstats.dat (v15.0)
-    pub stats_file: String,
-    ///  name and location of CHAT menu (v15.0)
-    pub chat_menu: String,
 
-    ///  name and location of NOANSI file (v15.0)
-    pub no_ansi: String,
     ///  drive letters for slow drives (v15.0)
     pub slow_drives: String,
     ///  swap out during normal shell (v15.0)
@@ -271,36 +219,16 @@ pub struct IcyBoardData {
     pub upload_credit: i32,
     ///  byte credit (times 10, i.e. 25 = 2.5 credit (v15.0)
     pub byte_credit: i32,
-    ///  color code for default color (v15.0)
-    pub new_default_color: i32,
-    ///  color for DATE line of message header (v15.0)
-    pub msg_hdr1_color: i32,
-    ///  color for TO   line of message header (v15.0)
-    pub msg_hdr2_color: i32,
-    ///  color for FROM line of message header (v15.0)
-    pub msg_hdr3_color: i32,
-    ///  color for SUBJ line of message header (v15.0)
-    pub msg_hdr4_color: i32,
-    ///  color for READ line of message header (v15.0)
-    pub msg_hdr5_color: i32,
-    ///  color for CONF line of message header (v15.0)
-    pub msg_hdr6_color: i32,
+
     ///  ORIGIN information (v15.0)
     pub origin: String,
-    ///  name and location of EVENT.DAT (v15.0)
-    pub event_dat_file: String,
-    ///  location of event files (v15.0)
-    pub event_files: String,
-    ///  name/location of CMD.LST to use for defaults (v15.0)
-    pub cmd_lst: String,
+
     ///  Require Local Password to drop PCBoard to DOS (v15.0)
     pub require_pwrd_to_exit: bool,
     ///  requested size for DOS's environment (v15.0)
     pub env_size: i32,
     ///  Security Level to override low baud limit (v15.0)
     pub low_baud_sec_override: i32,
-    ///  name and location of all files DLPATH.LST (v15.0)
-    pub all_files_list: String,
     ///  enable FIDO setup and processing (v15.0)
     pub enable_fido: bool,
     ///  TRUE allows the node to process incoming PKT
@@ -325,14 +253,9 @@ pub struct IcyBoardData {
     pub fido_queue: String,
     ///  ask to read mail waiting (v15.0)
     pub prompt_to_read_mail: bool,
-    ///  name and loc of logon script questionnaire (v15.0)
-    pub log_on_scr: String,
-    ///  name and loc of logon script answers (v15.0)
-    pub log_on_ans: String,
+
     ///  name of qwk packet file (v15.0)
     pub qwk_file: String,
-    ///  name of File Trashcan for stopping uploads (v15.0)
-    pub file_tcan: String,
     ///  TRUE if $$logon or $$logoff.bat should swap (v15.0)
     pub swap_during_bat: bool,
     ///  TRUE if users.sys should be made for $$logon (v15.0)
@@ -498,6 +421,74 @@ pub struct IcyBoardData {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
+pub struct ModemInformation {
+    /// Seconds to wait for connect
+    pub seconds: i32,
+    /// Device of serial port (COM1, /dev/ttyS0, etc.)
+    pub modem_serial_device: String,
+    /// Modem bps speed
+    pub modem_speed: i32,
+    /// Lock modem speed
+    pub lock_speed: bool,
+    /// Modem initialization string
+    pub modem_init: String,
+    /// Modem initialization string 2
+    pub modem_init2: String,
+    /// Modem off hook string
+    pub modem_off_hook: String,
+    /// Modem answer string
+    pub modem_answer: String,
+    /// Modem dial string
+    pub modem_dial: String,
+    /// Numer of redials before abortingi dial sequence
+    pub num_redials: i32,
+    /// Maximum number of tries to connect
+    pub max_tries: i32,
+    /// Disable CTS/RTS check
+    pub disable_cts: bool,
+    pub use_hayes_9600: bool,
+    pub use_fast_comm: bool,
+    /// Reset modem during recycle
+    pub reset_modem: bool,
+    /// Take modem off hook during recycle
+    pub take_modem_off_hook: bool,
+    /// Runing under a packet switch network (???)
+    pub packed: bool,
+
+    pub answer_ring: bool,
+    pub allow_7e1: bool,
+    pub allow_low_baud: bool,
+    pub allow_low_start_time: String,
+    pub allow_low_stop_time: String,
+    pub low_baud_limit: i32,
+    pub modem_delay: i32,
+    pub rings_require: i32,
+    pub irq_num: i32,
+    pub base_address: i32,
+    /// leave DTR up on exit to DOS
+    pub leave_dtr_up: bool,
+    pub share_irqs: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ColorConfiguration {
+    ///  color code for default color (v15.0)
+    pub default: i32,
+    ///  color for DATE line of message header (v15.0)
+    pub msg_hdr_date: i32,
+    ///  color for TO   line of message header (v15.0)
+    pub msg_hdr_to: i32,
+    ///  color for FROM line of message header (v15.0)
+    pub msg_hdr_from: i32,
+    ///  color for SUBJ line of message header (v15.0)
+    pub msg_hdr_subj: i32,
+    ///  color for READ line of message header (v15.0)
+    pub msg_hdr_read: i32,
+    ///  color for CONF line of message header (v15.0)
+    pub msg_hdr_conf: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SysopSecurityLevels {
     pub sysop: i32,
     pub read_all_comments: i32,
@@ -552,7 +543,7 @@ pub struct UserSecurityLevels {
     pub edit: i32,
     pub test: i32,
 
-    pub cmd_abandon_conf: i32,
+    pub cmd_a: i32,
     pub cmd_b: i32,
     pub cmd_c: i32,
     pub cmd_d: i32,
@@ -561,12 +552,12 @@ pub struct UserSecurityLevels {
     pub cmd_g: i32,
     pub cmd_h: i32,
     pub cmd_i: i32,
-    pub cmd_join_conf: i32,
+    pub cmd_j: i32,
     pub cmd_k: i32,
     pub cmd_l: i32,
-    pub cmd_toggle_graphics: i32,
+    pub cmd_m: i32,
     pub cmd_o: i32,
-    pub cmd_set_page_length: i32,
+    pub cmd_p: i32,
 
     pub cmd_q: i32,
     pub cmd_r: i32,
@@ -575,7 +566,7 @@ pub struct UserSecurityLevels {
     pub cmd_u: i32,
     pub cmd_v: i32,
     pub cmd_w: i32,
-    pub cmd_xpert_mode: i32,
+    pub cmd_x: i32,
     pub cmd_y: i32,
     pub cmd_z: i32,
     pub cmd_open: i32,
@@ -589,7 +580,7 @@ pub struct UserSecurityLevels {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct PcbPaths {
+pub struct FileLocations {
     /// location of help files
     pub help_loc: String,
     /// location of security message files
@@ -653,6 +644,30 @@ pub struct PcbPaths {
 
     ///  path to swap file (v15.0)
     pub swap_path: String,
+    ///  name and location of EVENT.DAT (v15.0)
+    pub event_dat_file: String,
+    ///  location of event files (v15.0)
+    pub event_files: String,
+    ///  name and location of all files DLPATH.LST (v15.0)
+    pub all_files_list: String,
+
+    ///  name/location of CMD.LST to use for defaults (v15.0)
+    pub cmd_lst: String,
+    ///  name and loc of logon script questionnaire (v15.0)
+    pub log_on_scr: String,
+    ///  name and loc of logon script answers (v15.0)
+    pub log_on_ans: String,
+    ///  name of File Trashcan for stopping uploads (v15.0)
+    pub file_tcan: String,
+
+    ///  name and location of chat.dat (v15.0) Levels
+    pub chat_file: String,
+    ///  name and location of pcbstats.dat (v15.0)
+    pub stats_file: String,
+    ///  name and location of CHAT menu (v15.0)
+    pub chat_menu: String,
+    ///  name and location of NOANSI file (v15.0)
+    pub no_ansi: String,
 }
 
 /// # Errors
@@ -785,23 +800,23 @@ impl IcyBoardData {
         ret.path.pcml_dat_file = read_line(&mut reader, encoding)?;
         ret.path.group_chat = read_line(&mut reader, encoding)?;
 
-        ret.seconds = read_int(&mut reader, encoding)?;
-        ret.modem_serial_device = read_line(&mut reader, encoding)?;
-        ret.modem_speed = read_int(&mut reader, encoding)?;
-        ret.lock_speed = read_bool(&mut reader, encoding)?;
-        ret.modem_init = read_line(&mut reader, encoding)?;
-        ret.modem_off_hook = read_line(&mut reader, encoding)?;
-        ret.disable_cts = read_bool(&mut reader, encoding)?;
-        ret.use_hayes_9600 = read_bool(&mut reader, encoding)?;
-        ret.use_fast_comm = read_bool(&mut reader, encoding)?;
-        ret.reset_modem = read_bool(&mut reader, encoding)?;
-        ret.take_modem_off_hook = read_bool(&mut reader, encoding)?;
-        ret.packed = read_bool(&mut reader, encoding)?;
-        ret.answer_ring = read_bool(&mut reader, encoding)?;
-        ret.allow_7e1 = read_bool(&mut reader, encoding)?;
-        ret.allow_low_baud = read_bool(&mut reader, encoding)?;
-        ret.allow_low_start_time = read_line(&mut reader, encoding)?;
-        ret.allow_low_stop_time = read_line(&mut reader, encoding)?;
+        ret.modem.seconds = read_int(&mut reader, encoding)?;
+        ret.modem.modem_serial_device = read_line(&mut reader, encoding)?;
+        ret.modem.modem_speed = read_int(&mut reader, encoding)?;
+        ret.modem.lock_speed = read_bool(&mut reader, encoding)?;
+        ret.modem.modem_init = read_line(&mut reader, encoding)?;
+        ret.modem.modem_off_hook = read_line(&mut reader, encoding)?;
+        ret.modem.disable_cts = read_bool(&mut reader, encoding)?;
+        ret.modem.use_hayes_9600 = read_bool(&mut reader, encoding)?;
+        ret.modem.use_fast_comm = read_bool(&mut reader, encoding)?;
+        ret.modem.reset_modem = read_bool(&mut reader, encoding)?;
+        ret.modem.take_modem_off_hook = read_bool(&mut reader, encoding)?;
+        ret.modem.packed = read_bool(&mut reader, encoding)?;
+        ret.modem.answer_ring = read_bool(&mut reader, encoding)?;
+        ret.modem.allow_7e1 = read_bool(&mut reader, encoding)?;
+        ret.modem.allow_low_baud = read_bool(&mut reader, encoding)?;
+        ret.modem.allow_low_start_time = read_line(&mut reader, encoding)?;
+        ret.modem.allow_low_stop_time = read_line(&mut reader, encoding)?;
 
         ret.disable_scan = read_bool(&mut reader, encoding)?;
         ret.disable_cls = read_bool(&mut reader, encoding)?;
@@ -855,7 +870,7 @@ impl IcyBoardData {
         ret.parallel_port_num = read_int(&mut reader, encoding)?;
         ret.stop_free_space = read_int(&mut reader, encoding)?;
 
-        ret.user_levels.cmd_abandon_conf = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_a = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_b = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_c = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_d = read_int(&mut reader, encoding)?;
@@ -864,12 +879,12 @@ impl IcyBoardData {
         ret.user_levels.cmd_g = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_h = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_i = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_join_conf = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_j = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_k = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_l = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_toggle_graphics = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_m = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_o = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_set_page_length = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_p = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_q = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_r = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_s = read_int(&mut reader, encoding)?;
@@ -877,7 +892,7 @@ impl IcyBoardData {
         ret.user_levels.cmd_u = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_v = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_w = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_xpert_mode = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_x = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_y = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_z = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_open = read_int(&mut reader, encoding)?;
@@ -890,12 +905,12 @@ impl IcyBoardData {
         ret.user_levels.cmd_edit = read_int(&mut reader, encoding)?;
 
         ret.path.color_file = read_line(&mut reader, encoding)?;
-        ret.low_baud_limit = read_int(&mut reader, encoding)?;
-        ret.modem_delay = read_int(&mut reader, encoding)?;
-        ret.rings_require = read_int(&mut reader, encoding)?;
-        ret.irq_num = read_int(&mut reader, encoding)?;
-        ret.base_address = read_hex(&mut reader, encoding)?;
-        ret.leave_dtr_up = read_bool(&mut reader, encoding)?;
+        ret.modem.low_baud_limit = read_int(&mut reader, encoding)?;
+        ret.modem.modem_delay = read_int(&mut reader, encoding)?;
+        ret.modem.rings_require = read_int(&mut reader, encoding)?;
+        ret.modem.irq_num = read_int(&mut reader, encoding)?;
+        ret.modem.base_address = read_hex(&mut reader, encoding)?;
+        ret.modem.leave_dtr_up = read_bool(&mut reader, encoding)?;
         ret.max_scroll_back = read_int(&mut reader, encoding)?;
         ret.fast_text = read_bool(&mut reader, encoding)?;
         ret.fast_cnames = read_bool(&mut reader, encoding)?;
@@ -912,7 +927,7 @@ impl IcyBoardData {
 
         ret.sysop_security.edit_all = read_int(&mut reader, encoding)?;
         ret.user_levels.edit = read_int(&mut reader, encoding)?;
-        ret.share_irqs = read_bool(&mut reader, encoding)?;
+        ret.modem.share_irqs = read_bool(&mut reader, encoding)?;
         ret.scan_all = read_bool(&mut reader, encoding)?;
         ret.sysop_security.read_only = read_int(&mut reader, encoding)?;
         ret.use_new_ask_file = read_bool(&mut reader, encoding)?;
@@ -945,10 +960,10 @@ impl IcyBoardData {
         let Ok(chat_file) = read_line(&mut reader, encoding) else {
             return Ok(ret);
         };
-        ret.chat_file = chat_file;
-        ret.stats_file = read_line(&mut reader, encoding)?;
-        ret.chat_menu = read_line(&mut reader, encoding)?;
-        ret.no_ansi = read_line(&mut reader, encoding)?;
+        ret.path.chat_file = chat_file;
+        ret.path.stats_file = read_line(&mut reader, encoding)?;
+        ret.path.chat_menu = read_line(&mut reader, encoding)?;
+        ret.path.no_ansi = read_line(&mut reader, encoding)?;
         ret.slow_drives = read_line(&mut reader, encoding)?;
         ret.path.swap_path = read_line(&mut reader, encoding)?;
 
@@ -970,18 +985,18 @@ impl IcyBoardData {
         ret.upload_credit = read_int(&mut reader, encoding)?;
         ret.byte_credit = read_int(&mut reader, encoding)?;
 
-        ret.new_default_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr1_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr2_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr3_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr4_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr5_color = read_int(&mut reader, encoding)?;
-        ret.msg_hdr6_color = read_int(&mut reader, encoding)?;
+        ret.colors.default = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_date = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_to = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_from = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_subj = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_read = read_int(&mut reader, encoding)?;
+        ret.colors.msg_hdr_conf = read_int(&mut reader, encoding)?;
         ret.origin = read_line(&mut reader, encoding)?;
-        ret.event_dat_file = read_line(&mut reader, encoding)?;
-        ret.event_files = read_line(&mut reader, encoding)?;
+        ret.path.event_dat_file = read_line(&mut reader, encoding)?;
+        ret.path.event_files = read_line(&mut reader, encoding)?;
 
-        ret.cmd_lst = read_line(&mut reader, encoding)?;
+        ret.path.cmd_lst = read_line(&mut reader, encoding)?;
         ret.require_pwrd_to_exit = read_bool(&mut reader, encoding)?;
 
         ret.sysop_security.sec_15 = read_int(&mut reader, encoding)?;
@@ -996,15 +1011,15 @@ impl IcyBoardData {
         ret.env_size = read_int(&mut reader, encoding)?;
         ret.low_baud_sec_override = read_int(&mut reader, encoding)?;
 
-        ret.all_files_list = read_line(&mut reader, encoding)?;
+        ret.path.all_files_list = read_line(&mut reader, encoding)?;
         ret.enable_fido = read_bool(&mut reader, encoding)?;
         ret.fido_config = read_line(&mut reader, encoding)?;
         ret.fido_queue = read_line(&mut reader, encoding)?;
         ret.prompt_to_read_mail = read_bool(&mut reader, encoding)?;
-        ret.log_on_scr = read_line(&mut reader, encoding)?;
-        ret.log_on_ans = read_line(&mut reader, encoding)?;
+        ret.path.log_on_scr = read_line(&mut reader, encoding)?;
+        ret.path.log_on_ans = read_line(&mut reader, encoding)?;
         ret.qwk_file = read_line(&mut reader, encoding)?;
-        ret.file_tcan = read_line(&mut reader, encoding)?;
+        ret.path.file_tcan = read_line(&mut reader, encoding)?;
 
         ret.sysop_security.keep_msg = read_int(&mut reader, encoding)?;
         ret.sysop_security.seeretrcpt = read_int(&mut reader, encoding)?;
@@ -1078,12 +1093,12 @@ impl IcyBoardData {
         ret.holidays_file = read_line(&mut reader, encoding)?;
         ret.uucp_mod_file = read_line(&mut reader, encoding)?;
 
-        ret.modem_init2 = read_line(&mut reader, encoding)?;
-        ret.modem_answer = read_line(&mut reader, encoding)?;
+        ret.modem.modem_init2 = read_line(&mut reader, encoding)?;
+        ret.modem.modem_answer = read_line(&mut reader, encoding)?;
         ret.ignore_drop_sec_level = read_bool(&mut reader, encoding)?;
-        ret.modem_dial = read_line(&mut reader, encoding)?;
-        ret.num_redials = read_int(&mut reader, encoding)?;
-        ret.max_tries = read_int(&mut reader, encoding)?;
+        ret.modem.modem_dial = read_line(&mut reader, encoding)?;
+        ret.modem.num_redials = read_int(&mut reader, encoding)?;
+        ret.modem.max_tries = read_int(&mut reader, encoding)?;
 
         ret.fido_import_after_xfer = read_bool(&mut reader, encoding)?;
         ret.fido_crash_sec = read_int(&mut reader, encoding)?;
@@ -1184,23 +1199,23 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.path.pcml_dat_file);
         append_line(&mut res, encoding, &self.path.group_chat);
 
-        append_int(&mut res, encoding, self.seconds);
-        append_line(&mut res, encoding, &self.modem_serial_device);
-        append_int(&mut res, encoding, self.modem_speed);
-        append_bool(&mut res, encoding, self.lock_speed);
-        append_line(&mut res, encoding, &self.modem_init);
-        append_line(&mut res, encoding, &self.modem_off_hook);
-        append_bool(&mut res, encoding, self.disable_cts);
-        append_bool(&mut res, encoding, self.use_hayes_9600);
-        append_bool(&mut res, encoding, self.use_fast_comm);
-        append_bool(&mut res, encoding, self.reset_modem);
-        append_bool(&mut res, encoding, self.take_modem_off_hook);
-        append_bool(&mut res, encoding, self.packed);
-        append_bool(&mut res, encoding, self.answer_ring);
-        append_bool(&mut res, encoding, self.allow_7e1);
-        append_bool(&mut res, encoding, self.allow_low_baud);
-        append_line(&mut res, encoding, &self.allow_low_start_time);
-        append_line(&mut res, encoding, &self.allow_low_stop_time);
+        append_int(&mut res, encoding, self.modem.seconds);
+        append_line(&mut res, encoding, &self.modem.modem_serial_device);
+        append_int(&mut res, encoding, self.modem.modem_speed);
+        append_bool(&mut res, encoding, self.modem.lock_speed);
+        append_line(&mut res, encoding, &self.modem.modem_init);
+        append_line(&mut res, encoding, &self.modem.modem_off_hook);
+        append_bool(&mut res, encoding, self.modem.disable_cts);
+        append_bool(&mut res, encoding, self.modem.use_hayes_9600);
+        append_bool(&mut res, encoding, self.modem.use_fast_comm);
+        append_bool(&mut res, encoding, self.modem.reset_modem);
+        append_bool(&mut res, encoding, self.modem.take_modem_off_hook);
+        append_bool(&mut res, encoding, self.modem.packed);
+        append_bool(&mut res, encoding, self.modem.answer_ring);
+        append_bool(&mut res, encoding, self.modem.allow_7e1);
+        append_bool(&mut res, encoding, self.modem.allow_low_baud);
+        append_line(&mut res, encoding, &self.modem.allow_low_start_time);
+        append_line(&mut res, encoding, &self.modem.allow_low_stop_time);
 
         append_bool(&mut res, encoding, self.disable_scan);
         append_bool(&mut res, encoding, self.disable_cls);
@@ -1251,7 +1266,7 @@ impl IcyBoardData {
 
         append_int(&mut res, encoding, self.stop_free_space);
 
-        append_int(&mut res, encoding, self.user_levels.cmd_abandon_conf);
+        append_int(&mut res, encoding, self.user_levels.cmd_a);
         append_int(&mut res, encoding, self.user_levels.cmd_b);
         append_int(&mut res, encoding, self.user_levels.cmd_c);
         append_int(&mut res, encoding, self.user_levels.cmd_d);
@@ -1260,12 +1275,12 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_g);
         append_int(&mut res, encoding, self.user_levels.cmd_h);
         append_int(&mut res, encoding, self.user_levels.cmd_i);
-        append_int(&mut res, encoding, self.user_levels.cmd_join_conf);
+        append_int(&mut res, encoding, self.user_levels.cmd_j);
         append_int(&mut res, encoding, self.user_levels.cmd_k);
         append_int(&mut res, encoding, self.user_levels.cmd_l);
-        append_int(&mut res, encoding, self.user_levels.cmd_toggle_graphics);
+        append_int(&mut res, encoding, self.user_levels.cmd_m);
         append_int(&mut res, encoding, self.user_levels.cmd_o);
-        append_int(&mut res, encoding, self.user_levels.cmd_set_page_length);
+        append_int(&mut res, encoding, self.user_levels.cmd_p);
         append_int(&mut res, encoding, self.user_levels.cmd_q);
         append_int(&mut res, encoding, self.user_levels.cmd_r);
         append_int(&mut res, encoding, self.user_levels.cmd_s);
@@ -1273,7 +1288,7 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_u);
         append_int(&mut res, encoding, self.user_levels.cmd_v);
         append_int(&mut res, encoding, self.user_levels.cmd_w);
-        append_int(&mut res, encoding, self.user_levels.cmd_xpert_mode);
+        append_int(&mut res, encoding, self.user_levels.cmd_x);
         append_int(&mut res, encoding, self.user_levels.cmd_y);
         append_int(&mut res, encoding, self.user_levels.cmd_z);
         append_int(&mut res, encoding, self.user_levels.cmd_open);
@@ -1286,12 +1301,12 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_edit);
 
         append_line(&mut res, encoding, &self.path.color_file);
-        append_int(&mut res, encoding, self.low_baud_limit);
-        append_int(&mut res, encoding, self.modem_delay);
-        append_int(&mut res, encoding, self.rings_require);
-        append_int(&mut res, encoding, self.irq_num);
-        append_hex(&mut res, encoding, self.base_address);
-        append_bool(&mut res, encoding, self.leave_dtr_up);
+        append_int(&mut res, encoding, self.modem.low_baud_limit);
+        append_int(&mut res, encoding, self.modem.modem_delay);
+        append_int(&mut res, encoding, self.modem.rings_require);
+        append_int(&mut res, encoding, self.modem.irq_num);
+        append_hex(&mut res, encoding, self.modem.base_address);
+        append_bool(&mut res, encoding, self.modem.leave_dtr_up);
         append_int(&mut res, encoding, self.max_scroll_back);
         append_bool(&mut res, encoding, self.fast_text);
         append_bool(&mut res, encoding, self.fast_cnames);
@@ -1307,7 +1322,7 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.min_prior_to_event);
         append_int(&mut res, encoding, self.sysop_security.edit_all);
         append_int(&mut res, encoding, self.user_levels.edit);
-        append_bool(&mut res, encoding, self.share_irqs);
+        append_bool(&mut res, encoding, self.modem.share_irqs);
         append_bool(&mut res, encoding, self.scan_all);
         append_int(&mut res, encoding, self.sysop_security.read_only);
         append_bool(&mut res, encoding, self.use_new_ask_file);
@@ -1334,10 +1349,10 @@ impl IcyBoardData {
         append_bool(&mut res, encoding, self.guard_logoff);
         append_int(&mut res, encoding, self.num_desc_lines);
 
-        append_line(&mut res, encoding, &self.chat_file);
-        append_line(&mut res, encoding, &self.stats_file);
-        append_line(&mut res, encoding, &self.chat_menu);
-        append_line(&mut res, encoding, &self.no_ansi);
+        append_line(&mut res, encoding, &self.path.chat_file);
+        append_line(&mut res, encoding, &self.path.stats_file);
+        append_line(&mut res, encoding, &self.path.chat_menu);
+        append_line(&mut res, encoding, &self.path.no_ansi);
         append_line(&mut res, encoding, &self.slow_drives);
         append_line(&mut res, encoding, &self.path.swap_path);
 
@@ -1359,18 +1374,18 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.upload_credit);
         append_int(&mut res, encoding, self.byte_credit);
 
-        append_int(&mut res, encoding, self.new_default_color);
-        append_int(&mut res, encoding, self.msg_hdr1_color);
-        append_int(&mut res, encoding, self.msg_hdr2_color);
-        append_int(&mut res, encoding, self.msg_hdr3_color);
-        append_int(&mut res, encoding, self.msg_hdr4_color);
-        append_int(&mut res, encoding, self.msg_hdr5_color);
-        append_int(&mut res, encoding, self.msg_hdr6_color);
+        append_int(&mut res, encoding, self.colors.default);
+        append_int(&mut res, encoding, self.colors.msg_hdr_date);
+        append_int(&mut res, encoding, self.colors.msg_hdr_to);
+        append_int(&mut res, encoding, self.colors.msg_hdr_from);
+        append_int(&mut res, encoding, self.colors.msg_hdr_subj);
+        append_int(&mut res, encoding, self.colors.msg_hdr_read);
+        append_int(&mut res, encoding, self.colors.msg_hdr_conf);
         append_line(&mut res, encoding, &self.origin);
-        append_line(&mut res, encoding, &self.event_dat_file);
-        append_line(&mut res, encoding, &self.event_files);
+        append_line(&mut res, encoding, &self.path.event_dat_file);
+        append_line(&mut res, encoding, &self.path.event_files);
 
-        append_line(&mut res, encoding, &self.cmd_lst);
+        append_line(&mut res, encoding, &self.path.cmd_lst);
         append_bool(&mut res, encoding, self.require_pwrd_to_exit);
 
         append_int(&mut res, encoding, self.sysop_security.sec_15);
@@ -1397,15 +1412,15 @@ impl IcyBoardData {
         append_int(&mut res, encoding, self.env_size);
         append_int(&mut res, encoding, self.low_baud_sec_override);
 
-        append_line(&mut res, encoding, &self.all_files_list);
+        append_line(&mut res, encoding, &self.path.all_files_list);
         append_bool(&mut res, encoding, self.enable_fido);
         append_line(&mut res, encoding, &self.fido_config);
         append_line(&mut res, encoding, &self.fido_queue);
         append_bool(&mut res, encoding, self.prompt_to_read_mail);
-        append_line(&mut res, encoding, &self.log_on_scr);
-        append_line(&mut res, encoding, &self.log_on_ans);
+        append_line(&mut res, encoding, &self.path.log_on_scr);
+        append_line(&mut res, encoding, &self.path.log_on_ans);
         append_line(&mut res, encoding, &self.qwk_file);
-        append_line(&mut res, encoding, &self.file_tcan);
+        append_line(&mut res, encoding, &self.path.file_tcan);
 
         append_int(&mut res, encoding, self.sysop_security.keep_msg);
         append_int(&mut res, encoding, self.sysop_security.seeretrcpt);
@@ -1475,12 +1490,12 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.holidays_file);
         append_line(&mut res, encoding, &self.uucp_mod_file);
 
-        append_line(&mut res, encoding, &self.modem_init2);
-        append_line(&mut res, encoding, &self.modem_answer);
+        append_line(&mut res, encoding, &self.modem.modem_init2);
+        append_line(&mut res, encoding, &self.modem.modem_answer);
         append_bool(&mut res, encoding, self.ignore_drop_sec_level);
-        append_line(&mut res, encoding, &self.modem_dial);
-        append_int(&mut res, encoding, self.num_redials);
-        append_int(&mut res, encoding, self.max_tries);
+        append_line(&mut res, encoding, &self.modem.modem_dial);
+        append_int(&mut res, encoding, self.modem.num_redials);
+        append_int(&mut res, encoding, self.modem.max_tries);
 
         append_bool(&mut res, encoding, self.fido_import_after_xfer);
         append_int(&mut res, encoding, self.fido_crash_sec);

@@ -555,7 +555,7 @@ pub fn mask_ascii(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableVa
 
 pub fn curconf(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_state.session.current_conference.number,
+        vm.icy_board_state.session.current_conference_number,
     ))
 }
 

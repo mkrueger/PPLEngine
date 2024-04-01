@@ -9,6 +9,7 @@ use self::{
     user_inf::UserInf, users::UserRecord,
 };
 
+pub mod bullettins;
 pub mod conferences;
 pub mod data;
 pub mod messages;
@@ -31,6 +32,9 @@ pub enum IcyBoardError {
 
     #[error("Thread crashed ({0})")]
     ThreadCrashed(String),
+
+    #[error("Can't read file {0} ({1})")]
+    FileError(PathBuf, String),
 }
 
 pub struct IcyBoard {

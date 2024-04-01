@@ -16,6 +16,8 @@ pub mod functions;
 use self::functions::display_flags;
 
 use super::{
+    bullettins::Bullettin,
+    conferences::ConferenceHeader,
     data::Node,
     output::Output,
     text_messages::{self, THANKSFORCALLING, UNLIMITED},
@@ -87,17 +89,11 @@ impl TransferStatistics {
     }
 }
 
-#[derive(Default, Clone)]
-pub struct ConferenceType {
-    pub name: String,
-    pub number: i32,
-    pub conf_security: i32,
-}
-
 #[derive(Clone)]
 pub struct Session {
     pub disp_options: DisplayOptions,
-    pub current_conference: ConferenceType,
+    pub current_conference_number: i32,
+    pub current_conference: ConferenceHeader,
     pub login_date: DateTime<Local>,
 
     pub cur_user: i32,
@@ -128,7 +124,8 @@ impl Session {
     pub fn new() -> Self {
         Self {
             disp_options: DisplayOptions::default(),
-            current_conference: ConferenceType::default(),
+            current_conference_number: 0,
+            current_conference: ConferenceHeader::default(),
             login_date: Local::now(),
             cur_user: -1,
             cur_security: 0,
@@ -286,12 +283,9 @@ impl IcyBoardState {
 
     pub fn join_conference(&mut self, conference: i32) {
         if conference >= 0 && conference < self.board.lock().unwrap().conferences.len() as i32 {
-            self.session.current_conference.number = conference;
+            self.session.current_conference_number = conference;
             if let Ok(board) = self.board.lock() {
-                self.session.current_conference.name =
-                    board.conferences[conference as usize].name.clone();
-                self.session.current_conference.conf_security =
-                    board.conferences[conference as usize].add_conference_security;
+                self.session.current_conference = board.conferences[conference as usize].clone();
             }
         }
     }
@@ -343,6 +337,15 @@ impl IcyBoardState {
             }
         }
         self.ctx.lock().unwrap().put_keyboard_buffer(&chars)
+    }
+
+    pub fn load_bullettins(&self) -> Res<Vec<Bullettin>> {
+        let resolved_name = self
+            .board
+            .lock()
+            .unwrap()
+            .resolve_file(&self.session.current_conference.blt_file);
+        Bullettin::load_file(resolved_name)
     }
 }
 
@@ -509,7 +512,7 @@ impl IcyBoardState {
     fn translate_variable(&mut self, input: &str) -> Option<String> {
         let mut split = input.split(':');
         let id = split.next().unwrap();
-        let param = split.next();
+        let mut param = split.next();
         let mut result = String::new();
         match id {
             "ALIAS" => {
@@ -550,7 +553,7 @@ impl IcyBoardState {
                 return None;
             }
             "CONFNAME" => result = self.session.current_conference.name.clone(),
-            "CONFNUM" => result = self.session.current_conference.number.to_string(),
+            "CONFNUM" => result = self.session.current_conference_number.to_string(),
 
             // TODO
             "CREDLEFT" | "CREDNOW" | "CREDSTART" | "CREDUSED" | "CURMSGNUM" => {}
@@ -635,7 +638,11 @@ impl IcyBoardState {
             }
             "NOCHAR" => result = self.no_char.to_string(),
             "NODE" => result = self.board.lock().unwrap().data.node_num.to_string(),
-            "NUMBLT" => {}
+            "NUMBLT" => {
+                if let Ok(bullettins) = self.load_bullettins() {
+                    result = bullettins.len().to_string();
+                }
+            }
             "NUMCALLS" => {}
             "NUMCONF" => result = self.board.lock().unwrap().data.num_conf.to_string(),
             "NUMDIR" => {}
@@ -652,8 +659,20 @@ impl IcyBoardState {
                 self.session.disp_options.auto_more = false;
                 return None;
             }
-            "POFF" | "PON" | "POS" | "PROLTR" | "PRODESC" | "PWXDATE" | "PWXDAYS" | "QOFF"
-            | "QON" | "RATIOBYTES" | "RATIOFILES" => {}
+            "POS" => {
+                let x = self.caret.get_position().x as usize;
+                if let Some(value) = param {
+                    if let Ok(i) = value.parse::<usize>() {
+                        while result.len() + 1 < i - x {
+                            result.push(' ');
+                        }
+                        return Some(result);
+                    }
+                }
+            }
+
+            "POFF" | "PON" | "PROLTR" | "PRODESC" | "PWXDATE" | "PWXDAYS" | "QOFF" | "QON"
+            | "RATIOBYTES" | "RATIOFILES" => {}
             "RCPS" => result = self.transfer_statistics.get_cps_upload().to_string(),
             "RBYTES" => result = self.transfer_statistics.uploaded_bytes.to_string(),
             "RFILES" => result = self.transfer_statistics.uploaded_files.to_string(),
@@ -743,7 +762,7 @@ impl IcyBoardState {
 
         if let Some(param) = param {
             if let Ok(i) = param.parse::<usize>() {
-                while result.len() < i {
+                while result.chars().count() < i {
                     result.push(' ');
                 }
             }

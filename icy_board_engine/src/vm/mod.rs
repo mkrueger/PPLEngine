@@ -454,7 +454,7 @@ impl<'a> VirtualMachine<'a> {
                 let left_value = self.eval_expr(left)?;
                 let right_value = self.eval_expr(right)?;
 
-                let res = match op {
+                match op {
                     BinOp::Add => Ok(left_value + right_value),
                     BinOp::Sub => Ok(left_value - right_value),
                     BinOp::Mul => Ok(left_value * right_value),
@@ -473,8 +473,7 @@ impl<'a> VirtualMachine<'a> {
                     BinOp::LowerEq => Ok(VariableValue::new_bool(left_value <= right_value)),
                     BinOp::Greater => Ok(VariableValue::new_bool(left_value > right_value)),
                     BinOp::GreaterEq => Ok(VariableValue::new_bool(left_value >= right_value)),
-                };
-                res
+                }
             }
             PPEExpr::Dim(id, dims) => {
                 let dim_1 = self.eval_expr(&dims[0])?.as_int() as usize;

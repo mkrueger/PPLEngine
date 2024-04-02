@@ -8,7 +8,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use icy_ppe::{datetime::IcbDate, Res};
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct UserRecord {
+pub struct PcbUserRecord {
     pub name: String,
     pub city: String,
     pub password: String,
@@ -38,13 +38,13 @@ pub struct UserRecord {
     pub security_level: u8,
 
     /// Expired security level
-    pub exp_security_level: i32,
+    pub exp_security_level: u8,
 
     /// Number of times the caller has connected
     pub num_times_on: usize,
 
     /// Page length when display data on the screen
-    pub page_len: i32,
+    pub page_len: u8,
 
     pub num_uploads: i32,
     pub num_downloads: i32,
@@ -55,10 +55,10 @@ pub struct UserRecord {
     pub sysop_comment: String,
 
     /// Number of minutes online
-    pub elapsed_time_on: i32,
+    pub elapsed_time_on: u16,
 
     /// Julian date for Registration Expiration Date
-    pub reg_exp_date: IcbDate,
+    pub exp_date: IcbDate,
     // unsigned short LastConference;     ///  Number of the conference the caller was in
     pub delete_flag: bool,
     pub rec_num: usize,
@@ -68,9 +68,9 @@ pub struct UserRecord {
     pub ul_tot_upld_bytes: u64,
 }
 
-impl UserRecord {
+impl PcbUserRecord {
     /// # Errors
-    pub fn read_users(path: &Path) -> Res<Vec<UserRecord>> {
+    pub fn read_users(path: &Path) -> Res<Vec<PcbUserRecord>> {
         const RECORD_SIZE: u64 = 0x190;
         let mut users = Vec::new();
 
@@ -131,13 +131,13 @@ impl UserRecord {
             let mut cmt2 = [0u8; 30];
             cursor.read_exact(&mut cmt2)?;
 
-            let elapsed_time_on = cursor.read_u16::<LittleEndian>()? as i32;
+            let elapsed_time_on = cursor.read_u16::<LittleEndian>()?;
 
             let mut reg_exp_date = [0u8; 6];
             cursor.read_exact(&mut reg_exp_date)?;
             let reg_exp_date = IcbDate::parse(&String::from_utf8_lossy(&reg_exp_date));
 
-            let exp_security_level = cursor.read_u8()? as i32;
+            let exp_security_level = cursor.read_u8()?;
             let last_conference = cursor.read_u8()? as u16;
 
             cursor.set_position(cursor.position() + 15);
@@ -154,7 +154,7 @@ impl UserRecord {
             cursor.set_position(cursor.position() + 8);
             let _last_conference2 = cursor.read_u16::<LittleEndian>()? as i32;
 
-            let user = UserRecord {
+            let user = PcbUserRecord {
                 name: String::from_utf8_lossy(&name).trim().to_string(),
                 city: String::from_utf8_lossy(&city).trim().to_string(),
                 password: String::from_utf8_lossy(&password).trim().to_string(),
@@ -177,14 +177,14 @@ impl UserRecord {
                 date_last_dir_read,
                 security_level,
                 num_times_on: num_times_on as usize,
-                page_len: page_len as i32,
+                page_len,
                 num_uploads: num_uploads as i32,
                 num_downloads: num_downloads as i32,
                 daily_downloaded_bytes: daily_downloaded_bytes as usize,
                 user_comment: String::from_utf8_lossy(&cmt1).trim().to_string(),
                 sysop_comment: String::from_utf8_lossy(&cmt2).trim().to_string(),
                 elapsed_time_on,
-                reg_exp_date,
+                exp_date: reg_exp_date,
                 exp_security_level,
                 last_conference,
                 ul_tot_dnld_bytes,

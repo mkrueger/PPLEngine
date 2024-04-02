@@ -42,3 +42,30 @@ pub const CP437_TO_UNICODE: [char; 256] = [
     '\u{00b1}', '\u{2265}', '\u{2264}', '\u{2320}', '\u{2321}', '\u{00f7}', '\u{2248}', '\u{00b0}',
     '\u{2219}', '\u{00b7}', '\u{221a}', '\u{207f}', '\u{00b2}', '\u{25a0}', '\u{00a0}',
 ];
+
+pub fn import_cp437_string(chunk: &[u8], trim_end: bool) -> String {
+    let mut res = String::new();
+    let mut got_cr = false;
+    for &c in chunk {
+        if c == 0 || c == 0x1A {
+            break;
+        }
+        if c == b'\r' {
+            got_cr = true;
+            continue;
+        }
+        if got_cr {
+            got_cr = false;
+            if c != b'\n' {
+                res.push(CP437_TO_UNICODE[b'\r' as usize]);
+            }
+        }
+        res.push(CP437_TO_UNICODE[c as usize]);
+    }
+    if trim_end {
+        while res.ends_with(' ') {
+            res.pop();
+        }
+    }
+    res
+}

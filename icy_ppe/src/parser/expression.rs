@@ -16,18 +16,14 @@ impl Parser {
         // it's correct on the upper level - it's very unusual
         if self.get_cur_token() == Some(Token::Not) {
             self.next_token();
-            let Some(expr) = self.parse_bool() else {
-                return None;
-            };
+            let expr = self.parse_bool()?;
             return Some(UnaryExpression::create_empty_expression(
                 crate::ast::UnaryOp::Not,
                 expr,
             ));
         }
 
-        let Some(mut expr) = self.parse_comparison() else {
-            return None;
-        };
+        let mut expr = self.parse_comparison()?;
         while self.get_cur_token() == Some(Token::Or) || self.get_cur_token() == Some(Token::And) {
             let op = match self.get_cur_token() {
                 Some(Token::Or) => BinOp::Or,
@@ -52,9 +48,7 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Option<Expression> {
-        let Some(mut expr) = self.parse_term() else {
-            return None;
-        };
+        let mut expr = self.parse_term()?;
         while self.get_cur_token() == Some(Token::Greater)
             || self.get_cur_token() == Some(Token::GreaterEq)
             || self.get_cur_token() == Some(Token::Lower)
@@ -91,9 +85,7 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Option<Expression> {
-        let Some(mut expr) = self.parse_factor() else {
-            return None;
-        };
+        let mut expr = self.parse_factor()?;
         while self.get_cur_token() == Some(Token::Add) || self.get_cur_token() == Some(Token::Sub) {
             let op = match self.get_cur_token() {
                 Some(Token::Add) => BinOp::Add,
@@ -119,9 +111,7 @@ impl Parser {
     }
 
     fn parse_factor(&mut self) -> Option<Expression> {
-        let Some(mut expr) = self.parse_pow() else {
-            return None;
-        };
+        let mut expr = self.parse_pow()?;
         while self.get_cur_token() == Some(Token::Mul)
             || self.get_cur_token() == Some(Token::Div)
             || self.get_cur_token() == Some(Token::Mod)
@@ -151,9 +141,7 @@ impl Parser {
     }
 
     fn parse_pow(&mut self) -> Option<Expression> {
-        let Some(mut expr) = self.parse_unary() else {
-            return None;
-        };
+        let mut expr = self.parse_unary()?;
         while self.get_cur_token() == Some(Token::PoW) {
             self.next_token();
             let right = self.parse_unary();
@@ -202,9 +190,7 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Option<Expression> {
-        let Some(t) = self.cur_token.clone() else {
-            return None;
-        };
+        let t = self.cur_token.clone()?;
 
         match &t.token {
             Token::Const(c) => {

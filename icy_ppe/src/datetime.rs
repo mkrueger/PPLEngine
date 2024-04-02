@@ -1,9 +1,74 @@
 use core::fmt;
-#[derive(Default, Debug, Clone, PartialEq)]
+
+use serde::Deserialize;
+use toml::value::{Date, Datetime};
+#[derive(Debug, Clone, PartialEq)]
 pub struct IcbDate {
     month: u8,
     day: u8,
     year: u16,
+}
+
+impl Default for IcbDate {
+    fn default() -> Self {
+        Self {
+            month: 1,
+            day: 1,
+            year: Default::default(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for IcbDate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Datetime::deserialize(deserializer).map(IcbDate::from)
+    }
+}
+
+impl serde::Serialize for IcbDate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        toml::value::Datetime {
+            date: Some(Date {
+                year: self.year,
+                month: self.month.max(1),
+                day: self.day.max(1),
+            }),
+            time: None,
+            offset: None,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl From<Datetime> for IcbDate {
+    fn from(datetime: Datetime) -> Self {
+        let date = &datetime.date.unwrap();
+        Self {
+            month: date.month,
+            day: date.day,
+            year: date.year,
+        }
+    }
+}
+
+impl From<IcbDate> for Datetime {
+    fn from(datetime: IcbDate) -> Datetime {
+        Datetime {
+            date: Some(Date {
+                year: datetime.year,
+                month: datetime.month,
+                day: datetime.day,
+            }),
+            time: None,
+            offset: None,
+        }
+    }
 }
 
 const DAYS: [[i64; 12]; 2] = [
@@ -13,6 +78,9 @@ const DAYS: [[i64; 12]; 2] = [
 
 impl IcbDate {
     pub fn new(month: u8, day: u8, year: u16) -> Self {
+        let month = month.max(1).min(12);
+        let day = day.max(1).min(31);
+
         Self { month, day, year }
     }
 
@@ -26,6 +94,10 @@ impl IcbDate {
 
     pub fn get_year(&self) -> u16 {
         self.year
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.month == 1 && self.day == 1 && self.year == 0
     }
 
     pub fn parse(str: &str) -> Self {
@@ -59,12 +131,7 @@ impl IcbDate {
             }
             (month, day, year)
         };
-
-        Self {
-            month: month as u8,
-            day: day as u8,
-            year: year as u16,
-        }
+        Self::new(month as u8, day as u8, year as u16)
     }
 
     pub fn from_pcboard(jd: i32) -> Self {
@@ -166,4 +233,115 @@ fn test_parse_date() {
 
     let date = IcbDate::parse("12301976");
     assert_eq!(format!("{date}"), "12-30-1976");
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct IcbTime {
+    hour: u8,
+    minute: u8,
+    second: u8,
+}
+
+impl IcbTime {
+    pub fn new(hour: u8, minute: u8, second: u8) -> Self {
+        Self {
+            hour,
+            minute,
+            second,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.hour == 0 && self.minute == 0 && self.second == 0
+    }
+
+    pub fn get_hour(&self) -> u8 {
+        self.hour
+    }
+
+    pub fn get_minute(&self) -> u8 {
+        self.minute
+    }
+
+    pub fn get_second(&self) -> u8 {
+        self.second
+    }
+
+    pub fn parse(str: &str) -> Self {
+        let parts = str
+            .split(|c| c == ':' || c == ' ')
+            .map(|c| c.parse::<i32>().unwrap_or_default())
+            .collect::<Vec<i32>>();
+        if parts.len() != 3 {
+            return IcbTime::new(0, 0, 0);
+        }
+        let hour = parts[0];
+        let minute = parts[1];
+        let second = parts[2];
+
+        Self {
+            hour: hour as u8,
+            minute: minute as u8,
+            second: second as u8,
+        }
+    }
+}
+
+impl fmt::Display for IcbTime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:02}:{:02}:{:02}", self.hour, self.minute, self.second)
+    }
+}
+
+impl<'de> Deserialize<'de> for IcbTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Datetime::deserialize(deserializer).map(IcbTime::from)
+    }
+}
+
+impl serde::Serialize for IcbTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        toml::value::Datetime {
+            date: None,
+            time: Some(toml::value::Time {
+                hour: self.hour,
+                minute: self.minute,
+                second: self.second,
+                nanosecond: 0,
+            }),
+            offset: None,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl From<Datetime> for IcbTime {
+    fn from(datetime: Datetime) -> Self {
+        Self {
+            hour: datetime.time.unwrap().hour,
+            minute: datetime.time.unwrap().minute,
+            second: datetime.time.unwrap().second,
+        }
+    }
+}
+
+impl From<IcbTime> for Datetime {
+    fn from(datetime: IcbTime) -> Datetime {
+        Datetime {
+            date: None,
+            time: Some(toml::value::Time {
+                hour: datetime.hour,
+                minute: datetime.minute,
+                second: datetime.second,
+                nanosecond: 0,
+            }),
+            offset: None,
+        }
+    }
 }

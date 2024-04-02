@@ -356,12 +356,13 @@ impl Lexer {
         let ch;
         loop {
             self.token_start = self.token_end;
-            let Some(next_ch) = self.next_ch() else {
+            if let Some(next_ch) = self.next_ch() {
+                if next_ch != ' ' && next_ch != '\t' {
+                    ch = next_ch;
+                    break;
+                }
+            } else {
                 return None;
-            };
-            if next_ch != ' ' && next_ch != '\t' {
-                ch = next_ch;
-                break;
             }
         }
         let state = match ch {

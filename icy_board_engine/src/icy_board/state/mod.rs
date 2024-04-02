@@ -16,12 +16,13 @@ pub mod functions;
 use self::functions::display_flags;
 
 use super::{
-    bullettins::Bullettin,
-    conferences::ConferenceHeader,
-    data::Node,
+    bulletins::Bullettin,
+    conferences::Conference,
+    icb_text::{IcbTextStyle, IceText},
     output::Output,
-    text_messages::{self, THANKSFORCALLING, UNLIMITED},
-    IcyBoard, User,
+    pcboard_data::Node,
+    user_base::User,
+    IcyBoard,
 };
 
 #[derive(Clone)]
@@ -93,18 +94,18 @@ impl TransferStatistics {
 pub struct Session {
     pub disp_options: DisplayOptions,
     pub current_conference_number: i32,
-    pub current_conference: ConferenceHeader,
+    pub current_conference: Conference,
     pub login_date: DateTime<Local>,
 
     pub cur_user: i32,
     pub cur_security: u8,
+    pub page_len: u16,
 
     pub is_sysop: bool,
     pub op_text: String,
     pub use_alias: bool,
 
     pub num_lines_printed: usize,
-    pub page_len: usize,
 
     pub request_logoff: bool,
 
@@ -112,6 +113,8 @@ pub struct Session {
 
     pub time_limit: i32,
     pub security_violations: i32,
+
+    pub node_num: i32,
 
     /// If true, the keyboard timer is checked.
     /// After it's elapsed logoff the user for inactivity.
@@ -125,12 +128,13 @@ impl Session {
         Self {
             disp_options: DisplayOptions::default(),
             current_conference_number: 0,
-            current_conference: ConferenceHeader::default(),
+            current_conference: Conference::default(),
             login_date: Local::now(),
             cur_user: -1,
             cur_security: 0,
             num_lines_printed: 0,
             security_violations: 0,
+            node_num: 0,
             page_len: 24,
             is_sysop: false,
             op_text: String::new(),
@@ -270,10 +274,9 @@ impl IcyBoardState {
         if user >= 0 {
             let last_conference = if let Ok(board) = self.board.lock() {
                 self.current_user = Some(board.users[user as usize].clone());
-                self.session.cur_security = board.users[user as usize].user.security_level;
-                self.session.page_len = board.users[user as usize].user.page_len as usize;
-                self.session.expert_mode = board.users[user as usize].user.expert_mode;
-                board.users[user as usize].user.last_conference as i32
+                self.session.cur_security = board.users[user as usize].security_level;
+                self.session.page_len = board.users[user as usize].page_len;
+                board.users[user as usize].last_conference as i32
             } else {
                 return;
             };
@@ -295,7 +298,9 @@ impl IcyBoardState {
             return Ok(true);
         }
         self.session.num_lines_printed += 1;
-        if self.session.page_len > 0 && self.session.num_lines_printed >= self.session.page_len {
+        if self.session.page_len > 0
+            && self.session.num_lines_printed >= self.session.page_len as usize
+        {
             self.more_promt()
         } else {
             Ok(true)
@@ -309,13 +314,38 @@ impl IcyBoardState {
             }
         }
 
-        let exe = Executable::read_file(&file_name, false)?;
+        match Executable::read_file(&file_name, false) {
+            Ok(executable) => {
+                let path = PathBuf::from(file_name.as_ref());
+                let parent = path.parent().unwrap().to_str().unwrap().to_string();
 
-        let path = PathBuf::from(file_name.as_ref());
-        let parent = path.parent().unwrap().to_str().unwrap().to_string();
-
-        let mut io = DiskIO::new(&parent);
-        run(file_name, &exe, &mut io, self)?;
+                let mut io = DiskIO::new(&parent);
+                if let Err(err) = run(file_name, &executable, &mut io, self) {
+                    log::error!(
+                        "Error executing PPE {}: {}",
+                        file_name.as_ref().display(),
+                        err
+                    );
+                    self.session.op_text = format!("{}", err);
+                    self.display_text(
+                        IceText::ErrorExecPPE,
+                        display_flags::LFBEFORE | display_flags::LFAFTER,
+                    )?;
+                }
+            }
+            Err(err) => {
+                log::error!(
+                    "Error loading PPE {}: {}",
+                    file_name.as_ref().display(),
+                    err
+                );
+                self.session.op_text = format!("{}", err);
+                self.display_text(
+                    IceText::ErrorLoadingPPE,
+                    display_flags::LFBEFORE | display_flags::LFAFTER,
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -340,12 +370,7 @@ impl IcyBoardState {
     }
 
     pub fn load_bullettins(&self) -> Res<Vec<Bullettin>> {
-        let resolved_name = self
-            .board
-            .lock()
-            .unwrap()
-            .resolve_file(&self.session.current_conference.blt_file);
-        Bullettin::load_file(resolved_name)
+        Bullettin::load_file(&self.session.current_conference.blt_file)
     }
 }
 
@@ -512,14 +537,12 @@ impl IcyBoardState {
     fn translate_variable(&mut self, input: &str) -> Option<String> {
         let mut split = input.split(':');
         let id = split.next().unwrap();
-        let mut param = split.next();
+        let param = split.next();
         let mut result = String::new();
         match id {
             "ALIAS" => {
                 if let Some(user) = &self.current_user {
-                    if let Some(alias) = &user.inf.alias {
-                        result = alias.alias.clone();
-                    }
+                    result = user.alias.to_string();
                 }
             }
             "AUTOMORE" => {
@@ -531,7 +554,7 @@ impl IcyBoardState {
                 return None;
             }
             "BICPS" => result = self.transfer_statistics.get_cps_both().to_string(),
-            "BOARDNAME" => result = self.board.lock().unwrap().data.board_name.to_string(),
+            "BOARDNAME" => result = self.board.lock().unwrap().config.board_name.to_string(),
             "BPS" => result = self.get_bps().to_string(),
 
             // TODO
@@ -541,7 +564,7 @@ impl IcyBoardState {
 
             "CITY" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.city.clone();
+                    result = user.city.to_string();
                 }
             }
             "CLREOL" => {
@@ -552,7 +575,7 @@ impl IcyBoardState {
                 let _ = self.clear_screen();
                 return None;
             }
-            "CONFNAME" => result = self.session.current_conference.name.clone(),
+            "CONFNAME" => result = self.session.current_conference.name.to_string(),
             "CONFNUM" => result = self.session.current_conference_number.to_string(),
 
             // TODO
@@ -560,21 +583,28 @@ impl IcyBoardState {
 
             "DATAPHONE" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.bus_data_phone.clone();
+                    result = user.bus_data_phone.to_string();
                 }
             }
             "DAYBYTES" | "DELAY" | "DIRNAME" | "DIRNUM" | "DLBYTES" | "DLFILES" | "EVENT" => {}
             "EXPDATE" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.reg_exp_date.to_string();
+                    result = user.exp_date.to_string();
                 } else {
                     result = IcbDate::default().to_country_date();
                 }
             }
             "EXPDAYS" => {
-                if self.board.lock().unwrap().data.subscript_mode {
+                if self
+                    .board
+                    .lock()
+                    .unwrap()
+                    .config
+                    .subscription_info
+                    .is_enabled
+                {
                     if let Some(user) = &self.current_user {
-                        if user.user.reg_exp_date.get_year() != 0 {
+                        if user.exp_date.get_year() != 0 {
                             result  =
                                 0.to_string() // TODO
                                                /*
@@ -591,9 +621,11 @@ impl IcyBoardState {
                         .lock()
                         .unwrap()
                         .display_text
-                        .get_display_text(UNLIMITED)
+                        .get_display_text(IceText::Unlimited)
                         .unwrap();
-                    let _ = self.set_color(entry.color);
+                    if entry.style != IcbTextStyle::Plain {
+                        let _ = self.set_color(entry.style.to_color());
+                    }
                     result = entry.text;
                 }
             }
@@ -612,7 +644,7 @@ impl IcyBoardState {
             "FREESPACE" => {}
             "HOMEPHONE" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.home_voice_phone.clone();
+                    result = user.home_voice_phone.to_string();
                 }
             }
             "HIGHMSGNUM" => {}
@@ -628,27 +660,29 @@ impl IcyBoardState {
             }
             "MSGLEFT" => {
                 if let Some(user) = &self.current_user {
-                    result = user.inf.messages_left.to_string();
+                    result = user.stats.messages_left.to_string();
                 }
             }
             "MSGREAD" => {
                 if let Some(user) = &self.current_user {
-                    result = user.inf.messages_read.to_string();
+                    result = user.stats.messages_read.to_string();
                 }
             }
             "NOCHAR" => result = self.no_char.to_string(),
-            "NODE" => result = self.board.lock().unwrap().data.node_num.to_string(),
+            "NODE" => result = self.session.node_num.to_string(),
             "NUMBLT" => {
                 if let Ok(bullettins) = self.load_bullettins() {
                     result = bullettins.len().to_string();
                 }
             }
-            "NUMCALLS" => {}
-            "NUMCONF" => result = self.board.lock().unwrap().data.num_conf.to_string(),
+            "NUMCALLS" => {
+                result = self.board.lock().unwrap().num_callers.to_string();
+            }
+            "NUMCONF" => result = self.board.lock().unwrap().conferences.len().to_string(),
             "NUMDIR" => {}
             "NUMTIMESON" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.num_times_on.to_string();
+                    result = user.stats.num_times_on.to_string();
                 }
             }
             "OFFHOURS" => {}
@@ -663,7 +697,7 @@ impl IcyBoardState {
                 let x = self.caret.get_position().x as usize;
                 if let Some(value) = param {
                     if let Ok(i) = value.parse::<usize>() {
-                        while result.len() + 1 < i - x {
+                        while result.len() < i - x {
                             result.push(' ');
                         }
                         return Some(result);
@@ -678,7 +712,7 @@ impl IcyBoardState {
             "RFILES" => result = self.transfer_statistics.uploaded_files.to_string(),
             "REAL" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.name.to_string();
+                    result = user.get_name().to_string();
                 }
             }
             "SECURITY" => {}
@@ -695,8 +729,26 @@ impl IcyBoardState {
                     d.year_ce().1 % 100
                 );
             }
-            "SYSOPIN" => result = self.board.lock().unwrap().data.sysop_start.clone(),
-            "SYSOPOUT" => result = self.board.lock().unwrap().data.sysop_stop.clone(),
+            "SYSOPIN" => {
+                result = self
+                    .board
+                    .lock()
+                    .unwrap()
+                    .config
+                    .sysop
+                    .sysop_start
+                    .to_string()
+            }
+            "SYSOPOUT" => {
+                result = self
+                    .board
+                    .lock()
+                    .unwrap()
+                    .config
+                    .sysop
+                    .sysop_stop
+                    .to_string()
+            }
             "SYSTIME" => {
                 let now = Local::now();
                 let t = now.time();
@@ -716,24 +768,24 @@ impl IcyBoardState {
             "TOTALTIME" => {}
             "UPBYTES" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.ul_tot_upld_bytes.to_string();
+                    result = user.stats.ul_tot_upld_bytes.to_string();
                 }
             }
             "UPFILES" => {
                 if let Some(user) = &self.current_user {
-                    result = user.user.num_uploads.to_string();
+                    result = user.stats.num_uploads.to_string();
                 }
             }
             "USER" => {
                 if let Some(user) = &self.current_user {
                     if self.session.use_alias {
-                        if let Some(alias) = &user.inf.alias {
-                            result = alias.alias.clone();
+                        if user.alias.is_empty() {
+                            result = user.get_name().to_string();
                         } else {
-                            result = user.user.name.clone();
+                            result = user.alias.to_string();
                         }
                     } else {
-                        result = user.user.name.clone();
+                        result = user.get_name().to_string();
                     }
                 } else {
                     result = "0".to_string();
@@ -754,7 +806,7 @@ impl IcyBoardState {
                 if id.to_ascii_uppercase().starts_with("ENV=") {
                     let key = &id[4..];
                     if let Some(value) = self.get_env(key) {
-                        result = value.clone();
+                        result = value.to_string();
                     }
                 }
             }
@@ -845,6 +897,7 @@ impl IcyBoardState {
     /// # Errors
     pub fn hangup(&mut self, hangup_type: HangupType) -> Res<()> {
         if HangupType::Hangup != hangup_type {
+            /*
             if HangupType::Goodbye == hangup_type {
                 let logoff_script = self
                     .board
@@ -852,13 +905,14 @@ impl IcyBoardState {
                     .as_ref()
                     .unwrap()
                     .data
-                    .path
+                    .paths
                     .logoff_script
                     .clone();
                 self.display_file(&logoff_script)?;
             }
+            */
             self.display_text(
-                THANKSFORCALLING,
+                IceText::ThanksForCalling,
                 display_flags::LFBEFORE | display_flags::NEWLINE,
             )?;
         }
@@ -874,7 +928,7 @@ impl IcyBoardState {
 
     pub fn more_promt(&mut self) -> Res<bool> {
         let result = self.input_field(
-            text_messages::MOREPROMPT,
+            IceText::MorePrompt,
             12,
             "YyNn",
             display_flags::YESNO
@@ -886,7 +940,7 @@ impl IcyBoardState {
     }
 
     pub fn press_enter(&mut self) -> Res<()> {
-        self.input_field(text_messages::PRESSENTER, 0, "", display_flags::ERASELINE)?;
+        self.input_field(IceText::PressEnter, 0, "", display_flags::ERASELINE)?;
         Ok(())
     }
 

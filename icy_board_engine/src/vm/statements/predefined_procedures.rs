@@ -6,7 +6,10 @@ use icy_ppe::{
     Res,
 };
 
-use crate::vm::{TerminalTarget, VMError, VirtualMachine};
+use crate::{
+    icy_board::icb_text::IceText,
+    vm::{TerminalTarget, VMError, VirtualMachine},
+};
 
 use super::super::errors::IcyError;
 
@@ -74,12 +77,7 @@ pub fn fcreate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(file.as_str());
+    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
     vm.io.fcreate(channel, &file, am, sm);
     Ok(())
 }
@@ -89,12 +87,7 @@ pub fn fopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(file.as_str());
+    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
     vm.io.fopen(channel, &file, am, sm)?;
     Ok(())
 }
@@ -104,12 +97,7 @@ pub fn fappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(file.as_str());
+    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
     vm.io.fappend(channel, &file, am, sm);
     Ok(())
 }
@@ -211,12 +199,7 @@ pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn delete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = &vm.eval_expr(&args[0])?.as_string();
-    let file = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(file.as_str());
+    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
     if let Err(err) = vm.io.delete(&file) {
         log::error!("Error deleting file: {}", err);
     }
@@ -435,7 +418,9 @@ pub fn shell(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn disptext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let rec = vm.eval_expr(&args[0])?.as_int();
     let flags = vm.eval_expr(&args[1])?.as_int();
-    vm.icy_board_state.display_text(rec as usize, flags)
+
+    vm.icy_board_state
+        .display_text(IceText::from(rec as usize), flags)
 }
 
 pub fn stop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -504,7 +489,7 @@ pub fn kbdfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         .board
         .lock()
         .unwrap()
-        .resolve_file(file_name.as_str());
+        .resolve_file(&file_name);
     let contents = fs::read_to_string(file_name)?;
     vm.icy_board_state.put_keyboard_buffer(&contents)?;
 
@@ -729,18 +714,8 @@ pub fn mprintln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn rename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let old = &vm.eval_expr(&args[0])?.as_string();
     let new = &vm.eval_expr(&args[1])?.as_string();
-    let old = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(old.as_str());
-    let new = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(new.as_str());
+    let old = vm.icy_board_state.board.lock().unwrap().resolve_file(&old);
+    let new = vm.icy_board_state.board.lock().unwrap().resolve_file(&new);
 
     if let Err(err) = vm.io.rename(&old, &new) {
         log::error!("Error renaming file: {}", err);

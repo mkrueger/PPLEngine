@@ -16,7 +16,6 @@ use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -402,11 +401,6 @@ struct InlayHintParams {
     path: String,
 }
 
-enum CustomNotification {}
-impl Notification for CustomNotification {
-    type Params = InlayHintParams;
-    const METHOD: &'static str = "custom/notification";
-}
 struct TextDocumentItem {
     uri: Url,
     text: String,

@@ -29,4 +29,19 @@ pub enum IcyError {
 
     #[error("Sort dest array should be int, was {0}.")]
     SortDestinationArrayIntRequired(VariableType),
+
+    #[error("Error loading file ({0}): {1}")]
+    ErrorLoadingFile(String, String),
+
+    #[error("File not found ({0})")]
+    FileNotFound(String),
+
+    #[error("Invalid MNU file ({0}) : {1}")]
+    InvalidMNU(String, String),
+
+    #[error("Error generating TOML ({0}) : {1}")]
+    ErrorGeneratingToml(String, String),
+
+    #[error("Error parsing config ({0}) : {1}")]
+    ErrorParsingConfig(String, String),
 }

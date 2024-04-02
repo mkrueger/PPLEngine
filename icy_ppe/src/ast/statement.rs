@@ -1079,11 +1079,10 @@ impl ForStatement {
     ///
     /// Panics if .
     pub fn get_next_identifier(&self) -> Option<&unicase::Ascii<String>> {
-        let Some(ni) = &self.next_identifier_token else {
-            return None;
-        };
-        if let Token::Identifier(id) = &ni.token {
-            return Some(id);
+        if let Some(ni) = &self.next_identifier_token {
+            if let Token::Identifier(id) = &ni.token {
+                return Some(id);
+            }
         }
         None
     }

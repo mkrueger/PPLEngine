@@ -1,8 +1,15 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
+use icy_engine::IceMode;
 use icy_ppe::Res;
 
-use crate::vm::TerminalTarget;
+use crate::{
+    icy_board::icb_text::{IcbTextStyle, IceText},
+    vm::TerminalTarget,
+};
 
 use super::IcyBoardState;
 
@@ -40,19 +47,28 @@ pub mod pcb_colors {
 const TXT_STOPCHAR: char = '_';
 
 impl IcyBoardState {
-    pub fn display_text(&mut self, message_number: usize, display_flags: i32) -> Res<()> {
+    pub fn display_text(&mut self, message_number: IceText, display_flags: i32) -> Res<()> {
         let txt_entry = self
             .board
             .lock()
             .unwrap()
             .display_text
             .get_display_text(message_number)?;
-        self.display_string(&txt_entry.text, txt_entry.color, display_flags)
+        let color = if txt_entry.style == IcbTextStyle::Plain {
+            self.caret.get_attribute().as_u8(IceMode::Blink)
+        } else {
+            txt_entry.style.to_color()
+        };
+        self.display_string(&txt_entry.text, color, display_flags)
     }
 
     pub fn display_string(&mut self, txt: &str, color: u8, display_flags: i32) -> Res<()> {
         if display_flags & display_flags::NOTBLANK != 0 && txt.is_empty() {
             return Ok(());
+        }
+
+        if display_flags & display_flags::LOGIT != 0 {
+            log::info!("{}", txt);
         }
 
         let old_color = self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink);
@@ -94,8 +110,8 @@ impl IcyBoardState {
                     }
                     let splitted_cmd: Vec<&str> = script.split(' ').collect();
                     if !splitted_cmd.is_empty() {
-                        let ppe = splitted_cmd[0];
-                        let file = self.board.lock().unwrap().resolve_file(ppe);
+                        let ppe = PathBuf::from(splitted_cmd[0]);
+                        let file = self.board.lock().unwrap().resolve_file(&ppe);
                         self.run_ppe(&file, &splitted_cmd[1..])?;
                     }
                 }
@@ -124,21 +140,21 @@ impl IcyBoardState {
         Ok(())
     }
 
-    pub fn display_menu(&mut self, file_name: &str) -> Res<bool> {
+    pub fn display_menu<P: AsRef<Path>>(&mut self, file_name: &P) -> Res<bool> {
         let resolved_name_ppe = self
             .board
             .lock()
             .unwrap()
-            .resolve_file(&(file_name.to_string() + ".PPE"));
+            .resolve_file(&(file_name.as_ref().with_extension("PPE")));
         let path = PathBuf::from(resolved_name_ppe);
         if path.exists() {
             self.run_ppe(&path, &[])?;
             return Ok(true);
         }
-        self.display_file(file_name)
+        self.display_file(&file_name)
     }
 
-    pub fn display_file(&mut self, file_name: &str) -> Res<bool> {
+    pub fn display_file<P: AsRef<Path>>(&mut self, file_name: &P) -> Res<bool> {
         let resolved_name = self.board.lock().unwrap().resolve_file(file_name);
 
         let Ok(content) = fs::read(resolved_name) else {
@@ -146,7 +162,7 @@ impl IcyBoardState {
             self.set_color(pcb_colors::RED)?;
             self.print(
                 TerminalTarget::Both,
-                &format!("\r\n({}) is missing!\r\n\r\n", file_name),
+                &format!("\r\n({}) is missing!\r\n\r\n", file_name.as_ref().display()),
             )?;
             return Ok(true);
         };
@@ -171,7 +187,7 @@ impl IcyBoardState {
 
     pub fn input_field(
         &mut self,
-        message_number: usize,
+        message_number: IceText,
         len: i32,
         valid: &str,
         display_flags: i32,
@@ -184,7 +200,7 @@ impl IcyBoardState {
             .get_display_text(message_number)?;
 
         self.input_string(
-            txt_entry.color as i32,
+            txt_entry.style as i32,
             txt_entry.text,
             len,
             valid,

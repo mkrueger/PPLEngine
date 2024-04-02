@@ -174,7 +174,6 @@ pub fn decode_rle(src: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypt::{decode_rle, encode_rle};
 
     #[test]
     #[allow(clippy::clone_on_copy)]

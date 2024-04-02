@@ -1,23 +1,38 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use icy_ppe::Res;
 use qfile::{QFilePath, QTraitSync};
+use relative_path::RelativePath;
 use thiserror::Error;
 
+use crate::vm::errors::IcyError;
+
 use self::{
-    conferences::ConferenceHeader, data::IcyBoardData, text_messages::DisplayText,
-    user_inf::UserInf, users::UserRecord,
+    commands::CommandList, conferences::ConferenceBase, icb_config::IcbConfig,
+    icb_text::IcbTextFile, language::SupportedLanguages, sec_levels::SecurityLevelDefinitions,
+    user_base::UserBase, xfer_protocols::SupportedProtocols,
 };
 
-pub mod bullettins;
+pub mod bulletins;
+pub mod commands;
 pub mod conferences;
-pub mod data;
-pub mod messages;
+pub mod icb_config;
+pub mod icb_text;
+pub mod language;
+pub mod menu;
 pub mod output;
+pub mod pcb;
+pub mod sec_levels;
 pub mod state;
-pub mod text_messages;
-pub mod user_inf;
-pub mod users;
+pub mod user_base;
+pub mod xfer_protocols;
+
+pub use pcb::*;
 
 #[derive(Error, Debug)]
 pub enum IcyBoardError {
@@ -35,36 +50,72 @@ pub enum IcyBoardError {
 
     #[error("Can't read file {0} ({1})")]
     FileError(PathBuf, String),
+
+    #[error("Can't write file {0} ({1})")]
+    ErrorCreatingFile(String, String),
+
+    #[error("Loading file {0} invalid record size ({1}:{2})")]
+    InvalidRecordSize(String, usize, usize),
+
+    #[error("Importing file {0} parsing record error ({1})")]
+    ImportRecordErorr(String, String),
+}
+
+pub struct PcbBoardLayer {}
+
+impl PcbBoardLayer {
+    pub(crate) fn get_sl_path(&self) -> String {
+        todo!()
+    }
+
+    pub(crate) fn get_pcbdat(&self) -> String {
+        todo!()
+    }
 }
 
 pub struct IcyBoard {
-    pub file_name: String,
-    pub users: Vec<User>,
-    pub data: IcyBoardData,
-    pub conferences: Vec<ConferenceHeader>,
-    pub display_text: DisplayText,
+    pub file_name: PathBuf,
+    pub users: UserBase,
+    pub config: IcbConfig,
+    pub conferences: ConferenceBase,
+    pub display_text: IcbTextFile,
 
+    // TODO: proper board statistics.
+    pub num_callers: usize,
+
+    pub pcb: PcbBoardLayer,
+    pub languages: SupportedLanguages,
+    pub protocols: SupportedProtocols,
+    pub sec_levels: SecurityLevelDefinitions,
+    pub commands: CommandList,
     paths: HashMap<String, String>,
 }
 
 impl IcyBoard {
     pub fn new() -> Self {
-        let users = Vec::new();
-        let conferences = Vec::new();
-        let data = IcyBoardData::default();
-        let display_text = DisplayText::default();
-        let paths = HashMap::new();
+        let display_text = IcbTextFile::default();
+
         IcyBoard {
-            file_name: String::new(),
-            users,
-            data,
-            conferences,
             display_text,
-            paths,
+            file_name: PathBuf::new(),
+            users: UserBase::default(),
+            config: IcbConfig::new(),
+            conferences: ConferenceBase::default(),
+            pcb: PcbBoardLayer {},
+            num_callers: 0,
+            paths: HashMap::new(),
+            languages: SupportedLanguages::default(),
+            protocols: SupportedProtocols::default(),
+            sec_levels: SecurityLevelDefinitions::default(),
+            commands: CommandList::default(),
         }
     }
-    pub fn resolve_file(&self, file: &str) -> String {
+
+    pub fn resolve_file<P: AsRef<Path>>(&self, file: &P) -> String {
         let mut s: String = file
+            .as_ref()
+            .to_string_lossy()
+            .to_string()
             .chars()
             .map(|x| match x {
                 '\\' => '/',
@@ -80,71 +131,72 @@ impl IcyBoard {
 
         if let Ok(mut file_path) = QFilePath::add_path(s.clone()) {
             if let Ok(file) = file_path.get_path_buf() {
+                if !file.exists() {
+                    log::warn!("File not found: {}", file.to_string_lossy());
+                }
                 return file.to_string_lossy().to_string();
             }
         }
         s
     }
 
-    pub fn load(file: &str) -> Res<IcyBoard> {
-        let data = IcyBoardData::deserialize(file)?;
-        let users = Vec::new();
-        let conferences = Vec::new();
-        let mut paths = HashMap::new();
+    pub fn load<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        let config = IcbConfig::load(path)?;
 
-        let file_path = PathBuf::from(file);
-        let mut help = data.path.help_loc.clone();
-        if help.ends_with('\\') {
-            help.pop();
-        }
+        let parent_path = path.as_ref().parent().unwrap();
+        let users = UserBase::load(
+            &RelativePath::from_path(&config.paths.user_base)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
+        let conferences = ConferenceBase::load(
+            &RelativePath::from_path(&config.paths.conferences)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
+        let display_text = IcbTextFile::load(
+            &RelativePath::from_path(&config.paths.icbtxt)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
+        let languages = SupportedLanguages::load(
+            &RelativePath::from_path(&config.paths.language_file)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
 
-        help = help.replace('\\', "/");
+        let protocols = SupportedProtocols::load(
+            &RelativePath::from_path(&config.paths.protocol_data_file)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
 
-        let help_loc = PathBuf::from(&help);
-        let mut path = file_path.parent().unwrap().to_path_buf();
-        path.push(help_loc.file_name().unwrap());
-        if !path.exists() {
-            return Err(Box::new(IcyBoardError::Error(
-                "Can't resolve C: file".to_string(),
-            )));
-        }
+        let sec_levels = SecurityLevelDefinitions::load(
+            &RelativePath::from_path(&config.paths.security_level_file)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
 
-        //let len = to_str().unwrap().len();
-        let k = help_loc.parent().unwrap().to_str().unwrap().to_string();
-        let v = file_path
-            .parent()
-            .unwrap()
-            .to_path_buf()
-            .to_str()
-            .unwrap()
-            .to_string();
-        paths.insert(k, v);
-        let mut res = IcyBoard {
-            file_name: file.to_string(),
+        let commands = CommandList::import_pcboard(
+            &RelativePath::from_path(&config.paths.command_file)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
+
+        Ok(IcyBoard {
+            file_name: path.as_ref().to_path_buf(),
+            num_callers: 0,
             users,
-            data,
+            config,
             conferences,
-            display_text: DisplayText::default(),
-            paths,
-        };
-
-        let r = res.resolve_file(&res.data.path.usr_file);
-        let users = UserRecord::read_users(&PathBuf::from(&r))?;
-
-        let r = res.resolve_file(&res.data.path.inf_file);
-        let user_inf = UserInf::read_users(&PathBuf::from(&r))?;
-        for user in users {
-            let inf = user_inf[user.rec_num - 1].clone();
-            res.users.push(User { user, inf });
-        }
-
-        let r = res.resolve_file(&res.data.path.conference_file);
-        let max_conferences = res.data.num_conf as usize;
-        let conferences = ConferenceHeader::load(&r, max_conferences)?;
-        res.conferences = conferences;
-        let txt = fs::read(res.resolve_file(&res.data.path.text_loc) + "/PCBTEXT")?;
-        res.display_text = DisplayText::parse_file(&txt)?;
-        Ok(res)
+            display_text,
+            languages,
+            protocols,
+            sec_levels,
+            commands,
+            paths: HashMap::new(),
+            pcb: PcbBoardLayer {},
+        })
     }
 }
 
@@ -154,25 +206,212 @@ impl Default for IcyBoard {
     }
 }
 
-#[derive(Clone)]
-pub struct User {
-    pub user: UserRecord,
-    pub inf: UserInf,
+pub fn is_false(b: impl std::borrow::Borrow<bool>) -> bool {
+    !b.borrow()
 }
 
-impl User {
-    pub fn get_first_name(&self) -> String {
-        if let Some(idx) = self.user.name.find(' ') {
-            self.user.name[..idx].to_string()
-        } else {
-            self.user.name.clone()
+pub fn is_true(b: impl std::borrow::Borrow<bool>) -> bool {
+    *b.borrow()
+}
+
+pub fn path_is_empty(b: impl std::borrow::Borrow<PathBuf>) -> bool {
+    (*b.borrow()).as_os_str().is_empty()
+}
+
+pub fn set_true() -> bool {
+    true
+}
+
+pub fn is_null_8(b: impl std::borrow::Borrow<u8>) -> bool {
+    *b.borrow() == 0
+}
+
+pub fn is_null_64(b: impl std::borrow::Borrow<u64>) -> bool {
+    *b.borrow() == 0
+}
+pub fn is_null_32(b: impl std::borrow::Borrow<u32>) -> bool {
+    *b.borrow() == 0
+}
+
+pub fn is_null_16(b: impl std::borrow::Borrow<u16>) -> bool {
+    *b.borrow() == 0
+}
+
+pub fn is_null_i32(b: impl std::borrow::Borrow<i32>) -> bool {
+    *b.borrow() == 0
+}
+
+const UTF8_BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
+
+pub fn read_cp437<P: AsRef<Path>>(path: &P) -> Res<String> {
+    match fs::read(path) {
+        Ok(data) => {
+            let import = if data.starts_with(&UTF8_BOM) {
+                String::from_utf8(data)?
+            } else {
+                icy_ppe::tables::import_cp437_string(&data, false)
+            };
+            Ok(import)
+        }
+        Err(e) => Err(IcyBoardError::FileError(path.as_ref().to_path_buf(), e.to_string()).into()),
+    }
+}
+
+pub fn write_with_bom<P: AsRef<Path>>(path: &P, buf: &str) -> Res<()> {
+    match fs::File::create(path) {
+        Ok(mut file) => {
+            file.write_all(&UTF8_BOM)?;
+            file.write_all(buf.as_bytes())?;
+        }
+        Err(e) => {
+            return Err(IcyBoardError::ErrorCreatingFile(
+                path.as_ref().to_string_lossy().to_string(),
+                e.to_string(),
+            )
+            .into())
         }
     }
-    pub fn get_last_name(&self) -> String {
-        if let Some(idx) = self.user.name.find(' ') {
-            self.user.name[idx + 1..].to_string()
-        } else {
-            String::new()
+    Ok(())
+}
+
+pub fn convert_to_utf8<P: AsRef<Path>, Q: AsRef<Path>>(from: &P, to: &Q) -> Res<()> {
+    let import = read_cp437(from)?;
+    write_with_bom(to, &import)?;
+    Ok(())
+}
+
+
+pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serialize {
+    const FILE_TYPE: &'static str;
+
+    fn load<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        match fs::read_to_string(path) {
+            Ok(txt) => {
+                match toml::from_str(&txt) {
+                    Ok(result) => {
+                        Ok(result)
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "Loading {} toml file '{}': {}",
+                            Self::FILE_TYPE,
+                            path.as_ref().display(),
+                            e
+                        );
+                        Err(IcyError::ErrorParsingConfig(
+                            path.as_ref().to_string_lossy().to_string(),
+                            e.to_string(),
+                        )
+                        .into())
+                    }
+                }
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(IcyError::FileNotFound(path.as_ref().to_string_lossy().to_string()).into())
+                } else {
+                    log::error!(
+                        "Loading {} file '{}': {}",
+                        Self::FILE_TYPE,
+                        path.as_ref().display(),
+                        e
+                    );
+                    Err(IcyError::ErrorLoadingFile(
+                        path.as_ref().to_string_lossy().to_string(),
+                        e.to_string(),
+                    )
+                    .into())
+                }
+            }
+        }
+    }
+
+    fn save<P: AsRef<Path>>(&self, path: &P) -> Res<()> {
+        match toml::to_string(self) {
+            Ok(txt) => {
+                match fs::write(path, txt) { 
+                    Ok(_) => {
+                        Ok(())
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "Error writing {} file '{}': {}",
+                            Self::FILE_TYPE,
+                            path.as_ref().display(),
+                            e
+                        );
+                        Err(IcyError::ErrorGeneratingToml(
+                            path.as_ref().to_string_lossy().to_string(),
+                            e.to_string(),
+                        )
+                        .into())
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!(
+                    "Error generating {} toml file '{}': {}",
+                    Self::FILE_TYPE,
+                    path.as_ref().display(),
+                    e
+                );
+                Err(IcyError::ErrorGeneratingToml(
+                    path.as_ref().to_string_lossy().to_string(),
+                    e.to_string(),
+                )
+                .into())
+            }
+        }
+    }
+    
+}
+
+
+pub trait IcyBoardBinaryImporter<T>: Default {
+    const RECORD_SIZE: usize;
+    
+    fn push(&mut self, value: T);
+
+    fn load_pcboard_record(record: &[u8]) -> Res<T>;
+
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        let mut res = Self::default();
+        match &std::fs::read(path) {
+            Ok(data) => {
+                let mut data = &data[..];
+                while !data.is_empty() {
+                    if data.len() < Self::RECORD_SIZE {
+                        log::error!(
+                            "Importing file '{}' from pcboard binary file ended prematurely",
+                            path.as_ref().display(),
+                        );
+                        return Err(IcyBoardError::InvalidRecordSize(path.as_ref().display().to_string(), Self::RECORD_SIZE, data.len()).into());
+                    }
+                    match Self::load_pcboard_record(&data[..Self::RECORD_SIZE]) {
+                        Ok(value) => {
+                            res.push(value);
+                        },
+                        Err(e) => {
+                            return Err(IcyBoardError::ImportRecordErorr(path.as_ref().display().to_string(), e.to_string()).into());
+                        }
+                    }
+                    
+                    data = &data[Self::RECORD_SIZE..];
+                }
+                Ok(res)
+            }
+            Err(err) => {
+                log::error!(
+                    "Importing file '{}' from pcboard binary file: {}",
+                    path.as_ref().display(),
+                    err
+                );
+                Err(IcyError::ErrorLoadingFile(
+                    path.as_ref().to_string_lossy().to_string(),
+                    err.to_string(),
+                )
+                .into())
+            }
         }
     }
 }

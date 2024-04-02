@@ -12,8 +12,6 @@ use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use crossterm::ExecutableCommand;
 use icy_board_engine::icy_board::state::IcyBoardState;
-use icy_board_engine::icy_board::users::UserRecord;
-use icy_board_engine::icy_board::User;
 use icy_board_engine::vm::run;
 use icy_board_engine::vm::DiskIO;
 use icy_ppe::executable::Executable;
@@ -43,32 +41,32 @@ fn main() {
     let extension = Path::new(&file_name).extension().and_then(OsStr::to_str);
     if extension.is_none() {
         file_name.push_str(".ppe");
-    }
-    let users = vec![
-        User {
-            user: UserRecord {
-                name: "sysop".to_string(),
-                password: "sysop".to_string(),
-                security_level: 110,
-                ..Default::default()
-            },
-            inf: Default::default(),
-        },
-        User {
-            user: UserRecord {
-                name: "guest".to_string(),
-                password: "guest".to_string(),
-                security_level: 10,
-                ..Default::default()
-            },
-            inf: Default::default(),
-        },
-    ];
+    } /*
+      let users = vec![
+          PcbUser {
+              user: PcbUserRecord {
+                  name: "sysop".to_string(),
+                  password: "sysop".to_string(),
+                  security_level: 110,
+                  ..Default::default()
+              },
+              inf: Default::default(),
+          },
+          PcbUser {
+              user: PcbUserRecord {
+                  name: "guest".to_string(),
+                  password: "guest".to_string(),
+                  security_level: 10,
+                  ..Default::default()
+              },
+              inf: Default::default(),
+          },
+      ];*/
 
     let mut icy_board_data = IcyBoardState::default();
     icy_board_data.session.is_sysop = arguments.sysop;
 
-    icy_board_data.board.lock().unwrap().users = users;
+    // icy_board_data.board.lock().unwrap().users = users;
 
     match Executable::read_file(&file_name, false) {
         Ok(exe) => {

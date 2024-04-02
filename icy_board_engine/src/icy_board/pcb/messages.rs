@@ -105,6 +105,35 @@ impl MessageIndex {
     }
 }
 
+pub struct MessageBaseHeader {
+    pub high_msg_num: i32,
+    pub low_msg_num: i32,
+    pub num_active_msgs: i32,
+    pub num_callers: i32,
+    pub lock_status: String,
+}
+
+impl MessageBaseHeader {
+    pub fn deserialize(cursor: &mut Cursor<&Vec<u8>>) -> Res<MessageBaseHeader> {
+        let high_msg_num = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+        let low_msg_num = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+        let num_active_msgs = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+        let num_callers = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+
+        let mut buf = [0; 6];
+        cursor.read_exact(&mut buf)?;
+        let lock_status = convert_str(&buf);
+
+        Ok(Self {
+            high_msg_num,
+            low_msg_num,
+            num_active_msgs,
+            num_callers,
+            lock_status,
+        })
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MessageHeader {
     pub status: u8,
@@ -126,6 +155,7 @@ pub struct MessageHeader {
     pub extended_status: u8,
     pub net_tag: u8,
 }
+
 impl MessageHeader {
     pub fn deserialize(cursor: &mut Cursor<&Vec<u8>>) -> Res<Self> {
         let status = cursor.read_u8()?;

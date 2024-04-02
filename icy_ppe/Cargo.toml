@@ -12,6 +12,8 @@ thiserror = "1.0.57"
 log = "0.4.21"
 unicase = "2.7.0"
 crossterm = "0.27.0"
+toml = "0.8.12"
+serde = "1.0.197"
 
 # interpreter deps
 [dev-dependencies]

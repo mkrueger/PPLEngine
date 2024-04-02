@@ -16,7 +16,7 @@ pub enum VariableType {
     /// 4-byte unsigned integer Range: 0 - 4,294,967,295
     Unsigned = 1,
 
-    /// unsigned integer (2 bytes) PCBoard julian date (count of days since 1/1/1900)
+    /// unsigned integer (2 bytes) `PCBoard` julian date (count of days since 1/1/1900)
     Date = 2,
 
     /// Julian date in earth date format Deals with dates formatted YYMM.DD Range: Same as DATE
@@ -52,7 +52,7 @@ pub enum VariableType {
     Function = 15,
     Procedure = 16,
 
-    /// Signed long integer for julian date. DDATE is for use with DBase date fields.
+    /// Signed long integer for julian date. DDATE is for use with `DBase` date fields.
     /// It holds a long integer for julian dates.
     /// When coerced to string type it is in the format CCYYMMDD or 19940527
     DDate = 17,

@@ -10,24 +10,47 @@ use icy_ppe::{
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct IcyBoardData {
-    /// IcyBoard version
-    pub version: String,
+pub struct PcbSysopInfo {
     /// Sysop Dislay Name
     pub sysop: String,
     /// Sysop local password
     pub password: String,
+    ///  Require Local Password to drop PCBoard to DOS (v15.0)
+    pub require_pwrd_to_exit: bool,
     /// Use sysop real name instead of 'SYSOP'
     pub use_real_name: bool,
     /// Use local graphics
     pub use_local_graphics: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PcbSubscriptionMode {
+    /// run in subscription mode
+    pub is_enabled: bool,
+    /// default days in new subscription period (v14.5)
+    pub subscription_length: i32,
+    /// default expired security level (v14.5)
+    pub default_expired_level: u8,
+    /// days prior to subscription expiration (v14.5)
+    pub warning_days: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PcbBoardData {
+    /// IcyBoard version
+    pub version: String,
+
+    pub sysop_info: PcbSysopInfo,
+
     /// Sysop function security levels
-    pub sysop_security: SysopSecurityLevels,
+    pub sysop_security: PCBSysopSecurityLevels,
     /// paths
     pub path: FileLocations,
 
-    pub colors: ColorConfiguration,
+    pub colors: PCBColorConfiguration,
     pub modem: ModemInformation,
+
+    pub subscription_info: PcbSubscriptionMode,
 
     ///  disable message base scan prompt
     pub disable_scan: bool,
@@ -55,8 +78,7 @@ pub struct IcyBoardData {
     pub include_city: bool,
     ///  eliminate screen snow
     pub eliminate_snow: bool,
-    ///  run in subscription mode
-    pub subscript_mode: bool,
+
     ///  allow ESC codes in messages
     pub allow_esc_codes: bool,
     /// : bool,allow CC: messages
@@ -90,10 +112,6 @@ pub struct IcyBoardData {
     pub allow_shell: bool,
     ///  use Slave Card updating (v14.5)
     pub slaves: bool,
-    ///  default days in new subscription period (v14.5)
-    pub subscription_days: i32,
-    ///  days prior to subscription expiration (v14.5)
-    pub subscript_warning: i32,
     ///  running under a network
     pub network: bool,
     ///  node number of this node
@@ -156,8 +174,6 @@ pub struct IcyBoardData {
     pub use_new_ask_file: bool,
     ///  allow one-name users to log into system (v14.5)
     pub allow_one_name: bool,
-    ///     default expired security level (v14.5)
-    pub def_expired_level: i32,
     /// stop the clock during capture file download (v14.5)
     pub stop_clock_on_cap: bool,
     ///  start time to allow sysop page (v14.5)
@@ -223,8 +239,6 @@ pub struct IcyBoardData {
     ///  ORIGIN information (v15.0)
     pub origin: String,
 
-    ///  Require Local Password to drop PCBoard to DOS (v15.0)
-    pub require_pwrd_to_exit: bool,
     ///  requested size for DOS's environment (v15.0)
     pub env_size: i32,
     ///  Security Level to override low baud limit (v15.0)
@@ -471,7 +485,7 @@ pub struct ModemInformation {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct ColorConfiguration {
+pub struct PCBColorConfiguration {
     ///  color code for default color (v15.0)
     pub default: i32,
     ///  color for DATE line of message header (v15.0)
@@ -489,7 +503,7 @@ pub struct ColorConfiguration {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct SysopSecurityLevels {
+pub struct PCBSysopSecurityLevels {
     pub sysop: i32,
     pub read_all_comments: i32,
     pub read_all_mail: i32,
@@ -514,20 +528,20 @@ pub struct SysopSecurityLevels {
     pub keep_msg: i32,
     pub seeretrcpt: i32,
 
-    pub unused1: i32,
-    pub unused2: i32,
-    pub unused3: i32,
-    pub unused4: i32,
-    pub unused5: i32,
-    pub unused6: i32,
-    pub unused7: i32,
-    pub unused8: i32,
-    pub unused9: i32,
-    pub unused10: i32,
-    pub unused11: i32,
-    pub unused12: i32,
-    pub unused13: i32,
-    pub unused14: i32,
+    pub sec_1_view_caller_log: i32,
+    pub sec_2_view_usr_list: i32,
+    pub sec_3_pack_renumber_msg: i32,
+    pub sec_4_recover_deleted_msg: i32,
+    pub sec_5_list_message_hdr: i32,
+    pub sec_6_view_any_file: i32,
+    pub sec_7_user_maint: i32,
+    pub sec_8_pack_usr_file: i32,
+    pub sec_9_exit_to_dos: i32,
+    pub sec_10_shelled_dos_func: i32,
+    pub sec_11_view_other_nodes: i32,
+    pub sec_12_logoff_alt_node: i32,
+    pub sec_13_drop_alt_node_to_dos: i32,
+    pub sec_14_drop_to_dos: i32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -609,6 +623,7 @@ pub struct FileLocations {
     pub upsec_file: String,
     /// name and location of tcan file
     pub tcan_file: String,
+
     /// name and location of welcome file
     pub welcome_file: String,
     /// name and location of newuser file
@@ -619,6 +634,7 @@ pub struct FileLocations {
     pub warning_file: String,
     /// name and location of expired file
     pub expired_file: String,
+
     /// name and location of USERNET.DAT file
     pub usernet_file: String,
     /// name and location of conference join menu
@@ -628,7 +644,7 @@ pub struct FileLocations {
     /// name and location of non-reg user's answer file
     pub answer_file: String,
     /// name and location of protocol data file
-    pub protecol_data_file: String,
+    pub protocol_data_file: String,
     /// name and location of download summary file
     pub download_file: String,
     /// name and loc of logoff script questionnaire
@@ -728,7 +744,7 @@ pub fn append_hex(writer: &mut Vec<u8>, encoding: Encoding, i: i32) {
     append_line(writer, encoding, &i.to_string());
 }
 
-impl IcyBoardData {
+impl PcbBoardData {
     /// .
     ///
     /// # Errors
@@ -747,30 +763,30 @@ impl IcyBoardData {
         };
 
         let mut ret = Self::default();
-        ret.sysop = read_line(&mut reader, encoding)?;
-        ret.password = read_line(&mut reader, encoding)?;
-        ret.use_real_name = read_bool(&mut reader, encoding)?;
-        ret.use_local_graphics = read_bool(&mut reader, encoding)?;
+        ret.sysop_info.sysop = read_line(&mut reader, encoding)?;
+        ret.sysop_info.password = read_line(&mut reader, encoding)?;
+        ret.sysop_info.use_real_name = read_bool(&mut reader, encoding)?;
+        ret.sysop_info.use_local_graphics = read_bool(&mut reader, encoding)?;
 
         ret.sysop_security.read_all_comments = read_int(&mut reader, encoding)?;
         ret.sysop_security.read_all_mail = read_int(&mut reader, encoding)?;
         ret.sysop_security.sysop = read_int(&mut reader, encoding)?;
         ret.sysop_security.copy_move_messages = read_int(&mut reader, encoding)?;
 
-        ret.sysop_security.unused1 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused2 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused3 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused4 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused5 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused6 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused7 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused8 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused9 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused10 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused11 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused12 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused13 = read_int(&mut reader, encoding)?;
-        ret.sysop_security.unused14 = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_1_view_caller_log = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_2_view_usr_list = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_3_pack_renumber_msg = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_4_recover_deleted_msg = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_5_list_message_hdr = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_6_view_any_file = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_7_user_maint = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_8_pack_usr_file = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_9_exit_to_dos = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_10_shelled_dos_func = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_11_view_other_nodes = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_12_logoff_alt_node = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_13_drop_alt_node_to_dos = read_int(&mut reader, encoding)?;
+        ret.sysop_security.sec_14_drop_to_dos = read_int(&mut reader, encoding)?;
 
         ret.path.help_loc = read_line(&mut reader, encoding)?;
         ret.path.sec_loc = read_line(&mut reader, encoding)?;
@@ -793,7 +809,7 @@ impl IcyBoardData {
         ret.path.conf_menu = read_line(&mut reader, encoding)?;
         ret.path.newreg_file = read_line(&mut reader, encoding)?;
         ret.path.answer_file = read_line(&mut reader, encoding)?;
-        ret.path.protecol_data_file = read_line(&mut reader, encoding)?;
+        ret.path.protocol_data_file = read_line(&mut reader, encoding)?;
         ret.path.download_file = read_line(&mut reader, encoding)?;
         ret.path.logoff_script = read_line(&mut reader, encoding)?;
         ret.path.logoff_answer = read_line(&mut reader, encoding)?;
@@ -831,7 +847,7 @@ impl IcyBoardData {
         ret.exit_to_dos = read_bool(&mut reader, encoding)?;
         ret.include_city = read_bool(&mut reader, encoding)?;
         ret.eliminate_snow = read_bool(&mut reader, encoding)?;
-        ret.subscript_mode = read_bool(&mut reader, encoding)?;
+        ret.subscription_info.is_enabled = read_bool(&mut reader, encoding)?;
         ret.allow_esc_codes = read_bool(&mut reader, encoding)?;
         ret.allow_ccs = read_bool(&mut reader, encoding)?;
         ret.validate_to = read_bool(&mut reader, encoding)?;
@@ -919,7 +935,7 @@ impl IcyBoardData {
         ret.show_settings = read_bool(&mut reader, encoding)?;
         ret.allow_shell = read_bool(&mut reader, encoding)?;
         ret.slaves = read_bool(&mut reader, encoding)?;
-        ret.subscription_days = read_int(&mut reader, encoding)?;
+        ret.subscription_info.subscription_length = read_int(&mut reader, encoding)?;
 
         ret.max_total_msgs = read_int(&mut reader, encoding)?;
         ret.max_conf_msgs = read_int(&mut reader, encoding)?;
@@ -936,9 +952,9 @@ impl IcyBoardData {
         ret.path.inf_file = read_line(&mut reader, encoding)?;
 
         ret.quick_scan = read_bool(&mut reader, encoding)?;
-        ret.subscript_warning = read_int(&mut reader, encoding)?;
+        ret.subscription_info.warning_days = read_int(&mut reader, encoding)?;
         ret.allow_one_name = read_bool(&mut reader, encoding)?;
-        ret.def_expired_level = read_int(&mut reader, encoding)?;
+        ret.subscription_info.default_expired_level = read_int(&mut reader, encoding)? as u8;
 
         ret.user_levels.test = read_int(&mut reader, encoding)?;
         ret.cap_file = read_line(&mut reader, encoding)?;
@@ -997,7 +1013,7 @@ impl IcyBoardData {
         ret.path.event_files = read_line(&mut reader, encoding)?;
 
         ret.path.cmd_lst = read_line(&mut reader, encoding)?;
-        ret.require_pwrd_to_exit = read_bool(&mut reader, encoding)?;
+        ret.sysop_info.require_pwrd_to_exit = read_bool(&mut reader, encoding)?;
 
         ret.sysop_security.sec_15 = read_int(&mut reader, encoding)?;
         ret.sysop_security.use_broadcast_command = read_int(&mut reader, encoding)?;
@@ -1146,30 +1162,62 @@ impl IcyBoardData {
             encoding,
             "*** PCBoard Version 14.5 & 15.0 data file ***",
         );
-        append_line(&mut res, encoding, &self.sysop);
-        append_line(&mut res, encoding, &self.password);
-        append_bool(&mut res, encoding, self.use_real_name);
-        append_bool(&mut res, encoding, self.use_local_graphics);
+        append_line(&mut res, encoding, &self.sysop_info.sysop);
+        append_line(&mut res, encoding, &self.sysop_info.password);
+        append_bool(&mut res, encoding, self.sysop_info.use_real_name);
+        append_bool(&mut res, encoding, self.sysop_info.use_local_graphics);
 
         append_int(&mut res, encoding, self.sysop_security.read_all_comments);
         append_int(&mut res, encoding, self.sysop_security.read_all_mail);
         append_int(&mut res, encoding, self.sysop_security.sysop);
         append_int(&mut res, encoding, self.sysop_security.copy_move_messages);
 
-        append_int(&mut res, encoding, self.sysop_security.unused1);
-        append_int(&mut res, encoding, self.sysop_security.unused2);
-        append_int(&mut res, encoding, self.sysop_security.unused3);
-        append_int(&mut res, encoding, self.sysop_security.unused4);
-        append_int(&mut res, encoding, self.sysop_security.unused5);
-        append_int(&mut res, encoding, self.sysop_security.unused6);
-        append_int(&mut res, encoding, self.sysop_security.unused7);
-        append_int(&mut res, encoding, self.sysop_security.unused8);
-        append_int(&mut res, encoding, self.sysop_security.unused9);
-        append_int(&mut res, encoding, self.sysop_security.unused10);
-        append_int(&mut res, encoding, self.sysop_security.unused11);
-        append_int(&mut res, encoding, self.sysop_security.unused12);
-        append_int(&mut res, encoding, self.sysop_security.unused13);
-        append_int(&mut res, encoding, self.sysop_security.unused14);
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_1_view_caller_log,
+        );
+        append_int(&mut res, encoding, self.sysop_security.sec_2_view_usr_list);
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_3_pack_renumber_msg,
+        );
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_4_recover_deleted_msg,
+        );
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_5_list_message_hdr,
+        );
+        append_int(&mut res, encoding, self.sysop_security.sec_6_view_any_file);
+        append_int(&mut res, encoding, self.sysop_security.sec_7_user_maint);
+        append_int(&mut res, encoding, self.sysop_security.sec_8_pack_usr_file);
+        append_int(&mut res, encoding, self.sysop_security.sec_9_exit_to_dos);
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_10_shelled_dos_func,
+        );
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_11_view_other_nodes,
+        );
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_12_logoff_alt_node,
+        );
+        append_int(
+            &mut res,
+            encoding,
+            self.sysop_security.sec_13_drop_alt_node_to_dos,
+        );
+        append_int(&mut res, encoding, self.sysop_security.sec_14_drop_to_dos);
 
         append_line(&mut res, encoding, &self.path.help_loc);
         append_line(&mut res, encoding, &self.path.sec_loc);
@@ -1192,7 +1240,7 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.path.conf_menu);
         append_line(&mut res, encoding, &self.path.newreg_file);
         append_line(&mut res, encoding, &self.path.answer_file);
-        append_line(&mut res, encoding, &self.path.protecol_data_file);
+        append_line(&mut res, encoding, &self.path.protocol_data_file);
         append_line(&mut res, encoding, &self.path.download_file);
         append_line(&mut res, encoding, &self.path.logoff_script);
         append_line(&mut res, encoding, &self.path.logoff_answer);
@@ -1230,7 +1278,7 @@ impl IcyBoardData {
         append_bool(&mut res, encoding, self.exit_to_dos);
         append_bool(&mut res, encoding, self.include_city);
         append_bool(&mut res, encoding, self.eliminate_snow);
-        append_bool(&mut res, encoding, self.subscript_mode);
+        append_bool(&mut res, encoding, self.subscription_info.is_enabled);
         append_bool(&mut res, encoding, self.allow_esc_codes);
         append_bool(&mut res, encoding, self.allow_ccs);
         append_bool(&mut res, encoding, self.validate_to);
@@ -1316,7 +1364,11 @@ impl IcyBoardData {
         append_bool(&mut res, encoding, self.allow_shell);
 
         append_bool(&mut res, encoding, self.slaves);
-        append_int(&mut res, encoding, self.subscription_days);
+        append_int(
+            &mut res,
+            encoding,
+            self.subscription_info.subscription_length,
+        );
         append_int(&mut res, encoding, self.max_total_msgs);
         append_int(&mut res, encoding, self.max_conf_msgs);
         append_int(&mut res, encoding, self.min_prior_to_event);
@@ -1330,9 +1382,13 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.path.tmp_loc);
         append_line(&mut res, encoding, &self.path.inf_file);
         append_bool(&mut res, encoding, self.quick_scan);
-        append_int(&mut res, encoding, self.subscript_warning);
+        append_int(&mut res, encoding, self.subscription_info.warning_days);
         append_bool(&mut res, encoding, self.allow_one_name);
-        append_int(&mut res, encoding, self.def_expired_level);
+        append_int(
+            &mut res,
+            encoding,
+            self.subscription_info.default_expired_level as i32,
+        );
         append_int(&mut res, encoding, self.user_levels.test);
         append_line(&mut res, encoding, &self.cap_file);
         append_bool(&mut res, encoding, self.test_uploads);
@@ -1386,7 +1442,7 @@ impl IcyBoardData {
         append_line(&mut res, encoding, &self.path.event_files);
 
         append_line(&mut res, encoding, &self.path.cmd_lst);
-        append_bool(&mut res, encoding, self.require_pwrd_to_exit);
+        append_bool(&mut res, encoding, self.sysop_info.require_pwrd_to_exit);
 
         append_int(&mut res, encoding, self.sysop_security.sec_15);
         append_int(

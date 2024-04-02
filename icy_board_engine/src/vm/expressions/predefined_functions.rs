@@ -1,6 +1,5 @@
 #![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 
-use std::borrow::Borrow;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -378,8 +377,7 @@ pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
             .current_user
             .as_ref()
             .unwrap()
-            .user
-            .name
+            .get_name()
             .clone(),
     ))
 }
@@ -561,7 +559,7 @@ pub fn curconf(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue>
 
 pub fn pcbdat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_state.board.lock().unwrap().file_name.clone(),
+        vm.icy_board_state.board.lock().unwrap().pcb.get_pcbdat(),
     ))
 }
 
@@ -581,15 +579,7 @@ pub fn valtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     panic!("TODO")
 }
 pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_int(
-        vm.icy_board_state
-            .board
-            .lock()
-            .unwrap()
-            .borrow()
-            .data
-            .node_num,
-    ))
+    Ok(VariableValue::new_int(vm.icy_board_state.session.node_num))
 }
 
 pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -600,7 +590,7 @@ pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
         .board
         .lock()
         .unwrap()
-        .resolve_file(file_name.as_str());
+        .resolve_file(&file_name);
 
     let file = fs::read(file_name)?;
 
@@ -619,9 +609,9 @@ pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
             .board
             .lock()
             .unwrap()
-            .data
-            .sysop_security
-            .sysop,
+            .config
+            .sysop_security_level
+            .sysop as i32,
     ))
 }
 pub fn onlocal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -943,14 +933,7 @@ pub fn maxnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_state
-            .board
-            .lock()
-            .unwrap()
-            .data
-            .path
-            .sec_loc
-            .clone(),
+        vm.icy_board_state.board.lock().unwrap().pcb.get_sl_path(),
     ))
 }
 pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -959,10 +942,11 @@ pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
             .board
             .lock()
             .unwrap()
-            .data
-            .path
-            .help_loc
-            .clone(),
+            .config
+            .paths
+            .help_path
+            .to_string_lossy()
+            .to_string(),
     ))
 }
 pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -971,10 +955,11 @@ pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
             .board
             .lock()
             .unwrap()
-            .data
-            .path
-            .tmp_loc
-            .clone(),
+            .config
+            .paths
+            .tmp_path
+            .to_string_lossy()
+            .to_string(),
     ))
 }
 pub fn modem(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1006,7 +991,7 @@ pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
         .iter()
         .enumerate()
     {
-        if user.user.name.to_uppercase() == user_name {
+        if user.get_name().to_uppercase() == user_name {
             return Ok(VariableValue::new_int(i as i32));
         }
     }
@@ -1211,7 +1196,7 @@ pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 pub fn hiconfnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_state.board.lock().unwrap().data.num_conf,
+        vm.icy_board_state.board.lock().unwrap().conferences.len() as i32,
     ))
 }
 
@@ -1229,7 +1214,7 @@ pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
             .board
             .lock()
             .unwrap()
-            .resolve_file(param.as_str());
+            .resolve_file(&param);
         let buffer = fs::read(file)?;
         let crc = calc_crc32(&buffer);
         Ok(VariableValue::new_unsigned(crc as u64))

@@ -428,7 +428,7 @@ impl PCBoardIO for MemoryIO {
     fn fopen(&mut self, channel: usize, file: &str, _am: i32, _sm: i32) -> Res<()> {
         let f = file.to_string();
 
-        if self.files.get(&f).is_none() {
+        if !self.files.contains_key(&f) {
             self.channels[channel] = SimulatedFileChannel {
                 file: None,
                 filepos: 0,
@@ -455,14 +455,14 @@ impl PCBoardIO for MemoryIO {
     }
 
     fn rename(&mut self, old: &str, new: &str) -> std::io::Result<()> {
-        if let Some(removed) = self.files.remove(&old.to_string()) {
+        if let Some(removed) = self.files.remove(old) {
             self.files.insert(new.to_string(), removed);
         }
         Ok(())
     }
 
     fn copy(&mut self, from: &str, to: &str) -> std::io::Result<()> {
-        if let Some(removed) = self.files.get(&from.to_string()) {
+        if let Some(removed) = self.files.get(from) {
             self.files.insert(to.to_string(), removed.clone());
         }
         Ok(())

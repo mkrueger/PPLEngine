@@ -1,12 +1,13 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use icy_ppe::{datetime::IcbDate, tables::CP437_TO_UNICODE, Res};
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Cursor, Read},
     path::Path,
 };
 
-use super::IcyBoardError;
+use crate::icy_board::IcyBoardError;
 
 #[derive(Debug)]
 struct UserInfApplication {
@@ -64,7 +65,7 @@ fn convert_str(buf: &[u8]) -> String {
 }
 
 #[derive(Default, Clone, Debug)]
-pub struct UserInf {
+pub struct PcbUserInf {
     pub name: String,
     pub messages_read: usize,
     pub messages_left: usize,
@@ -81,7 +82,7 @@ pub struct UserInf {
     pub bank: Option<BankUserInf>,
 }
 
-impl UserInf {
+impl PcbUserInf {
     const REC_SIZE: usize = 33;
     fn read(data: &[u8]) -> Res<Self> {
         if Self::REC_SIZE != data.len() {
@@ -108,7 +109,7 @@ impl UserInf {
         })
     }
 
-    pub fn read_users(path: &Path) -> Res<Vec<UserInf>> {
+    pub fn read_users(path: &Path) -> Res<Vec<PcbUserInf>> {
         let mut users = Vec::new();
 
         let data = fs::read(path)?;
@@ -130,7 +131,7 @@ impl UserInf {
         let mut record = vec![0; rec_size as usize];
         while cursor.position() + rec_size <= cursor.get_ref().len() as u64 {
             cursor.read_exact(&mut record)?;
-            let mut user = UserInf::read(&record[0..size_of_rec])?;
+            let mut user = PcbUserInf::read(&record[0..size_of_rec])?;
 
             for app in &apps {
                 let data =
@@ -266,7 +267,7 @@ impl AddressUserInf {
 #[derive(Default, Debug, Clone)]
 pub struct PasswordUserInf {
     pub prev_pwd: [String; 3],
-    pub last_change: i32,
+    pub last_change: IcbDate,
     pub times_changed: usize,
     pub expire_date: IcbDate,
 }
@@ -294,7 +295,7 @@ impl PasswordUserInf {
         i += Self::PWD_LEN;
         let pwd3 = convert_str(&data[i..i + Self::PWD_LEN]);
         i += Self::PWD_LEN;
-        let last_change = u16::from_le_bytes([data[i], data[i + 1]]) as i32;
+        let last_change = IcbDate::from_pcboard(u16::from_le_bytes([data[i], data[i + 1]]) as i32);
         i += 2;
         let times_changed = u16::from_le_bytes([data[i], data[i + 1]]) as usize;
         i += 2;
@@ -317,7 +318,7 @@ pub struct CallStatsUserInf {
     pub num_sysop_pages: usize,
     /// Times of group chat
     pub num_group_chats: usize,
-    /// Times of comments to sysom
+    /// Times of comments to sysop
     pub num_comments: usize,
 
     /// Times on at 300
@@ -426,7 +427,7 @@ impl NotesUserInf {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct QwkConfigUserInf {
     pub max_msgs: u16,
     pub max_msgs_per_conf: u16,
@@ -469,7 +470,7 @@ impl QwkConfigUserInf {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct AccountUserInf {
     pub starting_balance: f64,
     pub start_this_session: f64,
@@ -591,7 +592,7 @@ impl PersonalUserInf {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BankInfo {
     pub last_deposite_date: IcbDate,
     pub last_withdraw_date: IcbDate,
@@ -620,7 +621,7 @@ impl BankInfo {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BankUserInf {
     pub time_info: BankInfo,
     pub byte_info: BankInfo,

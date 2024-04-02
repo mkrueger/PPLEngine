@@ -332,9 +332,7 @@ impl Parser {
     }
 
     fn parse_ast_node(&mut self) -> Option<AstNode> {
-        let Some(cur_token) = &self.cur_token else {
-            return None;
-        };
+        let cur_token = self.cur_token.as_ref()?;
         match cur_token.token {
             Token::Eol => {
                 self.next_token();
@@ -479,15 +477,15 @@ lazy_static::lazy_static! {
 
 impl Parser {
     pub fn get_variable_type(&self) -> Option<VariableType> {
-        let Some(token) = &self.cur_token else {
-            return None;
-        };
-
-        if let Token::Identifier(id) = &token.token {
-            if let Some(vt) = TYPE_HASHES.get(id) {
-                return Some(*vt);
+        if let Some(token) = &self.cur_token {
+            if let Token::Identifier(id) = &token.token {
+                if let Some(vt) = TYPE_HASHES.get(id) {
+                    return Some(*vt);
+                }
+                None
+            } else {
+                None
             }
-            None
         } else {
             None
         }
@@ -640,9 +638,7 @@ impl Parser {
             if let Some(var_type) = self.get_variable_type() {
                 let type_token = self.save_spanned_token();
                 self.next_token();
-                let Some(info) = self.parse_var_info() else {
-                    return None;
-                };
+                let info = self.parse_var_info()?;
                 parameters.push(ParameterSpecifier::new(
                     var_token, type_token, var_type, info,
                 ));
@@ -782,9 +778,7 @@ impl Parser {
                     let type_token = self.save_spanned_token();
                     self.next_token();
 
-                    let Some(info) = self.parse_var_info() else {
-                        return None;
-                    };
+                    let info = self.parse_var_info()?;
                     parameters.push(ParameterSpecifier::new(
                         var_token, type_token, var_type, info,
                     ));
@@ -896,9 +890,7 @@ impl Parser {
                     let type_token = self.save_spanned_token();
                     self.next_token();
 
-                    let Some(info) = self.parse_var_info() else {
-                        return None;
-                    };
+                    let info = self.parse_var_info()?;
                     parameters.push(ParameterSpecifier::new(None, type_token, var_type, info));
                 } else {
                     self.report_error(

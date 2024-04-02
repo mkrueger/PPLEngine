@@ -14,15 +14,14 @@ use icy_ppe::Res;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::string::String;
 use thiserror::Error;
 
 pub mod expressions;
 
 pub mod statements;
-use crate::icy_board::data::Node;
+use crate::icy_board::pcboard_data::Node;
 use crate::icy_board::state::IcyBoardState;
-use crate::icy_board::User;
+use crate::icy_board::user_base::User;
 
 use self::expressions::FUNCTION_TABLE;
 pub use self::statements::*;
@@ -181,135 +180,134 @@ pub struct VirtualMachine<'a> {
 
 impl<'a> VirtualMachine<'a> {
     fn set_user_variables(&mut self, cur_user: &User) {
+        self.variable_table.set_value(
+            U_EXPERT,
+            VariableValue::new_bool(cur_user.flags.expert_mode),
+        );
+        self.variable_table.set_value(
+            U_FSE,
+            VariableValue::new_bool(cur_user.flags.use_fsedefault),
+        );
+        self.variable_table.set_value(
+            U_FSEP,
+            VariableValue::new_bool(!cur_user.flags.dont_ask_fse),
+        );
         self.variable_table
-            .set_value(U_EXPERT, VariableValue::new_bool(cur_user.user.expert_mode));
-        self.variable_table
-            .set_value(U_FSE, VariableValue::new_bool(cur_user.user.use_fsedefault));
-        self.variable_table
-            .set_value(U_FSEP, VariableValue::new_bool(!cur_user.user.dont_ask_fse));
-        self.variable_table
-            .set_value(U_CLS, VariableValue::new_bool(cur_user.user.msg_clear));
+            .set_value(U_CLS, VariableValue::new_bool(cur_user.flags.msg_clear));
 
         self.variable_table.set_value(
             U_EXPDATE,
-            VariableValue::new_date(cur_user.user.reg_exp_date.to_pcboard_date()),
+            VariableValue::new_date(cur_user.exp_date.to_pcboard_date()),
         );
 
         self.variable_table.set_value(
             U_SEC,
-            VariableValue::new_int(cur_user.user.security_level as i32),
+            VariableValue::new_int(cur_user.security_level as i32),
         );
         self.variable_table
-            .set_value(U_PAGELEN, VariableValue::new_int(cur_user.user.page_len));
+            .set_value(U_PAGELEN, VariableValue::new_int(cur_user.page_len as i32));
         self.variable_table.set_value(
             U_EXPSEC,
-            VariableValue::new_int(cur_user.user.exp_security_level),
+            VariableValue::new_int(cur_user.exp_security_level as i32),
         );
-        self.variable_table.set_value(
-            U_CITY,
-            VariableValue::new_string(cur_user.user.city.clone()),
-        );
+        self.variable_table
+            .set_value(U_CITY, VariableValue::new_string(cur_user.city.clone()));
         self.variable_table.set_value(
             U_BDPHONE,
-            VariableValue::new_string(cur_user.user.bus_data_phone.clone()),
+            VariableValue::new_string(cur_user.bus_data_phone.clone()),
         );
         self.variable_table.set_value(
             U_HVPHONE,
-            VariableValue::new_string(cur_user.user.home_voice_phone.clone()),
+            VariableValue::new_string(cur_user.home_voice_phone.clone()),
         );
 
         self.variable_table.set_value(
             U_TRANS,
-            VariableValue::new_string(cur_user.user.protocol.to_string()),
+            VariableValue::new_string(cur_user.protocol.to_string()),
         );
         self.variable_table.set_value(
             U_CMNT1,
-            VariableValue::new_string(cur_user.user.user_comment.clone()),
+            VariableValue::new_string(cur_user.user_comment.clone()),
         );
         self.variable_table.set_value(
             U_CMNT2,
-            VariableValue::new_string(cur_user.user.sysop_comment.clone()),
+            VariableValue::new_string(cur_user.sysop_comment.clone()),
         );
         self.variable_table.set_value(
             U_PWD,
-            VariableValue::new_string(cur_user.user.password.clone()),
+            VariableValue::new_string(/*cur_user.password.clone()*/ "".to_string()),
         );
 
         self.variable_table.set_value(
             U_SCROLL,
-            VariableValue::new_bool(cur_user.user.scroll_msg_body),
+            VariableValue::new_bool(cur_user.flags.scroll_msg_body),
         );
         self.variable_table.set_value(
             U_LONGHDR,
-            VariableValue::new_bool(!cur_user.user.short_header),
+            VariableValue::new_bool(!cur_user.flags.short_header),
         );
 
         self.variable_table
-            .set_value(U_DEF79, VariableValue::new_bool(cur_user.user.wide_editor));
-        let alias = if let Some(alias) = &cur_user.inf.alias {
-            alias.alias.clone()
-        } else {
-            String::new()
-        };
-        self.variable_table
-            .set_value(U_ALIAS, VariableValue::new_string(alias));
+            .set_value(U_DEF79, VariableValue::new_bool(cur_user.flags.wide_editor));
+        self.variable_table.set_value(
+            U_ALIAS,
+            VariableValue::new_string(cur_user.alias.to_string()),
+        );
 
-        let verify = if let Some(verify) = &cur_user.inf.verify {
-            verify.verify.clone()
-        } else {
-            String::new()
-        };
-        self.variable_table
-            .set_value(U_VER, VariableValue::new_string(verify));
+        self.variable_table.set_value(
+            U_VER,
+            VariableValue::new_string(cur_user.verify.to_string()),
+        );
 
         self.variable_table
             .get_var_entry_mut(U_ADDR)
             .value
-            .set_array_value(
-                2,
-                0,
-                0,
-                VariableValue::new_string(cur_user.user.city.clone()),
-            );
+            .set_array_value(2, 0, 0, VariableValue::new_string(cur_user.city.clone()));
 
-        if let Some(address) = &cur_user.inf.address {
-            self.variable_table
-                .get_var_entry_mut(U_ADDR)
-                .value
-                .set_array_value(0, 0, 0, VariableValue::new_string(address.street1.clone()));
-            self.variable_table
-                .get_var_entry_mut(U_ADDR)
-                .value
-                .set_array_value(1, 0, 0, VariableValue::new_string(address.street2.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(0, 0, 0, VariableValue::new_string(cur_user.street1.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(1, 0, 0, VariableValue::new_string(cur_user.street2.clone()));
 
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(3, 0, 0, VariableValue::new_string(cur_user.state.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(4, 0, 0, VariableValue::new_string(cur_user.zip.clone()));
+        self.variable_table
+            .get_var_entry_mut(U_ADDR)
+            .value
+            .set_array_value(5, 0, 0, VariableValue::new_string(cur_user.country.clone()));
+        let mut i = 0;
+        for l in cur_user.notes.lines() {
             self.variable_table
-                .get_var_entry_mut(U_ADDR)
+                .get_var_entry_mut(U_NOTES)
                 .value
-                .set_array_value(3, 0, 0, VariableValue::new_string(address.state.clone()));
-            self.variable_table
-                .get_var_entry_mut(U_ADDR)
-                .value
-                .set_array_value(4, 0, 0, VariableValue::new_string(address.zip.clone()));
-            self.variable_table
-                .get_var_entry_mut(U_ADDR)
-                .value
-                .set_array_value(5, 0, 0, VariableValue::new_string(address.country.clone()));
-        }
-
-        if let Some(notes) = &cur_user.inf.notes {
-            for i in 0..5 {
-                self.variable_table
-                    .get_var_entry_mut(U_NOTES)
-                    .value
-                    .set_array_value(i, 0, 0, VariableValue::new_string(notes.notes[i].clone()));
+                .set_array_value(i, 0, 0, VariableValue::new_string(l.to_string()));
+            i += 1;
+            if i > 4 {
+                break;
             }
         }
-        if let Some(pwd) = &cur_user.inf.password {
-            self.variable_table.set_value(
-                U_PWDEXP,
-                VariableValue::new_date(pwd.expire_date.to_pcboard_date()),
-            );
+        while i < 5 {
+            self.variable_table
+                .get_var_entry_mut(U_NOTES)
+                .value
+                .set_array_value(i, 0, 0, VariableValue::new_string(String::new()));
+            i += 1;
         }
+
+        self.variable_table.set_value(
+            U_PWDEXP,
+            VariableValue::new_date(cur_user.password.expire_date.to_pcboard_date()),
+        );
         if self.variable_table.get_version() >= 300 {
             // PCBoard seems not to set this variable ever.
             // U_ACCOUNT
@@ -318,107 +316,96 @@ impl<'a> VirtualMachine<'a> {
         if self.variable_table.get_version() >= 340 {
             self.variable_table.set_value(
                 U_SHORTDESC,
-                VariableValue::new_bool(cur_user.user.short_header),
+                VariableValue::new_bool(cur_user.flags.short_header),
             );
-            if let Some(pers_info) = &cur_user.inf.personal {
-                self.variable_table.set_value(
-                    U_GENDER,
-                    VariableValue::new_string(pers_info.gender.clone()),
-                );
-                self.variable_table.set_value(
-                    U_BIRTHDATE,
-                    VariableValue::new_string(pers_info.birth_date.to_string()),
-                );
-                self.variable_table
-                    .set_value(U_EMAIL, VariableValue::new_string(pers_info.email.clone()));
-                self.variable_table
-                    .set_value(U_WEB, VariableValue::new_string(pers_info.web.clone()));
-            }
+            self.variable_table
+                .set_value(U_GENDER, VariableValue::new_string(cur_user.gender.clone()));
+            self.variable_table.set_value(
+                U_BIRTHDATE,
+                VariableValue::new_string(cur_user.birth_date.to_string()),
+            );
+            self.variable_table
+                .set_value(U_EMAIL, VariableValue::new_string(cur_user.email.clone()));
+            self.variable_table
+                .set_value(U_WEB, VariableValue::new_string(cur_user.web.clone()));
         }
     }
 
     pub fn put_user_variables(&self, cur_user: &mut User) {
-        cur_user.user.expert_mode = self.variable_table.get_value(U_EXPERT).as_bool();
-        cur_user.user.use_fsedefault = self.variable_table.get_value(U_FSE).as_bool();
-        cur_user.user.dont_ask_fse = self.variable_table.get_value(U_FSEP).as_bool();
-        cur_user.user.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
+        cur_user.flags.expert_mode = self.variable_table.get_value(U_EXPERT).as_bool();
+        cur_user.flags.use_fsedefault = self.variable_table.get_value(U_FSE).as_bool();
+        cur_user.flags.dont_ask_fse = self.variable_table.get_value(U_FSEP).as_bool();
+        cur_user.flags.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
 
-        cur_user.user.reg_exp_date =
+        cur_user.exp_date =
             IcbDate::from_pcboard(self.variable_table.get_value(U_EXPDATE).as_int());
-        cur_user.user.security_level = self.variable_table.get_value(U_SEC).as_int() as u8;
-        cur_user.user.page_len = self.variable_table.get_value(U_PAGELEN).as_int();
-        cur_user.user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int();
+        cur_user.security_level = self.variable_table.get_value(U_SEC).as_int() as u8;
+        cur_user.page_len = self.variable_table.get_value(U_PAGELEN).as_int() as u16;
+        cur_user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int() as u8;
 
-        cur_user.user.city = self.variable_table.get_value(U_CITY).as_string();
-        cur_user.user.bus_data_phone = self.variable_table.get_value(U_BDPHONE).as_string();
-        cur_user.user.home_voice_phone = self.variable_table.get_value(U_HVPHONE).as_string();
-        cur_user.user.protocol = self
+        cur_user.city = self.variable_table.get_value(U_CITY).as_string();
+        cur_user.bus_data_phone = self.variable_table.get_value(U_BDPHONE).as_string();
+        cur_user.home_voice_phone = self.variable_table.get_value(U_HVPHONE).as_string();
+        cur_user.protocol = self
             .variable_table
             .get_value(U_TRANS)
             .as_string()
             .chars()
             .next()
             .unwrap_or('Z');
-        cur_user.user.user_comment = self.variable_table.get_value(U_CMNT1).as_string();
-        cur_user.user.sysop_comment = self.variable_table.get_value(U_CMNT2).as_string();
-        cur_user.user.password = self.variable_table.get_value(U_PWD).as_string();
+        cur_user.user_comment = self.variable_table.get_value(U_CMNT1).as_string();
+        cur_user.sysop_comment = self.variable_table.get_value(U_CMNT2).as_string();
+        //cur_user.user.password = self.variable_table.get_value(U_PWD).as_string();
 
-        cur_user.user.scroll_msg_body = self.variable_table.get_value(U_SCROLL).as_bool();
-        cur_user.user.short_header = self.variable_table.get_value(U_LONGHDR).as_bool();
-        cur_user.user.wide_editor = self.variable_table.get_value(U_DEF79).as_bool();
-        if let Some(alias) = &mut cur_user.inf.alias {
-            alias.alias = self.variable_table.get_value(U_ALIAS).as_string();
+        cur_user.flags.scroll_msg_body = self.variable_table.get_value(U_SCROLL).as_bool();
+        cur_user.flags.short_header = self.variable_table.get_value(U_LONGHDR).as_bool();
+        cur_user.flags.wide_editor = self.variable_table.get_value(U_DEF79).as_bool();
+        cur_user.alias = self.variable_table.get_value(U_ALIAS).as_string();
+        cur_user.verify = self.variable_table.get_value(U_VER).as_string();
+        cur_user.street1 = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(0, 0, 0)
+            .as_string();
+        cur_user.street2 = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(1, 0, 0)
+            .as_string();
+        /* TODO?
+        cur_user.city = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(2, 0, 0)
+            .as_string();
+        */
+        cur_user.state = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(3, 0, 0)
+            .as_string();
+        cur_user.zip = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(4, 0, 0)
+            .as_string();
+        cur_user.country = self
+            .variable_table
+            .get_value(U_ADDR)
+            .get_array_value(6, 0, 0)
+            .as_string();
+        cur_user.notes.clear();
+        for i in 0..5 {
+            let v = self
+                .variable_table
+                .get_value(U_NOTES)
+                .get_array_value(i, 0, 0)
+                .as_string();
+            cur_user.notes.push_str(&v);
+            cur_user.notes.push('\n');
         }
-        if let Some(verify) = &mut cur_user.inf.verify {
-            verify.verify = self.variable_table.get_value(U_VER).as_string();
-        }
-        if let Some(address) = &mut cur_user.inf.address {
-            address.street1 = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(0, 0, 0)
-                .as_string();
-            address.street2 = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(1, 0, 0)
-                .as_string();
-            address.city = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(2, 0, 0)
-                .as_string();
-            address.state = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(3, 0, 0)
-                .as_string();
-            address.zip = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(4, 0, 0)
-                .as_string();
-            address.country = self
-                .variable_table
-                .get_value(U_ADDR)
-                .get_array_value(6, 0, 0)
-                .as_string();
-        }
-        if let Some(notes) = &mut cur_user.inf.notes {
-            notes.notes.clear();
-            for i in 0..5 {
-                let v = self
-                    .variable_table
-                    .get_value(U_NOTES)
-                    .get_array_value(i, 0, 0)
-                    .as_string();
-                notes.notes.push(v);
-            }
-        }
-        if let Some(pwd) = &mut cur_user.inf.password {
-            pwd.expire_date =
-                IcbDate::from_pcboard(self.variable_table.get_value(U_PWDEXP).as_int());
-        }
+        cur_user.password.expire_date =
+            IcbDate::from_pcboard(self.variable_table.get_value(U_PWDEXP).as_int());
 
         if self.variable_table.get_version() >= 300 {
             // PCBoard seems not to set this variable ever.
@@ -426,15 +413,13 @@ impl<'a> VirtualMachine<'a> {
         }
 
         if self.variable_table.get_version() >= 340 {
-            cur_user.user.short_header = self.variable_table.get_value(U_SHORTDESC).as_bool();
+            cur_user.flags.short_header = self.variable_table.get_value(U_SHORTDESC).as_bool();
 
-            if let Some(pers_info) = &mut cur_user.inf.personal {
-                pers_info.gender = self.variable_table.get_value(U_GENDER).as_string();
-                pers_info.birth_date =
-                    IcbDate::parse(&self.variable_table.get_value(U_BIRTHDATE).as_string());
-                pers_info.email = self.variable_table.get_value(U_EMAIL).as_string();
-                pers_info.web = self.variable_table.get_value(U_WEB).as_string();
-            }
+            cur_user.gender = self.variable_table.get_value(U_GENDER).as_string();
+            cur_user.birth_date =
+                IcbDate::parse(&self.variable_table.get_value(U_BIRTHDATE).as_string());
+            cur_user.email = self.variable_table.get_value(U_EMAIL).as_string();
+            cur_user.web = self.variable_table.get_value(U_WEB).as_string();
         }
     }
 

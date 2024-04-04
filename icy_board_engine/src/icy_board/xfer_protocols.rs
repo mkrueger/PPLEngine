@@ -1,5 +1,5 @@
-use super::{read_cp437, IcyBoardSerializer};
 use super::{is_false, is_true, set_true};
+use super::{read_cp437, IcyBoardSerializer};
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -147,7 +147,6 @@ impl SupportedProtocols {
         Ok(res)
     }
 }
-
 
 impl IcyBoardSerializer for SupportedProtocols {
     const FILE_TYPE: &'static str = "protocols";

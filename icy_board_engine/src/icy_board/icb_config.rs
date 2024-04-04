@@ -4,8 +4,9 @@ use icy_engine::Color;
 use icy_ppe::datetime::IcbTime;
 use serde::{Deserialize, Serialize};
 
-
-use super::{is_false, is_null_16, is_null_8, is_null_i32, user_base::Password, IcyBoardSerializer};
+use super::{
+    is_false, is_null_16, is_null_8, is_null_i32, user_base::Password, IcyBoardSerializer,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct SysopSecurityLevels {
@@ -199,6 +200,9 @@ pub struct ConfigPaths {
     /// name and location of command file
     pub command_file: PathBuf,
 
+    /// name and location of command file
+    pub statistics_file: PathBuf,
+
     /// name and location of multi language definitions
     pub language_file: PathBuf,
 }
@@ -295,10 +299,10 @@ impl IcbConfig {
                 security_level_file: PathBuf::new(),
                 language_file: PathBuf::new(),
                 command_file: PathBuf::new(),
+                statistics_file: PathBuf::new(),
             },
         }
     }
-
 }
 
 impl IcyBoardSerializer for IcbConfig {

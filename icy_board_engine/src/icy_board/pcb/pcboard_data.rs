@@ -546,17 +546,6 @@ pub struct PCBSysopSecurityLevels {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UserSecurityLevels {
-    pub sysop: i32,
-    pub open: i32,
-    pub chat: i32,
-    pub reg: i32,
-    pub non_reg: i32,
-    pub user: i32,
-    pub who: i32,
-    pub batch: i32,
-    pub edit: i32,
-    pub test: i32,
-
     pub cmd_a: i32,
     pub cmd_b: i32,
     pub cmd_c: i32,
@@ -570,6 +559,7 @@ pub struct UserSecurityLevels {
     pub cmd_k: i32,
     pub cmd_l: i32,
     pub cmd_m: i32,
+    pub cmd_n: i32,
     pub cmd_o: i32,
     pub cmd_p: i32,
 
@@ -583,14 +573,16 @@ pub struct UserSecurityLevels {
     pub cmd_x: i32,
     pub cmd_y: i32,
     pub cmd_z: i32,
-    pub cmd_open: i32,
     pub cmd_chat: i32,
-    pub cmd_reg: i32,
-    pub cmd_nonreg: i32,
+    pub cmd_open_door: i32,
+    pub cmd_test_file: i32,
     pub cmd_show_user_list: i32,
     pub cmd_who: i32,
-    pub cmd_batch: i32,
-    pub cmd_edit: i32,
+
+    pub batch_file_transfer: i32,
+    pub edit_own_messages: i32,
+    pub agree_to_register: i32,
+    pub refuse_to_register: i32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -752,7 +744,7 @@ impl PcbBoardData {
     ///
     /// Panics if .
     #[allow(clippy::field_reassign_with_default)]
-    pub fn deserialize(filename: &str) -> Res<Self> {
+    pub fn import_pcboard(filename: &str) -> Res<Self> {
         let mut reader = BufReader::new(File::open(filename)?);
 
         let version = read_line(&mut reader, Encoding::Utf8)?;
@@ -899,6 +891,7 @@ impl PcbBoardData {
         ret.user_levels.cmd_k = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_l = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_m = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_n = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_o = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_p = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_q = read_int(&mut reader, encoding)?;
@@ -911,14 +904,14 @@ impl PcbBoardData {
         ret.user_levels.cmd_x = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_y = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_z = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_open = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_open_door = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_chat = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_reg = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_nonreg = read_int(&mut reader, encoding)?;
+        ret.user_levels.agree_to_register = read_int(&mut reader, encoding)?;
+        ret.user_levels.refuse_to_register = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_show_user_list = read_int(&mut reader, encoding)?;
         ret.user_levels.cmd_who = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_batch = read_int(&mut reader, encoding)?;
-        ret.user_levels.cmd_edit = read_int(&mut reader, encoding)?;
+        ret.user_levels.batch_file_transfer = read_int(&mut reader, encoding)?;
+        //ret.user_levels.cmd_edit = read_int(&mut reader, encoding)?;
 
         ret.path.color_file = read_line(&mut reader, encoding)?;
         ret.modem.low_baud_limit = read_int(&mut reader, encoding)?;
@@ -942,7 +935,7 @@ impl PcbBoardData {
         ret.min_prior_to_event = read_int(&mut reader, encoding)?;
 
         ret.sysop_security.edit_all = read_int(&mut reader, encoding)?;
-        ret.user_levels.edit = read_int(&mut reader, encoding)?;
+        ret.user_levels.edit_own_messages = read_int(&mut reader, encoding)?;
         ret.modem.share_irqs = read_bool(&mut reader, encoding)?;
         ret.scan_all = read_bool(&mut reader, encoding)?;
         ret.sysop_security.read_only = read_int(&mut reader, encoding)?;
@@ -956,7 +949,7 @@ impl PcbBoardData {
         ret.allow_one_name = read_bool(&mut reader, encoding)?;
         ret.subscription_info.default_expired_level = read_int(&mut reader, encoding)? as u8;
 
-        ret.user_levels.test = read_int(&mut reader, encoding)?;
+        ret.user_levels.cmd_test_file = read_int(&mut reader, encoding)?;
         ret.cap_file = read_line(&mut reader, encoding)?;
         ret.test_uploads = read_bool(&mut reader, encoding)?;
         ret.stop_clock_on_cap = read_bool(&mut reader, encoding)?;
@@ -1327,6 +1320,7 @@ impl PcbBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_k);
         append_int(&mut res, encoding, self.user_levels.cmd_l);
         append_int(&mut res, encoding, self.user_levels.cmd_m);
+        append_int(&mut res, encoding, self.user_levels.cmd_n);
         append_int(&mut res, encoding, self.user_levels.cmd_o);
         append_int(&mut res, encoding, self.user_levels.cmd_p);
         append_int(&mut res, encoding, self.user_levels.cmd_q);
@@ -1339,14 +1333,15 @@ impl PcbBoardData {
         append_int(&mut res, encoding, self.user_levels.cmd_x);
         append_int(&mut res, encoding, self.user_levels.cmd_y);
         append_int(&mut res, encoding, self.user_levels.cmd_z);
-        append_int(&mut res, encoding, self.user_levels.cmd_open);
+
+        append_int(&mut res, encoding, self.user_levels.cmd_open_door);
         append_int(&mut res, encoding, self.user_levels.cmd_chat);
-        append_int(&mut res, encoding, self.user_levels.cmd_reg);
-        append_int(&mut res, encoding, self.user_levels.cmd_nonreg);
+        append_int(&mut res, encoding, self.user_levels.agree_to_register);
+        append_int(&mut res, encoding, self.user_levels.refuse_to_register);
         append_int(&mut res, encoding, self.user_levels.cmd_show_user_list);
         append_int(&mut res, encoding, self.user_levels.cmd_who);
-        append_int(&mut res, encoding, self.user_levels.cmd_batch);
-        append_int(&mut res, encoding, self.user_levels.cmd_edit);
+        append_int(&mut res, encoding, self.user_levels.batch_file_transfer);
+        //append_int(&mut res, encoding, self.user_levels.cmd_edit);
 
         append_line(&mut res, encoding, &self.path.color_file);
         append_int(&mut res, encoding, self.modem.low_baud_limit);
@@ -1373,7 +1368,7 @@ impl PcbBoardData {
         append_int(&mut res, encoding, self.max_conf_msgs);
         append_int(&mut res, encoding, self.min_prior_to_event);
         append_int(&mut res, encoding, self.sysop_security.edit_all);
-        append_int(&mut res, encoding, self.user_levels.edit);
+        append_int(&mut res, encoding, self.user_levels.edit_own_messages);
         append_bool(&mut res, encoding, self.modem.share_irqs);
         append_bool(&mut res, encoding, self.scan_all);
         append_int(&mut res, encoding, self.sysop_security.read_only);
@@ -1389,7 +1384,7 @@ impl PcbBoardData {
             encoding,
             self.subscription_info.default_expired_level as i32,
         );
-        append_int(&mut res, encoding, self.user_levels.test);
+        append_int(&mut res, encoding, self.user_levels.cmd_test_file);
         append_line(&mut res, encoding, &self.cap_file);
         append_bool(&mut res, encoding, self.test_uploads);
         append_bool(&mut res, encoding, self.stop_clock_on_cap);

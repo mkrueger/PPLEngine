@@ -2,6 +2,7 @@
 use std::{
     fs::{self, File},
     io::{BufWriter, Write},
+    ops::{Deref, DerefMut},
     path::Path,
 };
 
@@ -1711,6 +1712,20 @@ impl IcbTextFile {
             entry.serialize_pcb_format(&mut fs)?;
         }
         Ok(())
+    }
+}
+
+impl Deref for IcbTextFile {
+    type Target = Vec<TextEntry>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.entries
+    }
+}
+
+impl DerefMut for IcbTextFile {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.entries
     }
 }
 

@@ -7,7 +7,10 @@ use icy_ppe::datetime::{IcbDate, IcbTime};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    icb_config::PasswordStorageMethod, is_false, is_null_16, is_null_64, user_inf::{AccountUserInf, BankUserInf, QwkConfigUserInf}, IcyBoardSerializer, PcbUser
+    icb_config::PasswordStorageMethod,
+    is_false, is_null_16, is_null_64,
+    user_inf::{AccountUserInf, BankUserInf, QwkConfigUserInf},
+    IcyBoardSerializer, PcbUser,
 };
 
 #[derive(Clone, PartialEq)]

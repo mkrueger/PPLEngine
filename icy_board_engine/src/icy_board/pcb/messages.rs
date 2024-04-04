@@ -115,10 +115,10 @@ pub struct MessageBaseHeader {
 
 impl MessageBaseHeader {
     pub fn deserialize(cursor: &mut Cursor<&Vec<u8>>) -> Res<MessageBaseHeader> {
-        let high_msg_num = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
-        let low_msg_num = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
-        let num_active_msgs = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
-        let num_callers = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+        let high_msg_num = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
+        let low_msg_num = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
+        let num_active_msgs = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
+        let num_callers = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
 
         let mut buf = [0; 6];
         cursor.read_exact(&mut buf)?;
@@ -159,8 +159,8 @@ pub struct MessageHeader {
 impl MessageHeader {
     pub fn deserialize(cursor: &mut Cursor<&Vec<u8>>) -> Res<Self> {
         let status = cursor.read_u8()?;
-        let msg_number = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
-        let ref_number = convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?);
+        let msg_number = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
+        let ref_number = basicreal_to_i32(cursor.read_u32::<LittleEndian>()?);
         let num_blocks = cursor.read_u8()?;
 
         let mut buf = [0; DATE_LEN];
@@ -174,7 +174,7 @@ impl MessageHeader {
         let to_field = convert_str(&buf);
 
         let reply_date =
-            IcbDate::from_pcboard(convert_from_pcb_number(cursor.read_u32::<LittleEndian>()?));
+            IcbDate::from_pcboard(basicreal_to_i32(cursor.read_u32::<LittleEndian>()?));
 
         let mut buf = [0; TIME_LEN];
         cursor.read_exact(&mut buf)?;
@@ -367,19 +367,66 @@ impl ExtendedHeader {
     }
 }
 
-fn convert_from_pcb_number(n: u32) -> i32 {
-    let index = (n >> 24) as u8;
-    if index == 0 || index == 0x80 {
+/// BasicReal is a four byte number in BASIC MKS$ format.
+fn basicreal_to_i32(n: u32) -> i32 {
+    let exponent = (n >> 24) as i16;
+    if exponent == 0 {
         return 0;
     }
+    let is_negative = (n & 0x80_0000) != 0;
 
-    let is_neg = (n & 0x80_0000) != 0;
-    let low_number = (n & 0x7F_FFFF) as i32 | 0x80_0000;
-    let shift = 24 - index.wrapping_sub(0x80);
-    let result = low_number >> shift;
+    let value = (n & 0x7F_FFFF) as i32 | 0x80_0000;
 
-    if is_neg {
-        return -result;
+    let exponent = exponent - 152;
+    let result = if exponent < 0 {
+        value.wrapping_shr((-exponent) as u32)
+    } else {
+        value.wrapping_shl(exponent as u32)
+    };
+
+    if is_negative {
+        -result
+    } else {
+        result
     }
-    result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::icy_board::messages::basicreal_to_i32;
+
+    fn i32_to_basicreal(n: i32) -> u32 {
+        if n == 0 {
+            return 0;
+        }
+        let is_negative = n < 0;
+        let mut value = if is_negative { (-n) as u32 } else { n as u32 };
+
+        let mut exponent = 152u8;
+
+        if value < 0x7F_FFFF {
+            while value & 0x80_0000 == 0 {
+                value <<= 1;
+                exponent = exponent.wrapping_sub(1);
+            }
+        } else {
+            while value & 0xFF00_0000 != 0 {
+                value >>= 1;
+                exponent = exponent.wrapping_add(1);
+            }
+        }
+
+        let mut result = value & 0x7F_FFFF;
+        if is_negative {
+            result |= 0x80_0000;
+        }
+        result | ((exponent as u32) << 24)
+    }
+
+    #[test]
+    fn test_basicreal_conversion() {
+        for i in -1000..1000 {
+            assert_eq!(i, basicreal_to_i32(i32_to_basicreal(i)));
+        }
+    }
 }

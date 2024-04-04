@@ -307,13 +307,7 @@ impl IcyBoardState {
         }
     }
 
-    fn run_ppe<P: AsRef<Path>>(&mut self, file_name: &P, splitted_cmd: &[&str]) -> Res<()> {
-        for sc in splitted_cmd {
-            if !sc.is_empty() {
-                self.session.tokens.push_back(sc.to_string());
-            }
-        }
-
+    fn run_ppe<P: AsRef<Path>>(&mut self, file_name: &P) -> Res<()> {
         match Executable::read_file(&file_name, false) {
             Ok(executable) => {
                 let path = PathBuf::from(file_name.as_ref());

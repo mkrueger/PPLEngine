@@ -15,7 +15,7 @@ use crate::vm::errors::IcyError;
 use self::{
     commands::CommandList, conferences::ConferenceBase, icb_config::IcbConfig,
     icb_text::IcbTextFile, language::SupportedLanguages, sec_levels::SecurityLevelDefinitions,
-    user_base::UserBase, xfer_protocols::SupportedProtocols,
+    statistics::Statistics, user_base::UserBase, xfer_protocols::SupportedProtocols,
 };
 
 pub mod bulletins;
@@ -29,6 +29,7 @@ pub mod output;
 pub mod pcb;
 pub mod sec_levels;
 pub mod state;
+pub mod statistics;
 pub mod user_base;
 pub mod xfer_protocols;
 
@@ -87,6 +88,7 @@ pub struct IcyBoard {
     pub languages: SupportedLanguages,
     pub protocols: SupportedProtocols,
     pub sec_levels: SecurityLevelDefinitions,
+    pub statistics: Statistics,
     pub commands: CommandList,
     paths: HashMap<String, String>,
 }
@@ -108,6 +110,7 @@ impl IcyBoard {
             protocols: SupportedProtocols::default(),
             sec_levels: SecurityLevelDefinitions::default(),
             commands: CommandList::default(),
+            statistics: Statistics::default(),
         }
     }
 
@@ -177,8 +180,14 @@ impl IcyBoard {
                 .to_path(parent_path),
         )?;
 
-        let commands = CommandList::import_pcboard(
+        let commands = CommandList::load(
             &RelativePath::from_path(&config.paths.command_file)
+                .unwrap()
+                .to_path(parent_path),
+        )?;
+
+        let statistics = Statistics::load(
+            &RelativePath::from_path(&config.paths.statistics_file)
                 .unwrap()
                 .to_path(parent_path),
         )?;
@@ -194,6 +203,7 @@ impl IcyBoard {
             protocols,
             sec_levels,
             commands,
+            statistics,
             paths: HashMap::new(),
             pcb: PcbBoardLayer {},
         })
@@ -280,32 +290,27 @@ pub fn convert_to_utf8<P: AsRef<Path>, Q: AsRef<Path>>(from: &P, to: &Q) -> Res<
     Ok(())
 }
 
-
 pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serialize {
     const FILE_TYPE: &'static str;
 
     fn load<P: AsRef<Path>>(path: &P) -> Res<Self> {
         match fs::read_to_string(path) {
-            Ok(txt) => {
-                match toml::from_str(&txt) {
-                    Ok(result) => {
-                        Ok(result)
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "Loading {} toml file '{}': {}",
-                            Self::FILE_TYPE,
-                            path.as_ref().display(),
-                            e
-                        );
-                        Err(IcyError::ErrorParsingConfig(
-                            path.as_ref().to_string_lossy().to_string(),
-                            e.to_string(),
-                        )
-                        .into())
-                    }
+            Ok(txt) => match toml::from_str(&txt) {
+                Ok(result) => Ok(result),
+                Err(e) => {
+                    log::error!(
+                        "Loading {} toml file '{}': {}",
+                        Self::FILE_TYPE,
+                        path.as_ref().display(),
+                        e
+                    );
+                    Err(IcyError::ErrorParsingConfig(
+                        path.as_ref().to_string_lossy().to_string(),
+                        e.to_string(),
+                    )
+                    .into())
                 }
-            }
+            },
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(IcyError::FileNotFound(path.as_ref().to_string_lossy().to_string()).into())
@@ -328,26 +333,22 @@ pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serializ
 
     fn save<P: AsRef<Path>>(&self, path: &P) -> Res<()> {
         match toml::to_string(self) {
-            Ok(txt) => {
-                match fs::write(path, txt) { 
-                    Ok(_) => {
-                        Ok(())
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "Error writing {} file '{}': {}",
-                            Self::FILE_TYPE,
-                            path.as_ref().display(),
-                            e
-                        );
-                        Err(IcyError::ErrorGeneratingToml(
-                            path.as_ref().to_string_lossy().to_string(),
-                            e.to_string(),
-                        )
-                        .into())
-                    }
+            Ok(txt) => match fs::write(path, txt) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!(
+                        "Error writing {} file '{}': {}",
+                        Self::FILE_TYPE,
+                        path.as_ref().display(),
+                        e
+                    );
+                    Err(IcyError::ErrorGeneratingToml(
+                        path.as_ref().to_string_lossy().to_string(),
+                        e.to_string(),
+                    )
+                    .into())
                 }
-            }
+            },
             Err(e) => {
                 log::error!(
                     "Error generating {} toml file '{}': {}",
@@ -363,13 +364,11 @@ pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serializ
             }
         }
     }
-    
 }
 
-
-pub trait IcyBoardBinaryImporter<T>: Default {
+pub trait PCBoardRecordImporter<T>: Default {
     const RECORD_SIZE: usize;
-    
+
     fn push(&mut self, value: T);
 
     fn load_pcboard_record(record: &[u8]) -> Res<T>;
@@ -385,20 +384,67 @@ pub trait IcyBoardBinaryImporter<T>: Default {
                             "Importing file '{}' from pcboard binary file ended prematurely",
                             path.as_ref().display(),
                         );
-                        return Err(IcyBoardError::InvalidRecordSize(path.as_ref().display().to_string(), Self::RECORD_SIZE, data.len()).into());
+                        return Err(IcyBoardError::InvalidRecordSize(
+                            path.as_ref().display().to_string(),
+                            Self::RECORD_SIZE,
+                            data.len(),
+                        )
+                        .into());
                     }
                     match Self::load_pcboard_record(&data[..Self::RECORD_SIZE]) {
                         Ok(value) => {
                             res.push(value);
-                        },
+                        }
                         Err(e) => {
-                            return Err(IcyBoardError::ImportRecordErorr(path.as_ref().display().to_string(), e.to_string()).into());
+                            return Err(IcyBoardError::ImportRecordErorr(
+                                path.as_ref().display().to_string(),
+                                e.to_string(),
+                            )
+                            .into());
                         }
                     }
-                    
+
                     data = &data[Self::RECORD_SIZE..];
                 }
                 Ok(res)
+            }
+            Err(err) => {
+                log::error!(
+                    "Importing file '{}' from pcboard binary file: {}",
+                    path.as_ref().display(),
+                    err
+                );
+                Err(IcyError::ErrorLoadingFile(
+                    path.as_ref().to_string_lossy().to_string(),
+                    err.to_string(),
+                )
+                .into())
+            }
+        }
+    }
+}
+
+pub trait PCBoardImporter: Sized {
+    const SIZE: usize;
+
+    fn import_data(data: &[u8]) -> Res<Self>;
+
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        match &std::fs::read(path) {
+            Ok(data) => {
+                if data.len() < Self::SIZE {
+                    log::error!(
+                        "Importing file '{}' from pcboard binary file ended prematurely",
+                        path.as_ref().display(),
+                    );
+                    return Err(IcyBoardError::InvalidRecordSize(
+                        path.as_ref().display().to_string(),
+                        Self::SIZE,
+                        data.len(),
+                    )
+                    .into());
+                }
+                Self::import_data(data)
             }
             Err(err) => {
                 log::error!(

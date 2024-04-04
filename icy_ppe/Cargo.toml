@@ -14,6 +14,7 @@ unicase = "2.7.0"
 crossterm = "0.27.0"
 toml = "0.8.12"
 serde = "1.0.197"
+chrono = "0.4.37"
 
 # interpreter deps
 [dev-dependencies]

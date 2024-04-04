@@ -157,5 +157,4 @@ impl Menu {
 
 impl IcyBoardSerializer for Menu {
     const FILE_TYPE: &'static str = "menu";
-
 }

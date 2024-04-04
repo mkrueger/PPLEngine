@@ -46,6 +46,59 @@ pub mod pcb_colors {
 }
 const TXT_STOPCHAR: char = '_';
 
+pub enum PPECallType {
+    PPE,
+    Menu,
+    File,
+}
+pub struct PPECall {
+    pub call_type: PPECallType,
+    pub file: String,
+    pub arguments: Vec<String>,
+}
+
+impl PPECall {
+    pub fn try_parse_line(line: &str) -> Option<PPECall> {
+        if line.is_empty() {
+            return None;
+        }
+        let mut iter = line.chars();
+        let first_ch = iter.next().unwrap();
+
+        if first_ch == '!' || first_ch == '%' || first_ch == '$' {
+            let call_type = match first_ch {
+                '!' => PPECallType::PPE,
+                '%' => PPECallType::File,
+                '$' => PPECallType::Menu,
+                _ => unreachable!(),
+            };
+            let mut arguments = Vec::new();
+            let mut arg = String::new();
+
+            for ch in iter {
+                if ch == ' ' || ch == '_' {
+                    if !arg.is_empty() {
+                        arguments.push(arg);
+                        arg = String::new();
+                    }
+                    if ch == '_' {
+                        break;
+                    }
+                    continue;
+                }
+                arg.push(ch);
+            }
+            Some(Self {
+                call_type,
+                file: arguments[0].clone(),
+                arguments: arguments[1..].to_vec(),
+            })
+        } else {
+            None
+        }
+    }
+}
+
 impl IcyBoardState {
     pub fn display_text(&mut self, message_number: IceText, display_flags: i32) -> Res<()> {
         let txt_entry = self
@@ -99,42 +152,27 @@ impl IcyBoardState {
 
     fn display_line(&mut self, txt: &str) -> Res<()> {
         if !txt.is_empty() {
-            match txt.chars().next().unwrap() {
-                '!' => {
-                    let mut script = String::new();
-                    for ch in txt.chars().skip(1) {
-                        if ch == '_' {
-                            break;
-                        }
-                        script.push(ch);
+            if let Some(call) = PPECall::try_parse_line(txt) {
+                for sc in call.arguments {
+                    self.session.tokens.push_back(sc.to_string());
+                }
+                match call.call_type {
+                    PPECallType::PPE => {
+                        let file = self.board.lock().unwrap().resolve_file(&call.file);
+                        self.run_ppe(&file)?;
                     }
-                    let splitted_cmd: Vec<&str> = script.split(' ').collect();
-                    if !splitted_cmd.is_empty() {
-                        let ppe = PathBuf::from(splitted_cmd[0]);
-                        let file = self.board.lock().unwrap().resolve_file(&ppe);
-                        self.run_ppe(&file, &splitted_cmd[1..])?;
+                    PPECallType::Menu => {
+                        self.display_menu(&call.file)?;
+                    }
+                    PPECallType::File => {
+                        let file = self.board.lock().unwrap().resolve_file(&call.file);
+                        self.display_file(&file)?;
                     }
                 }
-                '%' => {
-                    let mut file_name = String::new();
-                    for ch in txt.chars().skip(1) {
-                        if ch == '_' {
-                            break;
-                        }
-                        file_name.push(ch);
-                    }
-                    let file = self.board.lock().unwrap().resolve_file(&file_name);
-                    self.display_file(&file)?;
-                    return Ok(());
-                }
-
-                '$' => {
-                    // TODO: Menu ?
-                }
-                _ => {
-                    // display text
-                    self.print(TerminalTarget::Both, txt)?;
-                }
+                return Ok(());
+            } else {
+                // display text
+                self.print(TerminalTarget::Both, txt)?;
             }
         }
         Ok(())
@@ -148,7 +186,7 @@ impl IcyBoardState {
             .resolve_file(&(file_name.as_ref().with_extension("PPE")));
         let path = PathBuf::from(resolved_name_ppe);
         if path.exists() {
-            self.run_ppe(&path, &[])?;
+            self.run_ppe(&path)?;
             return Ok(true);
         }
         self.display_file(&file_name)

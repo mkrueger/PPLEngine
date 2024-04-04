@@ -1,7 +1,7 @@
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
-use super::{is_null_8, IcyBoardBinaryImporter,  IcyBoardSerializer};
+use super::{is_null_8, IcyBoardSerializer, PCBoardRecordImporter};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum CommandType {
@@ -112,11 +112,14 @@ pub enum CommandType {
     /// H command
     Help,
 
-    /// I command
+    /// I command (moved to IW)
     InitialWelcome,
 
     /// J command
     JoinConference,
+
+    /// New "I" command
+    MessageAreas,
 
     /// K command
     KillMessage,
@@ -189,6 +192,19 @@ pub enum CommandType {
 
     /// Execute command in parameters (only global commands)
     GlobalCommand,
+
+    DisplayNews,
+
+    SetLanguage,
+
+    // Like "E" but as reply
+    ReplyMessage,
+
+    // Sysop commands
+    Broadcast,
+
+    // "ALIAS" command
+    EnableAlias,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -216,7 +232,7 @@ pub struct CommandList {
     pub commands: Vec<Command>,
 }
 
-impl IcyBoardBinaryImporter<Command> for CommandList {
+impl PCBoardRecordImporter<Command> for CommandList {
     const RECORD_SIZE: usize = 0x40;
 
     fn push(&mut self, value: Command) {
@@ -246,8 +262,6 @@ impl IcyBoardBinaryImporter<Command> for CommandList {
         })
     }
 }
-
-
 
 impl IcyBoardSerializer for CommandList {
     const FILE_TYPE: &'static str = "commands";

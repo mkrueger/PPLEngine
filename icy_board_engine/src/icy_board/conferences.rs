@@ -5,8 +5,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-
-use super::{commands::Command, is_false, is_null_8, is_null_i32, user_base::Password, IcyBoardSerializer};
+use super::{
+    commands::Command, is_false, is_null_8, is_null_i32, user_base::Password, IcyBoardSerializer,
+};
 
 use super::PcbBoard;
 
@@ -193,8 +194,6 @@ impl IndexMut<usize> for ConferenceBase {
     }
 }
 
-
 impl IcyBoardSerializer for ConferenceBase {
     const FILE_TYPE: &'static str = "conferences";
-
 }

@@ -99,7 +99,7 @@ impl PcbBoard {
     }
 
     pub fn load(file: &str) -> Res<PcbBoard> {
-        let data = PcbBoardData::deserialize(file)?;
+        let data = PcbBoardData::import_pcboard(file)?;
         let users = Vec::new();
         let conferences = Vec::new();
         let mut paths = HashMap::new();

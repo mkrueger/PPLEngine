@@ -1,5 +1,6 @@
 use core::fmt;
 
+use chrono::Datelike;
 use serde::Deserialize;
 use toml::value::{Date, Datetime};
 #[derive(Debug, Clone, PartialEq)]
@@ -82,6 +83,15 @@ impl IcbDate {
         let day = day.max(1).min(31);
 
         Self { month, day, year }
+    }
+
+    pub fn today() -> Self {
+        let now = chrono::Local::now();
+        Self {
+            month: now.month() as u8,
+            day: now.day() as u8,
+            year: now.year() as u16,
+        }
     }
 
     pub fn get_month(&self) -> u8 {

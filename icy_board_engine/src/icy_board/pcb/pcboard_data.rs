@@ -294,8 +294,6 @@ pub struct PcbBoardData {
     pub min_pwrd_len: i32,
     ///  TRUE if handles are allowed in Group Chat (v15.0)
     pub allow_handles: bool,
-    ///  location of command display files (v15.1)
-    pub cmd_loc: String,
     ///  TRUE if forcing INTRO to be displayed (v15.1)
     pub force_intro: bool,
     ///  TRUE to skip protocol selection for new users (v15.1)
@@ -615,6 +613,9 @@ pub struct FileLocations {
     pub upsec_file: String,
     /// name and location of tcan file
     pub tcan_file: String,
+
+    ///  location of command display files (v15.1)
+    pub cmd_display_files_loc: String,
 
     /// name and location of welcome file
     pub welcome_file: String,
@@ -1048,7 +1049,7 @@ impl PcbBoardData {
         ret.min_pwrd_len = read_int(&mut reader, encoding)?;
         ret.allow_handles = read_bool(&mut reader, encoding)?;
 
-        ret.cmd_loc = read_line(&mut reader, encoding)?;
+        ret.path.cmd_display_files_loc = read_line(&mut reader, encoding)?;
         ret.force_intro = read_bool(&mut reader, encoding)?;
         ret.skip_protocol = read_bool(&mut reader, encoding)?;
         ret.skip_alias = read_bool(&mut reader, encoding)?;
@@ -1488,7 +1489,7 @@ impl PcbBoardData {
         append_int(&mut res, encoding, self.min_pwrd_len);
         append_bool(&mut res, encoding, self.allow_handles);
 
-        append_line(&mut res, encoding, &self.cmd_loc);
+        append_line(&mut res, encoding, &self.path.cmd_display_files_loc);
         append_bool(&mut res, encoding, self.force_intro);
         append_bool(&mut res, encoding, self.skip_protocol);
         append_bool(&mut res, encoding, self.skip_alias);

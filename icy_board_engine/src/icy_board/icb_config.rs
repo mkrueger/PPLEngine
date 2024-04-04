@@ -162,6 +162,13 @@ impl serde::Serialize for IcbColor {
 #[derive(Serialize, Deserialize)]
 pub struct ConfigPaths {
     pub help_path: PathBuf,
+
+    /// Shown during login process
+    pub security_file_path: PathBuf,
+
+    /// Command display files are shown to the user before a command is executed
+    /// file name == command name
+    pub command_display_path: PathBuf,
     pub tmp_path: PathBuf,
     pub icbtext: PathBuf,
     pub user_base: PathBuf,
@@ -279,11 +286,13 @@ impl IcbConfig {
                 password_storage_method: PasswordStorageMethod::PlainText,
             },
             paths: ConfigPaths {
-                help_path: PathBuf::from("./help/"),
-                tmp_path: PathBuf::from("./tmp/"),
+                help_path: PathBuf::from("art/help/"),
+                tmp_path: PathBuf::from("tmp/"),
                 icbtext: PathBuf::from("data/icbtext.toml"),
                 user_base: PathBuf::from("data/user_base.toml"),
                 conferences: PathBuf::from("config/conferences.toml"),
+                security_file_path: PathBuf::from("art/secmsgs/"),
+                command_display_path: PathBuf::from("art/cmd_display/"),
 
                 welcome: PathBuf::new(),
                 newuser: PathBuf::new(),

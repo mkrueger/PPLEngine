@@ -163,7 +163,7 @@ impl serde::Serialize for IcbColor {
 pub struct ConfigPaths {
     pub help_path: PathBuf,
     pub tmp_path: PathBuf,
-    pub icbtxt: PathBuf,
+    pub icbtext: PathBuf,
     pub user_base: PathBuf,
     pub conferences: PathBuf,
 
@@ -281,7 +281,7 @@ impl IcbConfig {
             paths: ConfigPaths {
                 help_path: PathBuf::from("./help/"),
                 tmp_path: PathBuf::from("./tmp/"),
-                icbtxt: PathBuf::from("data/icbtext.toml"),
+                icbtext: PathBuf::from("data/icbtext.toml"),
                 user_base: PathBuf::from("data/user_base.toml"),
                 conferences: PathBuf::from("config/conferences.toml"),
 

@@ -158,7 +158,7 @@ impl IcyBoard {
                 .to_path(parent_path),
         )?;
         let display_text = IcbTextFile::load(
-            &RelativePath::from_path(&config.paths.icbtxt)
+            &RelativePath::from_path(&config.paths.icbtext)
                 .unwrap()
                 .to_path(parent_path),
         )?;
@@ -366,7 +366,11 @@ pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serializ
     }
 }
 
-pub trait PCBoardRecordImporter<T>: Default {
+pub trait PCBoardImport: Sized + Default + IcyBoardSerializer {
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self>;
+}
+
+pub trait PCBoardRecordImporter<T>: Sized + Default {
     const RECORD_SIZE: usize;
 
     fn push(&mut self, value: T);
@@ -424,7 +428,7 @@ pub trait PCBoardRecordImporter<T>: Default {
     }
 }
 
-pub trait PCBoardImporter: Sized {
+pub trait PCBoardBinImporter: Sized + Default {
     const SIZE: usize;
 
     fn import_data(data: &[u8]) -> Res<Self>;
@@ -446,6 +450,28 @@ pub trait PCBoardImporter: Sized {
                 }
                 Self::import_data(data)
             }
+            Err(err) => {
+                log::error!(
+                    "Importing file '{}' from pcboard binary file: {}",
+                    path.as_ref().display(),
+                    err
+                );
+                Err(IcyError::ErrorLoadingFile(
+                    path.as_ref().to_string_lossy().to_string(),
+                    err.to_string(),
+                )
+                .into())
+            }
+        }
+    }
+}
+
+pub trait PCBoardTextImport: PCBoardImport {
+    fn import_data(data: String) -> Res<Self>;
+
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        match read_cp437(path) {
+            Ok(data) => Self::import_data(data),
             Err(err) => {
                 log::error!(
                     "Importing file '{}' from pcboard binary file: {}",

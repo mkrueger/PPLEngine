@@ -1,8 +1,10 @@
+use std::path::Path;
+
 use chrono::Local;
 use icy_ppe::{tables::import_cp437_string, Res};
 use serde::{Deserialize, Serialize};
 
-use super::{IcyBoardSerializer, PCBoardImporter};
+use super::{IcyBoardSerializer, PCBoardBinImporter, PCBoardImport};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct UsageStatistics {
@@ -28,7 +30,7 @@ impl IcyBoardSerializer for Statistics {
     const FILE_TYPE: &'static str = "statistics";
 }
 
-impl PCBoardImporter for Statistics {
+impl PCBoardBinImporter for Statistics {
     const SIZE: usize = 100;
 
     fn import_data(data: &[u8]) -> Res<Self> {
@@ -52,5 +54,11 @@ impl PCBoardImporter for Statistics {
         res.total.uploads_kb = total_up as u64;
         res.total.downloads_kb = total_dn as u64;
         Ok(res)
+    }
+}
+
+impl PCBoardImport for Statistics {
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        PCBoardBinImporter::import_pcboard(path)
     }
 }

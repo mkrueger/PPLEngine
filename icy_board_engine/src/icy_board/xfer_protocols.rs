@@ -1,8 +1,9 @@
-use super::{is_false, is_true, set_true};
-use super::{read_cp437, IcyBoardSerializer};
+use std::path::Path;
+
+use super::IcyBoardSerializer;
+use super::{is_false, is_true, set_true, PCBoardImport, PCBoardTextImport};
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 #[derive(Default, Clone)]
 pub enum SendRecvCommand {
@@ -108,10 +109,10 @@ pub struct SupportedProtocols {
     pub protocols: Vec<Protocol>,
 }
 
-impl SupportedProtocols {
-    pub fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+impl PCBoardTextImport for SupportedProtocols {
+    fn import_data(data: String) -> Res<Self> {
         let mut res = SupportedProtocols::default();
-        for line in read_cp437(path)?.lines() {
+        for line in data.lines() {
             if line.is_empty() {
                 continue;
             }
@@ -145,6 +146,12 @@ impl SupportedProtocols {
             });
         }
         Ok(res)
+    }
+}
+
+impl PCBoardImport for SupportedProtocols {
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        PCBoardTextImport::import_pcboard(path)
     }
 }
 

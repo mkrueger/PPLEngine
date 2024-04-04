@@ -1,4 +1,4 @@
-use super::{is_false, is_null_32, is_null_64, is_null_8};
+use super::{is_false, is_null_32, is_null_64, is_null_8, PCBoardImport, PCBoardTextImport};
 use super::{read_cp437, IcyBoardSerializer};
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
@@ -85,10 +85,10 @@ pub struct SecurityLevelDefinitions {
     pub levels: Vec<SecurityLevel>,
 }
 
-impl SecurityLevelDefinitions {
-    pub fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+impl PCBoardTextImport for SecurityLevelDefinitions {
+    fn import_data(data: String) -> Res<Self> {
         let mut res = Self::default();
-        for line in read_cp437(path)?.lines() {
+        for line in data.lines() {
             if line.is_empty() {
                 continue;
             }
@@ -145,6 +145,12 @@ impl SecurityLevelDefinitions {
             });
         }
         Ok(res)
+    }
+}
+
+impl PCBoardImport for SecurityLevelDefinitions {
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        PCBoardTextImport::import_pcboard(path)
     }
 }
 

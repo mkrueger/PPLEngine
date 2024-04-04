@@ -59,10 +59,6 @@ impl Menu {
             )
             .into());
         }
-        for (i, p) in lines.iter().enumerate() {
-            println!("{i}:{}", p)
-        }
-
         res.title = lines[0].to_string();
 
         let splitted_line = lines[1].split(',').collect::<Vec<&str>>();

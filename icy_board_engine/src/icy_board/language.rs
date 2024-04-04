@@ -3,7 +3,7 @@ use std::path::Path;
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
-use super::{read_cp437, IcyBoardSerializer};
+use super::{read_cp437, IcyBoardSerializer, PCBoardImport, PCBoardTextImport};
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Language {
@@ -22,10 +22,10 @@ pub struct SupportedLanguages {
     pub languages: Vec<Language>,
 }
 
-impl SupportedLanguages {
-    pub fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+impl PCBoardTextImport for SupportedLanguages {
+    fn import_data(data: String) -> Res<Self> {
         let mut res = SupportedLanguages::default();
-        for line in read_cp437(path)?.lines() {
+        for line in data.lines() {
             if line.is_empty() {
                 continue;
             }
@@ -53,6 +53,12 @@ impl SupportedLanguages {
             });
         }
         Ok(res)
+    }
+}
+
+impl PCBoardImport for SupportedLanguages {
+    fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
+        PCBoardTextImport::import_pcboard(path)
     }
 }
 

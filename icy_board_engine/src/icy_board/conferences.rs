@@ -71,14 +71,14 @@ pub struct Conference {
 
     /// Sort type for public upload DIR file
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_i32")]
-    pub pub_upload_sort: i32,
+    #[serde(skip_serializing_if = "is_null_8")]
+    pub pub_upload_sort: u8,
     pub pub_upload_dir_file: PathBuf,
     pub pub_upload_location: PathBuf,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_i32")]
-    pub private_upload_sort: i32,
+    #[serde(skip_serializing_if = "is_null_8")]
+    pub private_upload_sort: u8,
     pub private_upload_dir_file: PathBuf,
     pub private_upload_location: PathBuf,
 
@@ -135,7 +135,7 @@ impl ConferenceBase {
                 use_main_commands: true,
                 commands: Vec::new(),
                 password: Password::PlainText(d.password.clone()),
-                required_security: c.required_security as u8,
+                required_security: c.required_security,
                 sec_attachments: d.attach_level,
                 sec_write_message: d.req_level_to_enter,
                 auto_rejoin: c.auto_rejoin,
@@ -150,10 +150,10 @@ impl ConferenceBase {
                 news_file: PathBuf::from(&c.news_file),
                 attachment_location: PathBuf::from(&d.attach_loc),
                 pub_upload_sort: c.pub_upload_sort,
-                pub_upload_dir_file: PathBuf::from(&c.pub_upload_directory),
+                pub_upload_dir_file: PathBuf::from(&c.pub_upload_dirfile),
                 pub_upload_location: PathBuf::from(&c.pub_upload_location),
                 private_upload_sort: c.private_upload_sort,
-                private_upload_dir_file: PathBuf::from(&c.private_upload_directory),
+                private_upload_dir_file: PathBuf::from(&c.private_upload_dirfile),
                 private_upload_location: PathBuf::from(&c.private_upload_location),
                 command_file: PathBuf::from(&d.cmd_lst),
                 intro_file: PathBuf::from(&d.intro),

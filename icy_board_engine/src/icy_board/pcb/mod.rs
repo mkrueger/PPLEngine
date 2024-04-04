@@ -75,6 +75,7 @@ impl PcbBoard {
             paths,
         }
     }
+
     pub fn resolve_file(&self, file: &str) -> String {
         let mut s: String = file
             .chars()

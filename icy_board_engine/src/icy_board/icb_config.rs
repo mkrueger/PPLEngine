@@ -169,9 +169,13 @@ pub struct ConfigPaths {
     /// Command display files are shown to the user before a command is executed
     /// file name == command name
     pub command_display_path: PathBuf,
+
     pub tmp_path: PathBuf,
+
     pub icbtext: PathBuf,
+
     pub user_base: PathBuf,
+
     pub conferences: PathBuf,
 
     /// name and location of welcome file

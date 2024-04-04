@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
+    fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -365,6 +366,21 @@ impl IcyBoardState {
 
     pub fn load_bullettins(&self) -> Res<Vec<Bullettin>> {
         Bullettin::load_file(&self.session.current_conference.blt_file)
+    }
+
+    pub fn get_pcbdat(&self) -> Res<String> {
+        if let Ok(board) = self.board.lock() {
+            let path = board.resolve_file(&board.config.paths.tmp_path);
+            let path = PathBuf::from(path);
+            if !path.is_dir() {
+                fs::create_dir_all(&path)?;
+            }
+            let output = path.join("pcboard.dat");
+            board.export_pcboard(&output)?;
+            Ok(output.to_str().unwrap().to_string())
+        } else {
+            Err("Board is locked".into())
+        }
     }
 }
 

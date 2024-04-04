@@ -21,6 +21,7 @@ use substring::Substring;
 ///
 /// Always
 pub fn invalid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("Invalid function call")
 }
 
@@ -310,10 +311,12 @@ pub fn stripatx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 
 pub fn replacestr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
 pub fn stripstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -364,10 +367,12 @@ pub fn random(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn date(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
 pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -400,61 +405,80 @@ pub fn u_ltime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 
 pub fn u_ldir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_lmr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_logons(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_ful(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_fdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_bdlday(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_timeon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_bdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_bul(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_msgrd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 pub fn u_msgwr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO") // TODO
 }
 
 pub fn year(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn month(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn day(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dow(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn hour(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn min(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn sec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn timeap(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ver(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -558,9 +582,7 @@ pub fn curconf(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue>
 }
 
 pub fn pcbdat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        vm.icy_board_state.board.lock().unwrap().pcb.get_pcbdat(),
-    ))
+    Ok(VariableValue::new_string(vm.icy_board_state.get_pcbdat()?))
 }
 
 pub fn ppepath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -573,9 +595,11 @@ pub fn ppepath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 
 pub fn valdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn valtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -649,6 +673,7 @@ pub fn un_oper(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     }
 }
 pub fn cursec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -660,9 +685,11 @@ pub fn gettoken(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     }
 }
 pub fn minleft(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn minon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn getenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -674,72 +701,95 @@ pub fn getenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     }
 }
 pub fn callid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regah(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regbl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regbh(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regcl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regch(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regdl(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regdh(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regax(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regbx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regcx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regdx(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regsi(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regdi(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regcf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn regds(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn reges(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn b2w(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn peekb(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn peekw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn mkaddr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn exist(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -776,24 +826,31 @@ pub fn carrier(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     Ok(VariableValue::new_int(vm.icy_board_state.get_bps()))
 }
 pub fn tokenstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn cdon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn langext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ansion(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn valcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fmtcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn cctype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -832,18 +889,23 @@ pub fn bnot(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_pwdhist(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn u_pwdlc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn u_pwdtc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn u_stat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn abs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -852,10 +914,12 @@ pub fn abs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn grafmode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
 pub fn psa(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -917,9 +981,11 @@ pub fn ppename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 
 pub fn mkdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn curcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn kinkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -933,7 +999,15 @@ pub fn maxnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 }
 pub fn slpath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_string(
-        vm.icy_board_state.board.lock().unwrap().pcb.get_sl_path(),
+        vm.icy_board_state
+            .board
+            .lock()
+            .unwrap()
+            .config
+            .paths
+            .security_file_path
+            .to_string_lossy()
+            .to_string(),
     ))
 }
 pub fn helppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -963,15 +1037,19 @@ pub fn temppath(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     ))
 }
 pub fn modem(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn loggedon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn callnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn mgetbyte(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn tokcount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -999,21 +1077,26 @@ pub fn u_recnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 
 pub fn u_inconf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn peekdw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(vm.icy_board_state.debug_level))
 }
 pub fn scrtext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn showstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn pagestat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn tobigstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1101,6 +1184,7 @@ pub fn toword(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
         .convert_to(VariableType::Word))
 }
 pub fn mixed(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1116,48 +1200,63 @@ pub fn confreg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     Ok(VariableValue::new_bool(true))
 }
 pub fn confexp(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn confsel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn confsys(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn confmw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn lprinted(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn isnonstop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn errcorrect(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn confalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn useralias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn curuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn chatstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn defans(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn lastans(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn meganum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn evttimeadj(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn isbitset(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1167,28 +1266,36 @@ pub fn isbitset(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     Ok(VariableValue::new_bool(var & (1 << bit) != 0))
 }
 pub fn fmtreal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn flagcnt(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn kbdbufsize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn pplbufsize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn kbdfilusued(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn lomsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn himsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
 pub fn drivespace(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -1196,7 +1303,7 @@ pub fn outbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 pub fn hiconfnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     Ok(VariableValue::new_int(
-        vm.icy_board_state.board.lock().unwrap().conferences.len() as i32,
+        vm.icy_board_state.board.lock().unwrap().conferences.len() as i32 - 1,
     ))
 }
 
@@ -1233,9 +1340,11 @@ fn calc_crc32(buffer: &[u8]) -> u32 {
 }
 
 pub fn pcbmac(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn actmsgnum(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
@@ -1256,234 +1365,310 @@ pub fn stackerr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
 }
 
 pub fn dgetalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dbof(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dchanged(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ddecimals(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ddeleted(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn deof(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn derr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dfields(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dlength(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dname(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dreccount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn drecno(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dtype(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn toddate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dcloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dsetalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dpack(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dlockf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dlockr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dunlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dnopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dnclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dncloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dnew(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dadd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dtop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dgo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dbottom(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dskip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ddelete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn drecall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dtag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dseek(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dfblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dfcopy(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dselect(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn dchkstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 
 pub fn pcbaccount(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn pcbaccstat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn derrmsg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn account(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn scanmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn checkrip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ripver(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn qwklimits(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn findfirst(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn findnext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn uselmrs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn confinfo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn tinkey(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     inkey(vm, args)
 }
 pub fn cwd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn instrr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fdordaka(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fdordorg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fdordarea(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn fdoqrd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn getdrive(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn setdrive(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn bs2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn bd2i(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn i2bs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn i2bd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn ftell(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn os(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn shortdesc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn getbankbal(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn getmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }
 pub fn setmsghdr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
+    log::error!("not implemented function!");
     panic!("TODO")
 }

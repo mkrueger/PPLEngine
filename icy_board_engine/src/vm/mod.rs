@@ -423,9 +423,9 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
-    fn eval_expr(&mut self, expr: &PPEExpr) -> Result<VariableValue, VMError> {
+    fn eval_expr(&mut self, expr: &PPEExpr) -> Res<VariableValue> {
         match expr {
-            PPEExpr::Invalid => Err(VMError::InternalVMError),
+            PPEExpr::Invalid => Err(VMError::InternalVMError.into()),
             PPEExpr::Value(id) => Ok(self.variable_table.get_value(*id).clone()),
             PPEExpr::UnaryExpression(op, expr) => {
                 let val = self.eval_expr(expr)?;
@@ -487,7 +487,8 @@ impl<'a> VirtualMachine<'a> {
                     Err(e) => Err(VMError::ErrorInFunctionCall(
                         func.name.to_string(),
                         e.to_string(),
-                    )),
+                    )
+                    .into()),
                 }
             }
 
@@ -518,18 +519,19 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
-    fn run(&mut self) -> Result<(), VMError> {
+    fn run(&mut self) -> Res<()> {
         let max_ptr = self.script.statements.len();
         while !self.fpclear && self.is_running && self.cur_ptr < max_ptr {
             let p = self.cur_ptr;
             self.cur_ptr += 1;
             let c = self.script.statements[p].command.clone();
+            log::error!("Executing: {:?}", c);
             self.execute_statement(&c)?;
         }
         Ok(())
     }
 
-    fn set_variable(&mut self, variable: &PPEExpr, value: VariableValue) -> Result<(), VMError> {
+    fn set_variable(&mut self, variable: &PPEExpr, value: VariableValue) -> Res<()> {
         match variable {
             PPEExpr::Value(id) => {
                 self.variable_table.set_value(*id, value);
@@ -553,13 +555,13 @@ impl<'a> VirtualMachine<'a> {
                     .set_array_value(dim_1, dim_2, dim_3, value);
             }
             _ => {
-                return Err(VMError::InternalVMError);
+                return Err(VMError::InternalVMError.into());
             }
         }
         Ok(())
     }
 
-    fn execute_statement(&mut self, stmt: &PPECommand) -> Result<(), VMError> {
+    fn execute_statement(&mut self, stmt: &PPECommand) -> Res<()> {
         match stmt {
             PPECommand::End | PPECommand::Stop => {
                 self.is_running = false;
@@ -667,7 +669,7 @@ impl<'a> VirtualMachine<'a> {
             }
 
             PPECommand::PredefinedCall(proc, arguments) => {
-                (STATEMENT_TABLE[proc.opcode as usize])(self, arguments).unwrap();
+                (STATEMENT_TABLE[proc.opcode as usize])(self, arguments)?;
             }
 
             PPECommand::Goto(label) => {
@@ -695,7 +697,7 @@ impl<'a> VirtualMachine<'a> {
         first: usize,
         arguments: &[PPEExpr],
         pass_flags: u16,
-    ) -> Result<(), VMError> {
+    ) -> Res<()> {
         // store locals + parameters
         for i in 0..(locals + parameters) {
             let id = first + i;

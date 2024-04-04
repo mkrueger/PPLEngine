@@ -20,6 +20,7 @@ use super::super::errors::IcyError;
 ///
 /// Always
 pub fn invalid(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("Invalid statement");
 }
 
@@ -53,9 +54,11 @@ pub fn color(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn confflag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn confunflag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -69,6 +72,7 @@ pub fn dispfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn input(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -117,7 +121,7 @@ pub fn fclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn fget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let channel = vm.eval_expr(&args[0])?.as_int() as usize;
-    let value = VariableValue::new_string(vm.io.fget(channel));
+    let value = VariableValue::new_string(vm.io.fget(channel)?);
     vm.set_variable(&args[1], value)?;
     Ok(())
 }
@@ -160,6 +164,7 @@ pub fn startdisp(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn fputpad(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -194,6 +199,7 @@ pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -207,9 +213,11 @@ pub fn delete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn deluser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn adjtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -340,6 +348,7 @@ pub fn inputtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn promptstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dtron(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -353,9 +362,11 @@ pub fn dtroff(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn cdchkon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn cdchkoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -369,6 +380,7 @@ pub fn delay(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn sendmodem(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -408,10 +420,12 @@ pub fn tokenize(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn gettoken(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
 pub fn shell(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -429,6 +443,7 @@ pub fn stop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn inputtext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -456,18 +471,23 @@ pub fn pop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn call(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn join(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn quest(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn blt(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -527,6 +547,7 @@ pub fn broadcast(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn waitfor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -579,21 +600,27 @@ pub fn wrunet(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn dointr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("System interrupts are not (yet) supported")
 }
 pub fn varseg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("System interrupts are not (yet) supported")
 }
 pub fn varoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("System interrupts are not (yet) supported")
 }
 pub fn pokeb(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("DOS memory access is not (yet) supported")
 }
 pub fn pokew(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("DOS memory access is not (yet) supported")
 }
 pub fn varaddr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("System interrupts are not (yet) supported")
 }
 
@@ -630,33 +657,43 @@ pub fn freshline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn wrusys(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("USER.SYS is not supported")
 }
 pub fn rdusys(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("USER.SYS is not supported")
 }
 pub fn newpwd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn opencap(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn closecap(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn message(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn savescrn(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn restscrn(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn sound(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn chat(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -723,9 +760,11 @@ pub fn rename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn frewind(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn pokedw(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dbglevel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -742,10 +781,12 @@ pub fn showoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn pageon(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
 pub fn pageoff(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -759,6 +800,7 @@ pub fn fseek(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn fflush(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -805,33 +847,43 @@ pub fn fread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn fwrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdefin(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdefout(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdputln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdputpad(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdwrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn adjbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -840,9 +892,11 @@ pub fn alias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn redim(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn append(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn copy(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -875,15 +929,19 @@ pub fn keyflush(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn lastin(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn flag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn download(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn wrusysdoor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -895,15 +953,19 @@ pub fn getaltuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn adjdbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn adjtbytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn ayjtfiles(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn lang(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -946,63 +1008,83 @@ pub fn sort(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn mousereg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn scrfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn searchinit(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn searchfind(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn searchstop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn prfound(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn prfoundln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpaget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpaput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpacgea(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpacput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tparead(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpawrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpacread(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn tpacwrite(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn bitset(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn bitclear(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn brag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn frealtuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn setlmr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -1018,99 +1100,131 @@ pub fn setenv(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn fcloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn stackabort(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dcreate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dsetalias(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dpack(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dcloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dlockr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dlockg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dunlock(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dncreate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dnopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dnclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dncloseall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dnew(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dadd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dtop(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dgo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dbottom(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dskip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn ddelete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn drecall(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dtag(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dseek(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dfblank(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dget(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn dfcopy(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 
@@ -1119,68 +1233,90 @@ pub fn eval(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     Ok(())
 }
 pub fn account(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn recordusage(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn msgtofile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn qwklimits(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn command(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn uselmrs(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn confinfo(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn adjtubytes(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn grafmode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn adduser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn killmsg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn chdir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn mkdir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn redir(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdowraka(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdoaddaka(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdowrorg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdoaddorg(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdoqmod(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdoqadd(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn fdoqdel(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }
 pub fn sounddelay(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
+    log::error!("not implemented statement!");
     panic!("TODO")
 }

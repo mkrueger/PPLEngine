@@ -18,6 +18,14 @@ pub enum Password {
     PlainText(String),
 }
 
+impl std::fmt::Display for Password {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Password::PlainText(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl Default for Password {
     fn default() -> Self {
         Password::PlainText(String::new())

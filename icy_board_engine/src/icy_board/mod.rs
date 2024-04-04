@@ -12,9 +12,19 @@ use thiserror::Error;
 use crate::vm::errors::IcyError;
 
 use self::{
-    commands::CommandList, conferences::ConferenceBase, icb_config::IcbConfig,
-    icb_text::IcbTextFile, language::SupportedLanguages, sec_levels::SecurityLevelDefinitions,
-    statistics::Statistics, user_base::UserBase, xfer_protocols::SupportedProtocols,
+    commands::CommandList,
+    conferences::ConferenceBase,
+    icb_config::IcbConfig,
+    icb_text::IcbTextFile,
+    language::SupportedLanguages,
+    pcbconferences::{
+        PcbAdditionalConferenceHeader, PcbConferenceHeader, PcbLegacyConferenceHeader,
+    },
+    pcboard_data::PcbBoardData,
+    sec_levels::SecurityLevelDefinitions,
+    statistics::Statistics,
+    user_base::UserBase,
+    xfer_protocols::SupportedProtocols,
 };
 
 pub mod bulletins;
@@ -61,18 +71,6 @@ pub enum IcyBoardError {
     ImportRecordErorr(String, String),
 }
 
-pub struct PcbBoardLayer {}
-
-impl PcbBoardLayer {
-    pub(crate) fn get_sl_path(&self) -> String {
-        todo!()
-    }
-
-    pub(crate) fn get_pcbdat(&self) -> String {
-        todo!()
-    }
-}
-
 pub struct IcyBoard {
     pub root_path: PathBuf,
     pub users: UserBase,
@@ -83,7 +81,6 @@ pub struct IcyBoard {
     // TODO: proper board statistics.
     pub num_callers: usize,
 
-    pub pcb: PcbBoardLayer,
     pub languages: SupportedLanguages,
     pub protocols: SupportedProtocols,
     pub sec_levels: SecurityLevelDefinitions,
@@ -101,7 +98,6 @@ impl IcyBoard {
             users: UserBase::default(),
             config: IcbConfig::new(),
             conferences: ConferenceBase::default(),
-            pcb: PcbBoardLayer {},
             num_callers: 0,
             languages: SupportedLanguages::default(),
             protocols: SupportedProtocols::default(),
@@ -186,8 +182,159 @@ impl IcyBoard {
             sec_levels,
             commands,
             statistics,
-            pcb: PcbBoardLayer {},
         })
+    }
+
+    pub fn export_pcboard(&self, file: &Path) -> Res<()> {
+        let mut pcb_dat = PcbBoardData::default();
+
+        pcb_dat.sysop_info.sysop = self.config.sysop.name.to_string();
+        pcb_dat.sysop_info.password = self.config.sysop.password.to_string();
+        pcb_dat.sysop_info.require_pwrd_to_exit = self.config.sysop.require_password_to_exit;
+        pcb_dat.sysop_info.use_real_name = self.config.sysop.use_real_name;
+
+        pcb_dat.sysop_security.sysop = self.config.sysop_security_level.sysop as i32;
+        pcb_dat.board_name = self.config.board_name.to_string();
+
+        pcb_dat.path.help_loc = self.resolve_file(&self.config.paths.help_path);
+
+        let base_loc = file.parent().unwrap();
+
+        let cnames = base_loc.join("cnames");
+        self.export_conference_files(&cnames)?;
+        pcb_dat.path.conference_file = cnames.to_string_lossy().to_string();
+
+        pcb_dat.num_conf = self.conferences.len() as i32 - 1;
+        pcb_dat.path.sec_loc = self.resolve_file(&self.config.paths.security_level_file);
+        pcb_dat.path.cmd_display_files_loc =
+            self.resolve_file(&self.config.paths.command_display_path);
+        pcb_dat.path.welcome_file = self.resolve_file(&self.config.paths.welcome);
+        pcb_dat.path.newuser_file = self.resolve_file(&self.config.paths.newuser);
+        pcb_dat.path.closed_file = self.resolve_file(&self.config.paths.closed);
+        pcb_dat.path.warning_file = self.resolve_file(&self.config.paths.warning);
+        pcb_dat.path.expired_file = self.resolve_file(&self.config.paths.expired);
+        pcb_dat.path.conf_menu = self.resolve_file(&self.config.paths.conf_join_menu);
+        pcb_dat.path.group_chat = self.resolve_file(&self.config.paths.group_chat);
+        pcb_dat.path.no_ansi = self.resolve_file(&self.config.paths.no_ansi);
+
+        let res = pcb_dat.serialize(icy_ppe::parser::Encoding::CP437);
+        fs::write(file, res)?;
+
+        Ok(())
+    }
+
+    fn export_conference_files(&self, cnames: &PathBuf) -> Res<()> {
+        let mut headers = Vec::new();
+        let mut legacy_headers = Vec::new();
+        let mut add_headers = Vec::new();
+
+        legacy_headers.extend(u16::to_le_bytes(
+            PcbLegacyConferenceHeader::HEADER_SIZE as u16,
+        ));
+
+        for conf in self.conferences.iter() {
+            let header = PcbConferenceHeader {
+                name: conf.name.clone(),
+                auto_rejoin: conf.auto_rejoin,
+                view_members: conf.view_members,
+                private_uploads: conf.private_uploads,
+                private_msgs: conf.private_msgs,
+                echo_mail: false,
+                add_conference_security: conf.add_conference_security,
+                add_conference_time: conf.add_conference_time,
+                message_blocks: 0,
+                message_file: String::new(),
+                users_menu: conf.users_menu.to_string_lossy().to_string(),
+                sysop_menu: conf.sysop_menu.to_string_lossy().to_string(),
+                news_file: conf.news_file.to_string_lossy().to_string(),
+                pub_upload_sort: conf.pub_upload_sort,
+                pub_upload_dirfile: conf.pub_upload_dir_file.to_string_lossy().to_string(),
+                pub_upload_location: conf.pub_upload_location.to_string_lossy().to_string(),
+                private_upload_sort: conf.private_upload_sort,
+                private_upload_dirfile: conf.private_upload_dir_file.to_string_lossy().to_string(),
+                private_upload_location: conf.private_upload_location.to_string_lossy().to_string(),
+                public_conference: conf.is_public,
+                doors_menu: conf.doors_menu.to_string_lossy().to_string(),
+                doors_file: conf.doors_file.to_string_lossy().to_string(),
+                required_security: conf.required_security,
+                blt_menu: conf.blt_menu.to_string_lossy().to_string(),
+                blt_file: conf.blt_file.to_string_lossy().to_string(),
+                script_menu: conf.script_menu.to_string_lossy().to_string(),
+                script_file: conf.script_file.to_string_lossy().to_string(),
+                dir_menu: String::new(),
+                dir_file: String::new(),
+                dlpth_list_file: String::new(),
+            };
+            headers.extend(header.serialize());
+
+            let legacy_header = PcbLegacyConferenceHeader {
+                name: conf.name.clone(),
+                auto_rejoin: conf.auto_rejoin,
+                view_members: conf.view_members,
+                echo_mail: false,
+                public_conf: conf.is_public,
+                priv_uplds: conf.private_uploads,
+                priv_msgs: conf.private_msgs,
+                req_sec_level: conf.required_security as u16,
+                add_sec: conf.add_conference_security as u16,
+                add_time: conf.add_conference_time as u16,
+                msg_blocks: 0,
+                msg_file: String::new(),
+                user_menu: conf.users_menu.to_string_lossy().to_string(),
+                sysop_menu: conf.sysop_menu.to_string_lossy().to_string(),
+                news_file: conf.news_file.to_string_lossy().to_string(),
+                pub_upld_sort: conf.pub_upload_sort,
+                upld_dir: conf.pub_upload_dir_file.to_string_lossy().to_string(),
+                pub_upld_loc: conf.pub_upload_location.to_string_lossy().to_string(),
+                prv_upld_sort: conf.private_upload_sort,
+                priv_dir: conf.private_upload_dir_file.to_string_lossy().to_string(),
+                prv_upld_loc: conf.private_upload_location.to_string_lossy().to_string(),
+                drs_menu: conf.doors_menu.to_string_lossy().to_string(),
+                drs_file: conf.doors_file.to_string_lossy().to_string(),
+                blt_menu: conf.blt_menu.to_string_lossy().to_string(),
+                blt_name_loc: conf.blt_file.to_string_lossy().to_string(),
+                scr_menu: conf.script_menu.to_string_lossy().to_string(),
+                scr_name_loc: conf.script_file.to_string_lossy().to_string(),
+                dir_menu: String::new(),
+                dir_name_loc: String::new(),
+                pth_name_loc: String::new(),
+            };
+            legacy_headers.extend(legacy_header.serialize());
+
+            let add_header = PcbAdditionalConferenceHeader {
+                password: conf.password.to_string(),
+                attach_level: conf.sec_attachments,
+                req_level_to_enter: conf.sec_write_message,
+                allow_aliases: conf.allow_aliases,
+                attach_loc: conf.attachment_location.to_string_lossy().to_string(),
+                cmd_lst: conf.command_file.to_string_lossy().to_string(),
+                intro: conf.intro_file.to_string_lossy().to_string(),
+                force_echo: false,
+                read_only: false,
+                no_private_msgs: false,
+                ret_receipt_level: 0,
+                record_origin: false,
+                prompt_for_routing: false,
+                show_intro_on_ra: false,
+                reg_flags: 0,
+                carbon_limit: 0,
+                old_index: false,
+                long_to_names: false,
+                carbon_level: 0,
+                conf_type: 0,
+                export_ptr: 0,
+                charge_time: 0.0,
+                charge_msg_read: 0.0,
+                charge_msg_write: 0.0,
+            };
+            add_headers.extend(add_header.serialize());
+        }
+
+        fs::write(cnames, headers)?;
+        fs::write(cnames.with_extension("@@@"), legacy_headers)?;
+        fs::write(cnames.with_extension("add"), add_headers)?;
+
+        Ok(())
     }
 }
 
@@ -270,7 +417,6 @@ pub fn convert_to_utf8<P: AsRef<Path>, Q: AsRef<Path>>(from: &P, to: &Q) -> Res<
     write_with_bom(to, &import)?;
     Ok(())
 }
-
 pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serialize {
     const FILE_TYPE: &'static str;
 

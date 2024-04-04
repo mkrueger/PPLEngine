@@ -43,7 +43,7 @@ pub trait PCBoardIO {
     /// True, if an error occured on the specified channel, False otherwise
     fn ferr(&self, channel: usize) -> bool;
 
-    fn fput(&mut self, channel: usize, text: String);
+    fn fput(&mut self, channel: usize, text: String) -> Res<()>;
 
     /// Read a line from an open file
     /// channel - integer expression with the channel to use for the file
@@ -66,7 +66,7 @@ pub trait PCBoardIO {
     ///   FGET 1, s
     /// ENDWHILE
     /// FCLOSE 1
-    fn fget(&mut self, channel: usize) -> String;
+    fn fget(&mut self, channel: usize) -> Res<String>;
 
     fn fread(&mut self, channel: usize, size: usize) -> Res<Vec<u8>>;
 
@@ -83,9 +83,9 @@ pub trait PCBoardIO {
     /// PRINTLN s
     /// ENDWHILE
     /// FCLOSE 1
-    fn frewind(&mut self, channel: usize);
+    fn frewind(&mut self, channel: usize) -> Res<()>;
 
-    fn fclose(&mut self, channel: usize);
+    fn fclose(&mut self, channel: usize) -> Res<()>;
 
     fn file_exists(&self, file: &str) -> bool;
 
@@ -218,53 +218,69 @@ impl PCBoardIO for DiskIO {
         self.channels[channel].err
     }
 
-    fn fput(&mut self, channel: usize, text: String) {
-        if let Some(f) = &mut self.channels[channel].file {
+    fn fput(&mut self, channel: usize, text: String) -> Res<()> {
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+
+        if let Some(f) = &mut chan.file {
             let _ = f.write(text.as_bytes());
-            self.channels[channel].err = false;
+            chan.err = false;
         } else {
             log::error!("channel {} not found", channel);
-            self.channels[channel].err = true;
+            chan.err = true;
         }
+        Ok(())
     }
 
-    fn fget(&mut self, channel: usize) -> String {
-        if let Some(f) = self.channels[channel].file.take() {
-            self.channels[channel].reader = Some(BufReader::new(*f));
+    fn fget(&mut self, channel: usize) -> Res<String> {
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+
+        if let Some(f) = chan.file.take() {
+            chan.reader = Some(BufReader::new(*f));
         }
-        if let Some(reader) = &mut self.channels[channel].reader {
+        if let Some(reader) = &mut chan.reader {
             let mut line = String::new();
             if reader.read_line(&mut line).is_err() {
-                self.channels[channel].err = true;
-                String::new()
+                chan.err = true;
+                Ok(String::new())
             } else {
-                self.channels[channel].err = false;
-                line.trim_end_matches(|c| c == '\r' || c == '\n')
-                    .to_string()
+                chan.err = false;
+                Ok(line
+                    .trim_end_matches(|c| c == '\r' || c == '\n')
+                    .to_string())
             }
         } else {
             log::error!("no file!");
-            self.channels[channel].err = true;
-            String::new()
+            chan.err = true;
+            Ok(String::new())
         }
     }
 
     fn fread(&mut self, channel: usize, size: usize) -> Res<Vec<u8>> {
-        if let Some(f) = self.channels[channel].file.take() {
-            self.channels[channel].reader = Some(BufReader::new(*f));
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+        if let Some(f) = chan.file.take() {
+            chan.reader = Some(BufReader::new(*f));
         }
-        if let Some(reader) = &mut self.channels[channel].reader {
+        if let Some(reader) = &mut chan.reader {
             let mut buf = vec![0; size];
             reader.read_exact(&mut buf)?;
             Ok(buf)
         } else {
-            log::error!("no file!");
-            self.channels[channel].err = true;
+            chan.err = true;
             Ok(Vec::new())
         }
     }
     fn fseek(&mut self, channel: usize, pos: i32, seek_pos: i32) -> Res<()> {
-        match &mut self.channels[channel].file {
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+
+        match &mut chan.file {
             Some(f) => match seek_pos {
                 0 => {
                     f.seek(SeekFrom::Start(pos as u64)).expect("seek error");
@@ -278,7 +294,7 @@ impl PCBoardIO for DiskIO {
                 _ => return Err(Box::new(VMError::InvalidSeekPosition(seek_pos))),
             },
             _ => {
-                if let Some(reader) = &mut self.channels[channel].reader {
+                if let Some(reader) = &mut chan.reader {
                     match seek_pos {
                         0 => {
                             reader
@@ -304,20 +320,29 @@ impl PCBoardIO for DiskIO {
         Ok(())
     }
 
-    fn frewind(&mut self, channel: usize) {
-        match &mut self.channels[channel].file {
+    fn frewind(&mut self, channel: usize) -> Res<()> {
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+
+        match &mut chan.file {
             Some(f) => {
                 f.seek(SeekFrom::Start(0)).expect("seek error");
-                self.channels[channel].err = false;
+                chan.err = false;
             }
             _ => {
-                self.channels[channel].err = true;
+                chan.err = true;
             }
         }
+        Ok(())
     }
 
-    fn fclose(&mut self, channel: usize) {
-        match &mut self.channels[channel].file {
+    fn fclose(&mut self, channel: usize) -> Res<()> {
+        let Some(chan) = self.channels.get_mut(channel) else {
+            return Err(Box::new(VMError::FileChannelNotOpen(channel)));
+        };
+
+        match &mut chan.file {
             Some(_) => {
                 self.channels[channel] = FileChannel {
                     file: None,
@@ -327,9 +352,10 @@ impl PCBoardIO for DiskIO {
                 };
             }
             _ => {
-                self.channels[channel].err = true;
+                chan.err = true;
             }
         }
+        Ok(())
     }
 
     fn file_exists(&self, file: &str) -> bool {
@@ -472,11 +498,14 @@ impl PCBoardIO for MemoryIO {
         self.channels[channel].err
     }
 
-    fn fput(&mut self, channel: usize, text: String) {
+    fn fput(&mut self, channel: usize, text: String) -> Res<()> {
         if let Some(v) = &self.channels[channel].file {
-            let content = self.files.get_mut(v).unwrap();
-            content.insert_str(self.channels[channel].filepos as usize, &text);
-            self.channels[channel].filepos += text.len() as i32;
+            if let Some(content) = self.files.get_mut(v) {
+                content.insert_str(self.channels[channel].filepos as usize, &text);
+                self.channels[channel].filepos += text.len() as i32;
+            } else {
+                log::error!("fput channel not valid: {}", channel);
+            }
         } else {
             self.channels[channel] = SimulatedFileChannel {
                 file: None,
@@ -484,25 +513,30 @@ impl PCBoardIO for MemoryIO {
                 err: true,
             };
         }
+        Ok((()))
     }
 
-    fn fget(&mut self, channel: usize) -> String {
+    fn fget(&mut self, channel: usize) -> Res<String> {
         if let Some(v) = &mut self.channels[channel].file {
-            let f = self.files.get(v).unwrap();
-            if self.channels[channel].filepos as usize >= f.len() {
-                self.channels[channel].err = true;
-                return String::new();
+            if let Some(f) = self.files.get(v) {
+                if self.channels[channel].filepos as usize >= f.len() {
+                    self.channels[channel].err = true;
+                    return Ok(String::new());
+                }
+                let result: String = f
+                    .chars()
+                    .skip(self.channels[channel].filepos as usize)
+                    .take_while(|c| *c != '\n')
+                    .collect();
+                self.channels[channel].filepos += result.len() as i32 + 1;
+                Ok(result)
+            } else {
+                log::error!("fget channel not valid: {}", channel);
+                Ok(String::new())
             }
-            let result: String = f
-                .chars()
-                .skip(self.channels[channel].filepos as usize)
-                .take_while(|c| *c != '\n')
-                .collect();
-            self.channels[channel].filepos += result.len() as i32 + 1;
-            result
         } else {
             self.channels[channel].err = true;
-            String::new()
+            Ok(String::new())
         }
     }
 
@@ -511,7 +545,7 @@ impl PCBoardIO for MemoryIO {
         Ok(Vec::new())
     }
 
-    fn frewind(&mut self, channel: usize) {
+    fn frewind(&mut self, channel: usize) -> Res<()> {
         if self.channels[channel].file.is_some() {
             self.channels[channel].filepos = 0;
         } else {
@@ -521,14 +555,16 @@ impl PCBoardIO for MemoryIO {
                 err: true,
             };
         }
+        Ok(())
     }
 
-    fn fclose(&mut self, channel: usize) {
+    fn fclose(&mut self, channel: usize) -> Res<()> {
         self.channels[channel] = SimulatedFileChannel {
             file: None,
             filepos: 0,
             err: false,
         };
+        Ok(())
     }
 
     fn file_exists(&self, file: &str) -> bool {

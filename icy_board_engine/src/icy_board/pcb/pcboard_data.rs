@@ -37,7 +37,7 @@ pub struct PcbSubscriptionMode {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PcbBoardData {
-    /// IcyBoard version
+    /// PCBoard version
     pub version: String,
 
     pub sysop_info: PcbSysopInfo,

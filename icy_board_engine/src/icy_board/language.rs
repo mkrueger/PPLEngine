@@ -3,7 +3,7 @@ use std::path::Path;
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
-use super::{read_cp437, IcyBoardSerializer, PCBoardImport, PCBoardTextImport};
+use super::{IcyBoardSerializer, PCBoardImport, PCBoardTextImport};
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Language {

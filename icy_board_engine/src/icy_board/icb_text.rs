@@ -1564,7 +1564,7 @@ pub enum IcbTextJustification {
     Center,
 }
 
-#[derive(Clone, Copy, PartialEq, Default, Display, EnumString)]
+#[derive(Clone, Copy, PartialEq, Default, Display, Debug, EnumString)]
 pub enum IcbTextStyle {
     #[default]
     Plain,

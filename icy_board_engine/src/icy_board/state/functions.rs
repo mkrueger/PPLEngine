@@ -7,8 +7,11 @@ use icy_engine::IceMode;
 use icy_ppe::Res;
 
 use crate::{
-    icy_board::icb_text::{IcbTextStyle, IceText},
-    vm::TerminalTarget,
+    icy_board::{
+        icb_text::{IcbTextStyle, IceText},
+        UTF8_BOM,
+    },
+    vm::{log, TerminalTarget},
 };
 
 use super::IcyBoardState;
@@ -46,11 +49,13 @@ pub mod pcb_colors {
 }
 const TXT_STOPCHAR: char = '_';
 
+#[derive(Debug)]
 pub enum PPECallType {
     PPE,
     Menu,
     File,
 }
+#[derive(Debug)]
 pub struct PPECall {
     pub call_type: PPECallType,
     pub file: String,
@@ -68,9 +73,8 @@ impl PPECall {
         if first_ch == '!' || first_ch == '%' || first_ch == '$' {
             let call_type = match first_ch {
                 '!' => PPECallType::PPE,
-                '%' => PPECallType::File,
                 '$' => PPECallType::Menu,
-                _ => unreachable!(),
+                _ => PPECallType::File,
             };
             let mut arguments = Vec::new();
             let mut arg = String::new();
@@ -87,6 +91,10 @@ impl PPECall {
                     continue;
                 }
                 arg.push(ch);
+            }
+
+            if !arg.is_empty() {
+                arguments.push(arg);
             }
             Some(Self {
                 call_type,
@@ -204,10 +212,15 @@ impl IcyBoardState {
             )?;
             return Ok(true);
         };
-        let mut converted_content = String::new();
-        for byte in content {
-            converted_content.push(icy_ppe::tables::CP437_TO_UNICODE[byte as usize]);
-        }
+        let converted_content = if content.starts_with(&UTF8_BOM) {
+            String::from_utf8_lossy(&content[3..]).to_string()
+        } else {
+            let mut s = String::new();
+            for byte in content {
+                s.push(icy_ppe::tables::CP437_TO_UNICODE[byte as usize]);
+            }
+            s
+        };
         self.session.disp_options.non_stop = true;
         for line in converted_content.lines() {
             self.display_line(line)?;
@@ -220,6 +233,7 @@ impl IcyBoardState {
             }
         }
         self.session.disp_options.non_stop = false;
+
         Ok(true)
     }
 
@@ -238,7 +252,7 @@ impl IcyBoardState {
             .get_display_text(message_number)?;
 
         self.input_string(
-            txt_entry.style as i32,
+            txt_entry.style.to_color() as i32,
             txt_entry.text,
             len,
             valid,

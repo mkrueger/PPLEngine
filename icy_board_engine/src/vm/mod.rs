@@ -752,7 +752,6 @@ pub fn run<P: AsRef<Path>>(
     let Ok(script) = PPEScript::from_ppe_file(prg) else {
         return Ok(false);
     };
-
     let mut label_table = calc_labe_table(&script.statements);
     for (i, stmt) in script.statements.iter().enumerate() {
         label_table.insert(stmt.span.start * 2, i);

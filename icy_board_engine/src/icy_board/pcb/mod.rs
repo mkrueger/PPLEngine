@@ -154,7 +154,7 @@ impl PcbBoard {
 
         let r = res.resolve_file(&res.data.path.conference_file);
         let max_conferences = res.data.num_conf as usize;
-        let conferences = PcbConferenceHeader::load(&r, max_conferences)?;
+        let conferences = PcbConferenceHeader::import_pcboard(&r, max_conferences)?;
         res.conferences = conferences;
 
         let r = res.resolve_file(&(res.data.path.conference_file.to_string() + ".ADD"));

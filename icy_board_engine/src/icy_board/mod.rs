@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -75,7 +74,7 @@ impl PcbBoardLayer {
 }
 
 pub struct IcyBoard {
-    pub file_name: PathBuf,
+    pub root_path: PathBuf,
     pub users: UserBase,
     pub config: IcbConfig,
     pub conferences: ConferenceBase,
@@ -90,7 +89,6 @@ pub struct IcyBoard {
     pub sec_levels: SecurityLevelDefinitions,
     pub statistics: Statistics,
     pub commands: CommandList,
-    paths: HashMap<String, String>,
 }
 
 impl IcyBoard {
@@ -99,13 +97,12 @@ impl IcyBoard {
 
         IcyBoard {
             display_text,
-            file_name: PathBuf::new(),
+            root_path: PathBuf::new(),
             users: UserBase::default(),
             config: IcbConfig::new(),
             conferences: ConferenceBase::default(),
             pcb: PcbBoardLayer {},
             num_callers: 0,
-            paths: HashMap::new(),
             languages: SupportedLanguages::default(),
             protocols: SupportedProtocols::default(),
             sec_levels: SecurityLevelDefinitions::default(),
@@ -126,10 +123,8 @@ impl IcyBoard {
             })
             .collect();
 
-        for (k, v) in &self.paths {
-            if s.starts_with(k) {
-                s = v.clone() + &s[k.len()..];
-            }
+        if !s.starts_with('/') {
+            s = self.root_path.join(s).to_string_lossy().to_string();
         }
 
         if let Ok(mut file_path) = QFilePath::add_path(s.clone()) {
@@ -140,6 +135,9 @@ impl IcyBoard {
                 return file.to_string_lossy().to_string();
             }
         }
+        if !PathBuf::from(&s).exists() {
+            log::warn!("File not found: {}", s);
+        }
         s
     }
 
@@ -148,52 +146,36 @@ impl IcyBoard {
 
         let parent_path = path.as_ref().parent().unwrap();
         let users = UserBase::load(
-            &RelativePath::from_path(&config.paths.user_base)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.user_base)?.to_path(parent_path),
         )?;
         let conferences = ConferenceBase::load(
-            &RelativePath::from_path(&config.paths.conferences)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.conferences)?.to_path(parent_path),
         )?;
         let display_text = IcbTextFile::load(
-            &RelativePath::from_path(&config.paths.icbtext)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.icbtext)?.to_path(parent_path),
         )?;
         let languages = SupportedLanguages::load(
-            &RelativePath::from_path(&config.paths.language_file)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.language_file)?.to_path(parent_path),
         )?;
 
         let protocols = SupportedProtocols::load(
-            &RelativePath::from_path(&config.paths.protocol_data_file)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.protocol_data_file)?.to_path(parent_path),
         )?;
 
         let sec_levels = SecurityLevelDefinitions::load(
-            &RelativePath::from_path(&config.paths.security_level_file)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.security_level_file)?.to_path(parent_path),
         )?;
 
         let commands = CommandList::load(
-            &RelativePath::from_path(&config.paths.command_file)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.command_file)?.to_path(parent_path),
         )?;
 
         let statistics = Statistics::load(
-            &RelativePath::from_path(&config.paths.statistics_file)
-                .unwrap()
-                .to_path(parent_path),
+            &RelativePath::from_path(&config.paths.statistics_file)?.to_path(parent_path),
         )?;
 
         Ok(IcyBoard {
-            file_name: path.as_ref().to_path_buf(),
+            root_path: path.as_ref().parent().unwrap().canonicalize()?,
             num_callers: 0,
             users,
             config,
@@ -204,7 +186,6 @@ impl IcyBoard {
             sec_levels,
             commands,
             statistics,
-            paths: HashMap::new(),
             pcb: PcbBoardLayer {},
         })
     }

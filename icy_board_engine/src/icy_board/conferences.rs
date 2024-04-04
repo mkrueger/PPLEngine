@@ -1,15 +1,17 @@
 use std::{
-    ops::{Index, IndexMut},
+    ops::{Deref, DerefMut},
     path::PathBuf,
 };
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-    commands::Command, is_false, is_null_8, is_null_i32, user_base::Password, IcyBoardSerializer,
+    commands::Command,
+    is_false, is_null_8, is_null_i32,
+    pcbconferences::{PcbAdditionalConferenceHeader, PcbConferenceHeader},
+    user_base::Password,
+    IcyBoardSerializer,
 };
-
-use super::PcbBoard;
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Conference {
@@ -71,13 +73,13 @@ pub struct Conference {
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_i32")]
     pub pub_upload_sort: i32,
-    pub pub_upload_directory: PathBuf,
+    pub pub_upload_dir_file: PathBuf,
     pub pub_upload_location: PathBuf,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_i32")]
     pub private_upload_sort: i32,
-    pub private_upload_directory: PathBuf,
+    pub private_upload_dir_file: PathBuf,
     pub private_upload_location: PathBuf,
 
     pub command_file: PathBuf,
@@ -119,10 +121,13 @@ impl ConferenceBase {
         self.entries.is_empty()
     }
 
-    pub fn import_pcboard(pcboard: &PcbBoard) -> ConferenceBase {
+    pub fn import_pcboard(
+        conferences: &[PcbConferenceHeader],
+        add_conferences: &[PcbAdditionalConferenceHeader],
+    ) -> ConferenceBase {
         let mut confs = Vec::new();
-        for (i, c) in pcboard.conferences.iter().enumerate() {
-            let d = &pcboard.add_conferences[i];
+        for (i, c) in conferences.iter().enumerate() {
+            let d = &add_conferences[i];
 
             let new = Conference {
                 name: c.name.clone(),
@@ -140,32 +145,28 @@ impl ConferenceBase {
                 allow_aliases: d.allow_aliases,
                 add_conference_security: c.add_conference_security,
                 add_conference_time: c.add_conference_time,
-                users_menu: PathBuf::from(&pcboard.resolve_file(&c.users_menu)),
-                sysop_menu: PathBuf::from(&pcboard.resolve_file(&c.sysop_menu)),
-                news_file: PathBuf::from(&pcboard.resolve_file(&c.news_file)),
-                attachment_location: PathBuf::from(&pcboard.resolve_file(&d.attach_loc)),
+                users_menu: PathBuf::from(&c.users_menu),
+                sysop_menu: PathBuf::from(&c.sysop_menu),
+                news_file: PathBuf::from(&c.news_file),
+                attachment_location: PathBuf::from(&d.attach_loc),
                 pub_upload_sort: c.pub_upload_sort,
-                pub_upload_directory: PathBuf::from(&pcboard.resolve_file(&c.pub_upload_directory)),
-                pub_upload_location: PathBuf::from(&pcboard.resolve_file(&c.pub_upload_location)),
+                pub_upload_dir_file: PathBuf::from(&c.pub_upload_directory),
+                pub_upload_location: PathBuf::from(&c.pub_upload_location),
                 private_upload_sort: c.private_upload_sort,
-                private_upload_directory: PathBuf::from(
-                    &pcboard.resolve_file(&c.private_upload_directory),
-                ),
-                private_upload_location: PathBuf::from(
-                    &pcboard.resolve_file(&c.private_upload_location),
-                ),
-                command_file: PathBuf::from(&pcboard.resolve_file(&d.cmd_lst)),
-                intro_file: PathBuf::from(&pcboard.resolve_file(&d.intro)),
-                doors_menu: PathBuf::from(&pcboard.resolve_file(&c.doors_menu)),
-                doors_file: PathBuf::from(&pcboard.resolve_file(&c.doors_file)),
-                blt_menu: PathBuf::from(&pcboard.resolve_file(&c.blt_menu)),
-                blt_file: PathBuf::from(&pcboard.resolve_file(&c.blt_file)),
-                script_menu: PathBuf::from(&pcboard.resolve_file(&c.script_menu)),
-                script_file: PathBuf::from(&pcboard.resolve_file(&c.script_file)),
-                file_area_menu: PathBuf::from(&pcboard.resolve_file(&c.dir_menu)),
-                file_area_file: PathBuf::from(&pcboard.resolve_file(&c.dir_menu)),
+                private_upload_dir_file: PathBuf::from(&c.private_upload_directory),
+                private_upload_location: PathBuf::from(&c.private_upload_location),
+                command_file: PathBuf::from(&d.cmd_lst),
+                intro_file: PathBuf::from(&d.intro),
+                doors_menu: PathBuf::from(&c.doors_menu),
+                doors_file: PathBuf::from(&c.doors_file),
+                blt_menu: PathBuf::from(&c.blt_menu),
+                blt_file: PathBuf::from(&c.blt_file),
+                script_menu: PathBuf::from(&c.script_menu),
+                script_file: PathBuf::from(&c.script_file),
+                file_area_menu: PathBuf::from(&c.dir_menu),
+                file_area_file: PathBuf::from(&c.dir_menu),
                 message_area_menu: PathBuf::new(),
-                message_area_file: PathBuf::from(&pcboard.resolve_file(&c.message_file)),
+                message_area_file: PathBuf::from(&c.message_file),
             };
             confs.push(new);
         }
@@ -181,6 +182,21 @@ impl ConferenceBase {
     }
 }
 
+impl Deref for ConferenceBase {
+    type Target = Vec<Conference>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.entries
+    }
+}
+
+impl DerefMut for ConferenceBase {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.entries
+    }
+}
+
+/*
 impl Index<usize> for ConferenceBase {
     type Output = Conference;
     fn index(&self, i: usize) -> &Conference {
@@ -193,6 +209,7 @@ impl IndexMut<usize> for ConferenceBase {
         &mut self.entries[i]
     }
 }
+*/
 
 impl IcyBoardSerializer for ConferenceBase {
     const FILE_TYPE: &'static str = "conferences";

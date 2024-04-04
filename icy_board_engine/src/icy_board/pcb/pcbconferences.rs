@@ -90,8 +90,8 @@ impl PcbConferenceHeader {
         Ok(ret)
     }
 
-    pub fn load(file_name: &String, len: usize) -> Res<Vec<Self>> {
-        let mut reader = BufReader::new(File::open(file_name)?);
+    pub fn import_pcboard<P: AsRef<Path>>(path: &P, len: usize) -> Res<Vec<Self>> {
+        let mut reader = BufReader::new(File::open(path)?);
         let mut ret = Vec::new();
         for _ in 0..=len {
             ret.push(Self::deserialize(&mut reader)?);
@@ -188,7 +188,7 @@ impl PcbAdditionalConferenceHeader {
             let password = import_cp437_string(&data[9..22], true);
             let intro = import_cp437_string(&data[22..54], true);
             let attach_loc = import_cp437_string(&data[54..86], true);
-            let reg_flags = u32::from_le_bytes(data[86..90].try_into().unwrap());
+            let reg_flags = u32::from_le_bytes(data[86..90].try_into()?);
             let attach_level = data[90];
             let carbon_limit = data[91];
             let cmd_lst = import_cp437_string(&data[92..124], true);
@@ -196,10 +196,10 @@ impl PcbAdditionalConferenceHeader {
             let long_to_names = data[125] != 0;
             let carbon_level = data[126];
             let conf_type = data[127];
-            let export_ptr = u32::from_le_bytes(data[128..132].try_into().unwrap());
-            let charge_time = f32::from_le_bytes(data[132..136].try_into().unwrap());
-            let charge_msg_read = f32::from_le_bytes(data[136..140].try_into().unwrap());
-            let charge_msg_write = f32::from_le_bytes(data[140..144].try_into().unwrap());
+            let export_ptr = u32::from_le_bytes(data[128..132].try_into()?);
+            let charge_time = f32::from_le_bytes(data[132..136].try_into()?);
+            let charge_msg_read = f32::from_le_bytes(data[136..140].try_into()?);
+            let charge_msg_write = f32::from_le_bytes(data[140..144].try_into()?);
 
             res.push(Self {
                 force_echo,

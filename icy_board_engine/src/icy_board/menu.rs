@@ -6,7 +6,9 @@ use crate::vm::errors::IcyError;
 
 use super::{
     commands::{Command, CommandType},
-    is_false, path_is_empty, read_with_encoding_detection, IcyBoardSerializer,
+    is_false, path_is_empty, read_with_encoding_detection,
+    security::RequiredSecurity,
+    IcyBoardSerializer,
 };
 
 #[derive(Serialize, Deserialize, Default)]
@@ -140,7 +142,7 @@ impl Menu {
 
             res.commands.push(Command {
                 input: vec![keyword],
-                security,
+                security: RequiredSecurity::new(security),
                 help: "".to_string(),
                 command_type: cmd_type,
                 parameter,

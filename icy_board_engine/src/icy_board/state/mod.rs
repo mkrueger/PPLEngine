@@ -110,6 +110,8 @@ pub struct Session {
 
     pub cur_user: i32,
     pub cur_security: u8,
+    pub cur_groups: Vec<String>,
+
     pub page_len: u16,
 
     pub is_sysop: bool,
@@ -146,6 +148,7 @@ impl Session {
             login_date: Local::now(),
             cur_user: -1,
             cur_security: 0,
+            cur_groups: Vec::new(),
             num_lines_printed: 0,
             security_violations: 0,
             current_message_area: 0,

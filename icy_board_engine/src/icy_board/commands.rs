@@ -1,7 +1,7 @@
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
-use super::{is_null_8, IcyBoardSerializer, PCBoardRecordImporter};
+use super::{security::RequiredSecurity, IcyBoardSerializer, PCBoardRecordImporter};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum CommandType {
@@ -225,8 +225,8 @@ pub struct Command {
     pub parameter: String,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_8")]
-    pub security: u8,
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub security: RequiredSecurity,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -261,7 +261,7 @@ impl PCBoardRecordImporter<Command> for CommandList {
             help: "".to_string(),
             command_type,
             parameter,
-            security,
+            security: RequiredSecurity::new(security),
         })
     }
 }

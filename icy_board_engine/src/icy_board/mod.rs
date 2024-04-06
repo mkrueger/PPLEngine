@@ -14,6 +14,7 @@ use crate::vm::errors::IcyError;
 use self::{
     commands::CommandList,
     conferences::ConferenceBase,
+    group_list::GroupList,
     icb_config::IcbConfig,
     icb_text::IcbTextFile,
     language::SupportedLanguages,
@@ -30,6 +31,8 @@ use self::{
 pub mod bulletins;
 pub mod commands;
 pub mod conferences;
+pub mod file_areas;
+pub mod group_list;
 pub mod icb_config;
 pub mod icb_text;
 pub mod language;
@@ -37,6 +40,7 @@ pub mod menu;
 pub mod output;
 pub mod pcb;
 pub mod sec_levels;
+pub mod security;
 pub mod state;
 pub mod statistics;
 pub mod surveys;
@@ -85,6 +89,7 @@ pub struct IcyBoard {
     pub languages: SupportedLanguages,
     pub protocols: SupportedProtocols,
     pub sec_levels: SecurityLevelDefinitions,
+    pub groups: GroupList,
     pub statistics: Statistics,
     pub commands: CommandList,
 }
@@ -105,6 +110,7 @@ impl IcyBoard {
             sec_levels: SecurityLevelDefinitions::default(),
             commands: CommandList::default(),
             statistics: Statistics::default(),
+            groups: GroupList::default(),
         }
     }
 
@@ -227,6 +233,7 @@ impl IcyBoard {
             sec_levels,
             commands,
             statistics,
+            groups: GroupList::default(),
         })
     }
 
@@ -301,7 +308,7 @@ impl IcyBoard {
                 public_conference: conf.is_public,
                 doors_menu: conf.doors_menu.to_string_lossy().to_string(),
                 doors_file: conf.doors_file.to_string_lossy().to_string(),
-                required_security: conf.required_security,
+                required_security: conf.required_security.level(),
                 blt_menu: conf.blt_menu.to_string_lossy().to_string(),
                 blt_file: conf.blt_file.to_string_lossy().to_string(),
                 script_menu: conf.survey_menu.to_string_lossy().to_string(),
@@ -320,7 +327,7 @@ impl IcyBoard {
                 public_conf: conf.is_public,
                 priv_uplds: conf.private_uploads,
                 priv_msgs: conf.private_msgs,
-                req_sec_level: conf.required_security as u16,
+                req_sec_level: conf.required_security.level() as u16,
                 add_sec: conf.add_conference_security as u16,
                 add_time: conf.add_conference_time as u16,
                 msg_blocks: 0,
@@ -348,8 +355,8 @@ impl IcyBoard {
 
             let add_header = PcbAdditionalConferenceHeader {
                 password: conf.password.to_string(),
-                attach_level: conf.sec_attachments,
-                req_level_to_enter: conf.sec_write_message,
+                attach_level: conf.sec_attachments.level(),
+                req_level_to_enter: conf.sec_write_message.level(),
                 allow_aliases: conf.allow_aliases,
                 attach_loc: conf.attachment_location.to_string_lossy().to_string(),
                 cmd_lst: conf.command_file.to_string_lossy().to_string(),

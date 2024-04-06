@@ -9,6 +9,7 @@ use super::{
     commands::Command,
     is_false, is_null_8, is_null_i32,
     pcbconferences::{PcbAdditionalConferenceHeader, PcbConferenceHeader},
+    security::RequiredSecurity,
     user_base::Password,
     IcyBoardSerializer,
 };
@@ -19,8 +20,14 @@ pub struct MessageArea {
     pub filename: PathBuf,
     read_only: bool,
     allow_aliases: bool,
-    req_level_to_enter: u8,
-    req_level_to_save_attach: u8,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    req_level_to_enter: RequiredSecurity,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    req_level_to_save_attach: RequiredSecurity,
 }
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Conference {
@@ -35,16 +42,16 @@ pub struct Conference {
     pub password: Password,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_8")]
-    pub required_security: u8,
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub required_security: RequiredSecurity,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_8")]
-    pub sec_attachments: u8,
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub sec_attachments: RequiredSecurity,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_8")]
-    pub sec_write_message: u8,
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub sec_write_message: RequiredSecurity,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
@@ -65,6 +72,7 @@ pub struct Conference {
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_i32")]
     pub add_conference_security: i32,
+
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_i32")]
     pub add_conference_time: i32,
@@ -142,8 +150,8 @@ impl ConferenceBase {
                 filename: PathBuf::from(&c.message_file),
                 read_only: d.read_only,
                 allow_aliases: d.allow_aliases,
-                req_level_to_enter: d.req_level_to_enter,
-                req_level_to_save_attach: d.attach_level,
+                req_level_to_enter: RequiredSecurity::new(d.req_level_to_enter),
+                req_level_to_save_attach: RequiredSecurity::new(d.attach_level),
             };
 
             let message_areas = vec![general_area];
@@ -154,9 +162,9 @@ impl ConferenceBase {
                 use_main_commands: true,
                 commands: Vec::new(),
                 password: Password::PlainText(d.password.clone()),
-                required_security: c.required_security,
-                sec_attachments: d.attach_level,
-                sec_write_message: d.req_level_to_enter,
+                required_security: RequiredSecurity::new(c.required_security),
+                sec_attachments: RequiredSecurity::new(d.attach_level),
+                sec_write_message: RequiredSecurity::new(d.req_level_to_enter),
                 auto_rejoin: c.auto_rejoin,
                 view_members: c.view_members,
                 private_uploads: c.private_uploads,

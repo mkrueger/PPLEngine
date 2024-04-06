@@ -224,6 +224,9 @@ pub struct ConfigPaths {
 
     /// name and location of multi language definitions
     pub language_file: PathBuf,
+
+    /// name and location of multi language definitions
+    pub group_file: PathBuf,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -321,6 +324,7 @@ impl IcbConfig {
                 language_file: PathBuf::new(),
                 command_file: PathBuf::new(),
                 statistics_file: PathBuf::new(),
+                group_file: PathBuf::new(),
             },
         }
     }

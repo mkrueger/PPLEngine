@@ -367,7 +367,7 @@ impl VariableTable {
             }
             i += 11;
 
-            let mut variable;
+            let variable;
             let entry_type;
             match header.variable_type {
                 VariableType::String => {

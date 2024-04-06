@@ -39,6 +39,7 @@ pub mod pcb;
 pub mod sec_levels;
 pub mod state;
 pub mod statistics;
+pub mod surveys;
 pub mod user_base;
 pub mod xfer_protocols;
 
@@ -55,8 +56,8 @@ pub enum IcyBoardError {
     #[error("Can't run action ({0})")]
     UnknownAction(String),
 
-    #[error("Thread crashed ({0})")]
-    ThreadCrashed(String),
+    #[error("Thread crashed. See output.log for details.")]
+    ThreadCrashed,
 
     #[error("Can't read file {0} ({1})")]
     FileError(PathBuf, String),
@@ -125,14 +126,8 @@ impl IcyBoard {
 
         if let Ok(mut file_path) = QFilePath::add_path(s.clone()) {
             if let Ok(file) = file_path.get_path_buf() {
-                if !file.exists() {
-                    log::warn!("File not found: {}", file.to_string_lossy());
-                }
                 return file.to_string_lossy().to_string();
             }
-        }
-        if !PathBuf::from(&s).exists() {
-            log::warn!("File not found: {}", s);
         }
         s
     }
@@ -141,34 +136,84 @@ impl IcyBoard {
         let config = IcbConfig::load(path)?;
 
         let parent_path = path.as_ref().parent().unwrap();
-        let users = UserBase::load(
-            &RelativePath::from_path(&config.paths.user_base)?.to_path(parent_path),
-        )?;
-        let conferences = ConferenceBase::load(
-            &RelativePath::from_path(&config.paths.conferences)?.to_path(parent_path),
-        )?;
-        let display_text = IcbTextFile::load(
-            &RelativePath::from_path(&config.paths.icbtext)?.to_path(parent_path),
-        )?;
-        let languages = SupportedLanguages::load(
-            &RelativePath::from_path(&config.paths.language_file)?.to_path(parent_path),
-        )?;
+        let load_path = &RelativePath::from_path(&config.paths.user_base)?.to_path(parent_path);
+        let users = UserBase::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading user base: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
 
-        let protocols = SupportedProtocols::load(
-            &RelativePath::from_path(&config.paths.protocol_data_file)?.to_path(parent_path),
-        )?;
+        let load_path = RelativePath::from_path(&config.paths.conferences)?.to_path(parent_path);
+        let conferences = ConferenceBase::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading conference base: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
 
-        let sec_levels = SecurityLevelDefinitions::load(
-            &RelativePath::from_path(&config.paths.security_level_file)?.to_path(parent_path),
-        )?;
+        let load_path = RelativePath::from_path(&config.paths.icbtext)?.to_path(parent_path);
+        let display_text = IcbTextFile::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading display text: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
 
-        let commands = CommandList::load(
-            &RelativePath::from_path(&config.paths.command_file)?.to_path(parent_path),
-        )?;
+        let load_path = &RelativePath::from_path(&config.paths.language_file)?.to_path(parent_path);
+        let languages = SupportedLanguages::load(load_path).map_err(|e| {
+            log::error!(
+                "Error loading languages: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
 
-        let statistics = Statistics::load(
-            &RelativePath::from_path(&config.paths.statistics_file)?.to_path(parent_path),
-        )?;
+        let load_path =
+            RelativePath::from_path(&config.paths.protocol_data_file)?.to_path(parent_path);
+        let protocols = SupportedProtocols::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading protocols: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
+
+        let load_path =
+            RelativePath::from_path(&config.paths.security_level_file)?.to_path(parent_path);
+        let sec_levels = SecurityLevelDefinitions::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading security levels: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
+
+        let load_path = &RelativePath::from_path(&config.paths.command_file)?.to_path(parent_path);
+        let commands = CommandList::load(load_path).map_err(|e| {
+            log::error!("Error loading commands: {} from {}", e, load_path.display());
+            e
+        })?;
+
+        let load_path =
+            RelativePath::from_path(&config.paths.statistics_file)?.to_path(parent_path);
+        let statistics = Statistics::load(&load_path).map_err(|e| {
+            log::error!(
+                "Error loading statistics: {} from {}",
+                e,
+                load_path.display()
+            );
+            e
+        })?;
 
         Ok(IcyBoard {
             root_path: path.as_ref().parent().unwrap().canonicalize()?,
@@ -259,8 +304,8 @@ impl IcyBoard {
                 required_security: conf.required_security,
                 blt_menu: conf.blt_menu.to_string_lossy().to_string(),
                 blt_file: conf.blt_file.to_string_lossy().to_string(),
-                script_menu: conf.script_menu.to_string_lossy().to_string(),
-                script_file: conf.script_file.to_string_lossy().to_string(),
+                script_menu: conf.survey_menu.to_string_lossy().to_string(),
+                script_file: conf.survey_file.to_string_lossy().to_string(),
                 dir_menu: String::new(),
                 dir_file: String::new(),
                 dlpth_list_file: String::new(),
@@ -293,8 +338,8 @@ impl IcyBoard {
                 drs_file: conf.doors_file.to_string_lossy().to_string(),
                 blt_menu: conf.blt_menu.to_string_lossy().to_string(),
                 blt_name_loc: conf.blt_file.to_string_lossy().to_string(),
-                scr_menu: conf.script_menu.to_string_lossy().to_string(),
-                scr_name_loc: conf.script_file.to_string_lossy().to_string(),
+                scr_menu: conf.survey_menu.to_string_lossy().to_string(),
+                scr_name_loc: conf.survey_file.to_string_lossy().to_string(),
                 dir_menu: String::new(),
                 dir_name_loc: String::new(),
                 pth_name_loc: String::new(),
@@ -417,6 +462,7 @@ pub fn convert_to_utf8<P: AsRef<Path>, Q: AsRef<Path>>(from: &P, to: &Q) -> Res<
     write_with_bom(to, &import)?;
     Ok(())
 }
+
 pub trait IcyBoardSerializer: serde::de::DeserializeOwned + serde::ser::Serialize {
     const FILE_TYPE: &'static str;
 

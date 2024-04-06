@@ -17,13 +17,14 @@ pub mod functions;
 use self::functions::display_flags;
 
 use super::{
-    bulletins::Bullettin,
+    bulletins::BullettinList,
     conferences::Conference,
+    icb_config::IcbColor,
     icb_text::{IcbTextStyle, IceText},
     output::Output,
     pcboard_data::Node,
     user_base::User,
-    IcyBoard,
+    IcyBoard, IcyBoardSerializer,
 };
 
 #[derive(Clone)]
@@ -41,6 +42,13 @@ pub struct DisplayOptions {
     pub abort_printout: bool,
 
     pub display_text: bool,
+}
+impl DisplayOptions {
+    pub fn reset_printout(&mut self) {
+        self.non_stop = false;
+        self.abort_printout = false;
+        self.auto_more = false;
+    }
 }
 
 impl Default for DisplayOptions {
@@ -95,6 +103,7 @@ impl TransferStatistics {
 pub struct Session {
     pub disp_options: DisplayOptions,
     pub current_conference_number: i32,
+    pub current_message_area: usize,
     pub current_conference: Conference,
     pub login_date: DateTime<Local>,
 
@@ -122,6 +131,9 @@ pub struct Session {
     pub keyboard_timer_check: bool,
 
     pub tokens: VecDeque<String>,
+
+    /// Store last password used so that the user doesn't need to re-enter it.
+    pub last_password: String,
 }
 
 impl Session {
@@ -135,6 +147,7 @@ impl Session {
             cur_security: 0,
             num_lines_printed: 0,
             security_violations: 0,
+            current_message_area: 0,
             node_num: 0,
             page_len: 24,
             is_sysop: false,
@@ -145,6 +158,7 @@ impl Session {
             keyboard_timer_check: false,
             request_logoff: false,
             tokens: VecDeque::new(),
+            last_password: String::new(),
         }
     }
 }
@@ -240,7 +254,15 @@ impl IcyBoardState {
     }
 
     pub fn reset_color(&mut self) -> Res<()> {
-        self.set_color(7)
+        let color = self
+            .board
+            .lock()
+            .unwrap()
+            .config
+            .color_configuration
+            .default
+            .clone();
+        self.set_color(color)
     }
 
     pub fn clear_screen(&mut self) -> Res<()> {
@@ -364,8 +386,13 @@ impl IcyBoardState {
         self.ctx.lock().unwrap().put_keyboard_buffer(&chars)
     }
 
-    pub fn load_bullettins(&self) -> Res<Vec<Bullettin>> {
-        Bullettin::load_file(&self.session.current_conference.blt_file)
+    pub fn load_bullettins(&self) -> Res<BullettinList> {
+        if let Ok(board) = self.board.lock() {
+            let path = board.resolve_file(&self.session.current_conference.blt_file);
+            BullettinList::load(&path)
+        } else {
+            Err("Board is locked".into())
+        }
     }
 
     pub fn get_pcbdat(&self) -> Res<String> {
@@ -381,6 +408,23 @@ impl IcyBoardState {
         } else {
             Err("Board is locked".into())
         }
+    }
+
+    pub fn try_find_command(&self, command: &str) -> Option<super::commands::Command> {
+        let command = command.to_ascii_uppercase();
+        for cmd in &self.session.current_conference.commands {
+            if cmd.input.contains(&command) {
+                return Some(cmd.clone());
+            }
+        }
+
+        for cmd in &self.board.lock().unwrap().commands.commands {
+            if cmd.input.contains(&command) {
+                return Some(cmd.clone());
+            }
+        }
+
+        None
     }
 }
 
@@ -535,7 +579,7 @@ impl IcyBoardState {
                         } else {
                             let color =
                                 (c.to_digit(16).unwrap() | (ch1.to_digit(16).unwrap() << 4)) as u8;
-                            self.set_color(color)?;
+                            self.set_color(color.into())?;
                         }
                     }
                 }
@@ -707,7 +751,7 @@ impl IcyBoardState {
                 let x = self.caret.get_position().x as usize;
                 if let Some(value) = param {
                     if let Ok(i) = value.parse::<usize>() {
-                        while result.len() < i - x {
+                        while result.len() + 1 < i - x {
                             result.push(' ');
                         }
                         return Some(result);
@@ -847,20 +891,27 @@ impl IcyBoardState {
         self.ctx.lock().unwrap().inbytes()
     }
 
-    pub fn set_color(&mut self, color: u8) -> Res<()> {
+    pub fn set_color(&mut self, color: IcbColor) -> Res<()> {
         if !self.use_graphics() {
             return Ok(());
         }
-        if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
-            return Ok(());
-        }
+        let new_color = match color {
+            IcbColor::None => {
+                return Ok(());
+            }
+            IcbColor::Dos(color) => {
+                if self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink) == color {
+                    return Ok(());
+                }
+                TextAttribute::from_u8(color, icy_engine::IceMode::Blink)
+            }
+            IcbColor::IcyEngine(_fg) => {
+                todo!();
+            }
+        };
 
         let mut color_change = "\x1B[".to_string();
-
-        let new_color = TextAttribute::from_u8(color, icy_engine::IceMode::Blink);
-
         let was_bold = self.caret.get_attribute().is_bold();
-
         let new_bold = new_color.is_bold() || new_color.get_foreground() > 7;
         let mut bg = self.caret.get_attribute().get_background();
         let mut fg = self.caret.get_attribute().get_foreground();
@@ -896,7 +947,6 @@ impl IcyBoardState {
 
         color_change.pop();
         color_change += "m";
-
         self.write_string(color_change.chars().collect::<Vec<char>>().as_slice())
     }
 
@@ -941,6 +991,7 @@ impl IcyBoardState {
             IceText::MorePrompt,
             12,
             "YyNn",
+            "HLPMORE",
             display_flags::YESNO
                 | display_flags::UPCASE
                 | display_flags::STACKED
@@ -950,7 +1001,7 @@ impl IcyBoardState {
     }
 
     pub fn press_enter(&mut self) -> Res<()> {
-        self.input_field(IceText::PressEnter, 0, "", display_flags::ERASELINE)?;
+        self.input_field(IceText::PressEnter, 0, "", "", display_flags::ERASELINE)?;
         Ok(())
     }
 

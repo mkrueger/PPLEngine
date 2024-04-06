@@ -14,6 +14,15 @@ use super::{
 };
 
 #[derive(Default, Clone, Serialize, Deserialize)]
+pub struct MessageArea {
+    pub name: String,
+    pub filename: PathBuf,
+    read_only: bool,
+    allow_aliases: bool,
+    req_level_to_enter: u8,
+    req_level_to_save_attach: u8,
+}
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Conference {
     pub name: String,
 
@@ -90,14 +99,13 @@ pub struct Conference {
     pub blt_menu: PathBuf,
     pub blt_file: PathBuf,
 
-    pub script_menu: PathBuf,
-    pub script_file: PathBuf,
+    pub survey_menu: PathBuf,
+    pub survey_file: PathBuf,
 
     pub file_area_menu: PathBuf,
     pub file_area_file: PathBuf,
 
-    pub message_area_menu: PathBuf,
-    pub message_area_file: PathBuf,
+    pub message_areas: Vec<MessageArea>,
 
     #[serde(skip)]
     pub commands: Vec<Command>,
@@ -128,6 +136,17 @@ impl ConferenceBase {
         let mut confs = Vec::new();
         for (i, c) in conferences.iter().enumerate() {
             let d = &add_conferences[i];
+
+            let general_area = MessageArea {
+                name: "General".to_string(),
+                filename: PathBuf::from(&c.message_file),
+                read_only: d.read_only,
+                allow_aliases: d.allow_aliases,
+                req_level_to_enter: d.req_level_to_enter,
+                req_level_to_save_attach: d.attach_level,
+            };
+
+            let message_areas = vec![general_area];
 
             let new = Conference {
                 name: c.name.clone(),
@@ -161,12 +180,11 @@ impl ConferenceBase {
                 doors_file: PathBuf::from(&c.doors_file),
                 blt_menu: PathBuf::from(&c.blt_menu),
                 blt_file: PathBuf::from(&c.blt_file),
-                script_menu: PathBuf::from(&c.script_menu),
-                script_file: PathBuf::from(&c.script_file),
+                survey_menu: PathBuf::from(&c.script_menu),
+                survey_file: PathBuf::from(&c.script_file),
                 file_area_menu: PathBuf::from(&c.dir_menu),
                 file_area_file: PathBuf::from(&c.dir_menu),
-                message_area_menu: PathBuf::new(),
-                message_area_file: PathBuf::from(&c.message_file),
+                message_areas,
             };
             confs.push(new);
         }

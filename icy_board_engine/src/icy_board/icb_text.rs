@@ -17,6 +17,8 @@ use toml::Value;
 
 use crate::vm::errors::IcyError;
 
+use super::icb_config::IcbColor;
+
 #[repr(usize)]
 #[derive(Clone, Copy, EnumString, Display, PartialEq, Eq)]
 pub enum IceText {
@@ -56,7 +58,7 @@ pub enum IceText {
     /// `Local Download Path`
     LocalDownloadPath = 17,
     /// `Password to Read Message (ENTER alone aborts)`
-    PasswordTOReadMessage = 18,
+    PasswordToReadMessage = 18,
     /// `Local Upload Path or Filename`
     LocalUploadPath = 19,
     /// `Printer Off-Line ...`
@@ -1188,9 +1190,9 @@ pub enum IceText {
     /// `Full Screen Editor Default: (Y)es, (N)o, (A)sk`
     SetFSEDefault = 583,
     /// `(H)elp, (@OPTEXT@), Message Read Command`
-    MessageReadCommandExpired = 584,
+    MessageReadCommandExpert = 584,
     /// `(H)elp, (1-@NUMDIR@), File List Command`
-    FileListCommandExpired = 585,
+    FileListCommandExpert = 585,
     /// `Conference                                                   Last   High`
     ConferenceHeader1 = 586,
     /// `#   Name                                                   Read   Num. Flags`
@@ -1206,7 +1208,7 @@ pub enum IceText {
     /// `Caller Security: @OPTEXT@`
     CallerSecurity = 592,
     /// `of`
-    Seperator = 593,
+    Separator = 593,
     /// `Loading @OPTEXT@, please wait...`
     OpeningDOOR = 594,
     /// `Did you forget your password?`
@@ -1525,9 +1527,12 @@ pub enum IceText {
     EnterColor = 751,
     /// `Enter node # or Handle`
     EnterNode = 752,
+
+    /// `Conf:                                 Area:`
+    MessagesConfArea = 753,
 }
 
-const LAST_ENTRY: usize = 752;
+const LAST_ENTRY: usize = 753;
 
 impl IceText {
     pub fn from(i: usize) -> Self {
@@ -1554,6 +1559,9 @@ pub enum TextError {
 
     #[error("invalid ICETEXT file")]
     NoValidIceTextFile,
+
+    #[error("invalid ICETEXT entry ({0})")]
+    IceTextEntryInvalid(String),
 }
 
 #[derive(Clone, Copy, PartialEq, Default, Display, EnumString)]
@@ -1578,16 +1586,16 @@ pub enum IcbTextStyle {
 }
 
 impl IcbTextStyle {
-    pub fn to_color(&self) -> u8 {
+    pub fn to_color(&self) -> IcbColor {
         match self {
-            IcbTextStyle::Plain => 0,
-            IcbTextStyle::Red => 12,
-            IcbTextStyle::Green => 10,
-            IcbTextStyle::Yellow => 14,
-            IcbTextStyle::Blue => 9,
-            IcbTextStyle::Purple => 13,
-            IcbTextStyle::Cyan => 11,
-            IcbTextStyle::White => 15,
+            IcbTextStyle::Plain => IcbColor::None,
+            IcbTextStyle::Red => IcbColor::Dos(12),
+            IcbTextStyle::Green => IcbColor::Dos(10),
+            IcbTextStyle::Yellow => IcbColor::Dos(14),
+            IcbTextStyle::Blue => IcbColor::Dos(9),
+            IcbTextStyle::Purple => IcbColor::Dos(13),
+            IcbTextStyle::Cyan => IcbColor::Dos(11),
+            IcbTextStyle::White => IcbColor::Dos(15),
         }
     }
 
@@ -1771,7 +1779,9 @@ fn load_ice_format(data: &[u8], file: String) -> Res<Vec<TextEntry>> {
             let mut res = vec![None; LAST_ENTRY + 1];
             res[0] = Some(TextEntry::default());
             for (k, v) in entries {
-                let ice_text = k.parse::<IceText>()?;
+                let Ok(ice_text) = k.parse::<IceText>() else {
+                    return Err(Box::new(TextError::IceTextEntryInvalid(k.clone())));
+                };
 
                 if let Value::Table(values) = v {
                     let text = if let Some(Value::String(text)) = values.get("text") {
@@ -1779,6 +1789,7 @@ fn load_ice_format(data: &[u8], file: String) -> Res<Vec<TextEntry>> {
                     } else {
                         return Err(Box::new(TextError::IceTextEntryWithoutText(k.clone())));
                     };
+
                     let mut entry = TextEntry::new(
                         IcbTextStyle::default(),
                         text,
@@ -1796,13 +1807,6 @@ fn load_ice_format(data: &[u8], file: String) -> Res<Vec<TextEntry>> {
                         return Err(Box::new(TextError::IceTextEntryAlreadyDefined(k.clone())));
                     }
                     res[ice_text as usize] = Some(entry);
-                }
-            }
-            for (i, entry) in res.iter().enumerate() {
-                if entry.is_none() {
-                    return Err(Box::new(TextError::IceTextEntryNotDefined(
-                        IceText::from(i).to_string(),
-                    )));
                 }
             }
             Ok(res.into_iter().flatten().collect())

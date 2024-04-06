@@ -1,10 +1,9 @@
-use std::{collections::HashMap, fs, io::Cursor, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use icy_ppe::Res;
 use qfile::{QFilePath, QTraitSync};
 
 use self::{
-    messages::MessageBaseHeader,
     pcbconferences::{PcbAdditionalConferenceHeader, PcbConferenceHeader},
     pcboard_data::PcbBoardData,
     user_inf::PcbUserInf,
@@ -13,7 +12,6 @@ use self::{
 
 use super::{icb_text::IcbTextFile, IcyBoardError};
 
-pub mod messages;
 pub mod pcbconferences;
 pub mod pcboard_data;
 pub mod user_inf;
@@ -164,11 +162,11 @@ impl PcbBoard {
 
         let pcb_text = res.resolve_file(&res.data.path.text_loc) + "/PCBTEXT";
         res.display_text = IcbTextFile::load(&pcb_text)?;
-
-        let r = res.resolve_file(&res.conferences[0].message_file);
-        let hdr = MessageBaseHeader::deserialize(&mut Cursor::new(&fs::read(r)?))?;
-        res.num_callers = hdr.num_callers as usize;
-
+        /*
+                let r = res.resolve_file(&res.conferences[0].message_file);
+                let hdr = MessageBaseHeader::deserialize(&mut Cursor::new(&fs::read(r)?))?;
+                res.num_callers = hdr.num_callers as usize;
+        */
         Ok(res)
     }
 }

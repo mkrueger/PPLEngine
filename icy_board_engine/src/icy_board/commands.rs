@@ -122,7 +122,7 @@ pub enum CommandType {
     MessageAreas,
 
     /// K command
-    KillMessage,
+    DeleteMessage,
 
     /// L command
     LocateFile,
@@ -200,11 +200,14 @@ pub enum CommandType {
     // Like "E" but as reply
     ReplyMessage,
 
+    // "ALIAS" command
+    EnableAlias,
+
     // Sysop commands
     Broadcast,
 
-    // "ALIAS" command
-    EnableAlias,
+    // '4' command
+    RestoreMessage,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, fs, thread, time::Duration};
+use std::{fs, thread, time::Duration};
 
 use icy_ppe::{
     executable::{PPEExpr, VariableType, VariableValue},
@@ -48,8 +48,8 @@ pub fn wait(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 }
 
 pub fn color(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
-    let color = vm.eval_expr(&args[0])?.as_int();
-    vm.icy_board_state.set_color(color as u8)?;
+    let color = vm.eval_expr(&args[0])?.as_int() as u8;
+    vm.icy_board_state.set_color(color.into())?;
     Ok(())
 }
 
@@ -81,7 +81,7 @@ pub fn fcreate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
+    let file = vm.resolve_file(&file);
     vm.io.fcreate(channel, &file, am, sm);
     Ok(())
 }
@@ -91,7 +91,7 @@ pub fn fopen(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
+    let file = vm.resolve_file(&file);
     vm.io.fopen(channel, &file, am, sm)?;
     Ok(())
 }
@@ -101,7 +101,7 @@ pub fn fappend(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = vm.eval_expr(&args[1])?.as_string();
     let am = vm.eval_expr(&args[2])?.as_int();
     let sm = vm.eval_expr(&args[3])?.as_int();
-    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
+    let file = vm.resolve_file(&file);
     vm.io.fappend(channel, &file, am, sm);
     Ok(())
 }
@@ -115,7 +115,7 @@ pub fn fclose(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     if !(0..=7).contains(&channel) {
         return Err(Box::new(IcyError::FileChannelOutOfBounds(channel)));
     }
-    vm.io.fclose(channel as usize);
+    vm.io.fclose(channel as usize)?;
     Ok(())
 }
 
@@ -131,7 +131,7 @@ pub fn fput(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
     for value in &args[1..] {
         let text = vm.eval_expr(value)?.as_string();
-        vm.io.fput(channel, text);
+        vm.io.fput(channel, text)?;
     }
     Ok(())
 }
@@ -141,9 +141,9 @@ pub fn fputln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
     for value in &args[1..] {
         let text = vm.eval_expr(value)?.as_string();
-        vm.io.fput(channel, text);
+        vm.io.fput(channel, text)?;
     }
-    vm.io.fput(channel, "\n".to_string());
+    vm.io.fput(channel, "\n".to_string())?;
     Ok(())
 }
 
@@ -192,9 +192,10 @@ pub fn getuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
 /// # Errors
 /// Errors if the variable is not found.
 pub fn putuser(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<()> {
-    let mut user = vm.icy_board_state.current_user.take().unwrap();
-    vm.put_user_variables(&mut user);
-    vm.icy_board_state.current_user = Some(user);
+    if let Some(mut user) = vm.icy_board_state.current_user.take() {
+        vm.put_user_variables(&mut user);
+        vm.icy_board_state.current_user = Some(user);
+    }
     Ok(())
 }
 
@@ -205,7 +206,7 @@ pub fn defcolor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn delete(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file = &vm.eval_expr(&args[0])?.as_string();
-    let file = vm.icy_board_state.board.lock().unwrap().resolve_file(&file);
+    let file = vm.resolve_file(&file);
     if let Err(err) = vm.io.delete(&file) {
         log::error!("Error deleting file: {}", err);
     }
@@ -233,13 +234,13 @@ const TXT_STOPCHAR: char = '_';
 pub fn inputstr(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let prompt = vm.eval_expr(&args[0])?.as_string();
     // 1 Output Variable
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = vm.eval_expr(&args[3])?.as_int();
     let valid = vm.eval_expr(&args[4])?.as_string();
     let flags = vm.eval_expr(&args[5])?.as_int();
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, &valid, flags)?;
+        .input_string(color.into(), prompt, len, &valid, "", flags)?;
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
 }
@@ -250,12 +251,12 @@ pub fn inputyn(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 1;
     let valid = "YyNn";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
 
     vm.set_variable(
         &args[1],
@@ -270,12 +271,12 @@ pub fn inputmoney(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 13;
     let valid = "01234567890+-$.";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
     // TODO: Money conversion.
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -287,16 +288,13 @@ pub fn inputint(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 11;
     let valid = "01234567890+-";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
-    vm.set_variable(
-        &args[1],
-        VariableValue::new_int(output.parse::<i32>().unwrap()),
-    )?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
+    vm.set_variable(&args[1], VariableValue::new_int(output.parse::<i32>()?))?;
     Ok(())
 }
 pub fn inputcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
@@ -305,12 +303,12 @@ pub fn inputcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 16;
     let valid = "01234567890";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
 }
@@ -320,12 +318,12 @@ pub fn inputdate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 8;
     let valid = "01234567890-/";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
     // TODO: Date conversion
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -337,12 +335,12 @@ pub fn inputtime(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
         prompt.pop();
     }
 
-    let color = vm.eval_expr(&args[2])?.as_int();
+    let color = vm.eval_expr(&args[2])?.as_int() as u8;
     let len = 8;
     let valid = "01234567890:";
     let output = vm
         .icy_board_state
-        .input_string(color, prompt, len, valid, 0)?;
+        .input_string(color.into(), prompt, len, valid, "", 0)?;
     // TODO: Time conversion
     vm.set_variable(&args[1], VariableValue::new_string(output))?;
     Ok(())
@@ -504,12 +502,7 @@ pub fn kbdstring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 }
 pub fn kbdfile(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let file_name = vm.eval_expr(&args[0])?.as_string();
-    let fil_name = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(&file_name);
+    let fil_name = vm.resolve_file(&file_name);
     let contents = fs::read_to_string(file_name)?;
     vm.icy_board_state.put_keyboard_buffer(&contents)?;
 
@@ -751,8 +744,8 @@ pub fn mprintln(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 pub fn rename(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let old = &vm.eval_expr(&args[0])?.as_string();
     let new = &vm.eval_expr(&args[1])?.as_string();
-    let old = vm.icy_board_state.board.lock().unwrap().resolve_file(&old);
-    let new = vm.icy_board_state.board.lock().unwrap().resolve_file(&new);
+    let old = vm.resolve_file(&old);
+    let new = vm.resolve_file(&new);
 
     if let Err(err) = vm.io.rename(&old, &new) {
         log::error!("Error renaming file: {}", err);
@@ -947,7 +940,14 @@ pub fn wrusysdoor(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
 
 pub fn getaltuser(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<()> {
     let user_record = vm.eval_expr(&args[0])?.as_int() as usize;
-    let user = vm.icy_board_state.board.lock().unwrap().borrow().users[user_record].clone();
+    let user = if let Ok(board) = vm.icy_board_state.board.lock() {
+        if user_record >= board.users.len() {
+            return Err(Box::new(VMError::UserRecordOutOfBounds(user_record)));
+        }
+        board.users[user_record].clone()
+    } else {
+        return Err(Box::new(VMError::InternalVMError));
+    };
     vm.set_user_variables(&user);
     Ok(())
 }

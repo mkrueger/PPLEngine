@@ -129,7 +129,7 @@ pub struct UserStats {
     /// # Password failures
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_64")]
-    pub num_pwrd_errors: u64,
+    pub num_password_failures: u64,
     /// # Upload verification failed
     #[serde(default)]
     #[serde(skip_serializing_if = "is_null_64")]
@@ -536,7 +536,7 @@ impl User {
                 num_not_reg: num_not_reg as u64,
                 num_reach_dnld_lim: num_reach_dnld_lim as u64,
                 num_file_not_found: num_file_not_found as u64,
-                num_pwrd_errors: num_pwrd_errors as u64,
+                num_password_failures: num_pwrd_errors as u64,
                 num_verify_errors: num_verify_errors as u64,
                 num_uploads: u.user.num_uploads as u64,
                 num_downloads: u.user.num_downloads as u64,

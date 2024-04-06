@@ -110,26 +110,33 @@ pub struct SysopInformation {
 
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct ColorConfiguration {
-    ///  color code for default color (v15.0)
+    ///  color code for default color
     pub default: IcbColor,
-    ///  color for DATE line of message header (v15.0)
+    ///  color for DATE line of message header
     pub msg_hdr_date: IcbColor,
-    ///  color for TO   line of message header (v15.0)
+    ///  color for TO   line of message header
     pub msg_hdr_to: IcbColor,
-    ///  color for FROM line of message header (v15.0)
+    ///  color for FROM line of message header
     pub msg_hdr_from: IcbColor,
-    ///  color for SUBJ line of message header (v15.0)
+    ///  color for SUBJ line of message header
     pub msg_hdr_subj: IcbColor,
-    ///  color for READ line of message header (v15.0)
+    ///  color for READ line of message header
     pub msg_hdr_read: IcbColor,
-    ///  color for CONF line of message header (v15.0)
+    ///  color for CONF line of message header
     pub msg_hdr_conf: IcbColor,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum IcbColor {
+    None,
     Dos(u8),
     IcyEngine(Color),
+}
+
+impl From<u8> for IcbColor {
+    fn from(color: u8) -> Self {
+        IcbColor::Dos(color)
+    }
 }
 
 impl<'de> Deserialize<'de> for IcbColor {
@@ -153,6 +160,7 @@ impl serde::Serialize for IcbColor {
         S: serde::Serializer,
     {
         match self {
+            IcbColor::None => "".serialize(serializer),
             IcbColor::Dos(u8) => format!("@X{:02X}", u8).serialize(serializer),
             IcbColor::IcyEngine(color) => color.to_hex().serialize(serializer),
         }

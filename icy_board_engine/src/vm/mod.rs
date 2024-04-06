@@ -57,6 +57,15 @@ pub enum VMError {
 
     #[error("File channel not open ({0})")]
     FileChannelNotOpen(usize),
+
+    #[error("Invalid user record out of bounds ({0})")]
+    UserRecordOutOfBounds(usize),
+
+    #[error("Pass value stack empty")]
+    PassValueStackEmpty,
+
+    #[error("Write back stack empty")]
+    WriteBackStackEmpty,
 }
 
 #[derive(Clone, Copy)]
@@ -525,7 +534,6 @@ impl<'a> VirtualMachine<'a> {
             let p = self.cur_ptr;
             self.cur_ptr += 1;
             let c = self.script.statements[p].command.clone();
-            log::error!("Executing: {:?}", c);
             self.execute_statement(&c)?;
         }
         Ok(())
@@ -611,7 +619,9 @@ impl<'a> VirtualMachine<'a> {
                         for i in (0..(locals + parameters)).rev() {
                             let id = first + i;
                             if self.variable_table.get_var_entry(id).header.flags & 0x1 == 0x0 {
-                                let value = self.call_local_value_stack.pop().unwrap();
+                                let Some(value) = self.call_local_value_stack.pop() else {
+                                    return Err(VMError::PushPopStackEmpty.into());
+                                };
                                 if id != return_var_id {
                                     self.variable_table.set_value(id, value);
                                 }
@@ -621,11 +631,15 @@ impl<'a> VirtualMachine<'a> {
                         if pass_flags > 0 {
                             for i in (0..parameters).rev() {
                                 if (1 << i) & pass_flags != 0 {
-                                    let val = pass_values.pop().unwrap();
-                                    let argument_expr = self.write_back_stack.pop().unwrap();
-                                    //println!("pop pass value {}", val);
-
-                                    self.set_variable(&argument_expr, val)?;
+                                    let Some(val) = pass_values.pop() else {
+                                        return Err(VMError::PassValueStackEmpty.into());
+                                    };
+                                    if let Some(argument_expr) = self.write_back_stack.pop() {
+                                        //println!("pop pass value {}", val);
+                                        self.set_variable(&argument_expr, val)?;
+                                    } else {
+                                        return Err(VMError::WriteBackStackEmpty.into());
+                                    }
                                 }
                             }
                         }
@@ -740,6 +754,14 @@ impl<'a> VirtualMachine<'a> {
         } else {
             Err(VMError::LabelNotFound(label))
         }
+    }
+
+    pub fn resolve_file<P: AsRef<Path>>(&self, file: &P) -> String {
+        self.icy_board_state
+            .board
+            .lock()
+            .unwrap()
+            .resolve_file(file)
     }
 }
 

@@ -44,4 +44,7 @@ pub enum IcyError {
 
     #[error("Error parsing config ({0}) : {1}")]
     ErrorParsingConfig(String, String),
+
+    #[error("Error saving file ({0}) : {1}")]
+    ErrorSavingFile(String, String),
 }

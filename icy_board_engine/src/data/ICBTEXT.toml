@@ -68,7 +68,7 @@ style = "Red"
 text = "Local Download Path"
 style = "Cyan"
 
-[PasswordTOReadMessage]
+[PasswordToReadMessage]
 text = "Password to Read Message (ENTER alone aborts)"
 style = "White"
 
@@ -2224,11 +2224,11 @@ style = "Green"
 text = "Full Screen Editor Default: (Y)es, (N)o, (A)sk"
 style = "Yellow"
 
-[MessageReadCommandExpired]
+[MessageReadCommandExpert]
 text = "(H)elp, (@OPTEXT@), Message Read Command"
 style = "Yellow"
 
-[FileListCommandExpired]
+[FileListCommandExpert]
 text = "(H)elp, (1-@NUMDIR@), File List Command"
 style = "Yellow"
 
@@ -2257,7 +2257,7 @@ text = "Caller Number: @OPTEXT@"
 [CallerSecurity]
 text = "Caller Security: @OPTEXT@"
 
-[Seperator]
+[Separator]
 text = "of"
 
 [OpeningDOOR]
@@ -2881,3 +2881,6 @@ style = "Yellow"
 [EnterNode]
 text = "Enter node # or Handle"
 style = "Yellow"
+
+[MessagesConfArea]
+text = "Conf:                                 Area:"

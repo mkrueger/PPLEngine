@@ -513,7 +513,7 @@ impl PCBoardIO for MemoryIO {
                 err: true,
             };
         }
-        Ok((()))
+        Ok(())
     }
 
     fn fget(&mut self, channel: usize) -> Res<String> {

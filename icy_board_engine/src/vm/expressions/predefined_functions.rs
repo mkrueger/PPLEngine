@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use crate::vm::VirtualMachine;
 use icy_engine::update_crc32;
@@ -222,18 +221,19 @@ pub fn replace(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     let str = vm.eval_expr(&args[0])?.as_string();
     let old = vm.eval_expr(&args[1])?.as_string();
     let new = vm.eval_expr(&args[2])?.as_string();
-    if old.is_empty() {
-        return Ok(VariableValue::new_string(str));
-    }
 
     let mut res = String::new();
-    let old = old.chars().next().unwrap();
-    let new = new.chars().next().unwrap();
-    for c in str.chars() {
-        if c == old {
-            res.push(new);
-        } else {
-            res.push(c);
+    let Some(old) = old.chars().next() else {
+        return Ok(VariableValue::new_string(str));
+    };
+
+    if let Some(new) = new.chars().next() {
+        for c in str.chars() {
+            if c == old {
+                res.push(new);
+            } else {
+                res.push(c);
+            }
         }
     }
     Ok(VariableValue::new_string(res))
@@ -247,10 +247,11 @@ pub fn strip(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let str = vm.eval_expr(&args[0])?.as_string();
     let ch: String = vm.eval_expr(&args[1])?.as_string();
     let mut res = String::new();
-    let ch = ch.chars().next().unwrap();
-    for c in str.chars() {
-        if c != ch {
-            res.push(c);
+    if let Some(remove_char) = ch.chars().next() {
+        for c in str.chars() {
+            if c != remove_char {
+                res.push(c);
+            }
         }
     }
     Ok(VariableValue::new_string(res))
@@ -377,14 +378,11 @@ pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        vm.icy_board_state
-            .current_user
-            .as_ref()
-            .unwrap()
-            .get_name()
-            .clone(),
-    ))
+    if let Some(user) = &vm.icy_board_state.current_user {
+        Ok(VariableValue::new_string(user.get_name().clone()))
+    } else {
+        Ok(VariableValue::new_string(String::new()))
+    }
 }
 
 pub fn u_ldate(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -609,12 +607,7 @@ pub fn pcbnode(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
 pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let file_name = vm.eval_expr(&args[0])?.as_string();
     let line = vm.eval_expr(&args[1])?.as_int();
-    let file_name = vm
-        .icy_board_state
-        .board
-        .lock()
-        .unwrap()
-        .resolve_file(&file_name);
+    let file_name = vm.resolve_file(&file_name);
 
     let file = fs::read(file_name)?;
 
@@ -927,6 +920,9 @@ pub fn psa(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 pub fn fileinf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let file = vm.eval_expr(&args[0])?.as_string();
     let item = vm.eval_expr(&args[1])?.as_int();
+
+    let file = vm.resolve_file(&file);
+    let path = PathBuf::from(&file);
     match item {
         1 => Ok(VariableValue::new_bool(vm.io.file_exists(&file))),
         2 => Ok(VariableValue::new(
@@ -940,30 +936,27 @@ pub fn fileinf(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
         4 => Ok(VariableValue::new_int(vm.io.get_file_size(&file) as i32)),
         5 => Ok(VariableValue::new_int(0)), // TODO: File attributes
         6 => Ok(VariableValue::new_string("C:".to_string())), // Drive
-        7 => Ok(VariableValue::new_string(
-            PathBuf::from_str(&file)
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        )),
-        8 => Ok(VariableValue::new_string(
-            PathBuf::from_str(&file)
-                .unwrap()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        )),
-        9 => Ok(VariableValue::new_string(
-            PathBuf::from_str(&file)
-                .unwrap()
-                .file_stem()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        )),
+        7 => {
+            if let Some(dir) = path.parent() {
+                Ok(VariableValue::new_string(dir.to_string_lossy().to_string()))
+            } else {
+                Ok(VariableValue::new_string(String::new()))
+            }
+        }
+        8 => {
+            if let Some(dir) = path.file_name() {
+                Ok(VariableValue::new_string(dir.to_string_lossy().to_string()))
+            } else {
+                Ok(VariableValue::new_string(String::new()))
+            }
+        }
+        9 => {
+            if let Some(dir) = path.file_stem() {
+                Ok(VariableValue::new_string(dir.to_string_lossy().to_string()))
+            } else {
+                Ok(VariableValue::new_string(String::new()))
+            }
+        }
         _ => {
             log::error!("Unknown fileinf item: {}", item);
             Ok(VariableValue::new_int(0))
@@ -1316,12 +1309,7 @@ pub fn crc32(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     let param = vm.eval_expr(&args[1])?.as_string();
 
     if use_file {
-        let file = vm
-            .icy_board_state
-            .board
-            .lock()
-            .unwrap()
-            .resolve_file(&param);
+        let file = vm.resolve_file(&param);
         let buffer = fs::read(file)?;
         let crc = calc_crc32(&buffer);
         Ok(VariableValue::new_unsigned(crc as u64))

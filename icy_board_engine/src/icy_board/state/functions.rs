@@ -8,10 +8,12 @@ use icy_ppe::Res;
 
 use crate::{
     icy_board::{
+        commands::CommandType,
+        icb_config::IcbColor,
         icb_text::{IcbTextStyle, IceText},
         UTF8_BOM,
     },
-    vm::{log, TerminalTarget},
+    vm::TerminalTarget,
 };
 
 use super::IcyBoardState;
@@ -39,13 +41,15 @@ pub mod display_flags {
 }
 
 pub mod pcb_colors {
-    pub const BLUE: u8 = 9;
-    pub const GREEN: u8 = 10;
-    pub const CYAN: u8 = 11;
-    pub const RED: u8 = 12;
-    pub const MAGENTA: u8 = 13;
-    pub const YELLOW: u8 = 14;
-    pub const WHITE: u8 = 15;
+    use crate::icy_board::icb_config::IcbColor;
+
+    pub const BLUE: IcbColor = IcbColor::Dos(9);
+    pub const GREEN: IcbColor = IcbColor::Dos(10);
+    pub const CYAN: IcbColor = IcbColor::Dos(11);
+    pub const RED: IcbColor = IcbColor::Dos(12);
+    pub const MAGENTA: IcbColor = IcbColor::Dos(13);
+    pub const YELLOW: IcbColor = IcbColor::Dos(14);
+    pub const WHITE: IcbColor = IcbColor::Dos(15);
 }
 const TXT_STOPCHAR: char = '_';
 
@@ -116,14 +120,14 @@ impl IcyBoardState {
             .display_text
             .get_display_text(message_number)?;
         let color = if txt_entry.style == IcbTextStyle::Plain {
-            self.caret.get_attribute().as_u8(IceMode::Blink)
+            self.caret.get_attribute().as_u8(IceMode::Blink).into()
         } else {
             txt_entry.style.to_color()
         };
         self.display_string(&txt_entry.text, color, display_flags)
     }
 
-    pub fn display_string(&mut self, txt: &str, color: u8, display_flags: i32) -> Res<()> {
+    pub fn display_string(&mut self, txt: &str, color: IcbColor, display_flags: i32) -> Res<()> {
         if display_flags & display_flags::NOTBLANK != 0 && txt.is_empty() {
             return Ok(());
         }
@@ -153,7 +157,7 @@ impl IcyBoardState {
             self.new_line()?;
         }
         if self.use_graphics() {
-            self.set_color(old_color)?;
+            self.set_color(old_color.into())?;
         }
         Ok(())
     }
@@ -221,6 +225,7 @@ impl IcyBoardState {
             }
             s
         };
+        let old = self.session.disp_options.non_stop;
         self.session.disp_options.non_stop = true;
         for line in converted_content.lines() {
             self.display_line(line)?;
@@ -232,7 +237,7 @@ impl IcyBoardState {
                 return Ok(false);
             }
         }
-        self.session.disp_options.non_stop = false;
+        self.session.disp_options.non_stop = old;
 
         Ok(true)
     }
@@ -241,7 +246,8 @@ impl IcyBoardState {
         &mut self,
         message_number: IceText,
         len: i32,
-        valid: &str,
+        valid_mask: &str,
+        help: &str,
         display_flags: i32,
     ) -> Res<String> {
         let txt_entry = self
@@ -252,20 +258,22 @@ impl IcyBoardState {
             .get_display_text(message_number)?;
 
         self.input_string(
-            txt_entry.style.to_color() as i32,
+            txt_entry.style.to_color(),
             txt_entry.text,
             len,
-            valid,
+            valid_mask,
+            help,
             display_flags,
         )
     }
 
     pub fn input_string(
         &mut self,
-        color: i32,
+        color: IcbColor,
         prompt: String,
         len: i32,
-        valid: &str,
+        valid_mask: &str,
+        help: &str,
         display_flags: i32,
     ) -> Res<String> {
         self.session.num_lines_printed = 0;
@@ -290,7 +298,7 @@ impl IcyBoardState {
             self.bell()?;
         }
         if self.use_graphics() {
-            self.set_color(color as u8)?;
+            self.set_color(color.clone())?;
         }
 
         self.display_line(&prompt)?;
@@ -305,7 +313,7 @@ impl IcyBoardState {
             self.backward(len + 1)?;
         }
         if self.use_graphics() {
-            self.set_color(old_color)?;
+            self.set_color(old_color.into())?;
         }
 
         let mut output = String::new();
@@ -318,6 +326,25 @@ impl IcyBoardState {
             }
 
             if ch == '\n' || ch == '\r' {
+                if !help.is_empty() {
+                    if let Some(cmd) = self.try_find_command(&output) {
+                        if cmd.command_type == CommandType::Help {
+                            let help_loc =
+                                self.board.lock().unwrap().config.paths.help_path.clone();
+                            let help_loc = help_loc.join(help);
+                            self.display_file(&help_loc)?;
+                            return self.input_string(
+                                color,
+                                prompt,
+                                len,
+                                valid_mask,
+                                help,
+                                display_flags,
+                            );
+                        }
+                    }
+                }
+
                 if display_flags & display_flags::ERASELINE != 0 {
                     self.clear_line()?;
                 }
@@ -331,10 +358,14 @@ impl IcyBoardState {
                 continue;
             }
 
-            if (output.len() as i32) < len && valid.contains(ch) {
+            if (output.len() as i32) < len && valid_mask.contains(ch) {
                 output.push(ch);
                 if echo {
-                    self.print(TerminalTarget::Both, &ch.to_string())?;
+                    if display_flags & display_flags::ECHODOTS != 0 {
+                        self.print(TerminalTarget::Both, &".")?;
+                    } else {
+                        self.print(TerminalTarget::Both, &ch.to_string())?;
+                    }
                 }
             }
         }
@@ -347,4 +378,43 @@ impl IcyBoardState {
         self.session.num_lines_printed = 0;
         Ok(output)
     }
+
+    pub fn check_password<F: Fn(&str) -> bool>(
+        &mut self,
+        ice_text: IceText,
+        call_back: F,
+    ) -> Res<bool> {
+        if call_back(&self.session.last_password) {
+            return Ok(true);
+        }
+        let mut tries = 0;
+
+        while tries < 3 {
+            let pwd = self.input_field(
+                ice_text,
+                13,
+                MASK_PASSWORD,
+                "",
+                display_flags::FIELDLEN | display_flags::ECHODOTS | display_flags::ERASELINE,
+            )?;
+            if pwd.is_empty() {
+                return Ok(false);
+            }
+            if call_back(&pwd) {
+                self.session.last_password = pwd;
+                return Ok(true);
+            }
+            tries += 1;
+        }
+        if let Some(user) = &mut self.current_user {
+            user.stats.num_password_failures += 1;
+        }
+        self.display_text(
+            IceText::PasswordFailure,
+            display_flags::NEWLINE | display_flags::LFAFTER,
+        )?;
+        Ok(false)
+    }
 }
+
+const MASK_PASSWORD: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{};:'\",.<>/?\\|~`";

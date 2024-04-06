@@ -3,6 +3,9 @@
 use std::fs;
 use std::path::PathBuf;
 
+use crate::icy_board::state::functions::{
+    MASK_ALNUM, MASK_ALPHA, MASK_ASCII, MASK_FILE, MASK_NUM, MASK_PATH, MASK_PWD,
+};
 use crate::vm::VirtualMachine;
 use icy_engine::update_crc32;
 use icy_ppe::ast::constant::STACK_LIMIT;
@@ -534,43 +537,26 @@ pub fn tostring(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
         vm.eval_expr(&args[0])?.as_string(),
     ))
 }
-
 pub fn mask_pwd(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string((' '..='~').collect::<String>()))
+    Ok(VariableValue::new_string(MASK_PWD.to_string()))
 }
 pub fn mask_alpha(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str(),
-    ))
+    Ok(VariableValue::new_string(MASK_ALPHA.to_string()))
 }
 pub fn mask_num(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(('0'..='9').collect::<String>()))
+    Ok(VariableValue::new_string(MASK_NUM.to_string()))
 }
 pub fn mask_alnum(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        ('A'..='Z').collect::<String>()
-            + ('a'..='z').collect::<String>().as_str()
-            + ('0'..='9').collect::<String>().as_str(),
-    ))
+    Ok(VariableValue::new_string(MASK_ALNUM.to_string()))
 }
 pub fn mask_file(_vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        ('A'..='Z').collect::<String>()
-            + ('a'..='z').collect::<String>().as_str()
-            + ('0'..='9').collect::<String>().as_str()
-            + "!#$%&'()-.:[\\]^_`~",
-    ))
+    Ok(VariableValue::new_string(MASK_FILE.to_string()))
 }
 pub fn mask_path(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string(
-        ('A'..='Z').collect::<String>()
-            + ('a'..='z').collect::<String>().as_str()
-            + ('0'..='9').collect::<String>().as_str()
-            + "!#$%&'()-.:[\\]^_`~",
-    ))
+    Ok(VariableValue::new_string(MASK_PATH.to_string()))
 }
 pub fn mask_ascii(_vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {
-    Ok(VariableValue::new_string((' '..='~').collect::<String>()))
+    Ok(VariableValue::new_string(MASK_ASCII.to_string()))
 }
 
 pub fn curconf(vm: &mut VirtualMachine, _args: &[PPEExpr]) -> Res<VariableValue> {

@@ -19,25 +19,25 @@ use crate::{
 use super::IcyBoardState;
 
 pub mod display_flags {
-    pub const DEFAULT: i32 = 0b0000_0000_0000_0000;
-    pub const ECHODOTS: i32 = 0b0000_0000_0000_0001;
-    pub const FIELDLEN: i32 = 0b0000_0000_0000_0010;
-    pub const UPCASE: i32 = 0b0000_0000_0000_0100;
-    pub const STACKED: i32 = 0b0000_0000_0000_1000;
-    pub const ERASELINE: i32 = 0b0000_0000_0001_0000;
-    pub const NEWLINE: i32 = 0b0000_0000_0010_0000;
-    pub const LFBEFORE: i32 = 0b0000_0000_0100_0000;
-    pub const LFAFTER: i32 = 0b0000_0000_1000_0000;
-    pub const LOGIT: i32 = 0b0000_0001_0000_0000;
-    pub const LOGITLEFT: i32 = 0b0000_0010_0000_0000;
-    pub const GUIDE: i32 = 0b0000_0100_0000_0000;
-    pub const WORDWRAP: i32 = 0b0000_1000_0000_0000;
-    pub const YESNO: i32 = 0b0000_1000_0000_0000; // same as 'WORDWRAP'
-    pub const NOCLEAR: i32 = 0b0001_0000_0000_0000;
-    pub const BELL: i32 = 0b0010_0000_0000_0000;
-    pub const HIGHASCII: i32 = 0b0100_0000_0000_0000;
-    pub const AUTO: i32 = 0b1000_0000_0000_0000;
-    pub const NOTBLANK: i32 = 0b1000_0000_0000_0000; // same as 'AUTO'
+    pub const DEFAULT: i32 = 0x00000;
+    pub const ECHODOTS: i32 = 0x00001;
+    pub const FIELDLEN: i32 = 0x00002;
+    pub const UPCASE: i32 = 0x00008;
+    pub const STACKED: i32 = 0x00010;
+    pub const ERASELINE: i32 = 0x00020;
+    pub const NEWLINE: i32 = 0x00040;
+    pub const LFBEFORE: i32 = 0x00080;
+    pub const LFAFTER: i32 = 0x00100;
+    pub const LOGIT: i32 = 0x08000;
+    pub const LOGITLEFT: i32 = 0x10000;
+    pub const GUIDE: i32 = 0x00004;
+    pub const WORDWRAP: i32 = 0x00200;
+    pub const YESNO: i32 = 0x04000;
+    pub const NOCLEAR: i32 = 0x00400;
+    pub const BELL: i32 = 0x00800;
+    pub const HIGHASCII: i32 = 0x01000;
+    pub const AUTO: i32 = 0x02000;
+    pub const NOTBLANK: i32 = 0x02000; // same as 'AUTO'
 }
 
 pub mod pcb_colors {
@@ -52,6 +52,19 @@ pub mod pcb_colors {
     pub const WHITE: IcbColor = IcbColor::Dos(15);
 }
 const TXT_STOPCHAR: char = '_';
+
+lazy_static::lazy_static! {
+    pub static ref MASK_PWD: String = (' '..='~').collect::<String>();
+    pub static ref MASK_ALPHA: String = ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str();
+    pub static ref MASK_NUM: String = ('0'..='9').collect::<String>();
+    pub static ref MASK_ALNUM: String = ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str() + ('0'..='9').collect::<String>().as_str();
+    pub static ref MASK_FILE: String =  ('A'..='Z').collect::<String>() + ('a'..='z').collect::<String>().as_str() + ('0'..='9').collect::<String>().as_str() + "!#$%&'()-.:[\\]^_`~";
+    pub static ref MASK_PATH: String =  ('A'..='Z').collect::<String>()
+    + ('a'..='z').collect::<String>().as_str()
+    + ('0'..='9').collect::<String>().as_str()
+    + "!#$%&'()-.:[\\]^_`~";
+    pub static ref MASK_ASCII: String = (' '..='~').collect::<String>();
+}
 
 #[derive(Debug)]
 pub enum PPECallType {
@@ -171,7 +184,7 @@ impl IcyBoardState {
                 match call.call_type {
                     PPECallType::PPE => {
                         let file = self.board.lock().unwrap().resolve_file(&call.file);
-                        self.run_ppe(&file)?;
+                        self.run_ppe(&file, None)?;
                     }
                     PPECallType::Menu => {
                         self.display_menu(&call.file)?;
@@ -198,7 +211,7 @@ impl IcyBoardState {
             .resolve_file(&(file_name.as_ref().with_extension("PPE")));
         let path = PathBuf::from(resolved_name_ppe);
         if path.exists() {
-            self.run_ppe(&path)?;
+            self.run_ppe(&path, None)?;
             return Ok(true);
         }
         self.display_file(&file_name)
@@ -362,7 +375,7 @@ impl IcyBoardState {
                 output.push(ch);
                 if echo {
                     if display_flags & display_flags::ECHODOTS != 0 {
-                        self.print(TerminalTarget::Both, &".")?;
+                        self.print(TerminalTarget::Both, ".")?;
                     } else {
                         self.print(TerminalTarget::Both, &ch.to_string())?;
                     }

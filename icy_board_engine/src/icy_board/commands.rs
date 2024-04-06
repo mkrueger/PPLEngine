@@ -146,7 +146,7 @@ pub enum CommandType {
     ReadMessages,
 
     /// S command
-    ScriptQuest,
+    Survey,
 
     /// T command
     TransferProtocol,

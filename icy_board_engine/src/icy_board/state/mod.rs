@@ -23,6 +23,7 @@ use super::{
     icb_text::{IcbTextStyle, IceText},
     output::Output,
     pcboard_data::Node,
+    surveys::SurveyList,
     user_base::User,
     IcyBoard, IcyBoardSerializer,
 };
@@ -330,13 +331,17 @@ impl IcyBoardState {
         }
     }
 
-    fn run_ppe<P: AsRef<Path>>(&mut self, file_name: &P) -> Res<()> {
+    pub fn run_ppe<P: AsRef<Path>>(
+        &mut self,
+        file_name: &P,
+        answer_file: Option<&Path>,
+    ) -> Res<()> {
         match Executable::read_file(&file_name, false) {
             Ok(executable) => {
                 let path = PathBuf::from(file_name.as_ref());
                 let parent = path.parent().unwrap().to_str().unwrap().to_string();
 
-                let mut io = DiskIO::new(&parent);
+                let mut io = DiskIO::new(&parent, answer_file);
                 if let Err(err) = run(file_name, &executable, &mut io, self) {
                     log::error!(
                         "Error executing PPE {}: {}",
@@ -395,6 +400,15 @@ impl IcyBoardState {
         }
     }
 
+    pub fn load_surveys(&self) -> Res<SurveyList> {
+        if let Ok(board) = self.board.lock() {
+            let path = board.resolve_file(&self.session.current_conference.survey_file);
+            SurveyList::load(&path)
+        } else {
+            Err("Board is locked".into())
+        }
+    }
+
     pub fn get_pcbdat(&self) -> Res<String> {
         if let Ok(board) = self.board.lock() {
             let path = board.resolve_file(&board.config.paths.tmp_path);
@@ -425,6 +439,9 @@ impl IcyBoardState {
         }
 
         None
+    }
+    pub fn resolve_file<P: AsRef<Path>>(&self, file: &P) -> PathBuf {
+        PathBuf::from(self.board.lock().unwrap().resolve_file(&file))
     }
 }
 

@@ -426,11 +426,11 @@ pub fn is_null_i32(b: impl std::borrow::Borrow<i32>) -> bool {
 
 const UTF8_BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
 
-pub fn read_cp437<P: AsRef<Path>>(path: &P) -> Res<String> {
+pub fn read_with_encoding_detection<P: AsRef<Path>>(path: &P) -> Res<String> {
     match fs::read(path) {
         Ok(data) => {
             let import = if data.starts_with(&UTF8_BOM) {
-                String::from_utf8(data)?
+                String::from_utf8_lossy(&data[UTF8_BOM.len()..]).to_string()
             } else {
                 icy_ppe::tables::import_cp437_string(&data, false)
             };
@@ -458,7 +458,7 @@ pub fn write_with_bom<P: AsRef<Path>>(path: &P, buf: &str) -> Res<()> {
 }
 
 pub fn convert_to_utf8<P: AsRef<Path>, Q: AsRef<Path>>(from: &P, to: &Q) -> Res<()> {
-    let import = read_cp437(from)?;
+    let import = read_with_encoding_detection(from)?;
     write_with_bom(to, &import)?;
     Ok(())
 }
@@ -643,7 +643,7 @@ pub trait PCBoardTextImport: PCBoardImport {
     fn import_data(data: String) -> Res<Self>;
 
     fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
-        match read_cp437(path) {
+        match read_with_encoding_detection(path) {
             Ok(data) => Self::import_data(data),
             Err(err) => {
                 log::error!(

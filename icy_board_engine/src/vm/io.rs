@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
     time::SystemTime,
 };
 
@@ -150,11 +151,19 @@ pub struct DiskIO {
 
 impl DiskIO {
     #[must_use]
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str, answer_file: Option<&Path>) -> Self {
+        let mut first_chan = FileChannel::new();
+
+        if let Some(answer_file) = answer_file {
+            let _ = first_chan
+                .file
+                .replace(Box::new(File::create(answer_file).unwrap()));
+        }
+
         DiskIO {
             _path: path.to_string(),
             channels: [
-                FileChannel::new(),
+                first_chan,
                 FileChannel::new(),
                 FileChannel::new(),
                 FileChannel::new(),

@@ -164,12 +164,12 @@ text = "~(A)"
 [ReadonlyIndicator]
 text = "~(R/O)"
 
-[MessageBaseInUse]
-text = "Error reading Script Questionnaire"
+[ErrorReadingSurvey]
+text = "Error reading Survey"
 style = "Red"
 justify = "Right"
 
-[ErrorReadingScriptQuestionnaire]
+[MessageBaseInUse]
 text = "Error reading Message base in use!"
 style = "Red"
 
@@ -199,8 +199,8 @@ style = "Red"
 text = "Enter a longer description of the file please!"
 style = "Red"
 
-[NoQuestionnaires]
-text = "No Script Questionnaires are available, @FIRST@ ..."
+[NoSurveysAvailable]
+text = "No Surveys are available, @FIRST@ ..."
 style = "Red"
 
 [ReEnterName]
@@ -260,7 +260,7 @@ text = "Node # to View, (A)ll or (Enter)=none"
 style = "Yellow"
 
 [QuestionNumberToAnswer]
-text = "Questionnaire # to Answer (Enter)=none"
+text = "Survey # to Answer (Enter)=none"
 style = "Yellow"
 
 [FileNameToUpload]
@@ -327,7 +327,7 @@ text = "NEW low starting Message # (Enter)=abort"
 style = "Red"
 
 [CompleteQuestion]
-text = "Complete the Questionnaire (Enter)=no"
+text = "Complete the Survey (Enter)=no"
 style = "Green"
 
 [WantToDeleteLine]
@@ -403,8 +403,8 @@ style = "Green"
 text = "That user is not registered in this Conference ..."
 style = "Red"
 
-[InfoSaved]
-text = "@INCONF@Questionnaire (@OPTEXT@) info saved."
+[SurveyInfoSaved]
+text = "@INCONF@Survey (@OPTEXT@) info saved."
 style = "White"
 
 [AutoLogoff]

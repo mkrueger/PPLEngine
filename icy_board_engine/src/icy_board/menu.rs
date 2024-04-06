@@ -6,7 +6,7 @@ use crate::vm::errors::IcyError;
 
 use super::{
     commands::{Command, CommandType},
-    is_false, path_is_empty, read_cp437, IcyBoardSerializer,
+    is_false, path_is_empty, read_with_encoding_detection, IcyBoardSerializer,
 };
 
 #[derive(Serialize, Deserialize, Default)]
@@ -49,7 +49,7 @@ impl Menu {
     pub fn import_pcboard<P: AsRef<Path>>(path: &P) -> Res<Self> {
         let mut res = Self::default();
 
-        let txt = &read_cp437(path)?;
+        let txt = &read_with_encoding_detection(path)?;
         let lines = txt.lines().collect::<Vec<&str>>();
 
         if lines.len() < 5 {

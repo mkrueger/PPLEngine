@@ -70,7 +70,7 @@ fn main() {
 
     match Executable::read_file(&file_name, false) {
         Ok(exe) => {
-            let mut io = DiskIO::new(".");
+            let mut io = DiskIO::new(".", None);
 
             enable_raw_mode().unwrap();
             let supports_keyboard_enhancement = matches!(

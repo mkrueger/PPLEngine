@@ -109,10 +109,10 @@ pub enum IceText {
     AllConfIndicator = 42,
     /// `~(R/O)`
     ReadonlyIndicator = 43,
-    /// `Error reading Script Questionnaire`
-    MessageBaseInUse = 44,
+    /// `Error reading Survey`
+    ErrorReadingSurvey = 44,
     /// `Error reading Message base in use!`
-    ErrorReadingScriptQuestionnaire = 45,
+    MessageBaseInUse = 45,
     /// `Unable to exit to DOS - no REMOTE.SYS file found!`
     NoREMOTESYSFile = 46,
     /// `No record available to update!`
@@ -125,8 +125,8 @@ pub enum IceText {
     Attachment = 50,
     /// `Enter a longer description of the file please!`
     LongerDescription = 51,
-    /// `No Script Questionnaires are available, @FIRST@ ...`
-    NoQuestionnaires = 52,
+    /// `No Surveys are available, @FIRST@ ...`
+    NoSurveysAvailable = 52,
     /// `(R) to re-enter your name or (C) to continue logon as a new user`
     ReEnterName = 53,
     /// `Would you like to register with us, @FIRST@? (Enter)=yes`
@@ -155,7 +155,7 @@ pub enum IceText {
     NodeNumberToLogoff = 65,
     /// `Node # to View, (A)ll or (Enter)=none`
     NodeToView = 66,
-    /// `Questionnaire # to Answer (Enter)=none`
+    /// `Survey # to Answer (Enter)=none`
     QuestionNumberToAnswer = 67,
     /// `Enter the Filename to Upload (Enter)=none`
     FileNameToUpload = 68,
@@ -189,7 +189,7 @@ pub enum IceText {
     RenumberDuringPack = 82,
     /// `NEW low starting Message # (Enter)=abort`
     NewLowMessageNumber = 83,
-    /// `Complete the Questionnaire (Enter)=no`
+    /// `Complete the Survey (Enter)=no`
     CompleteQuestion = 84,
     /// `Do you want to delete this line (Enter)=no`
     WantToDeleteLine = 85,
@@ -227,8 +227,8 @@ pub enum IceText {
     PageLengthSetTo = 101,
     /// `That user is not registered in this Conference ...`
     UserNotRegisteredInConference = 102,
-    /// `@INCONF@Questionnaire (@OPTEXT@) info saved.`
-    InfoSaved = 103,
+    /// `@INCONF@Survey (@OPTEXT@) info saved.`
+    SurveyInfoSaved = 103,
     /// `Automatic Logoff Completed ...`
     AutoLogoff = 104,
     /// `Keep `LOCKED OUT' users (Enter)=yes`

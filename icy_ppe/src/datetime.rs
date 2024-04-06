@@ -79,8 +79,8 @@ const DAYS: [[i64; 12]; 2] = [
 
 impl IcbDate {
     pub fn new(month: u8, day: u8, year: u16) -> Self {
-        let month = month.max(1).min(12);
-        let day = day.max(1).min(31);
+        let month = month.clamp(1, 12);
+        let day = day.clamp(1, 31);
 
         Self { month, day, year }
     }

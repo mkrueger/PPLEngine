@@ -295,11 +295,11 @@ impl PasswordUserInf {
         i += Self::PWD_LEN;
         let pwd3 = convert_str(&data[i..i + Self::PWD_LEN]);
         i += Self::PWD_LEN;
-        let last_change = IcbDate::from_pcboard(u16::from_le_bytes([data[i], data[i + 1]]) as i32);
+        let last_change = IcbDate::from_pcboard(u16::from_le_bytes([data[i], data[i + 1]]) as u32);
         i += 2;
         let times_changed = u16::from_le_bytes([data[i], data[i + 1]]) as usize;
         i += 2;
-        let expire_date = u16::from_le_bytes([data[i], data[i + 1]]) as i32;
+        let expire_date = u16::from_le_bytes([data[i], data[i + 1]]) as u32;
 
         Ok(Self {
             prev_pwd: [pwd1, pwd2, pwd3],
@@ -359,7 +359,7 @@ impl CallStatsUserInf {
         }
 
         let mut cursor = Cursor::new(data);
-        let first_date_on = cursor.read_i16::<LittleEndian>()? as i32;
+        let first_date_on = cursor.read_i16::<LittleEndian>()? as u32;
         let num_sysop_pages = cursor.read_u16::<LittleEndian>()? as usize;
         let num_group_chats = cursor.read_u16::<LittleEndian>()? as usize;
         let num_comments = cursor.read_u16::<LittleEndian>()? as usize;
@@ -611,8 +611,8 @@ impl BankInfo {
         let max_stored_amount = cursor.read_u32::<LittleEndian>()?;
 
         Ok(Self {
-            last_deposite_date: IcbDate::from_pcboard(last_deposite_date as i32),
-            last_withdraw_date: IcbDate::from_pcboard(last_withdraw_date as i32),
+            last_deposite_date: IcbDate::from_pcboard(last_deposite_date),
+            last_withdraw_date: IcbDate::from_pcboard(last_withdraw_date),
             last_transaction_amount,
             amount_saved,
             max_withdrawl_per_day,

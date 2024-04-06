@@ -9,6 +9,7 @@ use crate::icy_board::state::functions::{
 use crate::vm::VirtualMachine;
 use icy_engine::update_crc32;
 use icy_ppe::ast::constant::STACK_LIMIT;
+use icy_ppe::datetime::{IcbDate, IcbTime};
 use icy_ppe::executable::{PPEExpr, VariableData, VariableType, VariableValue};
 use icy_ppe::tables::CP437_TO_UNICODE;
 use icy_ppe::Res;
@@ -371,13 +372,11 @@ pub fn random(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
 }
 
 pub fn date(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    log::error!("not implemented function!");
-    panic!("TODO")
+    Ok(VariableValue::new_date(IcbDate::today().to_pcboard_date()))
 }
 
 pub fn time(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    log::error!("not implemented function!");
-    panic!("TODO")
+    Ok(VariableValue::new_time(IcbTime::now().to_pcboard_time()))
 }
 
 pub fn u_name(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -595,15 +594,18 @@ pub fn readline(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue>
     let line = vm.eval_expr(&args[1])?.as_int();
     let file_name = vm.resolve_file(&file_name);
 
-    let file = fs::read(file_name)?;
+    if let Ok(file) = fs::read(&file_name) {
+        let file = file
+            .iter()
+            .map(|x| CP437_TO_UNICODE[*x as usize])
+            .collect::<String>();
 
-    let file = file
-        .iter()
-        .map(|x| CP437_TO_UNICODE[*x as usize])
-        .collect::<String>();
-
-    let line_text = file.lines().nth(line as usize - 1).unwrap_or_default();
-    Ok(VariableValue::new_string(line_text.to_string()))
+        let line_text = file.lines().nth(line as usize - 1).unwrap_or_default();
+        Ok(VariableValue::new_string(line_text.to_string()))
+    } else {
+        log::warn!("PPE readline: file not found: {}", &file_name);
+        Ok(VariableValue::new_string(String::new()))
+    }
 }
 
 pub fn sysopsec(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
@@ -817,8 +819,9 @@ pub fn langext(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> 
     panic!("TODO")
 }
 pub fn ansion(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
-    log::error!("not implemented function!");
-    panic!("TODO")
+    Ok(VariableValue::new_bool(
+        !vm.icy_board_state.session.disp_options.disable_color,
+    ))
 }
 pub fn valcc(vm: &mut VirtualMachine, args: &[PPEExpr]) -> Res<VariableValue> {
     log::error!("not implemented function!");

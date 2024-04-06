@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    path::Path,
     time::SystemTime,
 };
 

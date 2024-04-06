@@ -4,7 +4,10 @@ use std::{
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 
-use crate::executable::{FunctionValue, ProcedureValue};
+use crate::{
+    datetime::{IcbDate, IcbTime},
+    executable::{FunctionValue, ProcedureValue},
+};
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Eq, Hash)]
@@ -189,24 +192,24 @@ pub enum GenericVariableData {
 }
 impl GenericVariableData {
     pub(crate) fn create_array(
+        base_value: VariableValue,
         dim: u8,
         vector_size: usize,
         matrix_size: usize,
         cube_size: usize,
     ) -> GenericVariableData {
         match dim {
-            1 => GenericVariableData::Dim1(vec![VariableValue::default(); vector_size + 1]),
-            2 => GenericVariableData::Dim2(vec![
-                vec![VariableValue::default(); matrix_size + 1];
-                vector_size + 1
-            ]),
+            1 => GenericVariableData::Dim1(vec![base_value; vector_size + 1]),
+            2 => {
+                GenericVariableData::Dim2(vec![vec![base_value; matrix_size + 1]; vector_size + 1])
+            }
             3 => {
                 if vector_size * matrix_size * cube_size > 1_000_000_000 {
                     log::error!("Creating a large array of size: {}x{}x{}={} elements - probably file is corrupt.", vector_size, matrix_size, cube_size, vector_size * matrix_size * cube_size);
                 }
                 GenericVariableData::Dim3(vec![
                     vec![
-                        vec![VariableValue::default(); cube_size + 1];
+                        vec![base_value; cube_size + 1];
                         matrix_size + 1
                     ];
                     vector_size + 1
@@ -230,13 +233,14 @@ impl fmt::Display for VariableValue {
             match self.vtype {
                 VariableType::Boolean => write!(f, "{}", self.data.bool_value),
                 VariableType::Unsigned => write!(f, "{}", self.data.unsigned_value),
-                VariableType::Date => write!(f, "{}", self.data.date_value),
-                VariableType::EDate => write!(f, "{}", self.data.edate_value),
+                VariableType::Date | VariableType::DDate | VariableType::EDate => {
+                    write!(f, "{}", IcbDate::from_pcboard(self.data.date_value))
+                }
                 VariableType::Integer => write!(f, "{}", self.data.int_value),
                 VariableType::Money => write!(f, "{}", self.data.money_value),
                 VariableType::Float => write!(f, "{}", self.data.float_value),
                 VariableType::Double => write!(f, "{}", self.data.double_value),
-                VariableType::Time => write!(f, "{}", self.data.time_value),
+                VariableType::Time => write!(f, "{}", IcbTime::from_pcboard(self.data.time_value)),
                 VariableType::Byte => write!(f, "{}", self.data.byte_value),
                 VariableType::Word => write!(f, "{}", self.data.word_value),
                 VariableType::SByte => write!(f, "{}", self.data.sbyte_value),
@@ -1043,13 +1047,16 @@ impl VariableValue {
                         }
                     }
                     VariableType::Unsigned => self.data.unsigned_value.to_string(),
-                    VariableType::Date => self.data.date_value.to_string(),
-                    VariableType::EDate => self.data.edate_value.to_string(),
+                    VariableType::Date | VariableType::DDate | VariableType::EDate => {
+                        format!("{}", IcbDate::from_pcboard(self.data.date_value))
+                    }
                     VariableType::Integer => self.data.int_value.to_string(),
                     VariableType::Money => self.data.money_value.to_string(),
                     VariableType::Float => self.data.float_value.to_string(),
                     VariableType::Double => self.data.double_value.to_string(),
-                    VariableType::Time => self.data.time_value.to_string(),
+                    VariableType::Time => {
+                        format!("{}", IcbTime::from_pcboard(self.data.time_value))
+                    }
                     VariableType::Byte => self.data.byte_value.to_string(),
                     VariableType::Word => self.data.word_value.to_string(),
                     VariableType::SByte => self.data.sbyte_value.to_string(),
@@ -1096,6 +1103,13 @@ impl VariableValue {
             generic_data: GenericVariableData::None,
         }
     }
+    pub fn new_time(reg_date: i32) -> VariableValue {
+        VariableValue {
+            vtype: VariableType::Time,
+            data: VariableData::from_int(reg_date),
+            generic_data: GenericVariableData::None,
+        }
+    }
 
     #[must_use]
     pub fn get_array_value(&self, dim_1: usize, dim_2: usize, dim_3: usize) -> VariableValue {
@@ -1123,7 +1137,8 @@ impl VariableValue {
     }
 
     pub fn redim(&mut self, dim: u8, vs: usize, ms: usize, cs: usize) {
-        self.generic_data = GenericVariableData::create_array(dim, vs, ms, cs);
+        self.generic_data =
+            GenericVariableData::create_array(self.vtype.create_empty_value(), dim, vs, ms, cs);
     }
 
     pub fn set_array_value(&mut self, dim1: usize, dim2: usize, dim3: usize, val: VariableValue) {

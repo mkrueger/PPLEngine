@@ -347,7 +347,7 @@ impl<'a> VirtualMachine<'a> {
         cur_user.flags.msg_clear = self.variable_table.get_value(U_CLS).as_bool();
 
         cur_user.exp_date =
-            IcbDate::from_pcboard(self.variable_table.get_value(U_EXPDATE).as_int());
+            IcbDate::from_pcboard(self.variable_table.get_value(U_EXPDATE).as_int() as u32);
         cur_user.security_level = self.variable_table.get_value(U_SEC).as_int() as u8;
         cur_user.page_len = self.variable_table.get_value(U_PAGELEN).as_int() as u16;
         cur_user.exp_security_level = self.variable_table.get_value(U_EXPSEC).as_int() as u8;
@@ -414,7 +414,7 @@ impl<'a> VirtualMachine<'a> {
             cur_user.notes.push('\n');
         }
         cur_user.password.expire_date =
-            IcbDate::from_pcboard(self.variable_table.get_value(U_PWDEXP).as_int());
+            IcbDate::from_pcboard(self.variable_table.get_value(U_PWDEXP).as_int() as u32);
 
         if self.variable_table.get_version() >= 300 {
             // PCBoard seems not to set this variable ever.

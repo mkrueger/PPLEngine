@@ -1,6 +1,6 @@
 use core::fmt;
 
-use chrono::Datelike;
+use chrono::{Datelike, Timelike};
 use serde::Deserialize;
 use toml::value::{Date, Datetime};
 #[derive(Debug, Clone, PartialEq)]
@@ -144,7 +144,7 @@ impl IcbDate {
         Self::new(month as u8, day as u8, year as u16)
     }
 
-    pub fn from_pcboard(jd: i32) -> Self {
+    pub fn from_pcboard(jd: u32) -> Self {
         juilian_to_date(jd as i64)
     }
 
@@ -261,6 +261,15 @@ impl IcbTime {
         }
     }
 
+    pub fn now() -> Self {
+        let now = chrono::Local::now();
+        Self {
+            hour: now.hour() as u8,
+            minute: now.minute() as u8,
+            second: now.second() as u8,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.hour == 0 && self.minute == 0 && self.second == 0
     }
@@ -294,6 +303,19 @@ impl IcbTime {
             minute: minute as u8,
             second: second as u8,
         }
+    }
+    pub fn from_pcboard(time: i32) -> Self {
+        let hour = time / 3600;
+        let minute = (time % 3600) / 60;
+        let second = time % 60;
+        Self {
+            hour: hour as u8,
+            minute: minute as u8,
+            second: second as u8,
+        }
+    }
+    pub fn to_pcboard_time(&self) -> i32 {
+        self.hour as i32 * 60 * 60 + self.minute as i32 * 60 + self.second as i32
     }
 }
 

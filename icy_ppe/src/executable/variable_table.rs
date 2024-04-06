@@ -81,6 +81,7 @@ impl VarHeader {
         match self.dim {
             0 => GenericVariableData::None,
             1..=3 => GenericVariableData::create_array(
+                self.variable_type.create_empty_value(),
                 self.dim,
                 self.vector_size,
                 self.matrix_size,
@@ -366,7 +367,7 @@ impl VariableTable {
             }
             i += 11;
 
-            let variable;
+            let mut variable;
             let entry_type;
             match header.variable_type {
                 VariableType::String => {
@@ -465,6 +466,7 @@ impl VariableTable {
                         };
                         i += 8;
                     }
+
                     entry_type = EntryType::Constant;
                 }
             }

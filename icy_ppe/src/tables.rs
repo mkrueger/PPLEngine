@@ -69,3 +69,19 @@ pub fn import_cp437_string(chunk: &[u8], trim_end: bool) -> String {
     }
     res
 }
+
+pub fn export_cp437_string(txt: &str, len: usize, filler: u8) -> Vec<u8> {
+    let mut res = Vec::with_capacity(len);
+    for c in txt.chars() {
+        if let Some(&cp437) = UNICODE_TO_CP437.get(&c) {
+            res.push(cp437);
+        } else {
+            res.push(b' ');
+        }
+        if res.len() >= len {
+            break;
+        }
+    }
+    res.extend(std::iter::repeat(filler).take(len - res.len()));
+    res
+}

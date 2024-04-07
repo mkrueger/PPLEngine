@@ -1,9 +1,10 @@
 use std::{
+    fs,
     ops::{Deref, DerefMut},
     path::PathBuf,
 };
 
-use icy_ppe::Res;
+use icy_ppe::{tables::export_cp437_string, Res};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -11,7 +12,7 @@ use super::{
     PCBoardRecordImporter,
 };
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy)]
 pub enum SortOrder {
     NoSort,
     #[default]
@@ -19,7 +20,7 @@ pub enum SortOrder {
     FileDate,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy)]
 pub enum SortDirection {
     #[default]
     Ascending,
@@ -28,7 +29,7 @@ pub enum SortDirection {
 
 /// A survey is a question and answer pair.
 /// PCBoard calles them "Questionnairies" but we call them surveys.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct FileArea {
     pub name: String,
     pub file_base: PathBuf,
@@ -78,6 +79,38 @@ pub struct FileAreaList {
 impl FileAreaList {
     const PATH_SIZE: usize = 0x1E;
     const NAME_SIZE: usize = 0x23;
+
+    pub(crate) fn export_pcboard(&self, dir_file: &PathBuf) -> Res<()> {
+        let mut buf = Vec::with_capacity(Self::RECORD_SIZE * self.areas.len());
+
+        for area in &self.areas {
+            buf.extend(export_cp437_string(
+                &area.file_base.to_string_lossy(),
+                Self::PATH_SIZE,
+                b' ',
+            ));
+            buf.extend(export_cp437_string(
+                &area.path.to_string_lossy(),
+                Self::PATH_SIZE,
+                b' ',
+            ));
+            buf.extend(export_cp437_string(&area.name, Self::NAME_SIZE, b' '));
+            let sort_order = match area.sort_order {
+                SortOrder::NoSort => 0,
+                SortOrder::FileName => match area.sort_direction {
+                    SortDirection::Ascending => 1,
+                    SortDirection::Descending => 3,
+                },
+                SortOrder::FileDate => match area.sort_direction {
+                    SortDirection::Ascending => 2,
+                    SortDirection::Descending => 4,
+                },
+            };
+            buf.push(sort_order);
+        }
+        fs::write(dir_file, &buf)?;
+        Ok(())
+    }
 }
 
 impl Deref for FileAreaList {

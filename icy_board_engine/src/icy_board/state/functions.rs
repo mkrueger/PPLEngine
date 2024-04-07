@@ -342,7 +342,10 @@ impl IcyBoardState {
                             let help_loc =
                                 self.board.lock().unwrap().config.paths.help_path.clone();
                             let help_loc = help_loc.join(help);
+                            let am = self.session.disable_auto_more;
+                            self.session.disable_auto_more = false;
                             self.display_file(&help_loc)?;
+                            self.session.disable_auto_more = am;
                             return self.input_string(
                                 color,
                                 prompt,

@@ -119,6 +119,7 @@ pub struct Session {
     pub use_alias: bool,
 
     pub num_lines_printed: usize,
+    pub last_new_line_y: i32,
 
     pub request_logoff: bool,
 
@@ -137,6 +138,10 @@ pub struct Session {
 
     /// Store last password used so that the user doesn't need to re-enter it.
     pub last_password: String,
+
+    // Used for dir listing
+    pub disable_auto_more: bool,
+    pub more_requested: bool,
 }
 
 impl Session {
@@ -152,6 +157,7 @@ impl Session {
             num_lines_printed: 0,
             security_violations: 0,
             current_message_area: 0,
+            last_new_line_y: 0,
             node_num: 0,
             page_len: 24,
             is_sysop: false,
@@ -163,6 +169,8 @@ impl Session {
             request_logoff: false,
             tokens: VecDeque::new(),
             last_password: String::new(),
+            disable_auto_more: false,
+            more_requested: false,
         }
     }
 }
@@ -324,7 +332,14 @@ impl IcyBoardState {
         if self.session.disp_options.non_stop {
             return Ok(true);
         }
-        self.session.num_lines_printed += 1;
+        let cur_y = self.caret.get_position().y;
+        if cur_y > self.session.last_new_line_y {
+            self.session.num_lines_printed += (cur_y - self.session.last_new_line_y) as usize;
+        } else {
+            self.session.num_lines_printed = cur_y as usize;
+        }
+        self.session.last_new_line_y = cur_y;
+
         if self.session.page_len > 0
             && self.session.num_lines_printed >= self.session.page_len as usize
         {
@@ -443,7 +458,7 @@ impl IcyBoardState {
 
         None
     }
-    pub fn resolve_file<P: AsRef<Path>>(&self, file: &P) -> PathBuf {
+    pub fn resolve_path<P: AsRef<Path>>(&self, file: &P) -> PathBuf {
         PathBuf::from(self.board.lock().unwrap().resolve_file(&file))
     }
 }
@@ -525,21 +540,22 @@ impl IcyBoardState {
     }
 
     fn write_char(&mut self, c: char) -> Res<()> {
+        self.parser
+            .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
+        self.ctx.lock().unwrap().write_raw(&[c])?;
         if c == '\n' {
             self.next_line()?;
         }
-        self.parser
-            .print_char(&mut self.buffer, 0, &mut self.caret, c)?;
-        self.ctx.lock().unwrap().write_raw(&[c])
+        Ok(())
     }
 
     fn write_string(&mut self, data: &[char]) -> Res<()> {
         for c in data {
+            self.parser
+                .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
             if *c == '\n' {
                 self.next_line()?;
             }
-            self.parser
-                .print_char(&mut self.buffer, 0, &mut self.caret, *c)?;
         }
         self.ctx.lock().unwrap().write_raw(data)
     }
@@ -1007,6 +1023,10 @@ impl IcyBoardState {
     }
 
     pub fn more_promt(&mut self) -> Res<bool> {
+        if self.session.disable_auto_more {
+            self.session.more_requested = true;
+            return Ok(true);
+        }
         let result = self.input_field(
             IceText::MorePrompt,
             12,
@@ -1021,6 +1041,8 @@ impl IcyBoardState {
     }
 
     pub fn press_enter(&mut self) -> Res<()> {
+        self.session.disable_auto_more = true;
+        self.session.more_requested = false;
         self.input_field(IceText::PressEnter, 0, "", "", display_flags::ERASELINE)?;
         Ok(())
     }

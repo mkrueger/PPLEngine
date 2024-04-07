@@ -238,7 +238,7 @@ pub struct ConfigPaths {
     pub protocol_data_file: PathBuf,
 
     /// name and location of security level config file
-    pub security_level_file: PathBuf,
+    pub security_level_file: PathBuf, // *
 
     /// name and location of command file
     pub command_file: PathBuf,

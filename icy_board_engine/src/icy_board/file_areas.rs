@@ -7,7 +7,8 @@ use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    is_false, security::RequiredSecurity, IcyBoardError, IcyBoardSerializer, PCBoardRecordImporter,
+    is_false, security::RequiredSecurity, user_base::Password, IcyBoardError, IcyBoardSerializer,
+    PCBoardRecordImporter,
 };
 
 #[derive(Serialize, Deserialize, Default)]
@@ -32,6 +33,8 @@ pub struct FileArea {
     pub name: String,
     pub file_base: PathBuf,
     pub path: PathBuf,
+
+    pub password: Password,
 
     #[serde(default)]
     pub sort_order: SortOrder,
@@ -126,6 +129,7 @@ impl PCBoardRecordImporter<FileArea> for FileAreaList {
             path,
             sort_order,
             sort_direction,
+            password: Password::default(),
 
             has_new_files: false,
             is_readonly: false,

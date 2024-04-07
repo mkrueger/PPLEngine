@@ -628,7 +628,7 @@ impl IcyBoardState {
                 return None;
             }
             "BICPS" => result = self.transfer_statistics.get_cps_both().to_string(),
-            "BOARDNAME" => result = self.board.lock().unwrap().config.board_name.to_string(),
+            "BOARDNAME" => result = self.board.lock().unwrap().config.board.name.to_string(),
             "BPS" => result = self.get_bps().to_string(),
 
             // TODO

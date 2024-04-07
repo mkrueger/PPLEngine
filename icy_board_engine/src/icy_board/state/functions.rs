@@ -137,7 +137,7 @@ impl IcyBoardState {
         } else {
             txt_entry.style.to_color()
         };
-        self.display_string(&txt_entry.text, color, display_flags)
+        self.display_string(&txt_entry.text.replace('~', " "), color, display_flags)
     }
 
     pub fn display_string(&mut self, txt: &str, color: IcbColor, display_flags: i32) -> Res<()> {
@@ -299,9 +299,6 @@ impl IcyBoardState {
             true
         };
         self.check_time_left();
-        if display_flags & display_flags::LFBEFORE != 0 {
-            self.new_line()?;
-        }
 
         let old_color = self.caret.get_attribute().as_u8(icy_engine::IceMode::Blink);
         if display_flags & display_flags::LFBEFORE != 0 {

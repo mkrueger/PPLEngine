@@ -14,12 +14,30 @@ pub struct Language {
     pub no_char: char,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct SupportedLanguages {
+    pub date_formats: Vec<String>,
+
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(rename = "language")]
     pub languages: Vec<Language>,
+}
+
+impl Default for SupportedLanguages {
+    fn default() -> Self {
+        Self {
+            date_formats: vec![
+                "MM-DD-YY".to_string(),
+                "DD-MM-YY".to_string(),
+                "YY-MM-DD".to_string(),
+                "MM-DD-YYYY".to_string(),
+                "DD-MM-YYYY".to_string(),
+                "YYYY-MM-DD".to_string(),
+            ],
+            languages: Default::default(),
+        }
+    }
 }
 
 impl PCBoardTextImport for SupportedLanguages {

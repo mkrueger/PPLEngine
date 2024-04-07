@@ -1,3 +1,4 @@
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 use super::IcyBoardSerializer;
@@ -107,6 +108,19 @@ pub struct SupportedProtocols {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(rename = "protocol")]
     pub protocols: Vec<Protocol>,
+}
+
+impl Deref for SupportedProtocols {
+    type Target = Vec<Protocol>;
+    fn deref(&self) -> &Self::Target {
+        &self.protocols
+    }
+}
+
+impl DerefMut for SupportedProtocols {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.protocols
+    }
 }
 
 impl PCBoardTextImport for SupportedProtocols {

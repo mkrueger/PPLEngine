@@ -80,6 +80,24 @@ pub struct SubscriptionMode {
 }
 
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct BoardInformation {
+    ///  name of board
+    pub name: String,
+
+    /// Location of the board (used in EmsiISI)
+    pub location: String,
+
+    /// Operator of the board (used in EmsiISI)
+    pub operator: String,
+
+    /// Notice for the board (used in EmsiISI)
+    pub notice: String,
+
+    /// Capabilities of the board (used in EmsiISI)
+    pub capabilities: String,
+}
+
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct SysopInformation {
     /// Sysop Dislay Name
     pub name: String,
@@ -207,8 +225,14 @@ pub struct ConfigPaths {
     /// name and location of NOANSI Warning
     pub no_ansi: PathBuf,
 
-    /// User trashcan file
-    pub trashcan: PathBuf,
+    /// Bad users file
+    pub bad_users: PathBuf,
+    /// Bad email file
+    pub bad_email: PathBuf,
+    /// Bad passwords file
+    pub bad_passwords: PathBuf,
+    /// VIP users file
+    pub vip_users: PathBuf,
 
     /// name and location of protocol data file
     pub protocol_data_file: PathBuf,
@@ -231,8 +255,7 @@ pub struct ConfigPaths {
 
 #[derive(Serialize, Deserialize)]
 pub struct IcbConfig {
-    ///  name of board
-    pub board_name: String,
+    pub board: BoardInformation,
 
     pub sysop: SysopInformation,
 
@@ -258,7 +281,13 @@ pub struct IcbConfig {
 impl IcbConfig {
     pub fn new() -> Self {
         Self {
-            board_name: "IcyBoard".to_string(),
+            board: BoardInformation {
+                name: "IcyBoard".to_string(),
+                location: String::new(),
+                operator: String::new(),
+                notice: String::new(),
+                capabilities: String::new(),
+            },
 
             sysop: SysopInformation {
                 name: "SYSOP".to_string(),
@@ -318,7 +347,12 @@ impl IcbConfig {
                 group_chat: PathBuf::new(),
                 chat_menu: PathBuf::new(),
                 no_ansi: PathBuf::new(),
-                trashcan: PathBuf::new(),
+
+                bad_users: PathBuf::new(),
+                bad_email: PathBuf::new(),
+                bad_passwords: PathBuf::new(),
+                vip_users: PathBuf::new(),
+
                 protocol_data_file: PathBuf::new(),
                 security_level_file: PathBuf::new(),
                 language_file: PathBuf::new(),

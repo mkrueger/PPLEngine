@@ -149,7 +149,7 @@ pub enum CommandType {
     Survey,
 
     /// T command
-    TransferProtocol,
+    SetTransferProtocol,
 
     /// U command
     UploadFile,
@@ -206,7 +206,7 @@ pub enum CommandType {
     // Sysop commands
     Broadcast,
 
-    // '4' command
+    // SYSOP '4' command
     RestoreMessage,
 }
 

@@ -28,6 +28,7 @@ use self::{
     xfer_protocols::SupportedProtocols,
 };
 
+pub mod archivers;
 pub mod bulletins;
 pub mod commands;
 pub mod conferences;
@@ -249,7 +250,7 @@ impl IcyBoard {
         pcb_dat.sysop_info.use_real_name = self.config.sysop.use_real_name;
 
         pcb_dat.sysop_security.sysop = self.config.sysop_security_level.sysop as i32;
-        pcb_dat.board_name = self.config.board_name.to_string();
+        pcb_dat.board_name = self.config.board.name.to_string();
 
         pcb_dat.path.help_loc = self.resolve_file(&self.config.paths.help_path);
 

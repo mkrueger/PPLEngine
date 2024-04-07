@@ -1,4 +1,3 @@
-/*
 use std::{
     ops::{Deref, DerefMut},
     path::PathBuf,
@@ -7,77 +6,134 @@ use std::{
 use icy_ppe::Res;
 use serde::{Deserialize, Serialize};
 
-use super::{is_null_8, IcyBoardSerializer, PCBoardRecordImporter};
+use super::{
+    is_false, security::RequiredSecurity, IcyBoardError, IcyBoardSerializer, PCBoardRecordImporter,
+};
+
+#[derive(Serialize, Deserialize, Default)]
+pub enum SortOrder {
+    NoSort,
+    #[default]
+    FileName,
+    FileDate,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub enum SortDirection {
+    #[default]
+    Ascending,
+    Descending,
+}
 
 /// A survey is a question and answer pair.
 /// PCBoard calles them "Questionnairies" but we call them surveys.
 #[derive(Serialize, Deserialize, Default)]
 pub struct FileArea {
     pub name: String,
+    pub file_base: PathBuf,
     pub path: PathBuf,
 
-    pub has_new_files: bool,
-    pub is_readonly: bool,
-    pub is_free: bool,
-    pub allow_ul_pwd: bool,
-    pub req_level_to_list: u8,
-    pub req_level_to_download: u8,
-    pub req_level_to_upload: u8,
-
+    #[serde(default)]
+    pub sort_order: SortOrder,
+    #[serde(default)]
+    pub sort_direction: SortDirection,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "is_null_8")]
-    pub required_security: u8,
+    #[serde(skip_serializing_if = "is_false")]
+    pub has_new_files: bool,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub is_readonly: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub is_free: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub allow_ul_pwd: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub list_security: RequiredSecurity,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub download_security: RequiredSecurity,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "RequiredSecurity::is_empty")]
+    pub upload_security: RequiredSecurity,
 }
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct FileAreaList {
-    #[serde(rename = "survey")]
-    surveys: Vec<FileArea>,
+    #[serde(rename = "area")]
+    areas: Vec<FileArea>,
+}
+
+impl FileAreaList {
+    const PATH_SIZE: usize = 0x1E;
+    const NAME_SIZE: usize = 0x23;
 }
 
 impl Deref for FileAreaList {
     type Target = Vec<FileArea>;
     fn deref(&self) -> &Self::Target {
-        &self.surveys
+        &self.areas
     }
 }
 
 impl DerefMut for FileAreaList {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.surveys
+        &mut self.areas
     }
 }
 
 impl PCBoardRecordImporter<FileArea> for FileAreaList {
-    const RECORD_SIZE: usize = 60;
+    const RECORD_SIZE: usize = Self::PATH_SIZE * 2 + Self::NAME_SIZE + 1;
 
     fn push(&mut self, value: FileArea) {
-        self.surveys.push(value);
+        self.areas.push(value);
     }
 
     fn load_pcboard_record(data: &[u8]) -> Res<FileArea> {
-        let question_file = PathBuf::from(icy_ppe::tables::import_cp437_string(
-            &data[..Self::RECORD_SIZE / 2],
+        let file_base = PathBuf::from(icy_ppe::tables::import_cp437_string(
+            &data[..Self::PATH_SIZE],
             true,
         ));
-        let answer_file = PathBuf::from(icy_ppe::tables::import_cp437_string(
-            &data[Self::RECORD_SIZE / 2..],
+        let data = &data[Self::PATH_SIZE..];
+        let path = PathBuf::from(icy_ppe::tables::import_cp437_string(
+            &data[..Self::PATH_SIZE],
             true,
         ));
+        let data = &data[Self::PATH_SIZE..];
+        let name = icy_ppe::tables::import_cp437_string(&data[..Self::NAME_SIZE], true);
+        let data = &data[Self::NAME_SIZE..];
+
+        let (sort_order, sort_direction) = match data[0] {
+            0 => (SortOrder::NoSort, SortDirection::Ascending),
+            1 => (SortOrder::FileName, SortDirection::Ascending),
+            2 => (SortOrder::FileDate, SortDirection::Ascending),
+            3 => (SortOrder::FileName, SortDirection::Descending),
+            4 => (SortOrder::FileDate, SortDirection::Descending),
+            _ => return Err(IcyBoardError::InvalidDirListSortOrder(data[0]).into()),
+        };
+
         Ok(FileArea {
-            question_file,
-            answer_file,
-            required_security: 0,
-            name: todo!(),
-            path: todo!(),
-            has_new_files: todo!(),
-            is_readonly: todo!(),
-            is_free: todo!(),
-            allow_ul_pwd: todo!(),
-            req_level_to_list: todo!(),
-            req_level_to_download: todo!(),
-            req_level_to_upload: todo!(),
+            name,
+            file_base,
+            path,
+            sort_order,
+            sort_direction,
+
+            has_new_files: false,
+            is_readonly: false,
+            is_free: false,
+            allow_ul_pwd: false,
+            list_security: RequiredSecurity::default(),
+            download_security: RequiredSecurity::default(),
+            upload_security: RequiredSecurity::default(),
         })
     }
 }
@@ -85,4 +141,3 @@ impl PCBoardRecordImporter<FileArea> for FileAreaList {
 impl IcyBoardSerializer for FileAreaList {
     const FILE_TYPE: &'static str = "surveys";
 }
-*/

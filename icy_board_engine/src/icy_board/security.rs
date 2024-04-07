@@ -31,6 +31,10 @@ impl RequiredSecurity {
             return false;
         }
 
+        if session.cur_groups.contains(&"no_age".to_string()) {
+            // Todo: Age check
+        }
+
         if self.groups.is_empty() {
             return true;
         }

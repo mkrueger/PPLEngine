@@ -74,6 +74,9 @@ pub enum IcyBoardError {
 
     #[error("Importing file {0} parsing record error ({1})")]
     ImportRecordErorr(String, String),
+
+    #[error("Error loading PCBoard DIR.LIST file invalid sort order ({0})")]
+    InvalidDirListSortOrder(u8),
 }
 
 pub struct IcyBoard {

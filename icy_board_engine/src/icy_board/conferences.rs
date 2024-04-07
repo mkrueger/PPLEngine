@@ -191,7 +191,7 @@ impl ConferenceBase {
                 survey_menu: PathBuf::from(&c.script_menu),
                 survey_file: PathBuf::from(&c.script_file),
                 file_area_menu: PathBuf::from(&c.dir_menu),
-                file_area_file: PathBuf::from(&c.dir_menu),
+                file_area_file: PathBuf::from(&c.dir_file),
                 message_areas,
             };
             confs.push(new);

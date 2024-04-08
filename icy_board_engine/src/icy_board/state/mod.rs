@@ -17,15 +17,7 @@ pub mod functions;
 use self::functions::display_flags;
 
 use super::{
-    bulletins::BullettinList,
-    conferences::Conference,
-    icb_config::IcbColor,
-    icb_text::{IcbTextStyle, IceText},
-    output::Output,
-    pcboard_data::Node,
-    surveys::SurveyList,
-    user_base::User,
-    IcyBoard, IcyBoardSerializer,
+    bulletins::BullettinList, conferences::Conference, file_areas::FileAreaList, icb_config::IcbColor, icb_text::{IcbTextStyle, IceText}, output::Output, pcboard_data::Node, surveys::SurveyList, user_base::User, IcyBoard, IcyBoardSerializer
 };
 
 #[derive(Clone)]
@@ -106,6 +98,7 @@ pub struct Session {
     pub current_conference_number: i32,
     pub current_message_area: usize,
     pub current_conference: Conference,
+    pub current_file_areas: FileAreaList,
     pub login_date: DateTime<Local>,
 
     pub cur_user: i32,
@@ -142,6 +135,7 @@ pub struct Session {
     // Used for dir listing
     pub disable_auto_more: bool,
     pub more_requested: bool,
+    pub cancel_batch: bool,
 }
 
 impl Session {
@@ -150,6 +144,7 @@ impl Session {
             disp_options: DisplayOptions::default(),
             current_conference_number: 0,
             current_conference: Conference::default(),
+            current_file_areas: FileAreaList::default(),
             login_date: Local::now(),
             cur_user: -1,
             cur_security: 0,
@@ -171,6 +166,7 @@ impl Session {
             last_password: String::new(),
             disable_auto_more: false,
             more_requested: false,
+            cancel_batch: false,
         }
     }
 }
@@ -325,6 +321,10 @@ impl IcyBoardState {
             if let Ok(board) = self.board.lock() {
                 self.session.current_conference = board.conferences[conference as usize].clone();
             }
+        
+            let file_area_file = self
+                .resolve_path(&self.session.current_conference.file_area_file);
+            self.session.current_file_areas = FileAreaList::load(&file_area_file).unwrap(); // todo unwrap
         }
     }
 
@@ -769,7 +769,9 @@ impl IcyBoardState {
                 result = self.board.lock().unwrap().num_callers.to_string();
             }
             "NUMCONF" => result = self.board.lock().unwrap().conferences.len().to_string(),
-            "NUMDIR" => {}
+            "NUMDIR" => {
+                result = self.session.current_file_areas.len().to_string();
+            }
             "NUMTIMESON" => {
                 if let Some(user) = &self.current_user {
                     result = user.stats.num_times_on.to_string();

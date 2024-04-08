@@ -70,7 +70,7 @@ pub struct FileArea {
     pub upload_security: RequiredSecurity,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct FileAreaList {
     #[serde(rename = "area")]
     areas: Vec<FileArea>,

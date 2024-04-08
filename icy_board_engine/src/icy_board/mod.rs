@@ -9,7 +9,7 @@ use qfile::{QFilePath, QTraitSync};
 use relative_path::RelativePath;
 use thiserror::Error;
 
-use crate::vm::{errors::IcyError, log};
+use crate::vm::{errors::IcyError};
 
 use self::{
     commands::CommandList,
